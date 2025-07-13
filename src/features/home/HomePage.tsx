@@ -1,12 +1,19 @@
-import React from 'react'
-import HeroSection from './components/HeroSection'
+import React from 'react';
+import HeroSection from './components/HeroSection';
+import Footer from '@components/Footer';
 
-const HomePage:React.FC = () => {
+const HomePage: React.FC = () => {
   return (
-    <main>
-      <HeroSection/>
-    </main>
-  )
-}
+    <main className="flex flex-col min-h-screen">
+      {/* Main content */}
+      <div className="flex-grow">
+        <HeroSection />
+      </div>
 
-export default HomePage
+      {/* Footer */}
+      <Footer />
+    </main>
+  );
+};
+
+export default HomePage;
