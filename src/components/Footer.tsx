@@ -5,27 +5,26 @@ const Footer: React.FC = () => {
   return (
     <footer className="bg-black text-white py-8 mt-8">
       <div className="container mx-auto px-4">
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center space-y-2 sm:space-y-0">
-          {/* Copyright */}
-          <div className="text-center sm:text-left">
+        <div className="grid gap-6 sm:flex sm:justify-between sm:items-center text-center sm:text-left">
+          
+          <div>
             <p className="text-sm">© 2025 FICI Shoes. All rights reserved.</p>
           </div>
 
-          {/* Navigation Links */}
-          <div className="flex lg:flex-col sm:flex-row sm:space-x-4 sm:justify-center sm:items-center items-center sm:space-y-0 space-y-4 w-full justify-center">
+          <div className="flex flex-row lg:flex-col items-center justify-center space-x-4 lg:space-x-0 lg:space-y-2">
             <Link to="/about">
-              <span className="mx-2 text-sm hover:text-purple-500 leading-none cursor-pointer">About</span>
+              <span className="text-sm hover:text-purple-500 cursor-pointer">About</span>
             </Link>
             <Link to="/contact">
-              <span className="mx-2 text-sm hover:text-purple-500 leading-none cursor-pointer">Contact</span>
+              <span className="text-sm hover:text-purple-500 cursor-pointer">Contact</span>
             </Link>
             <Link to="/terms">
-              <span className="mx-2 text-sm hover:text-purple-500 leading-none cursor-pointer">Terms of Service</span>
+              <span className="text-sm hover:text-purple-500 cursor-pointer">Terms of Service</span>
             </Link>
           </div>
 
-          {/* Social Media Icons */}
-          <div className="flex sm:space-x-4 space-x-6 justify-center">
+
+          <div className="flex justify-center gap-6 sm:justify-end">
             <a
               href="https://www.facebook.com/FICI-Shoes"
               target="_blank"
@@ -54,6 +53,7 @@ const Footer: React.FC = () => {
               <i className="fab fa-whatsapp" />
             </a>
           </div>
+
         </div>
       </div>
     </footer>
