@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import type { ChangeEvent, FormEvent } from 'react';
 import emailjs from 'emailjs-com';
-import Footer from 'component/Footer';
+
 
 interface FormData {
   name: string;
@@ -253,8 +253,6 @@ const handleChange = (
           </form>
         </div>
       </div>
-
-      <Footer />
     </div>
   );
 };
