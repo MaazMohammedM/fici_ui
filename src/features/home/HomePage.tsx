@@ -1,6 +1,6 @@
 import React from 'react';
 import HeroSection from './components/HeroSection';
-import Footer from '@components/Footer';
+import Footer from 'component/Footer';
 
 const HomePage: React.FC = () => {
   return (

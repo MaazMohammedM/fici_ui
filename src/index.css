@@ -1,1 +1,29 @@
 @import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+    --color-light1: #F9F8F6;
+    --color-light2: #DDD7CF;
+    --color-dark1: #0B0B0B;
+    --color-dark2: #1A1A1A;
+    --color-primary: #1A3C83;
+    --color-secondary: #E6E6E6;
+    --color-accent: #F59C00;
+    --color-primary-active:	#142956;
+    --color-secondary-active: #C2C2C2;
+    --color-text-light: #000000;
+    --color-text-dark: #FFFFFF;
+    --font-primary: 'Lato', sans-serif;
+    --font-secondary: 'Merriweather', serif;
+
+}
+
+@layer utilities{
+    .bg-gradient-light{
+        @apply bg-gradient-to-br from-light1 to-light2;
+    }
+    .dark\:bg-gradient-dark {
+        @apply dark:bg-gradient-to-br dark:from-dark1 dark:to-dark2 ;
+      }
+}

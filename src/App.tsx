@@ -8,7 +8,6 @@ const App: React.FC = () => {
     <Routes>
       <Route path="/" element={<HomePage />} />
       <Route path="/contact" element={<ContactPage />} />
-      {/* Add a catch-all route to handle unmatched URLs (optional) */}
       <Route path="*" element={<div>404 Not Found</div>} />
     </Routes>
   );
