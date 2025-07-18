@@ -6,9 +6,7 @@ const Footer: React.FC = () => {
     <footer className="bg-gradient-light dark:bg-gradient-dark font-primary text-primary dark:text-secondary px-16 py-8">
         <div className="flex items-center justify-between">
           
-          <div>
-            <p className="text-sm text-primary dark:text-secondary">© 2025 FICI Shoes. All rights reserved.</p>
-          </div>
+        <p className="text-sm text-primary dark:text-secondary">© 2025 FICI Shoes. All rights reserved.</p>
 
           <div className="flex flex-row lg:flex-col items-center justify-center space-x-4 lg:space-x-0 lg:space-y-2">
             <Link to="/about">

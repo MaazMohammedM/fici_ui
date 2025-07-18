@@ -1,0 +1,42 @@
+[
+  {
+    "key": 1,
+    "categoryName": "Loafers",
+    "categoryImage": "/src/features/home/assets/popular image one.png"
+  },
+  {
+    "key": 2,
+    "categoryName": "Sneakers",
+    "categoryImage": "/src/features/home/assets/popular image two.png"
+  },
+  {
+    "key": 3,
+    "categoryName": "Boots",
+    "categoryImage": "/src/features/home/assets/popular image three.png"
+  },
+  {
+    "key": 4,
+    "categoryName": "Sandals",
+    "categoryImage": "/src/features/home/assets/popular image one.png"
+  },
+  {
+    "key": 5,
+    "categoryName": "Heels",
+    "categoryImage": "/src/features/home/assets/popular image two.png"
+  },
+  {
+    "key": 6,
+    "categoryName": "Flats",
+    "categoryImage": "/src/features/home/assets/popular image three.png"
+  },
+  {
+    "key": 7,
+    "categoryName": "Slippers",
+    "categoryImage": "/src/features/home/assets/popular image one.png"
+  },
+  {
+    "key": 8,
+    "categoryName": "Oxfords",
+    "categoryImage": "/src/features/home/assets/popular image two.png"
+  }
+] 

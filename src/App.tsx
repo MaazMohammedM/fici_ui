@@ -12,7 +12,7 @@ const App: React.FC = () => {
     <Routes>
       <Route path="/" element={<HomePage />} />
       <Route path="/contact" element={<ContactPage />} />
-      <Route path="*" element={<div>404 Not Found</div>} />
+      <Route path="*" element={<div className='text-primary dark:text-secondary text-center text-2xl font-bold w-full h-[calc(100svh-8rem)] flex items-center justify-center bg-gradient-light dark:bg-gradient-dark'>404 Not Found</div>} />
     </Routes>
     <Footer/>
     </>
