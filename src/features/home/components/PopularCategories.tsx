@@ -1,15 +1,11 @@
-import React, { useRef } from 'react'
+import React from 'react'
 import { Link } from 'react-router-dom'
 import PopularCategoryCard from './PopularCategoryCard'
-import popularCategoriesData from '../data/popularCategories.json'
+import { popularCategories } from '../data/popularCategories'
 import { ArrowRightIcon } from 'lucide-react'
 
 const PopularCategories:React.FC = () => {
-  const scrollRef = useRef<HTMLDivElement>(null);
-
-  // If using import * as, use: (popularCategoriesData as any).default
-  const categories = (popularCategoriesData as any).default || popularCategoriesData;
-
+  
   return (
     <section className='bg-gradient-light dark:bg-gradient-dark h-[50svh] w-full px-16 flex flex-col gap-4 justify-center'>
         <div className='flex justify-between items-center  w-full'>
@@ -18,12 +14,12 @@ const PopularCategories:React.FC = () => {
         </div>
         <div className='w-full px-5'>
           <div
-            ref={scrollRef}
+            
             className='flex items-center gap-10 w-full overflow-x-scroll scrollbar-hide'
             style={{ scrollBehavior: 'smooth' }}
           >
             {
-                categories.map((cat: any) => (
+                popularCategories.map((cat) => (
                     <PopularCategoryCard key={cat.key} category={cat.categoryName} categoryImage={cat.categoryImage} />
                 ))
             }
