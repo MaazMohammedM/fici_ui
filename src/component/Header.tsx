@@ -3,8 +3,6 @@ import React, { useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import logo from '../assets/Fici Logo.png'
 import logoLight from '../assets/Fici Logo Light.png'
-import CartPage from '../features/cart/CartPage'
-import { useNavigate } from 'react-router-dom';
 
 
 
@@ -20,9 +18,6 @@ const Header: React.FC = () => {
       return newMode;
     });
   };
-
-  // const Header = () => {
-  const navigate = useNavigate();
 
   useEffect(() => {
     const storedMode = localStorage.getItem('mode');
@@ -42,7 +37,6 @@ const Header: React.FC = () => {
           <NavLink className={({ isActive }) => isActive ? 'text-primary-active dark:text-secondary-active hover:text-accent' : 'text-primary dark:text-secondary hover:text-accent'} to='/products'>Products</NavLink>
           <NavLink className={({ isActive }) => isActive ? 'text-primary-active dark:text-secondary-active hover:text-accent' : 'text-primary dark:text-secondary hover:text-accent'} to='/about'>About</NavLink>
           <NavLink to='/contact' className={({ isActive }) => isActive ? 'text-primary-active dark:text-secondary-active hover:text-accent' : 'text-primary dark:text-secondary hover:text-accent'}>Contact</NavLink>
-          {/* <NavLink to='/cartpage' className={({isActive}) => isActive ? 'text-primary-active dark:text-secondary-active hover:text-accent' : 'text-primary dark:text-secondary hover:text-accent'}>CartPage</NavLink> */}
 
 
         </nav>
