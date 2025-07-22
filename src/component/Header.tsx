@@ -6,6 +6,8 @@ import logoLight from '../assets/Fici Logo Light.png'
 
 
 
+
+
 const Header: React.FC = () => {
 
   const [mode, setMode] = useState<'light' | 'dark'>('light');
