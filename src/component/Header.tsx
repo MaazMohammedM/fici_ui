@@ -3,8 +3,6 @@ import React, { useEffect, useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import logo from '../assets/Fici Logo.png'
 import logoLight from '../assets/Fici Logo Light.png'
-import CartPage from '../features/cart/CartPage'
-import { useNavigate } from 'react-router-dom';
 
 
 
