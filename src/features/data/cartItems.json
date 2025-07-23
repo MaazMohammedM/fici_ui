@@ -1,37 +1,29 @@
-
 [
   {
     "id": 1,
-    "name": "Product A",
-    "image": "/images/show.jpg",
-    "price": 49.99,
-    "quantity": 2 
+    "name": "Gradient Graphic T-shirt",
+    "size": "Large",
+    "color": "White",
+    "image": "/images/tshire image.jpg",
+    "price": 145,
+    "quantity": 1
   },
   {
     "id": 2,
-    "name": "Product B",
-    "image": "/images/show.jpg",
-    "price": 29.99,
+    "name": "Checkered Shirt",
+    "size": "Medium",
+    "color": "Red",
+    "image": "/images/tshire image.jpg",
+    "price": 180,
     "quantity": 1
   },
   {
     "id": 3,
-    "name": "Product C",
-    "image": "/images/show.jpg",
-    "price": 19.99,
-    "quantity": 3
-  },
-  {
-    "id": 2,
-    "name": "Product B",
-    "image": "/images/show.jpg",
-    "price": 29.99,
-    "quantity": 1
-  },{
-    "id": 2,
-    "name": "Product B",
-    "image": "/images/show.jpg",
-    "price": 29.99,
+    "name": "Skinny Fit Jeans",
+    "size": "Large",
+    "color": "Blue",
+    "image": "/images/tshire image.jpg",
+    "price": 240,
     "quantity": 1
   }
 ]
