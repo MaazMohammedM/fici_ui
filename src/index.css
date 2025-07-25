@@ -19,6 +19,8 @@
 
 }
 
+
+
 @layer utilities{
     .bg-gradient-light{
         @apply bg-gradient-to-br from-light1 to-light2;
@@ -26,4 +28,11 @@
     .dark\:bg-gradient-dark {
         @apply dark:bg-gradient-to-br dark:from-dark1 dark:to-dark2 ;
       }
+    .scrollbar-hide {
+        -ms-overflow-style: none; /* IE and Edge */
+        scrollbar-width: none; /* Firefox */
+    }
+    .scrollbar-hide::-webkit-scrollbar {
+        display: none; /* Chrome, Safari, Opera */
+    }
 }
