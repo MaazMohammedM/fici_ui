@@ -19,6 +19,8 @@
 
 }
 
+
+
 @layer utilities{
     .bg-gradient-light{
         @apply bg-gradient-to-br from-light1 to-light2;

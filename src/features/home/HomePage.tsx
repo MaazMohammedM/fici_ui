@@ -6,7 +6,7 @@ const HomePage: React.FC = () => {
   return (
     <main className=''>
       <HeroSection />
-      <PopularCategories />
+      <PopularCategories />      
     </main>
   );
 };
