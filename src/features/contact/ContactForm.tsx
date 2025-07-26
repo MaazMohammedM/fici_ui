@@ -6,12 +6,11 @@ import { contactSchema } from './schema/contactSchema';
 import type { ContactFormData } from './types/contactTypes';
 import { useContactStore } from '@store/contactStore';
 import emailjs from 'emailjs-com';
-import heroBackground from './assets/contact.png';
 
+
+import { FiFacebook, FiInstagram, FiLinkedin } from 'react-icons/fi';
 import {
-  FacebookIcon,
-  InstagramIcon,
-  LinkedinIcon,
+  // LinkedinIcon,
   MessageCircleIcon
 } from 'lucide-react';
 
@@ -66,8 +65,7 @@ const ContactForm: React.FC = () => {
 
   return (
     <main
-      className="flex flex-col justify-between min-h-[calc(100vh-8rem)] bg-cover bg-center bg-no-repeat"
-      style={{ backgroundImage: `url(${heroBackground})` }}
+      className="flex flex-col justify-between"
     >
       <div className="flex flex-col justify-center items-center px-6 py-10 flex-grow">
         <div className="max-w-5xl w-full text-center mb-10">
@@ -95,28 +93,40 @@ const ContactForm: React.FC = () => {
             <div>
               <p className="font-semibold text-lg">Follow Us</p>
               <div className="flex gap-5 mt-2">
-                <FacebookIcon
-                  className="w-5 h-5 cursor-pointer text-primary dark:text-white hover:text-accent"
-                  onClick={() => window.open("https://www.facebook.com/FICI-Shoes", "_blank", "noopener,noreferrer")}
-                />
-                <InstagramIcon
-                  className="w-5 h-5 cursor-pointer text-primary dark:text-white hover:text-accent"
-                  onClick={() => window.open("https://www.instagram.com/FICI_Shoes", "_blank", "noopener,noreferrer")}
-                />
-                <MessageCircleIcon
-                  className="w-5 h-5 cursor-pointer text-primary dark:text-white hover:text-accent"
-                  onClick={() => window.open("https://wa.me/918122003006", "_blank", "noopener,noreferrer")}
-                />
-                <LinkedinIcon
-                  className="w-5 h-5 cursor-pointer text-primary dark:text-white hover:text-accent"
-                  onClick={() => window.open("https://www.linkedin.com/company/fici-shoes", "_blank", "noopener,noreferrer")}
-                />
+                <a
+                  href="https://www.facebook.com/FICI-Shoes"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <FiFacebook className="w-5 h-5 cursor-pointer text-primary dark:text-white hover:text-accent" />
+                </a>
+                <a
+                  href="https://www.instagram.com/FICI_Shoes"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <FiInstagram className="w-5 h-5 cursor-pointer text-primary dark:text-white hover:text-accent" />
+                </a>
+                <a
+                  href="https://wa.me/918122003006"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <MessageCircleIcon className="w-5 h-5 cursor-pointer text-primary dark:text-white hover:text-accent" />
+                </a>
+                <a
+                  href="https://www.linkedin.com/company/fici-shoes"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <FiLinkedin className="w-5 h-5 cursor-pointer text-primary dark:text-white hover:text-accent" />
+                </a>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="max-w-3xl w-full bg-light2/90 dark:bg-dark2 p-10 rounded-2xl shadow-xl border border-secondary/30">
+        <div className="max-w-3xl w-full bg-secondary dark:bg-dark2 p-10 rounded-2xl shadow-xl border border-secondary/30">
           <h2 className="text-3xl font-bold text-center mb-6 text-primary dark:text-accent">Get In Touch</h2>
 
           {status && (
@@ -128,7 +138,7 @@ const ContactForm: React.FC = () => {
               <input
                 {...register('name')}
                 placeholder="Name"
-                className="w-full px-4 py-3 rounded-lg border border-secondary bg-light2 dark:bg-dark1 text-black dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-accent"
+                className="w-full px-4 py-3 rounded-lg border border-secondary bg-white dark:bg-dark1 text-black dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-accent"
               />
               {errors.name && <p className="text-xs text-red-500 mt-1 italic">{errors.name.message}</p>}
             </div>
@@ -137,7 +147,7 @@ const ContactForm: React.FC = () => {
               <input
                 {...register('email')}
                 placeholder="Email"
-                className="w-full px-4 py-3 rounded-lg border border-secondary bg-light2 dark:bg-dark1 text-black dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-accent"
+                className="w-full px-4 py-3 rounded-lg border border-secondary bg-white dark:bg-dark1 text-black dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-accent"
               />
               {errors.email && <p className="text-xs text-red-500 mt-1 italic">{errors.email.message}</p>}
             </div>
@@ -146,13 +156,13 @@ const ContactForm: React.FC = () => {
               <input
                 {...register('phone')}
                 placeholder="Phone"
-                className="w-full px-4 py-3 rounded-lg border border-secondary bg-light2 dark:bg-dark1 text-black dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-accent"
+                className="w-full px-4 py-3 rounded-lg border border-secondary bg-white dark:bg-dark1 text-black dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-accent"
               />
               {errors.phone && <p className="text-xs text-red-500 mt-1 italic">{errors.phone.message}</p>}
             </div>
 
             <div className="flex items-center gap-2">
-              <input type="checkbox" {...register('isBusiness')} className="accent-accent scale-110" />
+              <input type="checkbox" {...register('isBusiness')} className="accent-accent size-5" />
               <label className="text-sm text-primary dark:text-white">Business Inquiry?</label>
             </div>
 
@@ -161,7 +171,7 @@ const ContactForm: React.FC = () => {
                 {...register('message')}
                 placeholder="Your Message"
                 rows={5}
-                className="w-full px-4 py-3 rounded-lg border border-secondary bg-light2 dark:bg-dark1 text-black dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-accent"
+                className="w-full px-4 py-3 rounded-lg border border-secondary bg-white dark:bg-dark1 text-black dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-accent"
               />
               {errors.message && <p className="text-xs text-red-500 mt-1 italic">{errors.message.message}</p>}
             </div>
