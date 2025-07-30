@@ -29,11 +29,6 @@ const CartPage: React.FC = () => {
     );
   };
 
-  // const totalAmount = cartItems.reduce(
-  //   (acc, item) => acc + item.price * item.quantity,
-  //   0
-  // );
-
   // Calculate detailed summary using discounted price and MRP
   const subtotal: number = cartItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
   const totalMrp: number = cartItems.reduce((acc, item) => acc + (item.mrp ?? item.price) * item.quantity, 0);
