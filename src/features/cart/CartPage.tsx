@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { cartItems as initialCartItems } from "../cart/data/cartItems";
+import CartItemCard from "./components/CartItemCard";
 
 type CartItem = {
   id: number;
@@ -10,7 +11,6 @@ type CartItem = {
   quantity: number;
   mrp?: number;
 };
-import CartItemCard from "./components/CartItemCard";
 
 const CartPage: React.FC = () => {
   const [cartItems, setCartItems] = useState<CartItem[]>(initialCartItems);
@@ -28,11 +28,6 @@ const CartPage: React.FC = () => {
       )
     );
   };
-
-  // const totalAmount = cartItems.reduce(
-  //   (acc, item) => acc + item.price * item.quantity,
-  //   0
-  // );
 
   // Calculate detailed summary using discounted price and MRP
   const subtotal: number = cartItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
