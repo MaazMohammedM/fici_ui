@@ -35,4 +35,15 @@
     .scrollbar-hide::-webkit-scrollbar {
         display: none; 
     }
+
+    .bg-hero-image{
+        background-image: url('../src/features/home/assets/Overlay\ Image\ for\ hero.jpg');
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        background-blend-mode: multiply;
+        background-color: rgba(0, 0, 0, 0.5);
+        background-attachment: fixed;
+        background-size: cover;
+    }
 }
