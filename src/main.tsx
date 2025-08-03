@@ -4,11 +4,16 @@ import './index.css'
 import App from './App.tsx'
 import { BrowserRouter } from 'react-router-dom'
 import '@fortawesome/fontawesome-free/css/all.min.css';
+import { AuthProvider } from 'context/AuthContext.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <BrowserRouter>
+<AuthProvider>
+  <BrowserRouter>
     <App />
-    </BrowserRouter>
+    {/* routes */}
+  </BrowserRouter>
+</AuthProvider>
+
   </StrictMode>,
 )
