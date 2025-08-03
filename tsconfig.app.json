@@ -26,7 +26,8 @@
       "@features/*": ["features/*"],
       "@lib/*": ["lib/*"],
       "@types/*": ["types/*"],
-      "@store/*": ["store/*"]
+      "@store/*": ["store/*"],
+      "@auth/*": ["auth/*"]
     }
   },
   "include": ["src"]

@@ -1,175 +1,140 @@
-import { Moon, Search, ShoppingCart, Sun, UserRound, Menu, X } from 'lucide-react'
-import React, { useEffect, useState } from 'react'
-import { NavLink } from 'react-router-dom'
-import logo from '../assets/Fici Logo.png'
-import logoLight from '../assets/Fici Logo Light.png'
+import { Moon, Search, ShoppingCart, Sun, UserRound, Menu, X } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { useAuthStore } from '../store/authStore';
+import { useThemeStore } from '../store/themeStore';
+import logo from '../assets/Fici Logo.png';
+import logoLight from '../assets/Fici Logo Light.png';
 
 const Header: React.FC = () => {
-  const [mode, setMode] = useState<'light' | 'dark'>('light');
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-
-  const toggleMode = () => {
-    setMode((prevMode) => {
-      const newMode = prevMode === 'light' ? 'dark' : 'light';
-      document.documentElement.classList.toggle('dark', newMode === 'dark');
-      localStorage.setItem('mode', newMode);
-      return newMode;
-    });
-  };
-
-  const toggleMobileMenu = () => {
-    setIsMobileMenuOpen(!isMobileMenuOpen);
-  };
-
-  const closeMobileMenu = () => {
-    setIsMobileMenuOpen(false);
-  };
+  const navigate = useNavigate();
+  const { user, role, signOut, firstName } = useAuthStore();
+  const { mode, toggleMode, initializeTheme } = useThemeStore();
 
   useEffect(() => {
-    const storedMode = localStorage.getItem('mode');
-    if (storedMode === 'dark' || storedMode === 'light') {
-      setMode(storedMode);
-      document.documentElement.classList.toggle('dark', storedMode === 'dark');
-    }
-  }, []);
+    initializeTheme();
+  }, [initializeTheme]);
+
+  const navLinks = [
+    { label: 'Home', path: '/' },
+    { label: 'Products', path: '/products' },
+    { label: 'About', path: '/about' },
+    { label: 'Contact', path: '/contact' },
+    ...(role === 'admin' ? [{ label: 'Admin', path: '/admin' }] : [])
+  ];
+
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const toggleMobileMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
+  const closeMobileMenu = () => setIsMobileMenuOpen(false);
+
+  const handleProfileClick = () => {
+    if (!user) navigate('/auth/signin');
+  };
+
+  const displayName = firstName || user?.user_metadata?.first_name || user?.email;
 
   return (
     <header className='bg-gradient-light dark:bg-gradient-dark w-full sticky top-0 left-0 right-0 z-50'>
       <div className='py-4 mx-auto flex items-center justify-between px-4 md:px-16'>
-        {/* Mobile Menu Button - Left side */}
-        <div className='md:hidden flex items-center gap-2'>
-          <button onClick={toggleMobileMenu} className='cursor-pointer'>
-            {isMobileMenuOpen ? (
-              <X className='text-primary dark:text-secondary w-6 h-6 hover:text-accent' />
-            ) : (
-              <Menu className='text-primary dark:text-secondary w-6 h-6 hover:text-accent' />
-            )}
+        {/* Mobile Menu */}
+        <div className='md:hidden'>
+          <button onClick={toggleMobileMenu}>
+            {isMobileMenuOpen ? <X className='text-primary dark:text-secondary w-6 h-6' /> : <Menu className='text-primary dark:text-secondary w-6 h-6' />}
           </button>
         </div>
 
-        {/* Logo - Centered on mobile, left on desktop */}
+        {/* Logo */}
         <div className='flex-1 md:flex-none flex justify-center md:justify-start'>
-          <NavLink to='/' className='cursor-pointer hover:opacity-80 transition-opacity'>
-            <img src={mode === 'light' ? logo : logoLight} alt="logo" className='w-16 h-16' />
-          </NavLink>
+          <NavLink to='/'><img src={mode === 'light' ? logo : logoLight} alt='logo' className='w-16 h-16' /></NavLink>
         </div>
 
         {/* Desktop Navigation */}
-        <nav className='hidden md:flex items-center gap-4 font-primary'>
-          <NavLink className={({ isActive }) => isActive ? 'text-primary-active dark:text-secondary-active hover:text-accent' : 'text-primary dark:text-secondary hover:text-accent'} to='/'>Home</NavLink>
-          <NavLink className={({ isActive }) => isActive ? 'text-primary-active dark:text-secondary-active hover:text-accent' : 'text-primary dark:text-secondary hover:text-accent'} to='/products'>Products</NavLink>
-          <NavLink className={({ isActive }) => isActive ? 'text-primary-active dark:text-secondary-active hover:text-accent' : 'text-primary dark:text-secondary hover:text-accent'} to='/about'>About</NavLink>
-          <NavLink to='/contact' className={({ isActive }) => isActive ? 'text-primary-active dark:text-secondary-active hover:text-accent' : 'text-primary dark:text-secondary hover:text-accent'}>Contact</NavLink>
+        <nav className='hidden md:flex gap-4'>
+          {navLinks.map(({ label, path }) => (
+            <NavLink
+              key={path}
+              to={path}
+              className={({ isActive }) =>
+                isActive
+                  ? 'text-primary-active dark:text-secondary-active hover:text-accent'
+                  : 'text-primary dark:text-secondary hover:text-accent'
+              }
+            >
+              {label}
+            </NavLink>
+          ))}
         </nav>
 
-        {/* Desktop Actions */}
+        {/* Right Side */}
         <div className='hidden md:flex items-center gap-4'>
-          <button className='cursor-pointer'><Search className='text-primary dark:text-secondary w-5 h-5 hover:text-accent' /></button>
-          <button className='cursor-pointer'>
-            <NavLink to='/cartpage' className={({ isActive }) => isActive ? 'text-primary-active dark:text-secondary-active hover:text-accent' : 'text-primary dark:text-secondary hover:text-accent'}>
-              <ShoppingCart className='text-primary dark:text-secondary w-5 h-5 hover:text-accent' />
-            </NavLink>
-          </button>
-          <button className='cursor-pointer'><UserRound className='text-primary dark:text-secondary w-5 h-5 hover:text-accent' /></button>
-          <div className='rounded-full bg-primary dark:bg-secondary p-2 flex items-center gap-2'>
-            {mode === 'light' ? (
-              <button onClick={toggleMode} className='cursor-pointer'><Sun className='text-white dark:text-primary w-5 h-5' /></button>
+          <Search className='text-primary dark:text-secondary w-5 h-5 hover:text-accent cursor-pointer' />
+          <NavLink to='/cartpage'><ShoppingCart className='text-primary dark:text-secondary w-5 h-5 hover:text-accent' /></NavLink>
+          <div className='flex items-center gap-2 cursor-pointer' onClick={handleProfileClick}>
+            <UserRound className='text-primary dark:text-secondary w-5 h-5' />
+            {user ? (
+              <>
+                <span className='text-sm text-primary dark:text-secondary'>{displayName}</span>
+                <button onClick={signOut} className='text-accent text-sm ml-2'>Logout</button>
+              </>
             ) : (
-              <button onClick={toggleMode} className='cursor-pointer'><Moon className='text-white dark:text-primary w-5 h-5' /></button>
+              <span className='text-sm text-accent'>Sign In</span>
             )}
           </div>
-        </div>
-
-        {/* Mobile Actions - Right side */}
-        <div className='md:hidden flex items-center gap-2'>
-          <button className='cursor-pointer'><Search className='text-primary dark:text-secondary w-5 h-5 hover:text-accent' /></button>
-          <button className='cursor-pointer'>
-            <NavLink to='/cartpage' className={({ isActive }) => isActive ? 'text-primary-active dark:text-secondary-active hover:text-accent' : 'text-primary dark:text-secondary hover:text-accent'}>
-              <ShoppingCart className='text-primary dark:text-secondary w-5 h-5 hover:text-accent' />
-            </NavLink>
-          </button>
-          <button className='cursor-pointer'><UserRound className='text-primary dark:text-secondary w-5 h-5 hover:text-accent' /></button>
           <div className='rounded-full bg-primary dark:bg-secondary p-2'>
-            {mode === 'light' ? (
-              <button onClick={toggleMode} className='cursor-pointer'><Sun className='text-white dark:text-primary w-5 h-5' /></button>
-            ) : (
-              <button onClick={toggleMode} className='cursor-pointer'><Moon className='text-white dark:text-primary w-5 h-5' /></button>
-            )}
+            <button onClick={toggleMode}>
+              {mode === 'light' ? (
+                <Sun className='text-white dark:text-primary w-5 h-5' />
+              ) : (
+                <Moon className='text-white dark:text-primary w-5 h-5' />
+              )}
+            </button>
           </div>
         </div>
       </div>
 
-      {/* Mobile Menu Overlay */}
+      {/* Mobile Menu Drawer */}
       {isMobileMenuOpen && (
         <div className='md:hidden fixed inset-0 bg-black bg-opacity-50 z-40' onClick={closeMobileMenu}>
           <div className='absolute top-0 left-0 w-64 h-full bg-[color:var(--color-light1)] dark:bg-[color:var(--color-dark2)] shadow-xl p-6' onClick={(e) => e.stopPropagation()}>
             <div className='flex justify-between items-center mb-8'>
               <h3 className='text-xl font-bold text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)]'>Menu</h3>
-              <button onClick={closeMobileMenu} className='cursor-pointer'>
-                <X className='text-primary dark:text-secondary w-6 h-6 hover:text-accent' />
-              </button>
+              <button onClick={closeMobileMenu}><X className='text-primary dark:text-secondary w-6 h-6 hover:text-accent' /></button>
             </div>
-            
-            {/* Mobile Navigation */}
+
             <nav className='flex flex-col gap-4'>
-              <NavLink 
-                to='/' 
-                className={({ isActive }) => 
-                  `text-lg font-medium transition-colors ${
-                    isActive 
-                      ? 'text-primary-active dark:text-secondary-active' 
-                      : 'text-primary dark:text-secondary hover:text-accent'
-                  }`
-                }
-                onClick={closeMobileMenu}
-              >
-                Home
-              </NavLink>
-              <NavLink 
-                to='/products' 
-                className={({ isActive }) => 
-                  `text-lg font-medium transition-colors ${
-                    isActive 
-                      ? 'text-primary-active dark:text-secondary-active' 
-                      : 'text-primary dark:text-secondary hover:text-accent'
-                  }`
-                }
-                onClick={closeMobileMenu}
-              >
-                Products
-              </NavLink>
-              <NavLink 
-                to='/about' 
-                className={({ isActive }) => 
-                  `text-lg font-medium transition-colors ${
-                    isActive 
-                      ? 'text-primary-active dark:text-secondary-active' 
-                      : 'text-primary dark:text-secondary hover:text-accent'
-                  }`
-                }
-                onClick={closeMobileMenu}
-              >
-                About
-              </NavLink>
-              <NavLink 
-                to='/contact' 
-                className={({ isActive }) => 
-                  `text-lg font-medium transition-colors ${
-                    isActive 
-                      ? 'text-primary-active dark:text-secondary-active' 
-                      : 'text-primary dark:text-secondary hover:text-accent'
-                  }`
-                }
-                onClick={closeMobileMenu}
-              >
-                Contact
-              </NavLink>
+              {navLinks.map(({ label, path }) => (
+                <NavLink
+                  key={path}
+                  to={path}
+                  className={({ isActive }) =>
+                    `text-lg font-medium transition-colors ${
+                      isActive ? 'text-primary-active dark:text-secondary-active' : 'text-primary dark:text-secondary hover:text-accent'
+                    }`
+                  }
+                  onClick={closeMobileMenu}
+                >
+                  {label}
+                </NavLink>
+              ))}
+              <div className='mt-4'>
+                <div className='flex items-center gap-2' onClick={handleProfileClick}>
+                  <UserRound className='text-primary dark:text-secondary w-5 h-5' />
+                  {user ? (
+                    <>
+                      <div className='text-sm text-primary dark:text-secondary'>{displayName}</div>
+                      <button onClick={signOut} className='text-accent text-sm'>Logout</button>
+                    </>
+                  ) : (
+                    <span className='text-sm text-accent'>Sign In</span>
+                  )}
+                </div>
+              </div>
             </nav>
           </div>
         </div>
       )}
     </header>
-  )
-}
+  );
+};
 
-export default Header
+export default Header;
