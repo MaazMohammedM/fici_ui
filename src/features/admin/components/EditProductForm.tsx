@@ -1,26 +1,26 @@
 import React from 'react';
-import { useProductForm } from '@lib/hooks/useProductForm';
-import FileUpload from './FileUpload';
+import { useEditProductForm } from '@lib/hooks/useEditProductForm';
 import SizeManager from './SizeManager';
 import { useAdminStore } from '../store/adminStore';
 
-const ProductForm: React.FC = () => {
+interface EditProductFormProps {
+  product: any;
+  onCancel: () => void;
+}
+
+const EditProductForm: React.FC<EditProductFormProps> = ({ product, onCancel }) => {
   const { error, clearError } = useAdminStore();
   const {
     form,
-    files,
     sizesList,
     sizeInput,
     quantityInput,
-    isUploading,
-    uploadProgress,
     handleAddSize,
     handleRemoveSize,
-    handleFileChange,
     onSubmit,
     setSizeInput,
     setQuantityInput
-  } = useProductForm();
+  } = useEditProductForm(product);
 
   const {
     register,
@@ -50,36 +50,17 @@ const ProductForm: React.FC = () => {
         </div>
       )}
 
-      {/* Upload Progress */}
-      {isUploading && uploadProgress > 0 && (
-        <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded">
-          <div className="flex items-center justify-between mb-2">
-            <span>Uploading images...</span>
-            <span>{Math.round(uploadProgress)}%</span>
-          </div>
-          <div className="w-full bg-blue-200 rounded-full h-2">
-            <div 
-              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-              style={{ width: `${uploadProgress}%` }}
-            ></div>
-          </div>
-        </div>
-      )}
-
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Basic Information */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-white">
-            Article ID *
+            Article ID (Read-only)
           </label>
           <input 
-            {...register('article_id')} 
-            placeholder="e.g. SH123488" 
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white" 
+            value={product.article_id}
+            disabled
+            className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 dark:bg-gray-700 dark:text-white" 
           />
-          {errors.article_id && (
-            <p className="text-red-500 text-sm mt-1">{errors.article_id.message}</p>
-          )}
         </div>
 
         <div>
@@ -200,29 +181,49 @@ const ProductForm: React.FC = () => {
           />
         </div>
 
-        {/* File Upload */}
+        {/* Current Images */}
         <div className="md:col-span-2">
-          <FileUpload
-            files={files}
-            onChange={handleFileChange}
-            error={errors.images?.message}
-            disabled={isUploading}
-          />
+          <label className="block text-sm font-medium text-gray-700 dark:text-white">
+            Current Images (Read-only)
+          </label>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
+            {product.images && product.images.map((image: string, index: number) => (
+              <div key={index} className="relative">
+                <img 
+                  src={image} 
+                  alt={`Product ${index + 1}`}
+                  className="w-full h-20 object-cover rounded"
+                />
+                {index === 0 && (
+                  <span className="absolute top-1 left-1 bg-blue-500 text-white text-xs px-1 rounded">
+                    Thumbnail
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Submit Button */}
-      <div className="pt-4">
+      {/* Action Buttons */}
+      <div className="pt-4 flex gap-4">
         <button 
           type="submit" 
-          disabled={isSubmitting || isUploading} 
-          className="w-full bg-primary hover:bg-primary-active text-white px-6 py-3 rounded-xl shadow transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={isSubmitting} 
+          className="flex-1 bg-primary hover:bg-primary-active text-white px-6 py-3 rounded-xl shadow transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {isSubmitting || isUploading ? 'Adding Product...' : 'Add Product'}
+          {isSubmitting ? 'Updating...' : 'Update Product'}
+        </button>
+        <button 
+          type="button"
+          onClick={onCancel}
+          className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 px-6 py-3 rounded-xl shadow transition-colors"
+        >
+          Cancel
         </button>
       </div>
     </form>
   );
 };
 
-export default ProductForm;
+export default EditProductForm; 
