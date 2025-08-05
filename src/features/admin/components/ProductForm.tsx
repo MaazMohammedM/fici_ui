@@ -21,22 +21,6 @@ const ProductForm: React.FC = () => {
     setSizeInput,
     setQuantityInput
   } = useProductForm();
-  const { error, clearError } = useAdminStore();
-  const {
-    form,
-    files,
-    sizesList,
-    sizeInput,
-    quantityInput,
-    isUploading,
-    uploadProgress,
-    handleAddSize,
-    handleRemoveSize,
-    handleFileChange,
-    onSubmit,
-    setSizeInput,
-    setQuantityInput
-  } = useProductForm();
 
   const {
     register,
@@ -111,31 +95,9 @@ const ProductForm: React.FC = () => {
           {errors.article_id && (
             <p className="text-red-500 text-sm mt-1">{errors.article_id.message}</p>
           )}
-          <label className="block text-sm font-medium text-gray-700 dark:text-white">
-            Article ID *
-          </label>
-          <input 
-            {...register('article_id')} 
-            placeholder="e.g. SH123488" 
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white" 
-          />
-          {errors.article_id && (
-            <p className="text-red-500 text-sm mt-1">{errors.article_id.message}</p>
-          )}
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-white">
-            Product Name *
-          </label>
-          <input 
-            {...register('name')} 
-            placeholder="Product name" 
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white" 
-          />
-          {errors.name && (
-            <p className="text-red-500 text-sm mt-1">{errors.name.message}</p>
-          )}
           <label className="block text-sm font-medium text-gray-700 dark:text-white">
             Product Name *
           </label>
@@ -159,15 +121,6 @@ const ProductForm: React.FC = () => {
             rows={3}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white" 
           />
-          <label className="block text-sm font-medium text-gray-700 dark:text-white">
-            Description
-          </label>
-          <textarea 
-            {...register('description')} 
-            placeholder="Product description" 
-            rows={3}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white" 
-          />
         </div>
 
         <div>
@@ -179,17 +132,8 @@ const ProductForm: React.FC = () => {
             placeholder="Brand name" 
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white" 
           />
-          <label className="block text-sm font-medium text-gray-700 dark:text-white">
-            Brand
-          </label>
-          <input 
-            {...register('brand')} 
-            placeholder="Brand name" 
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white" 
-          />
         </div>
 
-        {/* Pricing */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-white">
             Color
@@ -214,23 +158,13 @@ const ProductForm: React.FC = () => {
             {...register('mrp_price')}
             placeholder="0.00"
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white"
-            type="text"
-            {...register('mrp_price')}
-            placeholder="0.00"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white"
           />
-          {errors.mrp_price && (
-            <p className="text-red-500 text-sm mt-1">{errors.mrp_price.message}</p>
-          )}
           {errors.mrp_price && (
             <p className="text-red-500 text-sm mt-1">{errors.mrp_price.message}</p>
           )}
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-white">
-            Discount Price (₹) *
-          </label>
           <label className="block text-sm font-medium text-gray-700 dark:text-white">
             Discount Price (₹) *
           </label>
@@ -239,30 +173,14 @@ const ProductForm: React.FC = () => {
             {...register('discount_price')}
             placeholder="0.00"
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white"
-            type="text"
-            {...register('discount_price')}
-            placeholder="0.00"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white"
           />
-          {errors.discount_price && (
-            <p className="text-red-500 text-sm mt-1">{errors.discount_price.message}</p>
-          )}
           {errors.discount_price && (
             <p className="text-red-500 text-sm mt-1">{errors.discount_price.message}</p>
           )}
         </div>
 
         {/* Category and Gender */}
-        {/* Category and Gender */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-white">
-            Gender *
-          </label>
-          <select 
-            {...register('gender')} 
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white"
-          >
-            <option value="">Select Gender</option>
           <label className="block text-sm font-medium text-gray-700 dark:text-white">
             Gender *
           </label>
@@ -278,20 +196,9 @@ const ProductForm: React.FC = () => {
           {errors.gender && (
             <p className="text-red-500 text-sm mt-1">{errors.gender.message}</p>
           )}
-          {errors.gender && (
-            <p className="text-red-500 text-sm mt-1">{errors.gender.message}</p>
-          )}
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-white">
-            Category *
-          </label>
-          <select 
-            {...register('category')} 
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white"
-          >
-            <option value="">Select Category</option>
           <label className="block text-sm font-medium text-gray-700 dark:text-white">
             Category *
           </label>
@@ -307,23 +214,10 @@ const ProductForm: React.FC = () => {
           {errors.category && (
             <p className="text-red-500 text-sm mt-1">{errors.category.message}</p>
           )}
-          {errors.category && (
-            <p className="text-red-500 text-sm mt-1">{errors.category.message}</p>
-          )}
         </div>
 
         {/* Size Manager */}
-        {/* Size Manager */}
         <div className="md:col-span-2">
-          <SizeManager
-            sizesList={sizesList}
-            sizeInput={sizeInput}
-            quantityInput={quantityInput}
-            onSizeInputChange={setSizeInput}
-            onQuantityInputChange={setQuantityInput}
-            onAddSize={handleAddSize}
-            onRemoveSize={handleRemoveSize}
-          />
           <SizeManager
             sizesList={sizesList}
             sizeInput={sizeInput}
@@ -336,15 +230,7 @@ const ProductForm: React.FC = () => {
         </div>
 
         {/* File Upload */}
-        {/* File Upload */}
         <div className="md:col-span-2">
-          <FileUpload
-            files={files}
-            onChange={handleFileChange}
-            error={errors.images?.message}
-            disabled={isUploading}
-          />
-        </div>
           <FileUpload
             files={files}
             onChange={handleFileChange}
@@ -355,14 +241,7 @@ const ProductForm: React.FC = () => {
       </div>
 
       {/* Submit Button */}
-      {/* Submit Button */}
       <div className="pt-4">
-        <button 
-          type="submit" 
-          disabled={isSubmitting || isUploading} 
-          className="w-full bg-primary hover:bg-primary-active text-white px-6 py-3 rounded-xl shadow transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isSubmitting || isUploading ? 'Adding Product...' : 'Add Product'}
         <button 
           type="submit" 
           disabled={isSubmitting || isUploading} 
