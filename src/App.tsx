@@ -11,6 +11,7 @@ import Register from 'auth/Register';
 import AdminPage from '@features/admin/AdminPanel';
 import AuthCallback from '@auth/AuthCallback';
 import ProductPage from '@features/product/ProductPage';
+import ProductDetailPage from '@features/product/components/ProductDetailPage';
 
 const App: React.FC = () => {
   return (
@@ -27,6 +28,7 @@ const App: React.FC = () => {
           <Route path="/auth/callback" element={<AuthCallback /> }/>
           <Route path="/admin" element={<AdminPage/>} />
           <Route path="/products" element={<ProductPage/>} />
+          <Route path="/products/:article_id" element={<ProductDetailPage/>} />
           <Route path="*" element={<div className='text-primary dark:text-secondary text-center text-2xl font-bold w-full h-[calc(100svh-8rem)] flex items-center justify-center bg-gradient-light dark:bg-gradient-dark'>404 Not Found</div>} />
         </Routes>
       </main>

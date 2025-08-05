@@ -4,6 +4,7 @@ export const enhancedProductSchema = z.object({
   article_id: z.string().min(4, 'Please ensure at least 4 characters'),
   name: z.string().min(2, 'Product name must be at least 2 characters'),
   description: z.string().optional(),
+  color: z.string(),
   brand: z.string().optional(),
   mrp_price: z.string().min(1, 'MRP price is required'),
   discount_price: z.string().min(1, 'Discount price is required'),
