@@ -1,5 +1,6 @@
 // src/features/product/ProductPage.tsx
 import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useProductStore } from '../../store/productStore';
 import { Search, Filter, Grid, List } from 'lucide-react';
 import ProductCard from './components/ProductCard';
@@ -28,6 +29,7 @@ const priceRanges = [
 ];
 
 const ProductPage: React.FC = () => {
+  const [searchParams] = useSearchParams();
   const {
     filteredProducts,
     loading,
@@ -47,9 +49,21 @@ const ProductPage: React.FC = () => {
 
   const { handleFilterChange, handleSearch, clearFilters } = useProductFilters();
 
+  // Handle URL parameters on component mount - only run once
   useEffect(() => {
-    fetchProducts(1);
-  }, [fetchProducts]);
+    const category = searchParams.get('category');
+    const gender = searchParams.get('gender');
+    
+    const filters: any = {};
+    if (category && category !== 'all') {
+      filters.category = category;
+    }
+    if (gender && gender !== 'all') {
+      filters.gender = gender;
+    }
+    
+    fetchProducts(1, filters);
+  }, []); // Empty dependency array to run only once
 
   if (loading && filteredProducts.length === 0) {
     return (
@@ -79,7 +93,7 @@ const ProductPage: React.FC = () => {
         <div className="bg-white dark:bg-dark2 rounded-2xl shadow-lg p-6 mb-8">
           <div className="flex flex-col lg:flex-row gap-4 items-center">
             {/* Search */}
-            <div className="flex-1 relative">
+            <div className="flex-1 relative w-full">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
                 type="text"
@@ -95,29 +109,29 @@ const ProductPage: React.FC = () => {
               className="flex items-center gap-2 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
             >
               <Filter className="w-5 h-5" />
-              Filters
+              <span className="hidden sm:inline">Filters</span>
             </button>
             {/* View Mode Toggle */}
             <div className="flex border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden">
               <button
                 onClick={() => setViewMode('grid')}
-                className={`px-4 py-3 transition-colors ${
+                className={`px-3 lg:px-4 py-3 transition-colors ${
                   viewMode === 'grid' 
                     ? 'bg-primary text-white' 
                     : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400'
                 }`}
               >
-                <Grid className="w-5 h-5" />
+                <Grid className="w-4 lg:w-5 h-4 lg:h-5" />
               </button>
               <button
                 onClick={() => setViewMode('list')}
-                className={`px-4 py-3 transition-colors ${
+                className={`px-3 lg:px-4 py-3 transition-colors ${
                   viewMode === 'list' 
                     ? 'bg-primary text-white' 
                     : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400'
                 }`}
               >
-                <List className="w-5 h-5" />
+                <List className="w-4 lg:w-5 h-4 lg:h-5" />
               </button>
             </div>
           </div>
@@ -213,7 +227,7 @@ const ProductPage: React.FC = () => {
         ) : (
           <>
             <div className={viewMode === 'grid' 
-              ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6'
+              ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 lg:gap-6'
               : 'space-y-4'
             }>
               {filteredProducts.map(product => (

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useProductForm } from '@lib/hooks/useProductForm';
 import FileUpload from './FileUpload';
 import SizeManager from './SizeManager';
@@ -28,8 +28,23 @@ const ProductForm: React.FC = () => {
     formState: { errors, isSubmitting }
   } = form;
 
+  const [successMessage, setSuccessMessage] = useState('');
+
+  const wrappedSubmit = async (data: any) => {
+    setSuccessMessage('');
+    await onSubmit(data);
+    setSuccessMessage('Product added successfully!');
+  };
+
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 bg-white dark:bg-dark2 p-6 rounded-2xl shadow-md">
+    <form onSubmit={handleSubmit(wrappedSubmit)} className="space-y-6 bg-white dark:bg-dark2 p-6 rounded-2xl shadow-md">
+      {/* Success Message */}
+      {successMessage && (
+        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded">
+          {successMessage}
+        </div>
+      )}
+
       {/* Error Display */}
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded flex justify-between items-center">
@@ -117,6 +132,20 @@ const ProductForm: React.FC = () => {
             placeholder="Brand name" 
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white" 
           />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-white">
+            Color
+          </label>
+          <input 
+            {...register('color')} 
+            placeholder="e.g. Black, Brown" 
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white" 
+          />
+          {errors.color && (
+            <p className="text-red-500 text-sm mt-1">{errors.color.message}</p>
+          )}
         </div>
 
         {/* Pricing */}

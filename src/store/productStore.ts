@@ -1,25 +1,13 @@
 import { create } from 'zustand';
 import { supabase } from '@lib/supabase';
-
-interface Product {
-  product_id: string;
-  name: string;
-  description?: string;
-  brand?: string;
-  mrp_price: string;
-  discount_price: string;
-  gender: 'men' | 'women' | 'unisex';
-  category: 'shoes' | 'sandals' | 'chappals';
-  sizes: Record<string, number>;
-  images: string[];
-  thumbnail_url?: string;
-  article_id: string;
-  created_at: string;
-}
+import type { Product,ProductDetail } from "../types/product";
 
 interface ProductState {
   products: Product[];
   filteredProducts: Product[];
+  topDeals: Product[];
+  relatedProducts: Product[];
+  currentProduct: ProductDetail | null;
   loading: boolean;
   error: string | null;
   selectedCategory: string | null;
@@ -32,6 +20,9 @@ interface ProductState {
   
   // Actions
   fetchProducts: (page?: number, filters?: any) => Promise<void>;
+  fetchTopDeals: () => Promise<void>;
+  fetchProductByArticleId: (articleId: string) => Promise<void>;
+  fetchRelatedProducts: (category: string, currentProductId: string) => Promise<void>;
   filterProducts: (filters: any) => void;
   searchProducts: (query: string) => void;
   clearFilters: () => void;
@@ -47,7 +38,6 @@ const safeParseSizes = (value: any): Record<string, number> => {
   
   if (typeof value === 'string') {
     try {
-      // Handle escaped JSON strings
       const unescaped = value.replace(/\\"/g, '"').replace(/^"|"$/g, '');
       return JSON.parse(unescaped);
     } catch (error) {
@@ -59,9 +49,30 @@ const safeParseSizes = (value: any): Record<string, number> => {
   return {};
 };
 
+// Helper function to calculate discount percentage
+// Helper function to calculate discount percentage on client side (fallback)
+const calculateDiscountPercentage = (mrpPrice: string, discountPrice: string): number => {
+  try {
+    const mrp = parseFloat(mrpPrice);
+    const discount = parseFloat(discountPrice);
+    
+    if (mrp <= 0 || discount <= 0 || discount >= mrp) {
+      return 0;
+    }
+    
+    return Math.round(((mrp - discount) / mrp) * 100);
+  } catch (error) {
+    console.error('Error calculating discount percentage:', error);
+    return 0;
+  }
+};
+
 export const useProductStore = create<ProductState>((set, get) => ({
   products: [],
   filteredProducts: [],
+  topDeals: [],
+  relatedProducts: [],
+  currentProduct: null,
   loading: false,
   error: null,
   selectedCategory: null,
@@ -108,13 +119,13 @@ export const useProductStore = create<ProductState>((set, get) => ({
         return;
       }
 
-      // Process products - only parse sizes, images are already arrays
+      // Process products with discount calculation
       const processedProducts = (data || []).map(product => ({
         ...product,
         sizes: safeParseSizes(product.sizes),
-        // images are already arrays from Supabase, no need to parse
         images: Array.isArray(product.images) ? product.images : [],
-        thumbnail_url: product.thumbnail_url || null
+        thumbnail_url: product.thumbnail_url || null,
+        discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price)
       }));
 
       const totalPages = Math.ceil((count || 0) / get().itemsPerPage);
@@ -130,6 +141,165 @@ export const useProductStore = create<ProductState>((set, get) => ({
     } catch (error) {
       console.error('Error fetching products:', error);
       set({ error: 'Failed to fetch products', loading: false });
+    }
+  },
+
+  fetchTopDeals: async () => {
+    set({ loading: true, error: null });
+    try {
+      // Fetch products with discount calculation and filter for good deals
+      const { data, error } = await supabase
+        .from('products_with_discount')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (error) {
+        console.error('Fetch top deals error:', error);
+        set({ error: 'Failed to fetch top deals' });
+        return;
+      }
+
+      const parsedProducts = (data || []).map(product => ({
+        ...product,
+        sizes: safeParseSizes(product.sizes),
+        images: Array.isArray(product.images) ? product.images : [],
+        discount_percentage: product.discount_percentage || calculateDiscountPercentage(product.mrp_price, product.discount_price)
+      }));
+
+      // Filter products with discount percentage > 10% for top deals
+      const topDeals = parsedProducts
+        .filter(product => product.discount_percentage > 10)
+        .sort((a, b) => b.discount_percentage - a.discount_percentage) // Sort by highest discount
+        .slice(0, 6); // Limit to 6 items
+
+      set({ topDeals });
+    } catch (error) {
+      console.error('Error fetching top deals:', error);
+      set({ error: 'Failed to fetch top deals' });
+    } finally {
+      set({ loading: false });
+    }
+  },
+  fetchProductByArticleId: async (articleId: string) => {
+    set({ loading: true, error: null });
+    
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .like('article_id', `${articleId}_%`);
+
+      if (error) {
+        console.error('Fetch product error:', error);
+        set({ error: 'Failed to fetch product details' });
+        return;
+      }
+
+      if (data && data.length > 0) {
+        const processedProducts = data.map(product => ({
+          ...product,
+          sizes: safeParseSizes(product.sizes),
+          images: Array.isArray(product.images) ? product.images : [],
+          thumbnail_url: product.thumbnail_url || null,
+          discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price)
+        }));
+
+        // Group by article_id and create ProductDetail
+        const firstProduct = processedProducts[0];
+        const productDetail: ProductDetail = {
+          article_id: firstProduct.article_id.split('_')[0],
+          name: firstProduct.name,
+          description: firstProduct.description,
+          brand: firstProduct.brand,
+          variants: processedProducts,
+          category: firstProduct.category,
+          gender: firstProduct.gender
+        };
+
+        set({ 
+          currentProduct: productDetail,
+          loading: false
+        });
+      } else {
+        set({ 
+          currentProduct: null,
+          error: 'Product not found',
+          loading: false
+        });
+      }
+
+    } catch (error) {
+      console.error('Error fetching product:', error);
+      set({ error: 'Failed to fetch product details', loading: false });
+    }
+  },
+
+  fetchRelatedProducts: async (category: string, currentProductId: string) => {
+    set({ loading: true, error: null });
+    
+    try {
+      let query = supabase
+        .from('products')
+        .select('*')
+        .neq('product_id', currentProductId)
+        .limit(4);
+
+      // Try to get products from same category first
+      if (category) {
+        query = query.eq('category', category);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error('Fetch related products error:', error);
+        set({ error: 'Failed to fetch related products' });
+        return;
+      }
+
+      // If not enough products from same category, get random products
+      if (!data || data.length < 4) {
+        const { data: randomData, error: randomError } = await supabase
+          .from('products')
+          .select('*')
+          .neq('product_id', currentProductId)
+          .limit(4 - (data?.length || 0));
+
+        if (!randomError && randomData) {
+          const allProducts = [...(data || []), ...randomData];
+          const processedProducts = allProducts.map(product => ({
+            ...product,
+            sizes: safeParseSizes(product.sizes),
+            images: Array.isArray(product.images) ? product.images : [],
+            thumbnail_url: product.thumbnail_url || null,
+            discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price)
+          }));
+
+          set({ 
+            relatedProducts: processedProducts,
+            loading: false
+          });
+          return;
+        }
+      }
+
+      const processedProducts = (data || []).map(product => ({
+        ...product,
+        sizes: safeParseSizes(product.sizes),
+        images: Array.isArray(product.images) ? product.images : [],
+        thumbnail_url: product.thumbnail_url || null,
+        discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price)
+      }));
+
+      set({ 
+        relatedProducts: processedProducts,
+        loading: false
+      });
+
+    } catch (error) {
+      console.error('Error fetching related products:', error);
+      set({ error: 'Failed to fetch related products', loading: false });
     }
   },
 
@@ -173,8 +343,15 @@ export const useProductStore = create<ProductState>((set, get) => ({
 
   searchProducts: (query) => {
     set({ searchQuery: query });
-    get().filterProducts({ ...get(), search: query });
+    const { selectedCategory, selectedGender, selectedPriceRange } = get();
+    get().filterProducts({
+      category: selectedCategory,
+      gender: selectedGender,
+      priceRange: selectedPriceRange,
+      search: query
+    });
   },
+  
 
   clearFilters: () => {
     const { products } = get();

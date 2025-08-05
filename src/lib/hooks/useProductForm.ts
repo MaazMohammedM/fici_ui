@@ -1,3 +1,4 @@
+// Updated useProductForm.ts - Include color field for form only
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -19,6 +20,7 @@ export const useProductForm = () => {
       name: '',
       description: '',
       brand: '',
+      color: '', // Include color field in form
       mrp_price: '',
       discount_price: '',
       gender: undefined,
@@ -98,8 +100,10 @@ export const useProductForm = () => {
       setUploadProgress(0);
 
       console.log('Starting image upload...');
-      
-      const uploadResult = await uploadImages(data.article_id, files!);
+      const colorSlug = data.color.toLowerCase().replace(/\s+/g, '');
+const articleWithColor = `${data.article_id}_${colorSlug}`;
+const uploadResult = await uploadImages(articleWithColor, files!);
+
       
       if (!uploadResult) {
         console.log('Upload failed');
@@ -116,6 +120,7 @@ export const useProductForm = () => {
 
       const productData = {
         ...data,
+        article_id: articleWithColor,
         sizes: JSON.stringify(sizesList),
         images: imageUrls.join(','),
         thumbnail_url: thumbnail
@@ -161,4 +166,4 @@ export const useProductForm = () => {
     handleFileChange,
     onSubmit
   };
-}; 
+};
