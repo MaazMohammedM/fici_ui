@@ -14,7 +14,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ files, onChange, error, disable
   return (
     <div className="space-y-3">
       <label className="block text-sm font-medium text-gray-700 dark:text-white">
-        Upload Product Images (min 5)
+        Upload Product Images (min 1)
       </label>
       
       <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 hover:border-primary transition-colors">
@@ -34,7 +34,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ files, onChange, error, disable
               Click to upload images or drag and drop
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-500">
-              PNG, JPG, GIF up to 5MB each (minimum 5 images)
+              PNG, JPG, GIF up to 5MB each (maximum 5 images)
             </p>
           </div>
         </label>
@@ -43,7 +43,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ files, onChange, error, disable
       {fileArray.length > 0 && (
         <div className="space-y-2">
           <p className="text-sm font-medium text-gray-700 dark:text-white">
-            Selected Files ({fileArray.length}/5 minimum):
+            Selected Files ({fileArray.length}/5 maximum):
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {fileArray.map((file, index) => (
