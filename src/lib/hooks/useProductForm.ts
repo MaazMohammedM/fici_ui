@@ -56,10 +56,18 @@ export const useProductForm = () => {
   };
 
   const validateFiles = (): boolean => {
-    if (!files || files.length < 5) {
+    if (!files || files.length < 1) {
       form.setError('images', {
         type: 'manual',
-        message: 'Please upload at least 5 images'
+        message: 'Please upload at least 1 image'
+      });
+      return false;
+    }
+  
+    if (files.length > 5) {
+      form.setError('images', {
+        type: 'manual',
+        message: 'You can upload a maximum of 5 images'
       });
       return false;
     }
@@ -101,8 +109,8 @@ export const useProductForm = () => {
 
       console.log('Starting image upload...');
       const colorSlug = data.color.toLowerCase().replace(/\s+/g, '');
-const articleWithColor = `${data.article_id}_${colorSlug}`;
-const uploadResult = await uploadImages(articleWithColor, files!);
+      const articleWithColor = `${data.article_id}_${colorSlug}`;
+      const uploadResult = await uploadImages(articleWithColor, files!);
 
       
       if (!uploadResult) {
