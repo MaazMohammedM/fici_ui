@@ -1,40 +1,32 @@
-import React, { useState } from "react";
-import { cartItems as initialCartItems } from "../cart/data/cartItems";
+import React from "react";
+import { useCartStore } from "@store/cartStore";
 import CartItemCard from "./components/CartItemCard";
 
-type CartItem = {
-  id: number;
-  name: string;
-  color: string;
-  image: string;
-  price: number;
-  quantity: number;
-  mrp?: number;
-};
-
 const CartPage: React.FC = () => {
-  const [cartItems, setCartItems] = useState<CartItem[]>(initialCartItems);
+  const { 
+    items: cartItems, 
+    removeFromCart, 
+    updateQuantity, 
+    getCartTotal, 
+    getCartSavings 
+  } = useCartStore();
 
-  const handleRemove = (id: number) => {
-    setCartItems(prev => prev.filter(item => item.id !== id));
+  const handleRemove = (id: string) => {
+    removeFromCart(id);
   };
 
-  const handleQuantityChange = (id: number, delta: number) => {
-    setCartItems(prev =>
-      prev.map(item =>
-        item.id === id
-          ? { ...item, quantity: Math.max(1, item.quantity + delta) }
-          : item
-      )
-    );
+  const handleQuantityChange = (id: string, delta: number) => {
+    const item = cartItems.find(item => item.id === id);
+    if (item) {
+      updateQuantity(id, Math.max(1, item.quantity + delta));
+    }
   };
 
-  // Calculate detailed summary using discounted price and MRP
-  const subtotal: number = cartItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
-  const totalMrp: number = cartItems.reduce((acc, item) => acc + (item.mrp ?? item.price) * item.quantity, 0);
-  const savings: number = totalMrp - subtotal;
-  const delivery: number = subtotal > 0 ? 0 : 0; // Free delivery for demo
-  const total: number = subtotal + delivery;
+  // Calculate detailed summary
+  const subtotal = getCartTotal();
+  const savings = getCartSavings();
+  const delivery = subtotal > 0 ? 0 : 0; // Free delivery for demo
+  const total = subtotal + delivery;
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8 w-full">
@@ -80,7 +72,7 @@ const CartPage: React.FC = () => {
                 </div>
                 <div className="flex justify-between text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)]">
                   <span>Delivery Charges</span>
-                  <span className="text-green-700 dark:text-green-400 font-semibold">{delivery === 0 ? 'Free' : `₹${delivery.toLocaleString('en-IN')}`}</span>
+                  <span className="text-green-700 dark:text-green-400 font-semibold">{delivery === 0 ? 'Free' : `₹${delivery})}`}</span>
                 </div>
                 <div className="flex justify-between text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)]">
                   <span>Savings</span>

@@ -7,10 +7,8 @@ import type { ContactFormData } from './types/contactTypes';
 import { useContactStore } from '@store/contactStore';
 import emailjs from 'emailjs-com';
 
-
 import { FiFacebook, FiInstagram, FiLinkedin } from 'react-icons/fi';
 import {
-  // LinkedinIcon,
   MessageCircleIcon
 } from 'lucide-react';
 
@@ -64,9 +62,7 @@ const ContactForm: React.FC = () => {
   };
 
   return (
-    <main
-      className="flex flex-col justify-between"
-    >
+    <main className="flex flex-col justify-between">
       <div className="flex flex-col justify-center items-center px-6 py-10 flex-grow">
         <div className="max-w-5xl w-full text-center mb-10">
           <h1 className="text-5xl font-secondary font-bold text-accent mb-4">Contact Us</h1>
@@ -74,52 +70,55 @@ const ContactForm: React.FC = () => {
             We'd love to hear from you. Feel free to reach out!
           </p>
 
-          <div className="flex flex-col md:flex-row justify-center gap-12 text-left text-primary dark:text-gray-300">
-            <div>
+          {/* Contact Info Grid - Mobile Responsive */}
+          <div className="grid grid-cols-2 md:flex md:flex-row justify-center gap-6 md:gap-12 text-left text-primary dark:text-gray-300">
+            {/* First Row - Address and Phone */}
+            <div className="col-span-1">
               <p className="font-semibold text-lg">Address</p>
               <p className="text-sm">4568, Flower Street<br />San Francisco, CA</p>
             </div>
 
-            <div>
+            <div className="col-span-1">
               <p className="font-semibold text-lg">Phone</p>
               <p className="text-sm">+01 345 654 6542</p>
             </div>
 
-            <div>
+            {/* Second Row - Email and Follow Us */}
+            <div className="col-span-1">
               <p className="font-semibold text-lg">Email</p>
               <p className="text-sm">hello@fici-leather.com</p>
             </div>
 
-            <div>
+            <div className="col-span-1">
               <p className="font-semibold text-lg">Follow Us</p>
-              <div className="flex gap-5 mt-2">
+              <div className="flex gap-3 mt-2">
                 <a
                   href="https://www.facebook.com/FICI-Shoes"
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  <FiFacebook className="w-5 h-5 cursor-pointer text-primary dark:text-white hover:text-accent" />
+                  <FiFacebook className="w-4 h-4 cursor-pointer text-primary dark:text-white hover:text-accent" />
                 </a>
                 <a
                   href="https://www.instagram.com/FICI_Shoes"
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  <FiInstagram className="w-5 h-5 cursor-pointer text-primary dark:text-white hover:text-accent" />
+                  <FiInstagram className="w-4 h-4 cursor-pointer text-primary dark:text-white hover:text-accent" />
                 </a>
                 <a
                   href="https://wa.me/918122003006"
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  <MessageCircleIcon className="w-5 h-5 cursor-pointer text-primary dark:text-white hover:text-accent" />
+                  <MessageCircleIcon className="w-4 h-4 cursor-pointer text-primary dark:text-white hover:text-accent" />
                 </a>
                 <a
                   href="https://www.linkedin.com/company/fici-shoes"
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  <FiLinkedin className="w-5 h-5 cursor-pointer text-primary dark:text-white hover:text-accent" />
+                  <FiLinkedin className="w-4 h-4 cursor-pointer text-primary dark:text-white hover:text-accent" />
                 </a>
               </div>
             </div>

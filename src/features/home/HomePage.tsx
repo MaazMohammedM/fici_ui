@@ -1,15 +1,15 @@
 import React from 'react';
 import HeroSection from './components/HeroSection';
-import PopularCategories from './components/PopularCategories';
 import TopDealsSection from './components/TopDealsSection';
+import PopularCategoriesSection from './components/PopularCategoriesSection';
 
 const HomePage: React.FC = () => {
   return (
-    <main className=''>
+    <div className="min-h-screen">
       <HeroSection />
-      <PopularCategories />      
-     <TopDealsSection/>
-    </main>
+      <PopularCategoriesSection />
+      <TopDealsSection />
+    </div>
   );
 };
 
