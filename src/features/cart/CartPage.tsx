@@ -1,8 +1,10 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import { useCartStore } from "@store/cartStore";
 import CartItemCard from "./components/CartItemCard";
 
 const CartPage: React.FC = () => {
+  const navigate = useNavigate();
   const { 
     items: cartItems, 
     removeFromCart, 
@@ -84,7 +86,10 @@ const CartPage: React.FC = () => {
                 </div>
               </div>
 
-              <button className="bg-[color:var(--color-primary)] text-[color:var(--color-text-dark)] px-6 py-3 rounded-lg w-full font-bold text-lg shadow hover:bg-[color:var(--color-primary-active)] transition-all duration-200">
+              <button 
+                onClick={() => navigate('/checkout')}
+                className="bg-[color:var(--color-primary)] text-[color:var(--color-text-dark)] px-6 py-3 rounded-lg w-full font-bold text-lg shadow hover:bg-[color:var(--color-primary-active)] transition-all duration-200"
+              >
                 Proceed to Checkout
               </button>
             </div>

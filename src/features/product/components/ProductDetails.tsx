@@ -3,6 +3,38 @@ import { Heart, Share2, ChevronDown, ChevronUp } from 'lucide-react';
 import type { Product, ProductDetail } from '../../../types/product';
 import StarComponent from 'Utils/StarComponent';
 
+// Helper function to get color values for display
+const getColorValue = (colorName: string): string => {
+  const colorMap: Record<string, string> = {
+    black: '#000000',
+    white: '#FFFFFF',
+    brown: '#8B4513',
+    tan: '#D2B48C',
+    navy: '#000080',
+    blue: '#0000FF',
+    red: '#FF0000',
+    green: '#008000',
+    gray: '#808080',
+    grey: '#808080',
+    beige: '#F5F5DC',
+    cream: '#FFFDD0',
+    pink: '#FFC0CB',
+    yellow: '#FFFF00',
+    orange: '#FFA500',
+    purple: '#800080',
+    silver: '#C0C0C0',
+    gold: '#FFD700',
+    maroon: '#800000',
+    olive: '#808000',
+    lime: '#00FF00',
+    aqua: '#00FFFF',
+    teal: '#008080',
+    fuchsia: '#FF00FF',
+  };
+  
+  return colorMap[colorName.toLowerCase()] || '#6B7280'; // Default to gray if color not found
+};
+
 interface ProductDetailsProps {
   currentProduct: ProductDetail;
   selectedVariant: Product | undefined;
@@ -82,21 +114,36 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
         {/* Color Selection */}
         {currentProduct.variants.length > 1 && (
           <div>
-            <h3 className="text-lg font-semibold text-primary dark:text-secondary mb-2">Color</h3>
-            <div className="flex space-x-2">
-              {currentProduct.variants.map((variant) => (
-                <button
-                  key={variant.color}
-                  onClick={() => onColorChange(variant.color)}
-                  className={`w-8 h-8 rounded-full border-2 ${
-                    selectedColor === variant.color
-                      ? 'border-accent'
-                      : 'border-gray-300 dark:border-gray-600'
-                  }`}
-                  style={{ backgroundColor: variant.color.toLowerCase() }}
-                  title={variant.color}
-                />
-              ))}
+            <h3 className="text-lg font-semibold text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] mb-2">
+              Color: <span className="font-normal capitalize">{selectedColor}</span>
+            </h3>
+            <div className="flex flex-wrap gap-3">
+              {currentProduct.variants.map((variant) => {
+                // Extract color from article_id (format: ARTICLE_COLOR)
+                const colorName = variant.article_id.split('_')[1] || variant.color;
+                
+                return (
+                  <button
+                    key={variant.article_id}
+                    onClick={() => onColorChange(variant.color)}
+                    className={`flex items-center space-x-2 px-3 py-2 rounded-lg border-2 transition-all ${
+                      selectedColor === variant.color
+                        ? 'border-[color:var(--color-accent)] bg-[color:var(--color-accent)]/10'
+                        : 'border-gray-300 dark:border-gray-600 hover:border-[color:var(--color-accent)]/50'
+                    }`}
+                  >
+                    <div
+                      className="w-6 h-6 rounded-full border border-gray-300 shadow-sm"
+                      style={{
+                        backgroundColor: getColorValue(colorName)
+                      }}
+                    />
+                    <span className="text-sm font-medium capitalize text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)]">
+                      {colorName}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
