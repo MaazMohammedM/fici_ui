@@ -2,6 +2,9 @@ import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import heroImage from "../assets/Hero image.png";
+import hisHeroImage from "../assets/20250321_165625.png";
+import productHeroImage from "../assets/20250710_160720.png";
+import heroImage1 from "../assets/20250503_145045.png";
 
 const heroSlides = [
   {
@@ -16,7 +19,7 @@ const heroSlides = [
     id: "2",
     title: "For Him",
     subtitle: "Discover our exclusive collection of men's footwear.",
-    image: heroImage,
+    image: hisHeroImage,
     ctaText: "Shop Men",
     ctaLink: "/products?gender=men",
     gender: "men"
@@ -34,7 +37,7 @@ const heroSlides = [
     id: "4",
     title: "New Arrivals",
     subtitle: "Be the first to explore our latest collection.",
-    image: heroImage,
+    image: productHeroImage,
     ctaText: "Explore",
     ctaLink: "/products"
   },
@@ -42,7 +45,7 @@ const heroSlides = [
     id: "5",
     title: "Premium Quality",
     subtitle: "Every stitch tells a story of craftsmanship.",
-    image: heroImage,
+    image: heroImage1,
     ctaText: "Learn More",
     ctaLink: "/about"
   }
@@ -55,7 +58,6 @@ const HeroSection: React.FC = () => {
     const interval = setInterval(() => {
       setCurrentSlide((prev) => (prev + 1) % heroSlides.length);
     }, 3000);
-
     return () => clearInterval(interval);
   }, []);
 
@@ -79,7 +81,9 @@ const HeroSection: React.FC = () => {
           <div
             key={slide.id}
             className={`absolute inset-0 transition-opacity duration-1000 ${
-              index === currentSlide ? "opacity-100" : "opacity-0"
+              index === currentSlide
+                ? "opacity-100 pointer-events-auto"
+                : "opacity-0 pointer-events-none"
             }`}
           >
             <div className="flex flex-col lg:flex-row w-full h-full items-center justify-between px-4 lg:px-16">
@@ -110,7 +114,6 @@ const HeroSection: React.FC = () => {
         ))}
       </div>
 
-      {/* Navigation Arrows */}
       <button
         onClick={goToPrevious}
         className="absolute left-2 lg:left-4 top-1/2 transform -translate-y-1/2 bg-white/20 hover:bg-white/30 text-white p-2 lg:p-3 rounded-full transition-all duration-300 backdrop-blur-sm z-20"
@@ -124,7 +127,6 @@ const HeroSection: React.FC = () => {
         <ChevronRight className="w-4 lg:w-6 h-4 lg:h-6" />
       </button>
 
-      {/* Dots Indicator */}
       <div className="absolute bottom-4 lg:bottom-8 left-1/2 transform -translate-x-1/2 flex space-x-2 lg:space-x-3 z-20">
         {heroSlides.map((_, index) => (
           <button

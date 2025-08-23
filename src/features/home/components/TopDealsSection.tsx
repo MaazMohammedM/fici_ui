@@ -61,7 +61,7 @@ const TopDealsSection: React.FC = () => {
               originalPrice={parseFloat(product.mrp_price)}
               reviews={Math.floor(Math.random() * 200) + 50}
               image={product.thumbnail_url || product.images[0]}
-              link={`/products/${product.article_id}`}
+              link={`/products/${product.article_id.split('_').at(0)}`}
               discountPercentage={product.discount_percentage}
             />
           </div>
