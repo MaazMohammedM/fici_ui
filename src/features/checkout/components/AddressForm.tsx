@@ -1,304 +1,232 @@
-import React, { useState, useEffect } from 'react';
-import { usePaymentStore } from '@store/paymentStore';
+import React, { useEffect, useState } from 'react';
+import { supabase } from '@lib/supabase';
 import { useAuthStore } from '@store/authStore';
-import type { ShippingAddress } from '../../../types/payment';
+import { Edit, Trash2, Check, Plus } from 'lucide-react';
 
-interface AddressFormProps {
-  onSubmit: (address: ShippingAddress) => void;
-  initialData: ShippingAddress;
+export type Address = {
+  id?: string;
+  name?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
+  landmark?: string;
+  is_default?: boolean;
+};
+
+interface Props {
+  onSelect: (addr: Address) => void;
+  selectedId?: string;
 }
 
-const AddressForm: React.FC<AddressFormProps> = ({ onSubmit, initialData }) => {
+const AddressForm: React.FC<Props> = ({ onSelect, selectedId }) => {
   const { user } = useAuthStore();
-  const { savedAddresses, fetchSavedAddresses, saveAddress, loading } = usePaymentStore();
-  
-  const [formData, setFormData] = useState<ShippingAddress>(initialData);
-  const [selectedAddressId, setSelectedAddressId] = useState<string>('');
-  const [showNewAddressForm, setShowNewAddressForm] = useState(false);
-  const [errors, setErrors] = useState<Partial<ShippingAddress>>({});
+  const [addresses, setAddresses] = useState<Address[]>([]);
+  const [editing, setEditing] = useState<Address | null>(null);
+  const [form, setForm] = useState<Address>({
+    name: '',
+    phone: '',
+    email: '',
+    address: '',
+    city: '',
+    state: '',
+    pincode: '',
+    landmark: ''
+  });
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (user) {
-      fetchSavedAddresses(user.id);
-    }
-  }, [user, fetchSavedAddresses]);
+    if (user?.id) loadAddresses();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
-  const validateForm = (): boolean => {
-    const newErrors: Partial<ShippingAddress> = {};
+  const loadAddresses = async () => {
+    if (!user?.id) return;
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('addresses')
+        .eq('user_id', user.id)
+        .single();
 
-    if (!formData.name.trim()) newErrors.name = 'Name is required';
-    if (!formData.phone.trim()) newErrors.phone = 'Phone is required';
-    else if (!/^\+?[\d\s-()]+$/.test(formData.phone)) newErrors.phone = 'Invalid phone number';
-    if (!formData.email.trim()) newErrors.email = 'Email is required';
-    else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Invalid email';
-    if (!formData.address.trim()) newErrors.address = 'Address is required';
-    if (!formData.city.trim()) newErrors.city = 'City is required';
-    if (!formData.state.trim()) newErrors.state = 'State is required';
-    if (!formData.pincode.trim()) newErrors.pincode = 'Pincode is required';
-    else if (!/^\d{6}$/.test(formData.pincode)) newErrors.pincode = 'Pincode must be 6 digits';
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleInputChange = (field: keyof ShippingAddress, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    // Clear error when user starts typing
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: undefined }));
+      if (error) throw error;
+      const arr = Array.isArray(data?.addresses) ? data.addresses : [];
+      setAddresses(arr);
+    } catch (err) {
+      console.error('loadAddresses error', err);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!validateForm()) return;
+  const upsertAddresses = async (next: Address[]) => {
+    if (!user?.id) return { error: 'no-user' };
+    const { error } = await supabase
+      .from('user_profiles')
+      .update({ addresses: next })
+      .eq('user_id', user.id);
+    return { error };
+  };
 
-    // Save address if it's new and user wants to save it
-    if (showNewAddressForm && user) {
-      await saveAddress(formData);
+  const handleSave = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    const next = [...addresses];
+    if (editing?.id) {
+      const idx = next.findIndex(a => a.id === editing.id);
+      if (idx >= 0) next[idx] = { ...form, id: editing.id };
+    } else {
+      next.push({ ...form, id: `addr_${Date.now()}` });
     }
 
-    onSubmit(formData);
+    setLoading(true);
+    try {
+      const { error } = await upsertAddresses(next);
+      if (error) throw error;
+      setAddresses(next);
+      setEditing(null);
+      setForm({
+        name: '',
+        phone: '',
+        email: '',
+        address: '',
+        city: '',
+        state: '',
+        pincode: '',
+        landmark: ''
+      });
+    } catch (err) {
+      console.error('save address error', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleSelectSavedAddress = (address: ShippingAddress) => {
-    setFormData(address);
-    setSelectedAddressId(address.name + address.pincode); // Simple ID
-    setShowNewAddressForm(false);
+  const handleDelete = async (id?: string) => {
+    if (!id) return;
+    const next = addresses.filter(a => a.id !== id);
+    setLoading(true);
+    try {
+      const { error } = await upsertAddresses(next);
+      if (error) throw error;
+      setAddresses(next);
+    } catch (err) {
+      console.error('delete address error', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleAddNewAddress = () => {
-    setFormData({
-      name: '',
-      phone: '',
-      email: '',
-      address: '',
-      city: '',
-      state: '',
-      pincode: '',
-      landmark: '',
-    });
-    setSelectedAddressId('');
-    setShowNewAddressForm(true);
+  const startEdit = (addr: Address) => {
+    setEditing(addr);
+    setForm(addr);
+  };
+
+  const setAsDefault = async (id?: string) => {
+    if (!id) return;
+    const next = addresses.map(a => ({ ...a, is_default: a.id === id }));
+    setLoading(true);
+    try {
+      const { error } = await upsertAddresses(next);
+      if (error) throw error;
+      setAddresses(next);
+    } catch (err) {
+      console.error('default address error', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="bg-white dark:bg-[color:var(--color-dark2)] rounded-2xl shadow-lg p-6">
-      <h2 className="text-xl font-bold text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] mb-6">
-        Delivery Address
-      </h2>
-
-      {/* Saved Addresses */}
-      {savedAddresses.length > 0 && !showNewAddressForm && (
-        <div className="mb-6">
-          <h3 className="font-semibold text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] mb-3">
-            Saved Addresses
-          </h3>
-          <div className="space-y-3">
-            {savedAddresses.map((address, index) => (
-              <div
-                key={index}
-                className={`p-4 border rounded-lg cursor-pointer transition-colors ${
-                  selectedAddressId === address.name + address.pincode
-                    ? 'border-[color:var(--color-accent)] bg-[color:var(--color-accent)]/5'
-                    : 'border-gray-200 dark:border-gray-700 hover:border-[color:var(--color-accent)]/50'
-                }`}
-                onClick={() => handleSelectSavedAddress(address)}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <p className="font-medium text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)]">
-                      {address.name}
-                    </p>
-                    <p className="text-sm text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] opacity-70 mt-1">
-                      {address.address}, {address.city}, {address.state} - {address.pincode}
-                    </p>
-                    <p className="text-sm text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] opacity-70">
-                      Phone: {address.phone}
-                    </p>
-                  </div>
-                  <input
-                    type="radio"
-                    checked={selectedAddressId === address.name + address.pincode}
-                    onChange={() => handleSelectSavedAddress(address)}
-                    className="mt-1"
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-          
-          <button
-            onClick={handleAddNewAddress}
-            className="mt-4 text-[color:var(--color-accent)] hover:underline font-medium"
-          >
-            + Add New Address
-          </button>
-        </div>
-      )}
-
-      {/* New Address Form */}
-      {(showNewAddressForm || savedAddresses.length === 0) && (
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] mb-1">
-                Full Name *
-              </label>
-              <input
-                type="text"
-                value={formData.name}
-                onChange={(e) => handleInputChange('name', e.target.value)}
-                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[color:var(--color-accent)] focus:border-transparent bg-white dark:bg-[color:var(--color-dark1)] text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] ${
-                  errors.name ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                }`}
-                placeholder="Enter your full name"
-              />
-              {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name}</p>}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] mb-1">
-                Phone Number *
-              </label>
-              <input
-                type="tel"
-                value={formData.phone}
-                onChange={(e) => handleInputChange('phone', e.target.value)}
-                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[color:var(--color-accent)] focus:border-transparent bg-white dark:bg-[color:var(--color-dark1)] text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] ${
-                  errors.phone ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                }`}
-                placeholder="+91 9876543210"
-              />
-              {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone}</p>}
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] mb-1">
-              Email Address *
-            </label>
-            <input
-              type="email"
-              value={formData.email}
-              onChange={(e) => handleInputChange('email', e.target.value)}
-              className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[color:var(--color-accent)] focus:border-transparent bg-white dark:bg-[color:var(--color-dark1)] text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] ${
-                errors.email ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-              }`}
-              placeholder="your@email.com"
-            />
-            {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email}</p>}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] mb-1">
-              Address *
-            </label>
-            <textarea
-              value={formData.address}
-              onChange={(e) => handleInputChange('address', e.target.value)}
-              rows={3}
-              className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[color:var(--color-accent)] focus:border-transparent bg-white dark:bg-[color:var(--color-dark1)] text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] resize-none ${
-                errors.address ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-              }`}
-              placeholder="House No, Building, Street, Area"
-            />
-            {errors.address && <p className="text-red-500 text-xs mt-1">{errors.address}</p>}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] mb-1">
-              Landmark (Optional)
-            </label>
-            <input
-              type="text"
-              value={formData.landmark}
-              onChange={(e) => handleInputChange('landmark', e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-[color:var(--color-accent)] focus:border-transparent bg-white dark:bg-[color:var(--color-dark1)] text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)]"
-              placeholder="Near mall, hospital, etc."
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] mb-1">
-                City *
-              </label>
-              <input
-                type="text"
-                value={formData.city}
-                onChange={(e) => handleInputChange('city', e.target.value)}
-                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[color:var(--color-accent)] focus:border-transparent bg-white dark:bg-[color:var(--color-dark1)] text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] ${
-                  errors.city ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                }`}
-                placeholder="City"
-              />
-              {errors.city && <p className="text-red-500 text-xs mt-1">{errors.city}</p>}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] mb-1">
-                State *
-              </label>
-              <input
-                type="text"
-                value={formData.state}
-                onChange={(e) => handleInputChange('state', e.target.value)}
-                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[color:var(--color-accent)] focus:border-transparent bg-white dark:bg-[color:var(--color-dark1)] text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] ${
-                  errors.state ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                }`}
-                placeholder="State"
-              />
-              {errors.state && <p className="text-red-500 text-xs mt-1">{errors.state}</p>}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] mb-1">
-                Pincode *
-              </label>
-              <input
-                type="text"
-                value={formData.pincode}
-                onChange={(e) => handleInputChange('pincode', e.target.value)}
-                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-[color:var(--color-accent)] focus:border-transparent bg-white dark:bg-[color:var(--color-dark1)] text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] ${
-                  errors.pincode ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                }`}
-                placeholder="400001"
-                maxLength={6}
-              />
-              {errors.pincode && <p className="text-red-500 text-xs mt-1">{errors.pincode}</p>}
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-[color:var(--color-accent)] text-white py-3 rounded-lg font-semibold hover:bg-[color:var(--color-accent)]/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? 'Saving...' : 'Continue to Payment'}
-          </button>
-
-          {savedAddresses.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setShowNewAddressForm(false)}
-              className="w-full text-[color:var(--color-accent)] py-2 font-medium hover:underline"
-            >
-              Back to Saved Addresses
-            </button>
-          )}
-        </form>
-      )}
-
-      {/* Continue Button for Selected Address */}
-      {!showNewAddressForm && selectedAddressId && (
+    <div className="bg-white dark:bg-dark2 rounded-2xl shadow-lg p-6">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-xl font-semibold">Shipping Address</h2>
         <button
-          onClick={() => onSubmit(formData)}
-          className="w-full bg-[color:var(--color-accent)] text-white py-3 rounded-lg font-semibold hover:bg-[color:var(--color-accent)]/80 transition-colors"
+          onClick={() => {
+            setEditing(null);
+            setForm({
+              name: '',
+              phone: '',
+              email: '',
+              address: '',
+              city: '',
+              state: '',
+              pincode: '',
+              landmark: ''
+            });
+          }}
+          className="flex items-center gap-2 text-accent hover:text-accent/80"
         >
-          Continue to Payment
+          <Plus className="w-4 h-4" /> Add New
         </button>
+      </div>
+
+      {/* Address list */}
+      {loading ? (
+        <div>Loading...</div>
+      ) : (
+        <>
+          {addresses.length > 0 && (
+            <div className="space-y-3 mb-4">
+              {addresses.map(addr => (
+                <div
+                  key={addr.id}
+                  onClick={() => {
+                    onSelect(addr);
+                  }}
+                  className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                    selectedId === addr.id ? 'border-accent bg-accent/5' : 'border-gray-200 dark:border-gray-700'
+                  }`}
+                >
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-semibold">{addr.name}</h3>
+                        {addr.is_default && <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded">Default</span>}
+                      </div>
+                      <p className="text-sm">{addr.phone} • {addr.email}</p>
+                      <p className="text-sm">{addr.address}, {addr.city}, {addr.state} {addr.pincode}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={(e) => { e.stopPropagation(); startEdit(addr); }} className="p-2 text-gray-400 hover:text-accent"><Edit className="w-4 h-4" /></button>
+                      <button onClick={(e) => { e.stopPropagation(); handleDelete(addr.id); }} className="p-2 text-gray-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex items-center gap-2">
+                    <button onClick={(e) => { e.stopPropagation(); setAsDefault(addr.id); }} className="text-xs text-[color:var(--color-accent)] hover:underline">Set as default</button>
+                    {selectedId === addr.id && <span className="ml-auto text-accent flex items-center gap-2"><Check className="w-4 h-4" />Selected</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Add/Edit form */}
+          <div className="border-t pt-4">
+            <h3 className="text-lg font-semibold mb-3">{editing ? 'Edit Address' : 'Add New Address'}</h3>
+            <form onSubmit={handleSave} className="space-y-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <input value={form.name || ''} onChange={(e) => setForm(prev => ({ ...prev, name: e.target.value }))} placeholder="Full name" className="px-3 py-2 border rounded" required />
+                <input value={form.phone || ''} onChange={(e) => setForm(prev => ({ ...prev, phone: e.target.value }))} placeholder="Phone" className="px-3 py-2 border rounded" required />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <input value={form.email || ''} onChange={(e) => setForm(prev => ({ ...prev, email: e.target.value }))} placeholder="Email" className="px-3 py-2 border rounded" required />
+                <input value={form.pincode || ''} onChange={(e) => setForm(prev => ({ ...prev, pincode: e.target.value }))} placeholder="Pincode" className="px-3 py-2 border rounded" required />
+              </div>
+              <textarea value={form.address || ''} onChange={(e) => setForm(prev => ({ ...prev, address: e.target.value }))} placeholder="Address" rows={2} className="w-full px-3 py-2 border rounded" required />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <input value={form.city || ''} onChange={(e) => setForm(prev => ({ ...prev, city: e.target.value }))} placeholder="City" className="px-3 py-2 border rounded" required />
+                <input value={form.state || ''} onChange={(e) => setForm(prev => ({ ...prev, state: e.target.value }))} placeholder="State" className="px-3 py-2 border rounded" required />
+              </div>
+              <div className="flex gap-3">
+                <button type="submit" className="flex-1 bg-accent text-white py-2 rounded">{loading ? 'Saving...' : editing ? 'Update Address' : 'Save Address'}</button>
+                <button type="button" onClick={() => { setEditing(null); setForm({ name: '', phone: '', email: '', address: '', city: '', state: '', pincode: '', landmark: '' }); }} className="px-4 py-2 border rounded">Cancel</button>
+              </div>
+            </form>
+          </div>
+        </>
       )}
     </div>
   );

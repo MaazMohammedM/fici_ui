@@ -14,32 +14,52 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({ selectedVaria
   const [isZooming, setIsZooming] = useState(false);
   const imageRef = useRef<HTMLImageElement>(null);
 
+  // Reset selected image when variant changes
+  useEffect(() => {
+    setSelectedImage(0);
+  }, [selectedVariant]);
+
   if (!selectedVariant) return null;
 
-  // Filter out empty/null images and add fallback - Handle both string arrays and JSON strings
-  let validImages: string[] = [];
-  
-  if (selectedVariant.images) {
-    if (Array.isArray(selectedVariant.images)) {
-      validImages = selectedVariant.images.filter(img => img && img.trim() !== '');
-    } else if (typeof selectedVariant.images === 'string') {
+  // Helper function to parse images - handles comma-separated strings
+  const parseImages = (images: any): string[] => {
+    if (!images) return [];
+    
+    // If it's already an array, filter valid URLs
+    if (Array.isArray(images)) {
+      return images.filter(img => img && typeof img === 'string' && img.trim() !== '');
+    }
+    
+    // If it's a string, check if it's comma-separated URLs
+    if (typeof images === 'string') {
+      const trimmed = images.trim();
+      if (!trimmed) return [];
+      
+      // Check if it starts with http (likely comma-separated URLs)
+      if (trimmed.startsWith('http')) {
+        return trimmed.split(',').map(url => url.trim()).filter(url => url !== '');
+      }
+      
+      // Try to parse as JSON
       try {
-        // Try to parse as JSON if it's a string
-        const parsed = JSON.parse(selectedVariant.images);
+        const parsed = JSON.parse(trimmed);
         if (Array.isArray(parsed)) {
-          validImages = parsed.filter(img => img && typeof img === 'string' && img.trim() !== '');
+          return parsed.filter(img => img && typeof img === 'string' && img.trim() !== '');
         }
+        return [];
       } catch (e) {
-        // If parsing fails, treat as single image URL
-        const imageString = selectedVariant.images as string;
-        if (imageString && imageString.trim() !== '') {
-          validImages = [imageString];
-        }
+        // If JSON parsing fails and it's not a URL, treat as single image
+        return [trimmed];
       }
     }
-  }
+    
+    return [];
+  };
+
+  // Parse images using the helper function
+  let validImages = parseImages(selectedVariant.images);
   
-  // Add thumbnail as fallback
+  // Add thumbnail as fallback if no valid images
   if (validImages.length === 0 && selectedVariant.thumbnail_url && selectedVariant.thumbnail_url.trim() !== '') {
     validImages = [selectedVariant.thumbnail_url];
   }
@@ -54,7 +74,10 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({ selectedVaria
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
 
-    setZoomPosition({ x: Math.max(0, Math.min(100, x)), y: Math.max(0, Math.min(100, y)) });
+    setZoomPosition({ 
+      x: Math.max(0, Math.min(100, x)), 
+      y: Math.max(0, Math.min(100, y)) 
+    });
   };
 
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
@@ -103,54 +126,58 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({ selectedVaria
   return (
     <>
       <div className="space-y-4">
-        {/* Main Image */}
-        <div className="relative aspect-square bg-white dark:bg-[color:var(--color-dark2)] rounded-2xl overflow-hidden group">
-          <div
-            className="relative w-full h-full cursor-zoom-in"
-            onMouseMove={handleMouseMove}
-            onMouseEnter={() => setIsZooming(true)}
-            onMouseLeave={() => setIsZooming(false)}
-            onClick={openZoomModal}
-          >
-            <img
-              ref={imageRef}
-              src={finalImages[selectedImage]}
-              alt={productName}
-              className="w-full h-full object-cover transition-transform duration-300"
-              onError={handleImageError}
-            />
-            
-            {/* Zoom lens for desktop */}
-            {isZooming && (
-              <div className="hidden lg:block absolute inset-0 pointer-events-none">
-                <div
-                  className="absolute w-32 h-32 border-2 border-white rounded-full shadow-lg opacity-75"
-                  style={{
-                    left: `${zoomPosition.x}%`,
-                    top: `${zoomPosition.y}%`,
-                    transform: 'translate(-50%, -50%)',
-                  }}
-                />
-              </div>
-            )}
+        {/* Main Image Container */}
+        <div className="relative flex">
+          {/* Main Image */}
+          <div className="relative aspect-square bg-white dark:bg-[color:var(--color-dark2)] rounded-2xl overflow-hidden group flex-1">
+            <div
+              className="relative w-full h-full cursor-zoom-in"
+              onMouseMove={handleMouseMove}
+              onMouseEnter={() => setIsZooming(true)}
+              onMouseLeave={() => setIsZooming(false)}
+              onClick={openZoomModal}
+            >
+              <img
+                ref={imageRef}
+                src={finalImages[selectedImage]}
+                alt={productName}
+                className="w-full h-full object-cover transition-transform duration-300"
+                onError={handleImageError}
+              />
+              
+              {/* Zoom lens for desktop */}
+              {isZooming && (
+                <div className="hidden lg:block absolute inset-0 pointer-events-none">
+                  <div
+                    className="absolute w-32 h-32 border-2 border-white rounded-full shadow-lg opacity-75"
+                    style={{
+                      left: `${zoomPosition.x}%`,
+                      top: `${zoomPosition.y}%`,
+                      transform: 'translate(-50%, -50%)',
+                    }}
+                  />
+                </div>
+              )}
 
-            {/* Zoom indicator */}
-            <div className="absolute top-4 right-4 bg-black/50 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
-              </svg>
+              {/* Zoom indicator */}
+              <div className="absolute top-4 right-4 bg-black/50 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7" />
+                </svg>
+              </div>
             </div>
           </div>
 
-          {/* Zoomed view for desktop hover */}
+          {/* Zoomed view for desktop hover - Fixed positioning */}
           {isZooming && (
-            <div className="hidden lg:block absolute top-0 left-full ml-4 w-96 h-96 bg-white dark:bg-[color:var(--color-dark2)] rounded-2xl overflow-hidden shadow-2xl border border-gray-200 dark:border-gray-700 z-20">
+            <div className="hidden lg:block absolute left-[calc(100%+1rem)] top-0 w-96 h-96 bg-white dark:bg-[color:var(--color-dark2)] rounded-2xl overflow-hidden shadow-2xl border border-gray-200 dark:border-gray-700 z-30">
               <div
-                className="w-full h-full bg-no-repeat bg-cover"
+                className="w-full h-full bg-no-repeat"
                 style={{
                   backgroundImage: `url(${finalImages[selectedImage]})`,
                   backgroundSize: '300%',
                   backgroundPosition: `${zoomPosition.x}% ${zoomPosition.y}%`,
+                  backgroundRepeat: 'no-repeat'
                 }}
               />
             </div>
@@ -263,4 +290,4 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({ selectedVaria
   );
 };
 
-export default ProductImageGallery; 
+export default ProductImageGallery;

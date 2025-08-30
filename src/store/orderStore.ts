@@ -2,148 +2,23 @@ import { create } from 'zustand';
 import { supabase } from '@lib/supabase';
 import type { Order, Review, OrderFilters } from '../types/order';
 
+// Mock orders data (you can move this to a separate file if needed)
+const mockOrders: Order[] = [];
+
 interface OrderState {
   orders: Order[];
   currentOrder: Order | null;
   reviews: Review[];
   loading: boolean;
   error: string | null;
-  
-  // Actions
   fetchOrders: (userId: string, filters?: OrderFilters) => Promise<void>;
   fetchOrderById: (orderId: string) => Promise<void>;
-  createOrder: (orderData: Omit<Order, 'order_id' | 'order_date'>) => Promise<string | null>;
+  createOrder: (orderData: Omit<Order, 'id' | 'created_at'>) => Promise<string | null>;
   updateOrderStatus: (orderId: string, status: Order['status']) => Promise<void>;
   submitReview: (review: Omit<Review, 'review_id' | 'created_at'>) => Promise<void>;
   fetchReviews: (productId: string) => Promise<void>;
   clearError: () => void;
 }
-
-// Mock data for demonstration
-const mockOrders: Order[] = [
-  {
-    order_id: 'ORD001',
-    user_id: 'user1',
-    status: 'delivered',
-    items: [
-      {
-        product_id: 'SH001_black',
-        article_id: 'SH001',
-        name: 'Premium Leather Shoes',
-        color: 'Black',
-        size: '9',
-        image: 'https://via.placeholder.com/300x300?text=Leather+Shoes',
-        price: 2999,
-        mrp: 3999,
-        quantity: 1,
-        discount_percentage: 25
-      },
-      {
-        product_id: 'SH002_brown',
-        article_id: 'SH002',
-        name: 'Casual Sneakers',
-        color: 'Brown',
-        size: '10',
-        image: 'https://via.placeholder.com/300x300?text=Sneakers',
-        price: 1999,
-        mrp: 2499,
-        quantity: 2,
-        discount_percentage: 20
-      }
-    ],
-    total_amount: 6997,
-    discount_amount: 1501,
-    tax_amount: 629,
-    shipping_amount: 0,
-    payment_method: 'Credit Card',
-    payment_status: 'completed',
-    shipping_address: {
-      name: 'John Doe',
-      phone: '+91 9876543210',
-      address: '123 Main Street, Apartment 4B',
-      city: 'Mumbai',
-      state: 'Maharashtra',
-      pincode: '400001'
-    },
-    order_date: '2024-01-15T10:30:00Z',
-    estimated_delivery: '2024-01-20T18:00:00Z',
-    tracking_number: 'FICI1234567890',
-    reviews_submitted: []
-  },
-  {
-    order_id: 'ORD002',
-    user_id: 'user1',
-    status: 'shipped',
-    items: [
-      {
-        product_id: 'SH003_white',
-        article_id: 'SH003',
-        name: 'Sport Running Shoes',
-        color: 'White',
-        size: '9',
-        image: 'https://via.placeholder.com/300x300?text=Running+Shoes',
-        price: 3499,
-        mrp: 4999,
-        quantity: 1,
-        discount_percentage: 30
-      }
-    ],
-    total_amount: 3814,
-    discount_amount: 1500,
-    tax_amount: 315,
-    shipping_amount: 0,
-    payment_method: 'UPI',
-    payment_status: 'completed',
-    shipping_address: {
-      name: 'John Doe',
-      phone: '+91 9876543210',
-      address: '123 Main Street, Apartment 4B',
-      city: 'Mumbai',
-      state: 'Maharashtra',
-      pincode: '400001'
-    },
-    order_date: '2024-01-10T14:20:00Z',
-    estimated_delivery: '2024-01-18T18:00:00Z',
-    tracking_number: 'FICI0987654321',
-    reviews_submitted: []
-  },
-  {
-    order_id: 'ORD003',
-    user_id: 'user1',
-    status: 'confirmed',
-    items: [
-      {
-        product_id: 'SH004_navy',
-        article_id: 'SH004',
-        name: 'Formal Oxford Shoes',
-        color: 'Navy',
-        size: '8',
-        image: 'https://via.placeholder.com/300x300?text=Oxford+Shoes',
-        price: 4999,
-        mrp: 6999,
-        quantity: 1,
-        discount_percentage: 28
-      }
-    ],
-    total_amount: 5449,
-    discount_amount: 2000,
-    tax_amount: 450,
-    shipping_amount: 0,
-    payment_method: 'Debit Card',
-    payment_status: 'completed',
-    shipping_address: {
-      name: 'John Doe',
-      phone: '+91 9876543210',
-      address: '123 Main Street, Apartment 4B',
-      city: 'Mumbai',
-      state: 'Maharashtra',
-      pincode: '400001'
-    },
-    order_date: '2024-01-08T09:15:00Z',
-    estimated_delivery: '2024-01-15T18:00:00Z',
-    reviews_submitted: []
-  }
-];
 
 export const useOrderStore = create<OrderState>((set, get) => ({
   orders: [],
@@ -154,34 +29,26 @@ export const useOrderStore = create<OrderState>((set, get) => ({
 
   fetchOrders: async (userId: string, filters?: OrderFilters) => {
     set({ loading: true, error: null });
-    
     try {
-      // For now, using mock data. In production, this would query Supabase
-      let filteredOrders = mockOrders.filter(order => order.user_id === userId);
-      
+      let filteredOrders = mockOrders.filter((order: Order) => order.user_id === userId);
       if (filters?.status && filters.status !== 'all') {
-        filteredOrders = filteredOrders.filter(order => order.status === filters.status);
+        filteredOrders = filteredOrders.filter((order: Order) => order.status === filters.status);
       }
-      
       if (filters?.search) {
         const searchLower = filters.search.toLowerCase();
-        filteredOrders = filteredOrders.filter(order =>
-          order.order_id.toLowerCase().includes(searchLower) ||
-          order.items.some(item => item.name.toLowerCase().includes(searchLower))
+        filteredOrders = filteredOrders.filter((order: Order) =>
+          order.id.toLowerCase().includes(searchLower) ||
+          order.items.some((item: any) => item.name.toLowerCase().includes(searchLower))
         );
       }
-      
-      // Sort by order date (newest first)
-      filteredOrders.sort((a, b) => new Date(b.order_date).getTime() - new Date(a.order_date).getTime());
-      
+      filteredOrders.sort((a: Order, b: Order) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
       set({ 
         orders: filteredOrders,
         loading: false 
       });
-      
     } catch (error) {
-      console.error('Error fetching orders:', error);
-      set({ error: 'Failed to fetch orders', loading: false });
+      console.error('Error fetching:', error);
+      set({ error: 'Failed to fetch', loading: false });
     }
   },
 
@@ -189,8 +56,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     set({ loading: true, error: null });
     
     try {
-      // For now, using mock data
-      const order = mockOrders.find(o => o.order_id === orderId);
+      const order = mockOrders.find((o: Order) => o.id === orderId);
       
       if (order) {
         set({ currentOrder: order, loading: false });
@@ -199,8 +65,8 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       }
       
     } catch (error) {
-      console.error('Error fetching order:', error);
-      set({ error: 'Failed to fetch order details', loading: false });
+      console.error('Error fetching :', error);
+      set({ error: 'Failed to fetch details', loading: false });
     }
   },
 
@@ -208,23 +74,20 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     set({ loading: true, error: null });
     
     try {
-      // In production, this would create order in Supabase
       const orderId = `ORD${Date.now()}`;
       const newOrder: Order = {
         ...orderData,
-        order_id: orderId,
-        order_date: new Date().toISOString()
+        id: orderId,
+        created_at: new Date().toISOString()
       };
-      
-      // Update mock data
       mockOrders.unshift(newOrder);
       
       set({ loading: false });
       return orderId;
       
     } catch (error) {
-      console.error('Error creating order:', error);
-      set({ error: 'Failed to create order', loading: false });
+      console.error('Error creating:', error);
+      set({ error: 'Failed to create', loading: false });
       return null;
     }
   },
@@ -233,29 +96,27 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     set({ loading: true, error: null });
     
     try {
-      // In production, this would update order in Supabase
-      const orderIndex = mockOrders.findIndex(o => o.order_id === orderId);
+      const orderIndex = mockOrders.findIndex((o: Order) => o.id === orderId);
       if (orderIndex !== -1) {
         mockOrders[orderIndex].status = status;
       }
       
-      // Update local state
       const { orders, currentOrder } = get();
-      const updatedOrders = orders.map(order =>
-        order.order_id === orderId ? { ...order, status } : order
+      const updatedOrders = orders.map((order: Order) =>
+        order.id === orderId ? { ...order, status } : order
       );
       
       set({ 
         orders: updatedOrders,
-        currentOrder: currentOrder?.order_id === orderId 
+        currentOrder: currentOrder?.id === orderId 
           ? { ...currentOrder, status } 
           : currentOrder,
         loading: false 
       });
       
     } catch (error) {
-      console.error('Error updating order status:', error);
-      set({ error: 'Failed to update order status', loading: false });
+      console.error('Error updating status:', error);
+      set({ error: 'Failed to update status', loading: false });
     }
   },
 
@@ -263,26 +124,36 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     set({ loading: true, error: null });
     
     try {
-      // In production, this would save review to Supabase
-      const newReview: Review = {
-        ...review,
-        review_id: `REV${Date.now()}`,
-        created_at: new Date().toISOString(),
-        is_verified_purchase: true
-      };
-      
-      // Update mock data - mark review as submitted for this order/product
-      const orderIndex = mockOrders.findIndex(o => o.order_id === review.order_id);
+      // Insert review into Supabase
+      const {data, error } = await supabase
+        .from('reviews')
+        .insert({
+          order_id: review.order_id,
+          product_id: review.product_id,
+          user_id: review.user_id,
+          rating: review.rating,
+          comment: review.comment,
+          title: review.title || '', // Add default title if missing
+          images: review.images || [], // Add default images if missing
+          is_verified_purchase: true
+        })
+        .select()
+        .single();
+        console.log("Data",data);
+
+      if (error) throw error;
+
+      const orderIndex = mockOrders.findIndex((o: Order) => o.id === review.order_id);
       if (orderIndex !== -1) {
         if (!mockOrders[orderIndex].reviews_submitted.includes(review.product_id)) {
           mockOrders[orderIndex].reviews_submitted.push(review.product_id);
         }
       }
-      
+
       // Update local state
       const { orders, currentOrder } = get();
-      const updatedOrders = orders.map(order => {
-        if (order.order_id === review.order_id) {
+      const updatedOrders = orders.map((order: Order) => {
+        if (order.id === review.order_id) {
           return {
             ...order,
             reviews_submitted: [...order.reviews_submitted, review.product_id]
@@ -293,7 +164,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       
       set({ 
         orders: updatedOrders,
-        currentOrder: currentOrder?.order_id === review.order_id 
+        currentOrder: currentOrder?.id === review.order_id 
           ? { 
               ...currentOrder, 
               reviews_submitted: [...currentOrder.reviews_submitted, review.product_id] 
@@ -312,9 +183,47 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     set({ loading: true, error: null });
     
     try {
-      // In production, this would fetch reviews from Supabase
-      // For now, returning empty array
-      set({ reviews: [], loading: false });
+      // Fetch reviews from Supabase
+      const { data, error } = await supabase
+        .from('reviews')
+        .select(`
+          review_id,
+          order_id,
+          product_id,
+          user_id,
+          rating,
+          comment,
+          title,
+          images,
+          is_verified_purchase,
+          created_at,
+          users (
+            full_name,
+            avatar_url
+          )
+        `)
+        .eq('product_id', productId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Transform the data to match your Review type
+      const reviews: Review[] = (data || []).map((item: any) => ({
+        review_id: item.review_id,
+        order_id: item.order_id,
+        product_id: item.product_id,
+        user_id: item.user_id,
+        rating: item.rating,
+        comment: item.comment,
+        title: item.title || '',
+        images: item.images || [],
+        is_verified_purchase: item.is_verified_purchase,
+        created_at: item.created_at,
+        user_name: item.users?.[0]?.full_name || item.users?.full_name || 'Anonymous',
+        user_avatar: item.users?.[0]?.avatar_url || item.users?.avatar_url || null
+      }));
+
+      set({ reviews, loading: false });
       
     } catch (error) {
       console.error('Error fetching reviews:', error);

@@ -25,10 +25,27 @@ const ProductDetailPage: React.FC = () => {
 
   useEffect(() => {
     if (currentProduct && currentProduct.variants.length > 0) {
-      setSelectedColor(currentProduct.variants[0].color);
+      // Set the first color as default
+      const firstColor = currentProduct.variants[0].color;
+      setSelectedColor(firstColor);
       fetchRelatedProducts(currentProduct.category, currentProduct.variants[0].product_id);
     }
   }, [currentProduct, fetchRelatedProducts]);
+
+  // Reset selected size when color changes
+  useEffect(() => {
+    setSelectedSize('');
+  }, [selectedColor]);
+
+  // Handle color change - this will load the variant with the new color
+  const handleColorChange = (color: string) => {
+    setSelectedColor(color);
+    const selectedVariant = currentProduct?.variants.find(v => v.color === color);
+    if (selectedVariant) {
+      // Update related products based on the new variant
+      fetchRelatedProducts(currentProduct!.category, selectedVariant.product_id);
+    }
+  };
 
   const handleAddToCart = () => {
     if (!selectedSize) {
@@ -38,13 +55,18 @@ const ProductDetailPage: React.FC = () => {
 
     const selectedVariant = currentProduct?.variants.find(v => v.color === selectedColor);
     if (selectedVariant) {
+      // Get the first image or fallback to thumbnail
+      const productImage = Array.isArray(selectedVariant.images) && selectedVariant.images.length > 0
+        ? selectedVariant.images[0]
+        : selectedVariant.thumbnail_url || '';
+
       addToCart({
         product_id: selectedVariant.product_id,
         article_id: selectedVariant.article_id.split('_')[0],
         name: selectedVariant.name,
         color: selectedVariant.color,
         size: selectedSize,
-        image: selectedVariant.images[0] || selectedVariant.thumbnail_url || '',
+        image: productImage,
         price: parseFloat(selectedVariant.discount_price),
         mrp: parseFloat(selectedVariant.mrp_price),
         quantity,
@@ -107,6 +129,7 @@ const ProductDetailPage: React.FC = () => {
           <ProductImageGallery 
             selectedVariant={selectedVariant}
             productName={currentProduct.name}
+            key={selectedColor} // Force re-render when color changes
           />
 
           {/* Product Details */}
@@ -117,7 +140,7 @@ const ProductDetailPage: React.FC = () => {
             selectedSize={selectedSize}
             quantity={quantity}
             availableSizes={availableSizes}
-            onColorChange={setSelectedColor}
+            onColorChange={handleColorChange}
             onSizeChange={setSelectedSize}
             onQuantityChange={setQuantity}
             onAddToCart={handleAddToCart}
@@ -135,4 +158,4 @@ const ProductDetailPage: React.FC = () => {
   );
 };
 
-export default ProductDetailPage; 
+export default ProductDetailPage;

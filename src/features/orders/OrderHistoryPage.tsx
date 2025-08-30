@@ -1,109 +1,147 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useOrderStore } from '@store/orderStore';
 import { useAuthStore } from '@store/authStore';
-// import OrderCard from './components/OrderCard';
-// import OrderFilters from './components/OrderFilters';
+import { Package, Truck, CheckCircle, XCircle, Clock, Search } from 'lucide-react';
 import ReviewModal from './components/ReviewModal';
-import type { Order, OrderItem } from '../../types/order';
+import type { Order, OrderItem, OrderFilters } from '../../types/order';
 
 const OrderHistoryPage: React.FC = () => {
   const navigate = useNavigate();
-  const { orders, loading, error, fetchOrders, clearError } = useOrderStore();
+  const location = useLocation();
+  const { orders: storeOrders, loading, error, fetchOrders, clearError } = useOrderStore();
   const { user } = useAuthStore();
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [reviewItem, setReviewItem] = useState<{ order: Order; item: OrderItem } | null>(null);
-  const [filters, setFilters] = useState({
+  const [selectedItem, setSelectedItem] = useState<OrderItem | null>(null);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [filters, setFilters] = useState<OrderFilters>({
     status: 'all',
     search: ''
   });
 
   useEffect(() => {
-    if (!user) {
-      navigate('/auth/signin');
-      return;
+    if (user?.id) {
+      fetchOrders(user.id, filters);
     }
-    
-    // Fetch orders for the current user
-    fetchOrders(user.id, filters);
-  }, [user, fetchOrders, filters, navigate]);
+  }, [user, filters, fetchOrders]);
 
   useEffect(() => {
-    if (error) {
-      const timer = setTimeout(() => {
-        clearError();
-      }, 5000);
-      return () => clearTimeout(timer);
+    if (location.state?.success) {
+      // Show success message
+      alert(location.state.message || 'Order placed successfully!');
+      // Clear the state
+      navigate(location.pathname, { replace: true });
     }
-  }, [error, clearError]);
+  }, [location, navigate]);
+
+  const handleFilterChange = (key: keyof OrderFilters, value: string) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
+  };
 
   const handleOrderClick = (order: Order) => {
     setSelectedOrder(order);
-  };
-
-  const handleReviewClick = (order: Order, item: OrderItem) => {
-    setReviewItem({ order, item });
-  };
-
-  const getStatusColor = (status: Order['status']) => {
-    switch (status) {
-      case 'pending':
-        return 'text-yellow-600 bg-yellow-100 dark:text-yellow-400 dark:bg-yellow-900/20';
-      case 'confirmed':
-        return 'text-blue-600 bg-blue-100 dark:text-blue-400 dark:bg-blue-900/20';
-      case 'shipped':
-        return 'text-purple-600 bg-purple-100 dark:text-purple-400 dark:bg-purple-900/20';
-      case 'delivered':
-        return 'text-green-600 bg-green-100 dark:text-green-400 dark:bg-green-900/20';
-      case 'cancelled':
-        return 'text-red-600 bg-red-100 dark:text-red-400 dark:bg-red-900/20';
-      default:
-        return 'text-gray-600 bg-gray-100 dark:text-gray-400 dark:bg-gray-900/20';
+    // Set the first item as default selected item
+    if (order.items.length > 0) {
+      setSelectedItem(order.items[0]);
     }
   };
 
-  if (loading && orders.length === 0) {
+  const closeOrderDetails = () => {
+    setSelectedOrder(null);
+    setSelectedItem(null);
+  };
+
+  const openReviewModal = (item: OrderItem) => {
+    setSelectedItem(item);
+    setShowReviewModal(true);
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return <Clock className="w-5 h-5 text-yellow-500" />;
+      case 'confirmed':
+        return <CheckCircle className="w-5 h-5 text-blue-500" />;
+      case 'shipped':
+        return <Truck className="w-5 h-5 text-purple-500" />;
+      case 'delivered':
+        return <CheckCircle className="w-5 h-5 text-green-500" />;
+      case 'cancelled':
+        return <XCircle className="w-5 h-5 text-red-500" />;
+      default:
+        return <Package className="w-5 h-5 text-gray-500" />;
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'confirmed':
+        return 'bg-blue-100 text-blue-800';
+      case 'shipped':
+        return 'bg-purple-100 text-purple-800';
+      case 'delivered':
+        return 'bg-green-100 text-green-800';
+      case 'cancelled':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  if (loading && storeOrders.length === 0) {
     return (
-      <div className="min-h-screen bg-[color:var(--color-light1)] dark:bg-[color:var(--color-dark1)] flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-light dark:bg-gradient-dark flex items-center justify-center">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-[color:var(--color-accent)] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)]">Loading your orders...</p>
+          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Loading orders...</p>
         </div>
       </div>
     );
   }
 
+  const filteredOrders = storeOrders.filter(order => {
+    const matchesSearch = order.id.toLowerCase().includes(filters.search.toLowerCase()) ||
+      order.items.some(item => item.name.toLowerCase().includes(filters.search.toLowerCase()));
+    
+    const matchesStatus = filters.status === 'all' || order.status === filters.status;
+    
+    return matchesSearch && matchesStatus;
+  });
+
   return (
-    <div className="min-h-screen bg-[color:var(--color-light1)] dark:bg-[color:var(--color-dark1)]">
-      <div className="max-w-6xl mx-auto px-4 py-6">
-        {/* Header - Modern minimal design */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-semibold text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)]">
-              Your Orders
-            </h1>
-            <p className="text-sm text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] opacity-60 mt-1">
-              {orders.length} {orders.length === 1 ? 'order' : 'orders'}
-            </p>
-          </div>
+    <div className="min-h-screen bg-gradient-light dark:bg-gradient-dark">
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-primary dark:text-secondary">
+            Order History
+          </h1>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+            {storeOrders.length} {storeOrders.length === 1 ? 'order' : 'orders'}
+          </p>
         </div>
 
-        {/* Error Message */}
-        {error && (
-          <div className="mb-6 bg-red-100 dark:bg-red-900/20 border border-red-400 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg">
-            {error}
-          </div>
-        )}
-
-        {/* Simplified Filters */}
-        <div className="mb-6 flex items-center gap-4">
-          <div className="flex items-center bg-white dark:bg-[color:var(--color-dark2)] rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2">
+        {/* Filters */}
+        <div className="bg-white dark:bg-dark2 rounded-2xl shadow-lg p-6 mb-8">
+          <div className="flex flex-col lg:flex-row gap-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+              <input
+                type="text"
+                placeholder="Search orders..."
+                value={filters.search}
+                onChange={(e) => handleFilterChange('search', e.target.value)}
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-800 dark:text-white"
+              />
+            </div>
             <select
               value={filters.status}
-              onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
-              className="bg-transparent text-sm text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] border-none outline-none"
+              onChange={(e) => handleFilterChange('status', e.target.value)}
+              className="px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-800 dark:text-white"
             >
-              <option value="all">All</option>
+              <option value="all">All Status</option>
               <option value="pending">Pending</option>
               <option value="confirmed">Confirmed</option>
               <option value="shipped">Shipped</option>
@@ -111,347 +149,265 @@ const OrderHistoryPage: React.FC = () => {
               <option value="cancelled">Cancelled</option>
             </select>
           </div>
-          
-          <div className="flex items-center bg-white dark:bg-[color:var(--color-dark2)] rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2">
-            <span className="text-sm text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] opacity-60 mr-2">
-              Past 3 Month
-            </span>
-            <svg className="w-4 h-4 text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </div>
         </div>
 
-        {/* Orders List */}
-        {orders.length === 0 ? (
-          <div className="text-center py-16">
-            <div className="w-24 h-24 mx-auto mb-6 text-gray-400">
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-              </svg>
-            </div>
-            <h3 className="text-xl font-semibold text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] mb-2">
-              No orders found
-            </h3>
-            <p className="text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] opacity-70 mb-6">
-              {filters.status !== 'all' || filters.search ? 'Try adjusting your filters' : 'Start shopping to see your orders here'}
-            </p>
+        {/* Error Display */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
+            {error}
             <button
-              onClick={() => navigate('/products')}
-              className="bg-[color:var(--color-accent)] text-white px-6 py-3 rounded-lg font-semibold hover:bg-[color:var(--color-accent)]/80 transition-colors"
+              onClick={clearError}
+              className="ml-2 text-red-800 hover:text-red-900 underline"
             >
-              Start Shopping
+              Dismiss
             </button>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {orders.map((order) => (
-              <div key={order.order_id} className="bg-white dark:bg-[color:var(--color-dark2)] border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-                {/* Order Header */}
-                <div className="p-4 border-b border-gray-100 dark:border-gray-700">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="flex items-center gap-4">
-                      <div className="text-sm text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] opacity-70">
-                        Order placed
-                      </div>
-                      <div className="text-sm text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] opacity-70">
-                        Total
-                      </div>
-                      <div className="text-sm text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] opacity-70">
-                        Ship to
-                      </div>
-                    </div>
-                    <div className="text-sm text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] opacity-70">
-                      Order # {order.order_id}
-                    </div>
-                  </div>
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-1">
-                    <div className="flex items-center gap-4">
-                      <div className="text-sm text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)]">
-                        {new Date(order.order_date).toLocaleDateString('en-US', { 
-                          month: 'long', 
-                          day: 'numeric', 
-                          year: 'numeric' 
-                        })}
-                      </div>
-                      <div className="text-sm font-medium text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)]">
-                        ₹{order.total_amount.toLocaleString('en-IN')}
-                      </div>
-                      <div className="text-sm text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)]">
-                        {order.shipping_address.name}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={() => handleOrderClick(order)}
-                        className="text-sm text-[color:var(--color-accent)] hover:underline"
-                      >
-                        View order details
-                      </button>
-                      <button className="text-sm text-[color:var(--color-accent)] hover:underline">
-                        View invoice
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Review Banner */}
-                {order.status === 'delivered' && order.items.some(item => !order.reviews_submitted.includes(item.product_id)) && (
-                  <div className="bg-yellow-50 dark:bg-yellow-900/20 border-b border-yellow-200 dark:border-yellow-800 p-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <svg className="w-5 h-5 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
-                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                        </svg>
-                        <span className="text-sm text-yellow-800 dark:text-yellow-200">
-                          Please rate your experience with the seller
-                        </span>
-                      </div>
-                      <button className="text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
-                        ×
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Order Status */}
-                <div className="p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className={`px-2 py-1 text-xs font-medium rounded ${getStatusColor(order.status)}`}>
-                      {order.status === 'delivered' ? `Delivered ${new Date(order.estimated_delivery).toLocaleDateString('en-US', { 
-                        month: 'long', 
-                        day: 'numeric' 
-                      })}` : order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-                    </span>
-                  </div>
-
-                  {/* Order Items */}
-                  <div className="space-y-4">
-                    {order.items.map((item, index) => (
-                      <div key={index} className="flex items-start gap-4">
-                        <img
-                          src={item.image}
-                          alt={item.name}
-                          className="w-20 h-20 object-cover rounded-lg flex-shrink-0"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.src = 'https://via.placeholder.com/80x80?text=No+Image';
-                          }}
-                        />
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-medium text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] text-sm mb-1">
-                            {item.name}
-                          </h4>
-                          <p className="text-xs text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] opacity-70 mb-2">
-                            Return or replace items: Eligible through {new Date(Date.now() + 30*24*60*60*1000).toLocaleDateString('en-US', { 
-                              month: 'long', 
-                              day: 'numeric', 
-                              year: 'numeric' 
-                            })}
-                          </p>
-                          <div className="flex items-center gap-3">
-                            <button className="bg-[color:var(--color-accent)] text-white text-xs px-4 py-2 rounded hover:bg-[color:var(--color-accent)]/80 transition-colors flex items-center gap-2">
-                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                              </svg>
-                              Buy it again
-                            </button>
-                            <button className="text-[color:var(--color-accent)] text-xs hover:underline">
-                              View your item
-                            </button>
-                            {order.tracking_number && (
-                              <button className="text-[color:var(--color-accent)] text-xs hover:underline">
-                                Track package
-                              </button>
-                            )}
-                            {order.status === 'delivered' && !order.reviews_submitted.includes(item.product_id) && (
-                              <button
-                                onClick={() => handleReviewClick(order, item)}
-                                className="text-[color:var(--color-accent)] text-xs hover:underline"
-                              >
-                                Write a product review
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Delivery Info */}
-                  {order.tracking_number && (
-                    <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
-                      <p className="text-xs text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] opacity-70">
-                        Your package was delivered. It was handed directly to a resident.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
           </div>
         )}
 
-        {/* Order Details Modal */}
-        {selectedOrder && (
-          <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-[color:var(--color-dark2)] rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="sticky top-0 bg-white dark:bg-[color:var(--color-dark2)] border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
-                <h2 className="text-xl font-bold text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)]">
-                  Order Details - {selectedOrder.order_id}
-                </h2>
-                <button
-                  onClick={() => setSelectedOrder(null)}
-                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-
-              <div className="p-6 space-y-6">
-                {/* Order Status & Info */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <h3 className="text-lg font-semibold text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] mb-3">
-                      Order Information
-                    </h3>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] opacity-70">Status:</span>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(selectedOrder.status)}`}>
-                          {selectedOrder.status.charAt(0).toUpperCase() + selectedOrder.status.slice(1)}
+        {/* Orders List */}
+        {filteredOrders.length === 0 ? (
+          <div className="text-center py-16">
+            <div className="w-24 h-24 mx-auto mb-6 text-gray-400">
+              <Package className="w-full h-full" />
+            </div>
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+              No orders found
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400">
+              {filters.search || filters.status !== 'all' 
+                ? 'Try adjusting your search or filter criteria'
+                : 'You haven\'t placed any orders yet'
+              }
+            </p>
+            {!filters.search && filters.status === 'all' && (
+              <button
+                onClick={() => navigate('/products')}
+                className="mt-4 bg-accent text-white px-6 py-3 rounded-lg hover:bg-accent/80 transition-colors"
+              >
+                Start Shopping
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {filteredOrders.map((order) => (
+              <div key={order.id} className="bg-white dark:bg-dark2 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                {/* Order Header */}
+                <div className="p-4 border-b border-gray-100 dark:border-gray-700">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        {getStatusIcon(order.status)}
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
+                          {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
                         </span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] opacity-70">Order Date:</span>
-                        <span className="text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)]">
-                          {new Date(selectedOrder.order_date).toLocaleDateString()}
-                        </span>
+                      <div className="text-sm text-gray-600 dark:text-gray-400">
+                        Order # {order.id}
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] opacity-70">Payment Method:</span>
-                        <span className="text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)]">
-                          {selectedOrder.payment_method}
-                        </span>
-                      </div>
-                      {selectedOrder.tracking_number && (
-                        <div className="flex justify-between">
-                          <span className="text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] opacity-70">Tracking:</span>
-                          <span className="text-[color:var(--color-accent)] font-medium">
-                            {selectedOrder.tracking_number}
-                          </span>
-                        </div>
-                      )}
                     </div>
-                  </div>
-
-                  <div>
-                    <h3 className="text-lg font-semibold text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] mb-3">
-                      Delivery Address
-                    </h3>
-                    <div className="text-sm text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] opacity-70 space-y-1">
-                      <p className="font-medium text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)]">
-                        {selectedOrder.shipping_address.name}
-                      </p>
-                      <p>{selectedOrder.shipping_address.address}</p>
-                      <p>
-                        {selectedOrder.shipping_address.city}, {selectedOrder.shipping_address.state} - {selectedOrder.shipping_address.pincode}
-                      </p>
-                      <p>{selectedOrder.shipping_address.phone}</p>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mt-1">
+                      <div className="flex items-center gap-4">
+                        <div className="text-sm text-gray-600 dark:text-gray-400">
+                          {new Date(order.created_at).toLocaleDateString('en-US', { 
+                            month: 'long', 
+                            day: 'numeric', 
+                            year: 'numeric' 
+                          })}
+                        </div>
+                        <div className="text-lg font-semibold text-primary dark:text-secondary">
+                          ₹{order.total_amount.toLocaleString('en-IN')}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => handleOrderClick(order)}
+                        className="text-accent hover:text-accent/80 text-sm font-medium"
+                      >
+                        View Details
+                      </button>
                     </div>
                   </div>
                 </div>
 
-                {/* Order Items */}
-                <div>
-                  <h3 className="text-lg font-semibold text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] mb-4">
-                    Items Ordered ({selectedOrder.items.length})
-                  </h3>
-                  <div className="space-y-4">
-                    {selectedOrder.items.map((item, index) => (
-                      <div key={index} className="flex items-center space-x-4 p-4 bg-gray-50 dark:bg-[color:var(--color-dark1)] rounded-lg">
+                {/* Order Items Preview */}
+                <div className="p-4">
+                  <div className="space-y-3">
+                    {order.items.slice(0, 2).map((item, index) => (
+                      <div key={index} className="flex items-center gap-3">
                         <img
                           src={item.image}
                           alt={item.name}
                           className="w-16 h-16 object-cover rounded-lg"
                         />
                         <div className="flex-1">
-                          <h4 className="font-medium text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)]">
+                          <h4 className="font-medium text-primary dark:text-secondary">
                             {item.name}
                           </h4>
-                          <p className="text-sm text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] opacity-70">
-                            Color: {item.color} | Size: {item.size} | Qty: {item.quantity}
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            {item.color} • Size {item.size} • Qty {item.quantity}
                           </p>
-                          <div className="flex items-center space-x-2 mt-1">
-                            <span className="font-semibold text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)]">
-                              ₹{item.price}
-                            </span>
-                            {item.mrp > item.price && (
-                              <span className="text-sm text-gray-500 line-through">₹{item.mrp}</span>
-                            )}
-                          </div>
                         </div>
-                        {selectedOrder.status === 'delivered' && !selectedOrder.reviews_submitted.includes(item.product_id) && (
-                          <button
-                            onClick={() => handleReviewClick(selectedOrder, item)}
-                            className="bg-[color:var(--color-accent)] text-white px-4 py-2 rounded-lg font-medium hover:bg-[color:var(--color-accent)]/80 transition-colors"
-                          >
-                            Write Review
-                          </button>
-                        )}
+                        <div className="text-right">
+                          <p className="font-medium text-primary dark:text-secondary">
+                            ₹{(item.price * item.quantity).toLocaleString('en-IN')}
+                          </p>
+                        </div>
                       </div>
                     ))}
+                    {order.items.length > 2 && (
+                      <div className="text-center text-sm text-gray-600 dark:text-gray-400 pt-2">
+                        +{order.items.length - 2} more items
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Order Details Modal */}
+      {selectedOrder && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-dark2 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="sticky top-0 bg-white dark:bg-dark2 border-b border-gray-200 dark:border-gray-700 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-primary dark:text-secondary">
+                Order Details - {selectedOrder.id}
+              </h2>
+              <button
+                onClick={closeOrderDetails}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                <XCircle className="w-6 h-6" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 space-y-6">
+              {/* Order Info */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <h3 className="font-semibold text-primary dark:text-secondary mb-3">Order Information</h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">Order Date:</span>
+                      <span className="text-primary dark:text-secondary">
+                        {new Date(selectedOrder.created_at).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">Status:</span>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(selectedOrder.status)}`}>
+                        {selectedOrder.status.charAt(0).toUpperCase() + selectedOrder.status.slice(1)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">Payment Status:</span>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        selectedOrder.payment_status === 'completed' 
+                          ? 'bg-green-100 text-green-800' 
+                          : 'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {selectedOrder.payment_status.charAt(0).toUpperCase() + selectedOrder.payment_status.slice(1)}
+                      </span>
+                    </div>
                   </div>
                 </div>
 
-                {/* Order Summary */}
-                <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
-                  <h3 className="text-lg font-semibold text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] mb-4">
-                    Order Summary
-                  </h3>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] opacity-70">Subtotal:</span>
-                      <span className="text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)]">
-                        ₹{selectedOrder.total_amount - selectedOrder.tax_amount - selectedOrder.shipping_amount + selectedOrder.discount_amount}
-                      </span>
+                <div>
+                  <h3 className="font-semibold text-primary dark:text-secondary mb-3">Shipping Address</h3>
+                  <div className="text-sm text-gray-600 dark:text-gray-400">
+                    <p className="font-medium text-primary dark:text-secondary">{selectedOrder.shipping_address.name}</p>
+                    <p>{selectedOrder.shipping_address.address}</p>
+                    <p>{selectedOrder.shipping_address.city}, {selectedOrder.shipping_address.state} {selectedOrder.shipping_address.pincode}</p>
+                    <p>Phone: {selectedOrder.shipping_address.phone}</p>
+                    <p>Email: {selectedOrder.shipping_address.email}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Order Items */}
+              <div>
+                <h3 className="font-semibold text-primary dark:text-secondary mb-3">Order Items</h3>
+                <div className="space-y-3">
+                  {selectedOrder.items.map((item, index) => (
+                    <div key={index} className="flex items-center gap-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <img
+                        src={item.image}
+                        alt={item.name}
+                        className="w-20 h-20 object-cover rounded-lg"
+                      />
+                      <div className="flex-1">
+                        <h4 className="font-medium text-primary dark:text-secondary">{item.name}</h4>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          {item.color} • Size {item.size} • Qty {item.quantity}
+                        </p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-sm text-gray-500 line-through">₹{item.mrp}</span>
+                          <span className="font-medium text-primary dark:text-secondary">₹{item.price}</span>
+                          {item.discount_percentage > 0 && (
+                            <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded">
+                              {item.discount_percentage}% OFF
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-medium text-primary dark:text-secondary">
+                          ₹{(item.price * item.quantity).toLocaleString('en-IN')}
+                        </p>
+                      </div>
+                      {/* Add Review Button */}
+                      <button
+                        onClick={() => openReviewModal(item)}
+                        className="px-3 py-1 bg-accent text-white text-sm rounded hover:bg-accent/80 transition-colors"
+                      >
+                        Review
+                      </button>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] opacity-70">Discount:</span>
-                      <span className="text-green-600">-₹{selectedOrder.discount_amount}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] opacity-70">Tax:</span>
-                      <span className="text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)]">₹{selectedOrder.tax_amount}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] opacity-70">Shipping:</span>
-                      <span className="text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)]">
-                        {selectedOrder.shipping_amount === 0 ? 'Free' : `₹${selectedOrder.shipping_amount}`}
-                      </span>
-                    </div>
-                    <div className="border-t border-gray-200 dark:border-gray-700 pt-2 flex justify-between font-semibold">
-                      <span className="text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)]">Total:</span>
-                      <span className="text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)]">₹{selectedOrder.total_amount}</span>
-                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Order Summary */}
+              <div className="border-t pt-4">
+                <h3 className="font-semibold text-primary dark:text-secondary mb-3">Order Summary</h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 dark:text-gray-400">Subtotal:</span>
+                    <span>₹{selectedOrder.subtotal.toLocaleString('en-IN')}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 dark:text-gray-400">Discount:</span>
+                    <span className="text-green-600">-₹{selectedOrder.discount.toLocaleString('en-IN')}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600 dark:text-gray-400">Delivery:</span>
+                    <span className={selectedOrder.delivery_charge === 0 ? 'text-green-600' : ''}>
+                      {selectedOrder.delivery_charge === 0 ? 'Free' : `₹${selectedOrder.delivery_charge}`}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-lg font-semibold border-t pt-2">
+                    <span>Total:</span>
+                    <span>₹{selectedOrder.total_amount.toLocaleString('en-IN')}</span>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Review Modal */}
-        {reviewItem && (
-          <ReviewModal
-            order={reviewItem.order}
-            item={reviewItem.item}
-            onClose={() => setReviewItem(null)}
-          />
-        )}
-      </div>
+      {/* Review Modal */}
+      {showReviewModal && selectedOrder && selectedItem && (
+        <ReviewModal
+          order={selectedOrder}
+          item={selectedItem}
+          onClose={() => setShowReviewModal(false)}
+        />
+      )}
     </div>
   );
 };
