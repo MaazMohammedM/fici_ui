@@ -14,7 +14,7 @@ const getRazorpayKey = () => {
   if (typeof window !== 'undefined' && (window as any).__RAZORPAY_KEY__) return (window as any).__RAZORPAY_KEY__;
   if (typeof process !== 'undefined' && process.env?.REACT_APP_RAZORPAY_KEY_ID) return process.env.REACT_APP_RAZORPAY_KEY_ID;
   if (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_RAZORPAY_KEY_ID) return (import.meta as any).env.VITE_RAZORPAY_KEY_ID;
-  return 'rzp_test_YOUR_KEY';
+  return 'rzp_live_RBdz2DY7EJU3gs';
 };
 
 const loadRazorpayScript = (): Promise<void> => {
@@ -41,7 +41,7 @@ const CheckoutPage: React.FC = () => {
 
   const subtotal = useMemo(() => getCartTotal(), [getCartTotal]);
   const savings = useMemo(() => getCartSavings(), [getCartSavings]);
-  const deliveryCharge = subtotal > 999 ? 0 : 99;
+  const deliveryCharge = subtotal > 999 ? 0 : 0;
   const totalAmount = subtotal + deliveryCharge;
   const tax = 0; // compute if needed
 
