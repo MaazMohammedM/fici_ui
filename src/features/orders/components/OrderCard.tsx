@@ -74,14 +74,14 @@ const OrderCard: React.FC<OrderCardProps> = ({
               <span className="text-sm font-medium capitalize">{order.status}</span>
             </div>
             <div className="text-sm text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] opacity-70">
-              Order #{order.order_id}
+              Order #{order.id}
             </div>
           </div>
           
           <div className="flex items-center space-x-4">
             <div className="text-right">
               <div className="text-sm text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] opacity-70">
-                Ordered on {formatDate(order.order_date)}
+                Ordered on {formatDate(order.created_at)}
               </div>
               <div className="font-semibold text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)]">
                 Total: ₹{order.total_amount}
@@ -182,7 +182,7 @@ const OrderCard: React.FC<OrderCardProps> = ({
                   {order.status === 'delivered' ? 'Delivered on' : 'Expected delivery'}:
                 </span>
                 <span className="ml-2 font-medium text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)]">
-                  {formatDate(order.estimated_delivery)}
+                  {formatDate(order.estimated_delivery?order.estimated_delivery:'')}
                 </span>
               </div>
               

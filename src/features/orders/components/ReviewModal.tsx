@@ -35,12 +35,13 @@ const ReviewModal: React.FC<ReviewModalProps> = ({ order, item, onClose }) => {
 
     try {
       await submitReview({
-        order_id: order.order_id,
+        order_id: order.id,
         product_id: item.product_id,
         user_id: user.id,
         rating,
         title,
         comment,
+        is_verified_purchase: true, // Fixed: Added the missing property
         images: [], // In production, you'd upload images first
       });
 

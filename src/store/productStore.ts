@@ -49,7 +49,41 @@ const safeParseSizes = (value: any): Record<string, number> => {
   return {};
 };
 
-// Helper function to calculate discount percentage
+// Helper function to parse images - handles comma-separated strings
+const parseImages = (images: any): string[] => {
+  if (!images) return [];
+  
+  // If it's already an array, filter valid URLs
+  if (Array.isArray(images)) {
+    return images.filter(img => img && typeof img === 'string' && img.trim() !== '');
+  }
+  
+  // If it's a string, check if it's comma-separated URLs
+  if (typeof images === 'string') {
+    const trimmed = images.trim();
+    if (!trimmed) return [];
+    
+    // Check if it starts with http (likely comma-separated URLs)
+    if (trimmed.startsWith('http')) {
+      return trimmed.split(',').map(url => url.trim()).filter(url => url !== '');
+    }
+    
+    // Try to parse as JSON
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return parsed.filter(img => img && typeof img === 'string' && img.trim() !== '');
+      }
+      return [];
+    } catch (e) {
+      // If JSON parsing fails and it's not a URL, treat as single image
+      return [trimmed];
+    }
+  }
+  
+  return [];
+};
+
 // Helper function to calculate discount percentage on client side (fallback)
 const calculateDiscountPercentage = (mrpPrice: string, discountPrice: string): number => {
   try {
@@ -119,11 +153,11 @@ export const useProductStore = create<ProductState>((set, get) => ({
         return;
       }
 
-      // Process products with discount calculation
+      // Process products with proper image parsing and discount calculation
       const processedProducts = (data || []).map(product => ({
         ...product,
         sizes: safeParseSizes(product.sizes),
-        images: Array.isArray(product.images) ? product.images : [],
+        images: parseImages(product.images), // Use the new parseImages function
         thumbnail_url: product.thumbnail_url || null,
         discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price)
       }));
@@ -163,7 +197,7 @@ export const useProductStore = create<ProductState>((set, get) => ({
       const parsedProducts = (data || []).map(product => ({
         ...product,
         sizes: safeParseSizes(product.sizes),
-        images: Array.isArray(product.images) ? product.images : [],
+        images: parseImages(product.images), // Use the new parseImages function
         discount_percentage: product.discount_percentage || calculateDiscountPercentage(product.mrp_price, product.discount_price)
       }));
 
@@ -181,6 +215,7 @@ export const useProductStore = create<ProductState>((set, get) => ({
       set({ loading: false });
     }
   },
+
   fetchProductByArticleId: async (articleId: string) => {
     set({ loading: true, error: null });
     
@@ -200,7 +235,7 @@ export const useProductStore = create<ProductState>((set, get) => ({
         const processedProducts = data.map(product => ({
           ...product,
           sizes: safeParseSizes(product.sizes),
-          images: Array.isArray(product.images) ? product.images : [],
+          images: parseImages(product.images), // Use the new parseImages function
           thumbnail_url: product.thumbnail_url || null,
           discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price)
         }));
@@ -271,7 +306,7 @@ export const useProductStore = create<ProductState>((set, get) => ({
           const processedProducts = allProducts.map(product => ({
             ...product,
             sizes: safeParseSizes(product.sizes),
-            images: Array.isArray(product.images) ? product.images : [],
+            images: parseImages(product.images), // Use the new parseImages function
             thumbnail_url: product.thumbnail_url || null,
             discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price)
           }));
@@ -287,7 +322,7 @@ export const useProductStore = create<ProductState>((set, get) => ({
       const processedProducts = (data || []).map(product => ({
         ...product,
         sizes: safeParseSizes(product.sizes),
-        images: Array.isArray(product.images) ? product.images : [],
+        images: parseImages(product.images), // Use the new parseImages function
         thumbnail_url: product.thumbnail_url || null,
         discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price)
       }));
@@ -375,4 +410,4 @@ export const useProductStore = create<ProductState>((set, get) => ({
   },
 
   clearError: () => set({ error: null })
-})); 
+}));

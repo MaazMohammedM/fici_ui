@@ -20,6 +20,7 @@ const Header: React.FC = () => {
     { label: 'Products', path: '/products' },
     { label: 'About', path: '/about' },
     { label: 'Contact', path: '/contact' },
+    { label: 'Orders', path: '/orders' },
     ...(role === 'admin' ? [{ label: 'Admin', path: '/admin' }] : [])
   ];
 
