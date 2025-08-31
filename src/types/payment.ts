@@ -61,16 +61,23 @@ export interface CheckoutFormData {
 }
 
 export interface PaymentDetails {
-  id: string;
+  payment_id?: string;
   order_id: string;
-  razorpay_order_id: string;
-  razorpay_payment_id: string;
+  user_id: string;
+  provider?: string;
+  payment_status: 'pending' | 'completed' | 'failed' | 'paid';
+  payment_method: string;
   amount: number;
   currency: string;
-  status: 'pending' | 'completed' | 'failed';
-  payment_method: string;   // <-- Required
-  created_at: string;
-  updated_at: string;
+  payment_reference?: string;
+  paid_at?: string;
+  updated_at?: string;
+}
+
+export interface PaymentResponse {
+  razorpay_order_id: string;
+  razorpay_payment_id: string;
+  razorpay_signature: string;
 }
 
 export interface RazorpayOrder {
@@ -83,7 +90,7 @@ export interface RazorpayOrder {
 
 export interface PaymentResponse {
   razorpay_order_id: string;
-  razorpay_payment_id: string;
+  payment_reference: string;
   razorpay_signature: string;
 }
 

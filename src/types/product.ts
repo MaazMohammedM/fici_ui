@@ -3,11 +3,11 @@ export interface Product {
   article_id: string;
   name: string;
   description?: string;
-  brand?: string;
+  sub_category?: string;
   mrp_price: string;
   discount_price: string;
   gender: 'men' | 'women' | 'unisex';
-  category: 'shoes' | 'sandals' | 'chappals';
+  category: 'Footwear' | 'Bags and Accessories';
   sizes: Record<string, number>;
   images: string[];
   thumbnail_url?: string;
@@ -20,7 +20,7 @@ export interface ProductDetail {
   article_id: string;
   name: string;
   description?: string;
-  brand?: string;
+  sub_category?: string;
   variants: Product[];
   category: string;
   gender: string;

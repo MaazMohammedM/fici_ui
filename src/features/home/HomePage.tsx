@@ -5,7 +5,7 @@ import PopularCategoriesSection from './components/PopularCategoriesSection';
 
 const HomePage: React.FC = () => {
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-[color:var(--color-light1)] dark:bg-[color:var(--color-dark1)]">
       <HeroSection />
       <PopularCategoriesSection />
       <TopDealsSection />

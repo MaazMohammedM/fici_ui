@@ -89,16 +89,7 @@ const EditProductForm: React.FC<EditProductFormProps> = ({ product, onCancel }) 
           />
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-white">
-            Brand
-          </label>
-          <input 
-            {...register('brand')} 
-            placeholder="Brand name" 
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white" 
-          />
-        </div>
+
 
         {/* Pricing */}
         <div>
@@ -159,13 +150,23 @@ const EditProductForm: React.FC<EditProductFormProps> = ({ product, onCancel }) 
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white"
           >
             <option value="">Select Category</option>
-            <option value="shoes">Shoes</option>
-            <option value="sandals">Sandals</option>
-            <option value="chappals">Chappals</option>
+            <option value="Footwear">Footwear</option>
+            <option value="Bags and Accessories">Bags and Accessories</option>
           </select>
           {errors.category && (
             <p className="text-red-500 text-sm mt-1">{errors.category.message}</p>
           )}
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-white">
+            SubCategory
+          </label>
+          <input 
+            {...register('sub_category')} 
+            placeholder="SubCategory name" 
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white" 
+          />
         </div>
 
         {/* Size Manager */}

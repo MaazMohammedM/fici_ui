@@ -6,11 +6,8 @@ import { contactSchema } from './schema/contactSchema';
 import type { ContactFormData } from './types/contactTypes';
 import { useContactStore } from '@store/contactStore';
 import emailjs from 'emailjs-com';
-
-import { FiFacebook, FiInstagram, FiLinkedin } from 'react-icons/fi';
-import {
-  MessageCircleIcon
-} from 'lucide-react';
+import { FaFacebook, FaInstagram, FaWhatsapp } from 'react-icons/fa';
+import { FaX } from 'react-icons/fa6';
 
 const ContactForm: React.FC = () => {
   const { resetFormData } = useContactStore();
@@ -62,123 +59,141 @@ const ContactForm: React.FC = () => {
   };
 
   return (
-    <main className="flex flex-col justify-between">
-      <div className="flex flex-col justify-center items-center px-6 py-10 flex-grow">
-        <div className="max-w-5xl w-full text-center mb-10">
-          <h1 className="text-5xl font-secondary font-bold text-accent mb-4">Contact Us</h1>
-          <p className="text-lg text-primary dark:text-gray-300 mb-8">
+    <main className="flex flex-col justify-between min-h-screen">
+      <div className="flex flex-col justify-center items-center px-4 sm:px-6 lg:px-8 py-8 sm:py-10 lg:py-12 flex-grow">
+        <div className="max-w-5xl w-full text-center mb-8 sm:mb-10">
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-secondary font-bold text-[color:var(--color-accent)] mb-4 sm:mb-6">
+            Contact Us
+          </h1>
+          <p className="text-base sm:text-lg lg:text-xl text-[color:var(--color-primary)] dark:text-gray-300 mb-6 sm:mb-8 px-4">
             We'd love to hear from you. Feel free to reach out!
           </p>
 
           {/* Contact Info Grid - Mobile Responsive */}
-          <div className="grid grid-cols-2 md:flex md:flex-row justify-center gap-6 md:gap-12 text-left text-primary dark:text-gray-300">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 justify-center gap-4 sm:gap-6 lg:gap-8 lg:gap-12 text-left text-[color:var(--color-primary)] dark:text-gray-300 px-4">
             {/* First Row - Address and Phone */}
-            <div className="col-span-1">
-              <p className="font-semibold text-lg">Address</p>
-              <p className="text-sm">4568, Flower Street<br />San Francisco, CA</p>
+            <div className="col-span-1 sm:col-span-1">
+              <p className="font-semibold text-base sm:text-lg mb-2">Address</p>
+              <p className="text-sm sm:text-base">4568, Flower Street<br />San Francisco, CA</p>
             </div>
 
-            <div className="col-span-1">
-              <p className="font-semibold text-lg">Phone</p>
-              <p className="text-sm">+01 345 654 6542</p>
+            <div className="col-span-1 sm:col-span-1">
+              <p className="font-semibold text-base sm:text-lg mb-2">Phone</p>
+              <p className="text-sm sm:text-base">+91 81220 03006</p>
             </div>
 
             {/* Second Row - Email and Follow Us */}
-            <div className="col-span-1">
-              <p className="font-semibold text-lg">Email</p>
-              <p className="text-sm">hello@fici-leather.com</p>
+            <div className="col-span-1 sm:col-span-1">
+              <p className="font-semibold text-base sm:text-lg mb-2">Email</p>
+              <p className="text-sm sm:text-base">info@.com</p>
             </div>
 
-            <div className="col-span-1">
-              <p className="font-semibold text-lg">Follow Us</p>
-              <div className="flex gap-3 mt-2">
+            <div className="col-span-1 sm:col-span-1">
+              <p className="font-semibold text-base sm:text-lg mb-2">Follow Us</p>
+              <div className="flex space-x-3 sm:space-x-4">
                 <a
                   href="https://www.facebook.com/FICI-Shoes"
                   target="_blank"
                   rel="noopener noreferrer"
+                  className="p-2 rounded-lg hover:bg-[color:var(--color-accent)]/10 transition-colors"
                 >
-                  <FiFacebook className="w-4 h-4 cursor-pointer text-primary dark:text-white hover:text-accent" />
+                  <FaFacebook className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 hover:text-[color:var(--color-accent)] transition-colors" />
+                </a>
+                <a
+                  href="https://x.com/ficiShoes"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-2 rounded-lg hover:bg-[color:var(--color-accent)]/10 transition-colors"
+                >
+                  <FaX className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 hover:text-[color:var(--color-accent)] transition-colors" />
                 </a>
                 <a
                   href="https://www.instagram.com/FICI_Shoes"
                   target="_blank"
                   rel="noopener noreferrer"
+                  className="p-2 rounded-lg hover:bg-[color:var(--color-accent)]/10 transition-colors"
                 >
-                  <FiInstagram className="w-4 h-4 cursor-pointer text-primary dark:text-white hover:text-accent" />
+                  <FaInstagram className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 hover:text-[color:var(--color-accent)] transition-colors" />
                 </a>
                 <a
                   href="https://wa.me/918122003006"
                   target="_blank"
                   rel="noopener noreferrer"
+                  className="p-2 rounded-lg hover:bg-[color:var(--color-accent)]/10 transition-colors"
                 >
-                  <MessageCircleIcon className="w-4 h-4 cursor-pointer text-primary dark:text-white hover:text-accent" />
-                </a>
-                <a
-                  href="https://www.linkedin.com/company/fici-shoes"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <FiLinkedin className="w-4 h-4 cursor-pointer text-primary dark:text-white hover:text-accent" />
+                  <FaWhatsapp className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 hover:text-[color:var(--color-accent)] transition-colors" />
                 </a>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="max-w-3xl w-full bg-secondary dark:bg-dark2 p-10 rounded-2xl shadow-xl border border-secondary/30">
-          <h2 className="text-3xl font-bold text-center mb-6 text-primary dark:text-accent">Get In Touch</h2>
+        <div className="max-w-3xl w-full bg-[color:var(--color-secondary)] dark:bg-[color:var(--color-dark2)] p-6 sm:p-8 lg:p-10 rounded-2xl shadow-xl border border-[color:var(--color-secondary)]/30">
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-center mb-6 sm:mb-8 text-[color:var(--color-primary)] dark:text-[color:var(--color-accent)]">
+            Get In Touch
+          </h2>
 
           {status && (
-            <p className={`text-center mb-4 font-medium ${statusType === 'success' ? 'text-green-500' : 'text-red-500'}`}>{status}</p>
+            <p className={`text-center mb-4 sm:mb-6 font-medium text-sm sm:text-base ${
+              statusType === 'success' ? 'text-green-500' : 'text-red-500'
+            }`}>
+              {status}
+            </p>
           )}
 
-          <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
+          <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+            <div className="sm:col-span-1">
               <input
                 {...register('name')}
                 placeholder="Name"
-                className="w-full px-4 py-3 rounded-lg border border-secondary bg-white dark:bg-dark1 text-black dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-accent"
+                className="w-full px-3 sm:px-4 py-3 sm:py-4 rounded-lg border border-[color:var(--color-secondary)] bg-white dark:bg-[color:var(--color-dark1)] text-black dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[color:var(--color-accent)] text-sm sm:text-base"
               />
-              {errors.name && <p className="text-xs text-red-500 mt-1 italic">{errors.name.message}</p>}
+              {errors.name && <p className="text-xs sm:text-sm text-red-500 mt-1 italic">{errors.name.message}</p>}
             </div>
 
-            <div>
+            <div className="sm:col-span-1">
               <input
                 {...register('email')}
                 placeholder="Email"
-                className="w-full px-4 py-3 rounded-lg border border-secondary bg-white dark:bg-dark1 text-black dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-accent"
+                className="w-full px-3 sm:px-4 py-3 sm:py-4 rounded-lg border border-[color:var(--color-secondary)] bg-white dark:bg-[color:var(--color-dark1)] text-black dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[color:var(--color-accent)] text-sm sm:text-base"
               />
-              {errors.email && <p className="text-xs text-red-500 mt-1 italic">{errors.email.message}</p>}
+              {errors.email && <p className="text-xs sm:text-sm text-red-500 mt-1 italic">{errors.email.message}</p>}
             </div>
 
-            <div>
+            <div className="sm:col-span-1">
               <input
                 {...register('phone')}
                 placeholder="Phone"
-                className="w-full px-4 py-3 rounded-lg border border-secondary bg-white dark:bg-dark1 text-black dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-accent"
+                className="w-full px-3 sm:px-4 py-3 sm:py-4 rounded-lg border border-[color:var(--color-secondary)] bg-white dark:bg-[color:var(--color-dark1)] text-black dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[color:var(--color-accent)] text-sm sm:text-base"
               />
-              {errors.phone && <p className="text-xs text-red-500 mt-1 italic">{errors.phone.message}</p>}
+              {errors.phone && <p className="text-xs sm:text-sm text-red-500 mt-1 italic">{errors.phone.message}</p>}
             </div>
 
-            <div className="flex items-center gap-2">
-              <input type="checkbox" {...register('isBusiness')} className="accent-accent size-5" />
-              <label className="text-sm text-primary dark:text-white">Business Inquiry?</label>
+            <div className="sm:col-span-1 flex items-center gap-2 sm:gap-3">
+              <input 
+                type="checkbox" 
+                {...register('isBusiness')} 
+                className="accent-[color:var(--color-accent)] size-4 sm:size-5" 
+              />
+              <label className="text-sm sm:text-base text-[color:var(--color-primary)] dark:text-white">
+                Business Inquiry?
+              </label>
             </div>
 
-            <div className="md:col-span-2">
+            <div className="sm:col-span-2">
               <textarea
                 {...register('message')}
                 placeholder="Your Message"
                 rows={5}
-                className="w-full px-4 py-3 rounded-lg border border-secondary bg-white dark:bg-dark1 text-black dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-accent"
+                className="w-full px-3 sm:px-4 py-3 sm:py-4 rounded-lg border border-[color:var(--color-secondary)] bg-white dark:bg-[color:var(--color-dark1)] text-black dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[color:var(--color-accent)] text-sm sm:text-base resize-none"
               />
-              {errors.message && <p className="text-xs text-red-500 mt-1 italic">{errors.message.message}</p>}
+              {errors.message && <p className="text-xs sm:text-sm text-red-500 mt-1 italic">{errors.message.message}</p>}
             </div>
 
-            <div className="md:col-span-2 text-center">
+            <div className="sm:col-span-2 text-center">
               <button
                 type="submit"
-                className="px-8 py-3 bg-accent text-white font-semibold rounded-lg shadow-md hover:bg-primary-active transition"
+                className="w-full sm:w-auto px-6 sm:px-8 lg:px-10 py-3 sm:py-4 bg-[color:var(--color-accent)] text-white font-semibold rounded-lg shadow-md hover:bg-[color:var(--color-primary-active)] transition-all duration-200 text-sm sm:text-base lg:text-lg"
               >
                 SEND REQUEST
               </button>

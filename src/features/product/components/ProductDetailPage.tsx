@@ -70,7 +70,8 @@ const ProductDetailPage: React.FC = () => {
         price: parseFloat(selectedVariant.discount_price),
         mrp: parseFloat(selectedVariant.mrp_price),
         quantity,
-        discount_percentage: selectedVariant.discount_percentage
+        discount_percentage: selectedVariant.discount_percentage,
+        thumbnail_url:selectedVariant.thumbnail_url||'',
       });
     }
   };

@@ -19,7 +19,7 @@ export const useProductForm = () => {
       article_id: '',
       name: '',
       description: '',
-      brand: '',
+      sub_category: '',
       color: '', // Include color field in form
       mrp_price: '',
       discount_price: '',

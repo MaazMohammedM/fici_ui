@@ -61,7 +61,8 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode }) => {
       price: parseFloat(product.discount_price),
       mrp: parseFloat(product.mrp_price),
       quantity: 1,
-      discount_percentage: discountPercentage
+      discount_percentage: discountPercentage,
+      thumbnail_url: product.thumbnail_url
     });
   };
 

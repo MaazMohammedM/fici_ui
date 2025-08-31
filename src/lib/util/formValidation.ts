@@ -5,7 +5,7 @@ export const enhancedProductSchema = z.object({
   name: z.string().min(2, 'Product name must be at least 2 characters'),
   description: z.string().optional(),
   color: z.string(),
-  brand: z.string().optional(),
+  sub_category: z.string().optional(),
   mrp_price: z.string().min(1, 'MRP price is required'),
   discount_price: z.string().min(1, 'Discount price is required'),
   gender: z.string().nonempty('Please select a gender'),
@@ -19,7 +19,7 @@ export const enhancedProductSchema = z.object({
 export const editProductSchema = z.object({
   name: z.string().min(2, 'Product name must be at least 2 characters'),
   description: z.string().optional(),
-  brand: z.string().optional(),
+  sub_category: z.string().optional(),
   mrp_price: z.string().min(1, 'MRP price is required'),
   discount_price: z.string().min(1, 'Discount price is required'),
   gender: z.string().nonempty('Please select a gender'),
