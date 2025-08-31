@@ -2,92 +2,208 @@ import { create } from 'zustand';
 import { supabase } from '@lib/supabase';
 import type { Order, Review, OrderFilters } from '../types/order';
 
-// Mock orders data (you can move this to a separate file if needed)
-const mockOrders: Order[] = [];
-
 interface OrderState {
   orders: Order[];
   currentOrder: Order | null;
   reviews: Review[];
+  userReviews: Review[]; // User's own reviews
   loading: boolean;
   error: string | null;
-  fetchOrders: (userId: string, filters?: OrderFilters) => Promise<void>;
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+  fetchOrders: (userId: string, filters?: OrderFilters & { page?: number; limit?: number }) => Promise<void>;
   fetchOrderById: (orderId: string) => Promise<void>;
   createOrder: (orderData: Omit<Order, 'id' | 'created_at'>) => Promise<string | null>;
   updateOrderStatus: (orderId: string, status: Order['status']) => Promise<void>;
   submitReview: (review: Omit<Review, 'review_id' | 'created_at'>) => Promise<void>;
+  updateReview: (reviewId: string, updates: Partial<Review>) => Promise<void>;
   fetchReviews: (productId: string) => Promise<void>;
+  fetchUserReviews: (userId: string) => Promise<void>;
   clearError: () => void;
+  setPage: (page: number) => void;
 }
 
 export const useOrderStore = create<OrderState>((set, get) => ({
   orders: [],
   currentOrder: null,
   reviews: [],
+  userReviews: [],
   loading: false,
   error: null,
+  pagination: {
+    total: 0,
+    page: 1,
+    limit: 10,
+    totalPages: 0
+  },
 
-  fetchOrders: async (userId: string, filters?: OrderFilters) => {
+  setPage: (page: number) => {
+    set(state => ({
+      pagination: { ...state.pagination, page }
+    }));
+  },
+
+  fetchOrders: async (userId: string, filters?: OrderFilters & { page?: number; limit?: number }) => {
     set({ loading: true, error: null });
     try {
-      let filteredOrders = mockOrders.filter((order: Order) => order.user_id === userId);
-      if (filters?.status && filters.status !== 'all') {
-        filteredOrders = filteredOrders.filter((order: Order) => order.status === filters.status);
+      const page = filters?.page || 1;
+      const limit = filters?.limit || 50;
+  
+      // Join orders with order_items
+      let query = supabase
+        .from("orders")
+        .select(`
+          *,
+          order_items (*)
+        `, { count: "exact" })
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false });
+  
+      if (filters?.status && filters.status !== "all") {
+        query = query.eq("status", filters.status);
       }
-      if (filters?.search) {
-        const searchLower = filters.search.toLowerCase();
-        filteredOrders = filteredOrders.filter((order: Order) =>
-          order.id.toLowerCase().includes(searchLower) ||
-          order.items.some((item: any) => item.name.toLowerCase().includes(searchLower))
-        );
-      }
-      filteredOrders.sort((a: Order, b: Order) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-      set({ 
-        orders: filteredOrders,
-        loading: false 
+  
+      const { data, error, count } = await query.range((page - 1) * limit, page * limit - 1);
+  
+      if (error) throw error;
+  
+      // Transform the data to match our Order type
+      const transformedOrders: Order[] = (data || []).map((order: any) => ({
+        id: order.order_id,
+        user_id: order.user_id,
+        items: order.order_items || [], // now items come from order_items table
+        subtotal: order.subtotal || 0,
+        discount: order.discount || 0,
+        delivery_charge: order.delivery_charge || 0,
+        total_amount: order.total_amount || 0,
+        status: order.status || "pending",
+        payment_status: order.payment_status || "pending",
+        payment_method: order.payment_method || "razorpay",
+        shipping_address: order.shipping_address || {},
+        created_at: order.created_at || order.order_date || new Date().toISOString(),
+        order_date: order.order_date
+      }));
+  
+      const totalPages = Math.ceil((count || 0) / limit);
+  
+      set({
+        orders: transformedOrders,
+        pagination: {
+          total: count || 0,
+          page,
+          limit,
+          totalPages
+        },
+        loading: false
       });
-    } catch (error) {
-      console.error('Error fetching:', error);
-      set({ error: 'Failed to fetch', loading: false });
+    } catch (error: any) {
+      console.error("Error fetching orders:", error);
+      set({ error: error.message || "Failed to fetch orders", loading: false });
+    }
+  },
+  
+
+  fetchUserReviews: async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('reviews')
+        .select('*')
+        .eq('user_id', userId);
+
+      if (error) throw error;
+
+      const reviews: Review[] = (data || []).map((item: any) => ({
+        review_id: item.review_id,
+        product_id: item.product_id,
+        user_id: item.user_id,
+        rating: item.rating,
+        comment: item.comment,
+        title: item.title || '',
+        is_verified_purchase: item.is_verified_purchase,
+        created_at: item.created_at,
+      }));
+
+      set({ userReviews: reviews });
+    } catch (error: any) {
+      console.error('Error fetching user reviews:', error);
     }
   },
 
-  fetchOrderById: async (orderId: string) => {
-    set({ loading: true, error: null });
-    
-    try {
-      const order = mockOrders.find((o: Order) => o.id === orderId);
-      
-      if (order) {
-        set({ currentOrder: order, loading: false });
-      } else {
-        set({ error: 'Order not found', loading: false });
-      }
-      
-    } catch (error) {
-      console.error('Error fetching :', error);
-      set({ error: 'Failed to fetch details', loading: false });
+fetchOrderById: async (orderId: string) => {
+  set({ loading: true, error: null });
+  
+  try {
+    const { data, error } = await supabase
+      .from("orders")
+      .select(`
+        *,
+        order_items (*)
+      `)
+      .eq("order_id", orderId)
+      .single();
+
+    if (error) throw error;
+
+    if (data) {
+      const transformedOrder: Order = {
+        id: data.order_id,
+        user_id: data.user_id,
+        items: data.order_items || [], // includes products
+        subtotal: data.subtotal || 0,
+        discount: data.discount || 0,
+        delivery_charge: data.delivery_charge || 0,
+        total_amount: data.total_amount || 0,
+        status: data.status || "pending",
+        payment_status: data.payment_status || "pending",
+        payment_method: data.payment_method || "razorpay",
+        shipping_address: data.shipping_address || {},
+        created_at: data.created_at || new Date().toISOString(),
+        order_date: data.order_date
+      };
+
+      set({ currentOrder: transformedOrder, loading: false });
+    } else {
+      set({ error: "Order not found", loading: false });
     }
-  },
+    
+  } catch (error: any) {
+    console.error("Error fetching order:", error);
+    set({ error: error.message || "Failed to fetch order details", loading: false });
+  }
+},
 
   createOrder: async (orderData) => {
     set({ loading: true, error: null });
-    
     try {
-      const orderId = `ORD${Date.now()}`;
-      const newOrder: Order = {
-        ...orderData,
-        id: orderId,
-        created_at: new Date().toISOString()
-      };
-      mockOrders.unshift(newOrder);
-      
+      const { data: orderResult, error: orderError } = await supabase
+        .from("orders")
+        .insert([{
+          user_id: orderData.user_id,
+          items: orderData.items,
+          subtotal: orderData.subtotal,
+          discount: orderData.discount,
+          delivery_charge: orderData.delivery_charge,
+          total_amount: orderData.total_amount,
+          status: orderData.status,
+          payment_status: orderData.payment_status,
+          payment_method: orderData.payment_method,
+          shipping_address: orderData.shipping_address,
+          order_date: new Date().toISOString()
+        }])
+        .select("order_id")
+        .single();
+
+      if (orderError) throw orderError;
+
       set({ loading: false });
-      return orderId;
-      
-    } catch (error) {
-      console.error('Error creating:', error);
-      set({ error: 'Failed to create', loading: false });
+      return orderResult.order_id;
+    } catch (error: any) {
+      console.error("Error creating order:", error);
+      set({ error: error.message || "Failed to create order", loading: false });
       return null;
     }
   },
@@ -96,11 +212,17 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     set({ loading: true, error: null });
     
     try {
-      const orderIndex = mockOrders.findIndex((o: Order) => o.id === orderId);
-      if (orderIndex !== -1) {
-        mockOrders[orderIndex].status = status;
-      }
-      
+      const { error } = await supabase
+        .from('orders')
+        .update({ 
+          status,
+          updated_at: new Date().toISOString()
+        })
+        .eq('order_id', orderId);
+
+      if (error) throw error;
+
+      // Update local state
       const { orders, currentOrder } = get();
       const updatedOrders = orders.map((order: Order) =>
         order.id === orderId ? { ...order, status } : order
@@ -114,9 +236,9 @@ export const useOrderStore = create<OrderState>((set, get) => ({
         loading: false 
       });
       
-    } catch (error) {
-      console.error('Error updating status:', error);
-      set({ error: 'Failed to update status', loading: false });
+    } catch (error: any) {
+      console.error('Error updating order status:', error);
+      set({ error: error.message || 'Failed to update order status', loading: false });
     }
   },
 
@@ -124,58 +246,79 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     set({ loading: true, error: null });
     
     try {
-      // Insert review into Supabase
-      const {data, error } = await supabase
+      const { data, error } = await supabase
         .from('reviews')
         .insert({
-          order_id: review.order_id,
           product_id: review.product_id,
           user_id: review.user_id,
           rating: review.rating,
           comment: review.comment,
-          title: review.title || '', // Add default title if missing
-          images: review.images || [], // Add default images if missing
-          is_verified_purchase: true
+          title: review.title || '',
+          is_verified_purchase: true,
         })
         .select()
         .single();
-        console.log("Data",data);
 
       if (error) throw error;
 
-      const orderIndex = mockOrders.findIndex((o: Order) => o.id === review.order_id);
-      if (orderIndex !== -1) {
-        if (!mockOrders[orderIndex].reviews_submitted.includes(review.product_id)) {
-          mockOrders[orderIndex].reviews_submitted.push(review.product_id);
-        }
-      }
+      // Update local userReviews state
+      const { userReviews } = get();
+      const newReview: Review = {
+        review_id: data.review_id,
+        product_id: data.product_id,
+        user_id: data.user_id,
+        rating: data.rating,
+        comment: data.comment,
+        title: data.title || '',
+        is_verified_purchase: data.is_verified_purchase,
+        created_at: data.created_at,
+      };
 
-      // Update local state
-      const { orders, currentOrder } = get();
-      const updatedOrders = orders.map((order: Order) => {
-        if (order.id === review.order_id) {
-          return {
-            ...order,
-            reviews_submitted: [...order.reviews_submitted, review.product_id]
-          };
-        }
-        return order;
-      });
-      
       set({ 
-        orders: updatedOrders,
-        currentOrder: currentOrder?.id === review.order_id 
-          ? { 
-              ...currentOrder, 
-              reviews_submitted: [...currentOrder.reviews_submitted, review.product_id] 
-            }
-          : currentOrder,
+        userReviews: [...userReviews, newReview],
         loading: false 
       });
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error submitting review:', error);
-      set({ error: 'Failed to submit review', loading: false });
+      set({ error: error.message || 'Failed to submit review', loading: false });
+    }
+  },
+
+  updateReview: async (reviewId: string, updates: Partial<Review>) => {
+    set({ loading: true, error: null });
+    
+    try {
+      const { data, error } = await supabase
+        .from('reviews')
+        .update({
+          rating: updates.rating,
+          comment: updates.comment,
+          title: updates.title,
+          updated_at: new Date().toISOString()
+        })
+        .eq('review_id', reviewId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Update local userReviews state
+      const { userReviews } = get();
+      const updatedUserReviews = userReviews.map(review => 
+        review.review_id === reviewId 
+          ? { ...review, ...updates, updated_at: data.updated_at }
+          : review
+      );
+
+      set({ 
+        userReviews: updatedUserReviews,
+        loading: false 
+      });
+      
+    } catch (error: any) {
+      console.error('Error updating review:', error);
+      set({ error: error.message || 'Failed to update review', loading: false });
     }
   },
 
@@ -183,20 +326,18 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     set({ loading: true, error: null });
     
     try {
-      // Fetch reviews from Supabase
       const { data, error } = await supabase
         .from('reviews')
         .select(`
           review_id,
-          order_id,
           product_id,
           user_id,
           rating,
           comment,
           title,
-          images,
           is_verified_purchase,
           created_at,
+          updated_at,
           users (
             full_name,
             avatar_url
@@ -207,27 +348,25 @@ export const useOrderStore = create<OrderState>((set, get) => ({
 
       if (error) throw error;
 
-      // Transform the data to match your Review type
       const reviews: Review[] = (data || []).map((item: any) => ({
         review_id: item.review_id,
-        order_id: item.order_id,
         product_id: item.product_id,
         user_id: item.user_id,
         rating: item.rating,
         comment: item.comment,
         title: item.title || '',
-        images: item.images || [],
         is_verified_purchase: item.is_verified_purchase,
         created_at: item.created_at,
-        user_name: item.users?.[0]?.full_name || item.users?.full_name || 'Anonymous',
-        user_avatar: item.users?.[0]?.avatar_url || item.users?.avatar_url || null
+        updated_at: item.updated_at,
+        user_name: item.users?.full_name || 'Anonymous',
+        user_avatar: item.users?.avatar_url || null
       }));
 
       set({ reviews, loading: false });
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching reviews:', error);
-      set({ error: 'Failed to fetch reviews', loading: false });
+      set({ error: error.message || 'Failed to fetch reviews', loading: false });
     }
   },
 

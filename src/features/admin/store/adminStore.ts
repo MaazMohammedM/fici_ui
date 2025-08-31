@@ -7,11 +7,11 @@ interface Product {
   product_id: string;
   name: string;
   description?: string;
-  brand?: string;
+  sub_category?: string;
   mrp_price: string;
   discount_price: string;
   gender: 'men' | 'women' | 'unisex';
-  category: 'shoes' | 'sandals' | 'chappals';
+  category: 'Footwear' | 'Bags and Accessories';
   sizes: Record<string, number>;
   images: string[];
   thumbnail_url: string;
@@ -113,7 +113,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
           product_id,
           name,
           description,
-          brand,
+          sub_category,
           mrp_price,
           discount_price,
           gender,

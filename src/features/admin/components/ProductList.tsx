@@ -90,8 +90,8 @@ const ProductList: React.FC = () => {
                   <span className="text-lg font-bold text-primary">₹{product.discount_price}</span>
                 </div>
                 
-                {product.brand && (
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Brand: {product.brand}</p>
+                {product.sub_category && (
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Brand: {product.sub_category}</p>
                 )}
                 
                 <div className="flex gap-2">

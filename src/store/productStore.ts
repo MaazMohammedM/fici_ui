@@ -135,7 +135,7 @@ export const useProductStore = create<ProductState>((set, get) => ({
       }
       
       if (filters.search) {
-        query = query.or(`name.ilike.%${filters.search}%,description.ilike.%${filters.search}%,brand.ilike.%${filters.search}%`);
+        query = query.or(`name.ilike.%${filters.search}%,description.ilike.%${filters.search}%,sub_category.ilike.%${filters.search}%`);
       }
 
       // Apply pagination
@@ -246,7 +246,7 @@ export const useProductStore = create<ProductState>((set, get) => ({
           article_id: firstProduct.article_id.split('_')[0],
           name: firstProduct.name,
           description: firstProduct.description,
-          brand: firstProduct.brand,
+          sub_category: firstProduct.sub_category,
           variants: processedProducts,
           category: firstProduct.category,
           gender: firstProduct.gender
@@ -363,7 +363,7 @@ export const useProductStore = create<ProductState>((set, get) => ({
       filtered = filtered.filter(product =>
         product.name.toLowerCase().includes(searchLower) ||
         product.description?.toLowerCase().includes(searchLower) ||
-        product.brand?.toLowerCase().includes(searchLower)
+        product.sub_category?.toLowerCase().includes(searchLower)
       );
     }
 

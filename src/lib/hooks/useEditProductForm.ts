@@ -15,7 +15,7 @@ export const useEditProductForm = (product: any) => {
     defaultValues: {
       name: '',
       description: '',
-      brand: '',
+      sub_category: '',
       mrp_price: '',
       discount_price: '',
       gender: undefined,
@@ -31,7 +31,7 @@ export const useEditProductForm = (product: any) => {
       form.reset({
         name: product.name || '',
         description: product.description || '',
-        brand: product.brand || '',
+        sub_category: product.sub_category || '',
         mrp_price: product.mrp_price || '',
         discount_price: product.discount_price || '',
         gender: product.gender,

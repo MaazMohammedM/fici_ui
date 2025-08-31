@@ -13,7 +13,7 @@ const heroSlides = [
     subtitle: "Premium leather shoes made from genuine materials and honest design.",
     image: heroImage,
     ctaText: "Shop Now",
-    ctaLink: "/products"
+    ctaLink: "/products",
   },
   {
     id: "2",
@@ -22,7 +22,6 @@ const heroSlides = [
     image: hisHeroImage,
     ctaText: "Shop Men",
     ctaLink: "/products?gender=men",
-    gender: "men"
   },
   {
     id: "3",
@@ -31,7 +30,6 @@ const heroSlides = [
     image: heroImage,
     ctaText: "Shop Women",
     ctaLink: "/products?gender=women",
-    gender: "women"
   },
   {
     id: "4",
@@ -39,7 +37,7 @@ const heroSlides = [
     subtitle: "Be the first to explore our latest collection.",
     image: productHeroImage,
     ctaText: "Explore",
-    ctaLink: "/products"
+    ctaLink: "/products",
   },
   {
     id: "5",
@@ -47,8 +45,8 @@ const heroSlides = [
     subtitle: "Every stitch tells a story of craftsmanship.",
     image: heroImage1,
     ctaText: "Learn More",
-    ctaLink: "/about"
-  }
+    ctaLink: "/about",
+  },
 ];
 
 const HeroSection: React.FC = () => {
@@ -57,85 +55,76 @@ const HeroSection: React.FC = () => {
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentSlide((prev) => (prev + 1) % heroSlides.length);
-    }, 3000);
+    }, 5000);
     return () => clearInterval(interval);
   }, []);
 
-  const goToSlide = (index: number) => {
-    setCurrentSlide(index);
-  };
-
-  const goToPrevious = () => {
+  const goToPrevious = () =>
     setCurrentSlide((prev) => (prev - 1 + heroSlides.length) % heroSlides.length);
-  };
-
-  const goToNext = () => {
+  const goToNext = () =>
     setCurrentSlide((prev) => (prev + 1) % heroSlides.length);
-  };
 
   return (
-    <section className="bg-gradient-light dark:bg-gradient-dark h-[calc(100svh-4rem)] w-full relative overflow-hidden">
-      {/* Slides */}
-      <div className="relative w-full h-full">
-        {heroSlides.map((slide, index) => (
-          <div
-            key={slide.id}
-            className={`absolute inset-0 transition-opacity duration-1000 ${
-              index === currentSlide
-                ? "opacity-100 pointer-events-auto"
-                : "opacity-0 pointer-events-none"
-            }`}
-          >
-            <div className="flex flex-col lg:flex-row w-full h-full items-center justify-between px-4 lg:px-16">
-              <div className="w-full lg:w-1/2 h-full flex flex-col items-center justify-center text-center lg:text-left">
-                <h1 className="font-secondary text-3xl lg:text-6xl font-bold text-primary dark:text-secondary z-10 mb-4 px-4">
-                  {slide.title}
-                </h1>
-                <p className="text-lg lg:text-xl text-gray-600 dark:text-gray-400 mb-8 max-w-md px-4">
-                  {slide.subtitle}
-                </p>
-                <Link
-                  to={slide.ctaLink}
-                  className="bg-accent hover:bg-accent/80 text-white px-6 lg:px-8 py-3 lg:py-4 rounded-lg text-base lg:text-lg font-semibold transition-colors duration-300 transform hover:scale-105"
-                >
-                  {slide.ctaText}
-                </Link>
-              </div>
-              <div className="w-full lg:w-1/2 h-full flex items-center justify-center relative">
-                <img
-                  src={slide.image}
-                  alt="hero"
-                  className="w-3/4 lg:w-fit h-auto lg:h-fit inline-block object-contain -rotate-45 z-10"
-                />
-                <div className="hidden lg:block w-1/2 h-[50%] rounded-full bg-accent/75 absolute top-48 left-48 shadow-2xl"></div>
-              </div>
-            </div>
+    <section className="relative w-full h-[80vh] sm:h-[90vh] md:h-screen overflow-hidden">
+      {heroSlides.map((slide, index) => (
+        <div
+          key={slide.id}
+          className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
+            index === currentSlide ? "opacity-100" : "opacity-0"
+          }`}
+        >
+          {/* Background */}
+          <div className="absolute inset-0">
+            <img
+              src={slide.image}
+              alt={slide.title}
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-black/40" />
           </div>
-        ))}
-      </div>
 
+          {/* Content */}
+          <div className="relative z-10 flex flex-col items-center md:items-start justify-center h-full px-6 md:px-16 lg:px-24 text-center md:text-left">
+            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-bold text-white drop-shadow-lg mb-4">
+              {slide.title}
+            </h1>
+            <p className="text-base sm:text-lg md:text-xl text-gray-200 max-w-xl mb-6">
+              {slide.subtitle}
+            </p>
+            <Link
+              to={slide.ctaLink}
+              className="px-6 py-3 sm:px-8 sm:py-4 bg-accent hover:bg-accent/90 text-white font-semibold rounded-full shadow-lg transition-transform duration-300 hover:scale-105"
+            >
+              {slide.ctaText}
+            </Link>
+          </div>
+        </div>
+      ))}
+
+      {/* Controls */}
       <button
         onClick={goToPrevious}
-        className="absolute left-2 lg:left-4 top-1/2 transform -translate-y-1/2 bg-white/20 hover:bg-white/30 text-white p-2 lg:p-3 rounded-full transition-all duration-300 backdrop-blur-sm z-20"
+        className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white p-3 rounded-full z-20"
       >
-        <ChevronLeft className="w-4 lg:w-6 h-4 lg:h-6" />
+        <ChevronLeft className="w-6 h-6" />
       </button>
       <button
         onClick={goToNext}
-        className="absolute right-2 lg:right-4 top-1/2 transform -translate-y-1/2 bg-white/20 hover:bg-white/30 text-white p-2 lg:p-3 rounded-full transition-all duration-300 backdrop-blur-sm z-20"
+        className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white p-3 rounded-full z-20"
       >
-        <ChevronRight className="w-4 lg:w-6 h-4 lg:h-6" />
+        <ChevronRight className="w-6 h-6" />
       </button>
 
-      <div className="absolute bottom-4 lg:bottom-8 left-1/2 transform -translate-x-1/2 flex space-x-2 lg:space-x-3 z-20">
+      {/* Dots */}
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex space-x-2 z-20">
         {heroSlides.map((_, index) => (
           <button
             key={index}
-            onClick={() => goToSlide(index)}
-            className={`w-2 lg:w-3 h-2 lg:h-3 rounded-full transition-all duration-300 ${
+            onClick={() => setCurrentSlide(index)}
+            className={`w-3 h-3 rounded-full transition-all ${
               index === currentSlide
                 ? "bg-accent scale-125"
-                : "bg-white/50 hover:bg-white/75"
+                : "bg-white/70 hover:bg-white"
             }`}
           />
         ))}

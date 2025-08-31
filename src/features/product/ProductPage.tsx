@@ -49,7 +49,6 @@ const ProductPage: React.FC = () => {
 
   const { handleFilterChange, handleSearch, clearFilters } = useProductFilters();
 
-  // Handle URL parameters on component mount - only run once
   useEffect(() => {
     const category = searchParams.get('category');
     const gender = searchParams.get('gender');
@@ -63,7 +62,7 @@ const ProductPage: React.FC = () => {
     }
     
     fetchProducts(1, filters);
-  }, []); // Empty dependency array to run only once
+  }, []);
 
   if (loading && filteredProducts.length === 0) {
     return (
@@ -79,7 +78,6 @@ const ProductPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-gradient-light dark:bg-gradient-dark">
       <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-primary dark:text-secondary mb-2">
             Our Products

@@ -13,6 +13,7 @@ export interface CartItem {
   mrp: number;
   quantity: number;
   discount_percentage: number;
+  thumbnail_url: string;
 }
 
 interface CartState {
@@ -43,7 +44,8 @@ export const useCartStore = create<CartState>()(
           item => 
             item.product_id === newItem.product_id && 
             item.color === newItem.color && 
-            item.size === newItem.size
+            item.size === newItem.size &&
+            item.thumbnail_url===newItem.thumbnail_url
         );
 
         if (existingItemIndex >= 0) {
