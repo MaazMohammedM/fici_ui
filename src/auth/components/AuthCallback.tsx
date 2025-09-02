@@ -1,28 +1,25 @@
-import React, { useEffect, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
-import { useAuthStore } from '../store/authStore';
+import { supabase } from '@lib/supabase';
+import { useAuthStore } from '@store/authStore';
 import { Loader2, AlertCircle, CheckCircle, ArrowRight } from 'lucide-react';
+import { Button } from '../ui';
 
-const AuthCallback: React.FC = () => {
-  const [ _,setLoading] = useState(true);
+type CallbackStep = 'loading' | 'success' | 'error';
+
+const AuthCallback = memo(() => {
+  const [step, setStep] = useState<CallbackStep>('loading');
   const [error, setError] = useState('');
-  const [step, setStep] = useState<'loading' | 'success' | 'error'>('loading');
   const navigate = useNavigate();
 
-  const setUser = useAuthStore((s) => s.setUser);
-  const setRole = useAuthStore((s) => s.setRole);
-  const setFirstName = useAuthStore((s) => s.setFirstName);
+  const { setUser, setRole, setFirstName } = useAuthStore();
 
   useEffect(() => {
     const handleAuth = async () => {
       try {
         setStep('loading');
         
-        const {
-          data: { session },
-          error: sessionError
-        } = await supabase.auth.getSession();
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
         if (sessionError || !session?.user) {
           throw new Error(sessionError?.message || 'Authentication failed');
@@ -64,7 +61,6 @@ const AuthCallback: React.FC = () => {
             throw new Error('Failed to create user profile');
           }
 
-          console.log('✅ New user profile created');
           setFirstName(firstName);
           setRole('user');
         } else {
@@ -75,22 +71,19 @@ const AuthCallback: React.FC = () => {
         setStep('success');
         
         // Redirect after a short delay
-        setTimeout(() => {
-          navigate('/');
-        }, 1500);
+        setTimeout(() => navigate('/'), 1500);
 
       } catch (err: any) {
         console.error('Auth callback error:', err);
         setError(err.message || 'Authentication failed');
         setStep('error');
-      } finally {
-        setLoading(false);
       }
     };
 
     handleAuth();
   }, [navigate, setUser, setRole, setFirstName]);
 
+  // Loading State
   if (step === 'loading') {
     return (
       <div className="min-h-screen bg-gradient-light dark:bg-gradient-dark flex items-center justify-center px-4">
@@ -112,6 +105,7 @@ const AuthCallback: React.FC = () => {
     );
   }
 
+  // Error State
   if (step === 'error') {
     return (
       <div className="min-h-screen bg-gradient-light dark:bg-gradient-dark flex items-center justify-center px-4">
@@ -125,19 +119,20 @@ const AuthCallback: React.FC = () => {
             </h2>
             <p className="text-red-600 dark:text-red-400 mb-6">{error}</p>
             <div className="space-y-3">
-              <button
+              <Button
                 onClick={() => navigate('/auth/signin')}
-                className="w-full bg-primary hover:bg-primary-active text-white py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                rightIcon={ArrowRight}
+                className="w-full"
               >
                 Try Again
-                <ArrowRight className="w-4 h-4" />
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="outline"
                 onClick={() => navigate('/')}
-                className="w-full border border-gray-300 dark:border-gray-600 py-3 rounded-lg text-gray-700 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                className="w-full"
               >
                 Go to Home
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -145,6 +140,7 @@ const AuthCallback: React.FC = () => {
     );
   }
 
+  // Success State
   return (
     <div className="min-h-screen bg-gradient-light dark:bg-gradient-dark flex items-center justify-center px-4">
       <div className="text-center">
@@ -164,6 +160,7 @@ const AuthCallback: React.FC = () => {
       </div>
     </div>
   );
-};
+});
 
+AuthCallback.displayName = 'AuthCallback';
 export default AuthCallback;

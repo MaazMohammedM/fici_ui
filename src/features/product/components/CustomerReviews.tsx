@@ -1,5 +1,5 @@
 import React from 'react';
-import StarComponent from 'Utils/StarComponent';
+import StarComponent from 'utils/StarComponent';
 
 const CustomerReviews: React.FC = () => {
   return (

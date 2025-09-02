@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Heart, Share2, ChevronDown, ChevronUp } from 'lucide-react';
 import type { Product, ProductDetail } from '../../../types/product';
-import StarComponent from 'Utils/StarComponent';
+import StarComponent from 'utils/StarComponent';
 
 // Helper function to get color values for display
 const getColorValue = (colorName: string): string => {
