@@ -130,6 +130,9 @@ export const useProductStore = create<ProductState>((set, get) => ({
         query = query.eq('category', filters.category);
       }
       
+      if (filters.sub_category && filters.sub_category !== 'all') {
+        query = query.eq('sub_category', filters.sub_category);
+      }
       if (filters.gender && filters.gender !== 'all') {
         query = query.eq('gender', filters.gender);
       }

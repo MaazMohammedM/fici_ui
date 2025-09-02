@@ -154,10 +154,8 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         
-        // Create unique filename with timestamp
-        const timestamp = Date.now();
         const fileExtension = file.name.split('.').pop();
-        const fileName = `${timestamp}_${i + 1}.${fileExtension}`;
+        const fileName = `${folderName}_${i + 1}.${fileExtension}`;
         const filePath = `${folderName}/${fileName}`;
         
         console.log(`Uploading file ${i + 1}/${totalFiles}: ${fileName} to folder: ${folderName}`);

@@ -53,9 +53,9 @@ const CartPage: React.FC = () => {
             </button>
           </div>
           <h1 className="text-4xl font-bold text-center text-primary dark:text-secondary mb-2">
-            �� Your Shopping Cart
+            Your Shopping Cart
           </h1>
-          <p className="text-center text-gray-600 dark:text-gray-400">
+          <p className="text-center text-red-600 dark:text-gray-400">
             {cartItems.length} item{cartItems.length !== 1 ? 's' : ''} in your cart
           </p>
         </div>
