@@ -28,6 +28,7 @@ interface ProductState {
   clearFilters: () => void;
   setPage: (page: number) => void;
   clearError: () => void;
+  fetchSingleProductByArticleId: (articleId: string) => Promise<void>;
 }
 
 // Helper function to safely parse JSON - only for sizes
@@ -227,6 +228,61 @@ export const useProductStore = create<ProductState>((set, get) => ({
         .from('products')
         .select('*')
         .like('article_id', `${articleId}_%`);
+
+      if (error) {
+        console.error('Fetch product error:', error);
+        set({ error: 'Failed to fetch product details' });
+        return;
+      }
+
+      if (data && data.length > 0) {
+        const processedProducts = data.map(product => ({
+          ...product,
+          sizes: safeParseSizes(product.sizes),
+          images: parseImages(product.images), // Use the new parseImages function
+          thumbnail_url: product.thumbnail_url || null,
+          discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price)
+        }));
+
+        // Group by article_id and create ProductDetail
+        const firstProduct = processedProducts[0];
+        const productDetail: ProductDetail = {
+          article_id: firstProduct.article_id.split('_')[0],
+          name: firstProduct.name,
+          description: firstProduct.description,
+          sub_category: firstProduct.sub_category,
+          variants: processedProducts,
+          category: firstProduct.category,
+          gender: firstProduct.gender
+        };
+
+        set({ 
+          currentProduct: productDetail,
+          loading: false
+        });
+      } else {
+        set({ 
+          currentProduct: null,
+          error: 'Product not found',
+          loading: false
+        });
+      }
+
+    } catch (error) {
+      console.error('Error fetching product:', error);
+      set({ error: 'Failed to fetch product details', loading: false });
+    }
+  },
+
+   fetchSingleProductByArticleId: async (articleId: string) => {
+    set({ loading: true, error: null });
+    
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .neq('article_id', articleId)
+        .limit(1);
 
       if (error) {
         console.error('Fetch product error:', error);
