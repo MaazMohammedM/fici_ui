@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Heart, Share2, ChevronDown, ChevronUp } from 'lucide-react';
+import React, {  useState } from 'react';
+import { Heart, Share2, ChevronDown, ChevronUp, Check } from 'lucide-react';
 import type { Product, ProductDetail } from '../../../types/product';
 import StarComponent from 'utils/StarComponent';
 
@@ -31,18 +31,18 @@ const getColorValue = (colorName: string): string => {
     teal: '#008080',
     fuchsia: '#FF00FF',
   };
-  
-  return colorMap[colorName.toLowerCase()] || '#6B7280'; // Default to gray if color not found
+  return colorMap[colorName.toLowerCase()] || '#6B7280';
 };
 
 interface ProductDetailsProps {
   currentProduct: ProductDetail;
   selectedVariant: Product | undefined;
-  selectedColor: string;
+  // now track by article id
+  selectedArticleId: string;
   selectedSize: string;
   quantity: number;
   availableSizes: string[];
-  onColorChange: (color: string) => void;
+  onColorChange: (articleId: string) => void; // pass article_id so page can fetch variant
   onSizeChange: (size: string) => void;
   onQuantityChange: (quantity: number) => void;
   onAddToCart: () => void;
@@ -52,7 +52,7 @@ interface ProductDetailsProps {
 const ProductDetails: React.FC<ProductDetailsProps> = ({
   currentProduct,
   selectedVariant,
-  selectedColor,
+  selectedArticleId,
   selectedSize,
   quantity,
   availableSizes,
@@ -73,6 +73,9 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
       [section]: !prev[section]
     }));
   };
+
+  // display color label (prefer selectedVariant color)
+  const displayColorLabel = selectedVariant?.color || (currentProduct.variants[0]?.color ?? '');
 
   return (
     <div className="space-y-6">
@@ -114,33 +117,40 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
         {/* Color Selection */}
         {currentProduct.variants.length > 1 && (
           <div>
-            <h3 className="text-lg font-semibold text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] mb-2">
-              Color: <span className="font-normal capitalize">{selectedColor}</span>
+            <h3 className="text-lg font-semibold mb-2 text-primary dark:text-secondary">
+              Color: <span className="font-normal capitalize text-accent">{displayColorLabel}</span>
             </h3>
+
             <div className="flex flex-wrap gap-3">
               {currentProduct.variants.map((variant) => {
-                // Extract color from article_id (format: ARTICLE_COLOR)
-                const colorName = variant.article_id.split('_')[1] || variant.color;
-                
+                // derive color label (either from article_id suffix or variant.color)
+                const colorLabel = variant.article_id.split('_')[1] || variant.color;
+                const isSelected = variant.article_id === selectedArticleId;
+
                 return (
                   <button
                     key={variant.article_id}
-                    onClick={() => onColorChange(variant.color)}
-                    className={`flex items-center space-x-2 px-3 py-2 rounded-lg border-2 transition-all ${
-                      selectedColor === variant.color
-                        ? 'border-[color:var(--color-accent)] bg-[color:var(--color-accent)]/10'
-                        : 'border-gray-300 dark:border-gray-600 hover:border-[color:var(--color-accent)]/50'
+                    onClick={() => onColorChange(variant.article_id)}
+                    title={colorLabel}
+                    className={`relative flex items-center justify-center w-12 h-12 rounded-full transition-transform transform ${
+                      isSelected
+                        ? 'scale-110 ring-2 ring-accent/40 shadow-lg'
+                        : 'hover:scale-105'
                     }`}
+                    aria-pressed={isSelected}
                   >
-                    <div
-                      className="w-6 h-6 rounded-full border border-gray-300 shadow-sm"
+                    <span
+                      className="block w-10 h-10 rounded-full border"
                       style={{
-                        backgroundColor: getColorValue(colorName)
+                        backgroundColor: getColorValue(colorLabel),
+                        borderColor: isSelected ? 'rgba(0,0,0,0.06)' : undefined
                       }}
                     />
-                    <span className="text-sm font-medium capitalize text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)]">
-                      {colorName}
-                    </span>
+                    {isSelected && (
+                      <Check className="absolute w-4 h-4 text-white" />
+                    )}
+                    {/* visually hidden label for accessibility */}
+                    <span className="sr-only">{colorLabel}</span>
                   </button>
                 );
               })}
@@ -204,7 +214,7 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
           </button>
         </div>
 
-        {/* Share Buttons */}
+        {/* Share & Wishlist */}
         <div className="flex space-x-4">
           <button className="flex items-center space-x-2 text-gray-600 dark:text-gray-400 hover:text-primary">
             <Share2 className="w-5 h-5" />
@@ -238,7 +248,7 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
 
       {/* Collapsible Sections */}
       <div className="space-y-4">
-        {/* Details Section */}
+        {/* Details */}
         <div className="border border-gray-200 dark:border-gray-700 rounded-lg">
           <button
             onClick={() => toggleSection('details')}
@@ -257,7 +267,7 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
           )}
         </div>
 
-        {/* Shipping & Returns Section */}
+        {/* Shipping */}
         <div className="border border-gray-200 dark:border-gray-700 rounded-lg">
           <button
             onClick={() => toggleSection('shipping')}
@@ -280,4 +290,4 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
   );
 };
 
-export default ProductDetails; 
+export default ProductDetails;

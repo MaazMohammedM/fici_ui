@@ -10,41 +10,81 @@ import RelatedProducts from './RelatedProducts';
 const ProductDetailPage: React.FC = () => {
   const { article_id } = useParams<{ article_id: string }>();
   const navigate = useNavigate();
-  const { currentProduct, relatedProducts, loading, error, fetchProductByArticleId, fetchRelatedProducts } = useProductStore();
+
+  const {
+    currentProduct,
+    relatedProducts,
+    loading,
+    error,
+    fetchProductByArticleId,
+    fetchRelatedProducts,
+    fetchSingleProductByArticleId,
+  } = useProductStore();
+
   const { addToCart } = useCartStore();
-  
-  const [selectedColor, setSelectedColor] = useState<string>('');
+
+  // Track selected variant by its article_id (variant.article_id)
+  const [selectedArticleId, setSelectedArticleId] = useState<string>('');
+  // Keep requested article id so we can set selection after fetch completes
+  const [requestedArticleId, setRequestedArticleId] = useState<string | null>(null);
   const [selectedSize, setSelectedSize] = useState<string>('');
   const [quantity, setQuantity] = useState(1);
 
+  // Initial load from route
   useEffect(() => {
     if (article_id) {
       fetchProductByArticleId(article_id);
+      // set requestedArticleId so selection will be honored after load
+      setRequestedArticleId(article_id);
     }
   }, [article_id, fetchProductByArticleId]);
 
+  // When currentProduct updates, determine selection
   useEffect(() => {
-    if (currentProduct && currentProduct.variants.length > 0) {
-      // Set the first color as default
-      const firstColor = currentProduct.variants[0].color;
-      setSelectedColor(firstColor);
-      fetchRelatedProducts(currentProduct.category, currentProduct.variants[0].product_id);
-    }
-  }, [currentProduct, fetchRelatedProducts]);
+    if (!currentProduct) return;
 
-  // Reset selected size when color changes
-  useEffect(() => {
+    // If we requested a specific article_id (via color click or route), prefer that if it exists in variants
+    if (requestedArticleId) {
+      const found = currentProduct.variants.find(v => v.article_id === requestedArticleId);
+      if (found) {
+        setSelectedArticleId(requestedArticleId);
+        // fetch related products for that variant
+        fetchRelatedProducts(currentProduct.category, found.product_id);
+        setRequestedArticleId(null);
+        return;
+      }
+      // If requested ArticleId not found in this product's variants, fall-through to default
+      setRequestedArticleId(null);
+    }
+
+    // If we don't have a selection or the selectedArticleId is not present in the new currentProduct, set default to first variant
+    const exists = currentProduct.variants.some(v => v.article_id === selectedArticleId);
+    if (!selectedArticleId || !exists) {
+      const first = currentProduct.variants[0];
+      if (first) {
+        setSelectedArticleId(first.article_id);
+        fetchRelatedProducts(currentProduct.category, first.product_id);
+      }
+    } else {
+      // If current selection exists, update related products (defensive)
+      const sel = currentProduct.variants.find(v => v.article_id === selectedArticleId);
+      if (sel) fetchRelatedProducts(currentProduct.category, sel.product_id);
+    }
+    // reset size selection when product changes
     setSelectedSize('');
-  }, [selectedColor]);
+  }, [currentProduct, requestedArticleId]); // intentionally only when product or a pending requested id changes
 
-  // Handle color change - this will load the variant with the new color
-  const handleColorChange = (color: string) => {
-    setSelectedColor(color);
-    const selectedVariant = currentProduct?.variants.find(v => v.color === color);
-    if (selectedVariant) {
-      // Update related products based on the new variant
-      fetchRelatedProducts(currentProduct!.category, selectedVariant.product_id);
-    }
+  // Handler when ProductDetails color button clicked -> receives variant.article_id
+  const handleColorChange = (articleId: string) => {
+    console.log("Article",articleId);
+    // set requested so after fetch we can re-select that variant
+    setRequestedArticleId(articleId);
+    // fetch product/variant data for that article id
+    fetchSingleProductByArticleId(articleId);
+    // optimistically set selectedArticleId so UI can give immediate feedback (optional)
+    // setSelectedArticleId(articleId);
+    // clear size
+    setSelectedSize('');
   };
 
   const handleAddToCart = () => {
@@ -53,27 +93,31 @@ const ProductDetailPage: React.FC = () => {
       return;
     }
 
-    const selectedVariant = currentProduct?.variants.find(v => v.color === selectedColor);
-    if (selectedVariant) {
-      // Get the first image or fallback to thumbnail
-      const productImage = Array.isArray(selectedVariant.images) && selectedVariant.images.length > 0
+    const selectedVariant = currentProduct?.variants.find(v => v.article_id === selectedArticleId);
+    if (!selectedVariant) {
+      alert('Please select a product variant');
+      return;
+    }
+
+    const productImage =
+      Array.isArray(selectedVariant.images) && selectedVariant.images.length > 0
         ? selectedVariant.images[0]
         : selectedVariant.thumbnail_url || '';
 
-      addToCart({
-        product_id: selectedVariant.product_id,
-        article_id: selectedVariant.article_id.split('_')[0],
-        name: selectedVariant.name,
-        color: selectedVariant.color,
-        size: selectedSize,
-        image: productImage,
-        price: parseFloat(selectedVariant.discount_price),
-        mrp: parseFloat(selectedVariant.mrp_price),
-        quantity,
-        discount_percentage: selectedVariant.discount_percentage,
-        thumbnail_url:selectedVariant.thumbnail_url||'',
-      });
-    }
+    addToCart({
+      product_id: selectedVariant.product_id,
+      // original code used article_id split — keeping that behaviour
+      article_id: (selectedVariant.article_id || '').split('_')[0],
+      name: selectedVariant.name,
+      color: selectedVariant.color,
+      size: selectedSize,
+      image: productImage,
+      price: parseFloat(selectedVariant.discount_price),
+      mrp: parseFloat(selectedVariant.mrp_price),
+      quantity,
+      discount_percentage: selectedVariant.discount_percentage,
+      thumbnail_url: selectedVariant.thumbnail_url || ''
+    });
   };
 
   const handleBuyNow = () => {
@@ -108,8 +152,9 @@ const ProductDetailPage: React.FC = () => {
     );
   }
 
-  const selectedVariant = currentProduct.variants.find(v => v.color === selectedColor);
-  const availableSizes = selectedVariant ? Object.keys(selectedVariant.sizes).filter(size => selectedVariant.sizes[size] > 0) : [];
+  // Determine currently selected variant object
+  const selectedVariant = currentProduct.variants.find(v => v.article_id === selectedArticleId) ?? currentProduct.variants[0];
+  const availableSizes = selectedVariant ? Object.keys(selectedVariant.sizes).filter(s => (selectedVariant.sizes[s] ?? 0) > 0) : [];
 
   return (
     <div className="min-h-screen bg-gradient-light dark:bg-gradient-dark">
@@ -130,20 +175,20 @@ const ProductDetailPage: React.FC = () => {
           <ProductImageGallery 
             selectedVariant={selectedVariant}
             productName={currentProduct.name}
-            key={selectedColor} // Force re-render when color changes
+            key={selectedArticleId} // re-render when selected variant changes
           />
 
           {/* Product Details */}
           <ProductDetails
             currentProduct={currentProduct}
             selectedVariant={selectedVariant}
-            selectedColor={selectedColor}
+            selectedArticleId={selectedArticleId}
             selectedSize={selectedSize}
             quantity={quantity}
             availableSizes={availableSizes}
-            onColorChange={handleColorChange}
-            onSizeChange={setSelectedSize}
-            onQuantityChange={setQuantity}
+            onColorChange={handleColorChange}        // expects article_id
+            onSizeChange={(s) => setSelectedSize(s)}
+            onQuantityChange={(q) => setQuantity(q)}
             onAddToCart={handleAddToCart}
             onBuyNow={handleBuyNow}
           />
