@@ -283,7 +283,6 @@ export const useProductStore = create<ProductState>((set, get) => ({
         .select('*')
         .neq('article_id', articleId)
         .limit(1);
-
       if (error) {
         console.error('Fetch product error:', error);
         set({ error: 'Failed to fetch product details' });
