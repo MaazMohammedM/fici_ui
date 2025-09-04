@@ -1,6 +1,5 @@
 import React from 'react';
 import StarComponent from 'utils/StarComponent';
-
 const CustomerReviews: React.FC = () => {
   return (
     <div className="mt-16">

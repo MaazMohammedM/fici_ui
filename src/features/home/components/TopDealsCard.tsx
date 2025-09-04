@@ -1,7 +1,7 @@
 import { Heart } from 'lucide-react';
 import React from 'react';
-import { Link } from 'react-router-dom';
 import StarComponent from 'utils/StarComponent';
+import { Link } from 'react-router-dom';
 
 interface TopDealsCardProps {
     title: string;
