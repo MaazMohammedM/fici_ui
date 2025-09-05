@@ -1,11 +1,15 @@
 // ===== PART 4: SIGNIN COMPONENT =====
 
 // src/components/auth/SignIn/SignIn.tsx
-import  { memo } from 'react';
+import { memo, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Mail, ArrowRight } from 'lucide-react';
+import { supabase } from '@lib/supabase';
+
+// Store
+import { useAuthStore } from '../../store/authStore';
 
 // UI Components
 import { Input, Button, ErrorAlert } from '../ui';
@@ -16,13 +20,18 @@ import {
   GoogleAuthButton 
 } from '@auth/index';
 
-// Hooks and Schemas
-import { useAuth } from '../../lib/hooks/useAuth';
-import { SignInSchema } from '../../lib/schema/authSchema';
-import type { SignInFormData } from '../../lib/schema/authSchema';
+// Schemas
+import { SignInSchema, type SignInFormData } from '../../lib/validation/schemas';
 const SignIn = memo(() => {
   const navigate = useNavigate();
-  const { isLoading, error, clearError, signIn, signInWithGoogle } = useAuth();
+  const { 
+    loading: isLoading, 
+    error, 
+    signIn, 
+    signInWithGoogle,
+    clearError,
+    user
+  } = useAuthStore();
 
   const {
     register,
@@ -36,11 +45,48 @@ const SignIn = memo(() => {
     }
   });
 
+  // Handle redirect after successful login
+  useEffect(() => {
+    if (user) {
+      const redirectPath = sessionStorage.getItem('redirectAfterLogin');
+      if (redirectPath) {
+        sessionStorage.removeItem('redirectAfterLogin');
+        navigate(redirectPath, { replace: true });
+      } else {
+        navigate('/', { replace: true });
+      }
+    }
+  }, [user, navigate]);
+
+  const checkGuestOrders = async (email: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('check-guest-orders', {
+        body: { email }
+      });
+      
+      if (error) {
+        console.error('Error checking guest orders:', error);
+        return;
+      }
+      
+      if (data?.hasGuestData) {
+        // Store guest data for potential merging
+        sessionStorage.setItem('pendingGuestData', JSON.stringify(data));
+      }
+    } catch (error) {
+      console.error('Error checking guest orders:', error);
+    }
+  };
+
   const onSubmit = async (data: SignInFormData) => {
+    // Check for guest orders before signing in
+    await checkGuestOrders(data.email);
     await signIn(data.email, data.password);
   };
 
-  const handleNavigation = () => navigate('/auth/signup');
+  const handleNavigation = () => {
+    navigate('/auth/signup');
+  };
 
   return (
     <AuthLayout 
@@ -50,6 +96,7 @@ const SignIn = memo(() => {
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 sm:space-y-6">
         {/* Error Display */}
         {error && <ErrorAlert message={error} onDismiss={clearError} />}
+        
 
         {/* Email Field */}
         <Input
@@ -87,6 +134,16 @@ const SignIn = memo(() => {
           loading={isLoading}
           mode="signin"
         />
+
+        {/* Forgot Password Link */}
+        <div className="text-center">
+          <Link
+            to="/auth/forgot-password"
+            className="text-sm text-primary hover:text-primary-active font-medium transition-colors"
+          >
+            Forgot your password?
+          </Link>
+        </div>
 
         {/* Sign Up Link */}
         <p className="text-center text-xs sm:text-sm text-gray-600 dark:text-gray-400">

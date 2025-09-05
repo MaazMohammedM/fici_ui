@@ -51,18 +51,22 @@ const ProductPage: React.FC = () => {
 
   useEffect(() => {
     const category = searchParams.get('category');
+    const sub_category = searchParams.get('sub_category');
     const gender = searchParams.get('gender');
     
     const filters: any = {};
     if (category && category !== 'all') {
       filters.category = category;
     }
+    if (sub_category && sub_category !== 'all') {
+      filters.sub_category = sub_category;
+    }
     if (gender && gender !== 'all') {
       filters.gender = gender;
     }
     
     fetchProducts(1, filters);
-  }, []);
+  }, [searchParams, fetchProducts]);
 
   if (loading && filteredProducts.length === 0) {
     return (
@@ -76,14 +80,17 @@ const ProductPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-light dark:bg-gradient-dark">
+    <div className="flex-1 bg-gradient-light dark:bg-gradient-dark">
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-primary dark:text-secondary mb-2">
-            Our Products
+            {searchQuery ? `Search Results for "${searchQuery}"` : 'Our Products'}
           </h1>
           <p className="text-gray-600 dark:text-gray-400">
-            Discover our collection of high-quality footwear
+            {searchQuery 
+              ? `Found ${filteredProducts.length} products matching your search`
+              : 'Discover our collection of high-quality footwear'
+            }
           </p>
         </div>
 

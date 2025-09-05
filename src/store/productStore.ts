@@ -215,19 +215,20 @@ export const useProductStore = create<ProductState>((set, get) => ({
     } catch (error) {
       console.error('Error fetching top deals:', error);
       set({ error: 'Failed to fetch top deals' });
-    } finally {
       set({ loading: false });
     }
   },
 
   fetchProductByArticleId: async (articleId: string) => {
-    set({ loading: true, error: null });
+    set({ loading: true, error: null, currentProduct: null });
     
     try {
+      // Always fetch all variants for the base article_id
+      const baseArticleId = articleId.split('_')[0];
       const { data, error } = await supabase
         .from('products')
         .select('*')
-        .like('article_id', `${articleId}_%`);
+        .like('article_id', `${baseArticleId}_%`);
 
       if (error) {
         console.error('Fetch product error:', error);
@@ -239,19 +240,30 @@ export const useProductStore = create<ProductState>((set, get) => ({
         const processedProducts = data.map(product => ({
           ...product,
           sizes: safeParseSizes(product.sizes),
-          images: parseImages(product.images), // Use the new parseImages function
+          images: parseImages(product.images),
           thumbnail_url: product.thumbnail_url || null,
           discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price)
         }));
 
-        // Group by article_id and create ProductDetail
+        // Group by base article_id and create ProductDetail
         const firstProduct = processedProducts[0];
+        const baseArticleId = firstProduct.article_id.split('_')[0];
+        
+        // Extract colors from variants and add to each variant
+        const variantsWithColors = processedProducts.map(product => {
+          const colorFromArticleId = product.article_id.split('_')[1] || 'default';
+          return {
+            ...product,
+            color: colorFromArticleId
+          };
+        });
+
         const productDetail: ProductDetail = {
-          article_id: firstProduct.article_id.split('_')[0],
+          article_id: baseArticleId,
           name: firstProduct.name,
           description: firstProduct.description,
           sub_category: firstProduct.sub_category,
-          variants: processedProducts,
+          variants: variantsWithColors,
           category: firstProduct.category,
           gender: firstProduct.gender
         };
@@ -435,9 +447,9 @@ export const useProductStore = create<ProductState>((set, get) => ({
   },
 
   searchProducts: (query) => {
-    set({ searchQuery: query });
+    set({ searchQuery: query, currentPage: 1 });
     const { selectedCategory, selectedGender, selectedPriceRange } = get();
-    get().filterProducts({
+    get().fetchProducts(1, {
       category: selectedCategory,
       gender: selectedGender,
       priceRange: selectedPriceRange,

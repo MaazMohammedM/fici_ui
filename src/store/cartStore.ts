@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { useAuthStore } from './authStore';
 
 export interface CartItem {
   id: string;
@@ -29,6 +30,11 @@ interface CartState {
   getCartTotal: () => number;
   getCartCount: () => number;
   getCartSavings: () => number;
+  
+  // Guest session support
+  transferCartToUser: (userId: string) => Promise<void>;
+  syncCartWithSession: () => void;
+  getCartStorageKey: () => string;
 }
 
 export const useCartStore = create<CartState>()(
@@ -84,6 +90,53 @@ export const useCartStore = create<CartState>()(
         set({ items: [] });
       },
 
+      // Guest session support methods
+      transferCartToUser: async (userId: string) => {
+        const { items } = get();
+        if (items.length === 0) return;
+        
+        try {
+          // In a real implementation, you might want to sync cart to server here
+          // For now, we'll just update the storage key to associate with user
+          const newStorageKey = `cart-storage-${userId}`;
+          localStorage.setItem(newStorageKey, JSON.stringify({ items }));
+          
+          // Clear guest cart
+          const guestKey = get().getCartStorageKey();
+          if (guestKey !== newStorageKey) {
+            localStorage.removeItem(guestKey);
+          }
+        } catch (error) {
+          console.error('Failed to transfer cart to user:', error);
+        }
+      },
+
+      syncCartWithSession: () => {
+        // This method can be called to ensure cart is synced with current session
+        const currentKey = get().getCartStorageKey();
+        const stored = localStorage.getItem(currentKey);
+        if (stored) {
+          try {
+            const { items } = JSON.parse(stored);
+            set({ items: items || [] });
+          } catch (error) {
+            console.error('Failed to sync cart with session:', error);
+          }
+        }
+      },
+
+      getCartStorageKey: () => {
+        const authStore = useAuthStore.getState();
+        const authType = authStore.getAuthenticationType();
+        
+        if (authType === 'user') {
+          return `cart-storage-${authStore.getCurrentUserId()}`;
+        } else if (authType === 'guest') {
+          return `cart-storage-guest-${authStore.getCurrentSessionId()}`;
+        }
+        return 'cart-storage'; // fallback for unauthenticated users
+      },
+
       getCartTotal: () => {
         return get().items.reduce((total, item) => total + (item.price * item.quantity), 0);
       },
@@ -105,4 +158,4 @@ export const useCartStore = create<CartState>()(
       partialize: (state) => ({ items: state.items })
     }
   )
-); 
+);

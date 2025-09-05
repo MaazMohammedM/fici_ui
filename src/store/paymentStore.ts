@@ -18,7 +18,9 @@ thumbnail_url : string;
 }
 
 export interface OrderCreateInput {
-  user_id: string;
+  user_id?: string;
+  guest_session_id?: string;
+  guest_contact_info?: any;
   items: CartItemForOrder[];
   subtotal: number;
   discount: number;
@@ -32,7 +34,8 @@ export interface OrderCreateInput {
 
 export interface PaymentDetails {
   order_id: string;
-  user_id: string;
+  user_id?: string | null;
+  guest_session_id?: string | null;
   provider: string;                 // 'razorpay'
   payment_status: PaymentStatusDB;  // 'paid' | 'failed' | 'pending'
   payment_method: string;           // 'razorpay'
@@ -75,21 +78,34 @@ export const usePaymentStore = create<PaymentState>((set) => ({
     set({ loading: true, error: null });
     try {
       // 1) Insert into orders
+      const orderInsertData: any = {
+        subtotal: orderData.subtotal,
+        discount: orderData.discount,
+        delivery_charge: orderData.delivery_charge,
+        total_amount: orderData.total_amount, // ✅ RUPEES in DB
+        status: orderData.status,
+        payment_status: orderData.payment_status,
+        payment_method: orderData.payment_method,
+        shipping_address: orderData.shipping_address,
+      };
+
+      // Add user_id or guest session data based on order type
+      if (orderData.user_id) {
+        orderInsertData.user_id = orderData.user_id;
+        orderInsertData.order_type = 'registered';
+      } else if (orderData.guest_session_id) {
+        orderInsertData.guest_session_id = orderData.guest_session_id;
+        orderInsertData.order_type = 'guest';
+        // Extract guest email and phone from guest_contact_info
+        if (orderData.guest_contact_info) {
+          orderInsertData.guest_email = orderData.guest_contact_info.email;
+          orderInsertData.guest_phone = orderData.guest_contact_info.phone;
+        }
+      }
+
       const { data: orderRow, error: orderErr } = await supabase
         .from("orders")
-        .insert([
-          {
-            user_id: orderData.user_id,
-            subtotal: orderData.subtotal,
-            discount: orderData.discount,
-            delivery_charge: orderData.delivery_charge,
-            total_amount: orderData.total_amount, // ✅ RUPEES in DB
-            status: orderData.status,
-            payment_status: orderData.payment_status,
-            payment_method: orderData.payment_method,
-            shipping_address: orderData.shipping_address,
-          },
-        ])
+        .insert([orderInsertData])
         .select("order_id")
         .single();
 
@@ -130,20 +146,28 @@ export const usePaymentStore = create<PaymentState>((set) => ({
       const isPaid = paymentData.payment_status === "completed";
 
       // 1) Insert payments
-      const { error: payErr } = await supabase.from("payments").insert([
-        {
-          order_id: paymentData.order_id,
-          user_id: paymentData.user_id,
-          provider: paymentData.provider,
-          payment_status: paymentData.payment_status,
-          payment_method: paymentData.payment_method,
-          amount: paymentData.amount, // ✅ RUPEES
-          currency: paymentData.currency,
-          payment_reference: paymentData.payment_reference ?? null,
-          paid_at: isPaid ? now : null,
-          updated_at: now,
-        },
-      ]);
+      const paymentInsert: any = {
+        order_id: paymentData.order_id,
+        provider: paymentData.provider,
+        payment_status: paymentData.payment_status,
+        payment_method: paymentData.payment_method,
+        amount: paymentData.amount, // ✅ RUPEES
+        currency: paymentData.currency,
+        payment_reference: paymentData.payment_reference ?? null,
+        paid_at: isPaid ? now : null,
+        updated_at: now,
+      };
+
+      // Add user_id or guest_session_id based on payment type
+      if (paymentData.user_id) {
+        paymentInsert.user_id = paymentData.user_id;
+        paymentInsert.payment_type = 'registered';
+      } else if (paymentData.guest_session_id) {
+        paymentInsert.guest_session_id = paymentData.guest_session_id;
+        paymentInsert.payment_type = 'guest';
+      }
+
+      const { error: payErr } = await supabase.from("payments").insert([paymentInsert]);
       if (payErr) throw payErr;
 
       // 2) Update orders.{status,payment_status}

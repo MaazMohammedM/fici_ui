@@ -30,7 +30,7 @@ const CategoryCards: React.FC = () => {
   // Calculate category counts
   const categoriesWithCount = categories.map(category => ({
     ...category,
-    count: products.filter(product => product.category === category.id).length
+    count: products.filter(product => product.sub_category === category.id).length
   }));
 
   return (
@@ -43,7 +43,7 @@ const CategoryCards: React.FC = () => {
           {categoriesWithCount.map((category) => (
             <Link
               key={category.id}
-              to={`/products?category=${category.id}`}
+              to={`/products?sub_category=${category.id}`}
               className="group relative overflow-hidden rounded-2xl bg-white dark:bg-dark2 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
             >
               <div className="aspect-square relative">

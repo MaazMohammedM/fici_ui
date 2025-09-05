@@ -85,7 +85,7 @@ const ContactForm: React.FC = () => {
             {/* Second Row - Email and Follow Us */}
             <div className="col-span-1 sm:col-span-1">
               <p className="font-semibold text-base sm:text-lg mb-2">Email</p>
-              <p className="text-sm sm:text-base">info@.com</p>
+              <p className="text-sm sm:text-base">nmfinternational@gmail.com</p>
             </div>
 
             <div className="col-span-1 sm:col-span-1">

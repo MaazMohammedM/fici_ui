@@ -20,7 +20,13 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({ selectedVaria
     setSelectedImage(0);
   }, [selectedVariant]);
 
-  if (!selectedVariant) return null;
+  if (!selectedVariant) {
+    return (
+      <div className="aspect-square bg-gray-100 dark:bg-gray-800 rounded-2xl flex items-center justify-center">
+        <div className="text-gray-400">No product selected</div>
+      </div>
+    );
+  }
 
   // Helper to parse images safely
   const parseImages = (images: any): string[] => {

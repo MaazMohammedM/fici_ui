@@ -35,9 +35,9 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode }) => {
     return url.startsWith('http') ? url : fallbackImage;
   };
 
-  // Get article_id without color suffix for routing
+  // Get full article_id for routing (keep color suffix)
   const getArticleId = (articleId: string) => {
-    return articleId.split('_')[0];
+    return articleId; // Keep full article_id including color
   };
 
   const handleAddToCart = (e: React.MouseEvent) => {
