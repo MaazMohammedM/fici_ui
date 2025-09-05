@@ -1,0 +1,63 @@
+import React from 'react';
+import ProductDetails from '../../features/product/components/ProductDetails';
+import type { Product, ProductDetail } from '../../types/product';
+
+interface MemoizedProductDetailsProps {
+  currentProduct: ProductDetail;
+  selectedVariant: Product | undefined;
+  selectedArticleId: string;
+  selectedSize: string;
+  quantity: number;
+  availableSizes: string[];
+  onColorChange: (articleId: string) => void;
+  onSizeChange: (size: string) => void;
+  onQuantityChange: (quantity: number) => void;
+  onAddToCart: () => void;
+  onBuyNow: () => void;
+}
+
+// Memoized ProductDetails component to prevent unnecessary re-renders
+const MemoizedProductDetails = React.memo<MemoizedProductDetailsProps>(({
+  currentProduct,
+  selectedVariant,
+  selectedArticleId,
+  selectedSize,
+  quantity,
+  availableSizes,
+  onColorChange,
+  onSizeChange,
+  onQuantityChange,
+  onAddToCart,
+  onBuyNow
+}) => {
+  return (
+    <ProductDetails
+      currentProduct={currentProduct}
+      selectedVariant={selectedVariant}
+      selectedArticleId={selectedArticleId}
+      selectedSize={selectedSize}
+      quantity={quantity}
+      availableSizes={availableSizes}
+      onColorChange={onColorChange}
+      onSizeChange={onSizeChange}
+      onQuantityChange={onQuantityChange}
+      onAddToCart={onAddToCart}
+      onBuyNow={onBuyNow}
+    />
+  );
+}, (prevProps, nextProps) => {
+  // Custom comparison function for better performance
+  return (
+    prevProps.selectedArticleId === nextProps.selectedArticleId &&
+    prevProps.selectedSize === nextProps.selectedSize &&
+    prevProps.quantity === nextProps.quantity &&
+    prevProps.currentProduct?.article_id === nextProps.currentProduct?.article_id &&
+    prevProps.selectedVariant?.article_id === nextProps.selectedVariant?.article_id &&
+    prevProps.availableSizes.length === nextProps.availableSizes.length &&
+    prevProps.availableSizes.every((size, index) => size === nextProps.availableSizes[index])
+  );
+});
+
+MemoizedProductDetails.displayName = 'MemoizedProductDetails';
+
+export default MemoizedProductDetails;

@@ -73,9 +73,9 @@ const Footer: React.FC = () => {
           <div className="space-y-4 sm:space-y-6">
             <h3 className="text-lg sm:text-xl font-semibold">Categories</h3>
             <ul className="space-y-2 sm:space-y-3">
-              <li><Link to="/products?sub_category=shoes" className="text-gray-300 hover:text-white text-sm sm:text-base transition-colors">Shoes</Link></li>
-              <li><Link to="/products?sub_category=sandals" className="text-gray-300 hover:text-white text-sm sm:text-base transition-colors">Sandals</Link></li>
-              <li><Link to="/products?sub_category=chappals" className="text-gray-300 hover:text-white text-sm sm:text-base transition-colors">Chappals</Link></li>
+              <li><Link to="/products?sub_category=Shoes" className="text-gray-300 hover:text-white text-sm sm:text-base transition-colors">Shoes</Link></li>
+              <li><Link to="/products?sub_category=Sandals" className="text-gray-300 hover:text-white text-sm sm:text-base transition-colors">Sandals</Link></li>
+              <li><Link to="/products?sub_category=Chappals" className="text-gray-300 hover:text-white text-sm sm:text-base transition-colors">Chappals</Link></li>
               <li><Link to="/products?gender=men" className="text-gray-300 hover:text-white text-sm sm:text-base transition-colors">Men's Collection</Link></li>
               <li><Link to="/products?gender=women" className="text-gray-300 hover:text-white text-sm sm:text-base transition-colors">Women's Collection</Link></li>
             </ul>
@@ -88,12 +88,11 @@ const Footer: React.FC = () => {
               <div className="flex items-start space-x-3">
                 <MapPin className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
                 <a
-                  href="https://www.google.com/maps?q=123+Fashion+Street,+Design+District,+Mumbai,+Maharashtra+400001"
+                  href="https://maps.app.goo.gl/zN1S7K3zKaLyTiCo6?g_st=awb"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-gray-300 text-sm sm:text-base hover:text-white transition-colors leading-relaxed"
-                >
-                  123 Fashion Street, Design District, Mumbai, Maharashtra 400001
+                >No.20, 1st Floor, Broad Bazaar, Flower Bazaar Lane,   Ambur - 635802 Tirupattur District Tamilnadu, India.
                 </a>
               </div>
               <div className="flex items-center space-x-3">
@@ -104,7 +103,7 @@ const Footer: React.FC = () => {
               </div>
               <div className="flex items-center space-x-3">
                 <Mail className="w-5 h-5 text-gray-400" />
-                <a href="mailto:info@fici.com" className="text-gray-300 text-sm sm:text-base hover:text-white transition-colors">
+                <a href="mailto:nmfinternational@gmail.com" className="text-gray-300 text-sm sm:text-base hover:text-white transition-colors">
                   info@fici.com
                 </a>
               </div>

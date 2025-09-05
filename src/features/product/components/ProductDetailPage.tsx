@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useProductStore } from '@store/productStore';
 import { useCartStore } from '@store/cartStore';
@@ -18,7 +18,6 @@ const ProductDetailPage: React.FC = () => {
     error,
     fetchProductByArticleId,
     fetchRelatedProducts,
-    fetchSingleProductByArticleId,
   } = useProductStore();
 
   const { addToCart } = useCartStore();
@@ -29,6 +28,51 @@ const ProductDetailPage: React.FC = () => {
   const [requestedArticleId, setRequestedArticleId] = useState<string | null>(null);
   const [selectedSize, setSelectedSize] = useState<string>('');
   const [quantity, setQuantity] = useState(1);
+
+  // Memoized computed values for better performance
+  const selectedVariant = useMemo(() => 
+    currentProduct?.variants.find(v => v.article_id === selectedArticleId),
+    [currentProduct, selectedArticleId]
+  );
+
+  const availableSizes = useMemo(() => {
+    if (!selectedVariant?.sizes) return [];
+    return Object.keys(selectedVariant.sizes).filter(s => (selectedVariant.sizes[s] ?? 0) > 0);
+  }, [selectedVariant]);
+
+  // Get full size range based on product category/subcategory
+  const getFullSizeRange = useMemo(() => {
+    const subcategory = currentProduct?.sub_category?.toLowerCase() || '';
+    const category = currentProduct?.category?.toLowerCase() || '';
+    
+    // Determine if it's men's or women's based on category or subcategory
+    const isMens = category.includes('men') || subcategory.includes('men');
+    const isWomens = category.includes('women') || subcategory.includes('women');
+    
+    if (isMens) {
+      return Array.from({ length: 9 }, (_, i) => (39 + i).toString()); // 39-47
+    } else if (isWomens) {
+      return Array.from({ length: 6 }, (_, i) => (39 + i).toString()); // 39-44
+    } else {
+      // Default to men's range if unclear
+      return Array.from({ length: 9 }, (_, i) => (39 + i).toString()); // 39-47
+    }
+  }, [currentProduct]);
+
+  const handleWhatsAppContact = useCallback((size: string) => {
+    const productName = currentProduct?.name || '';
+    const productUrl = currentProduct?.variants[0].thumbnail_url || '';
+    const color = selectedVariant?.color || '';
+    
+    const message = `Hi! I'm interested in ${productName} in ${color} color, size ${size}. 
+
+Product Link: ${productUrl}
+
+Could you please let me know when this size will be available?`;
+    
+    const whatsappUrl = `https://wa.me/918122003006?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, '_blank');
+  }, [currentProduct, selectedVariant]);
 
   // Initial load from route
   useEffect(() => {
@@ -75,19 +119,15 @@ const ProductDetailPage: React.FC = () => {
   }, [currentProduct, requestedArticleId]); // intentionally only when product or a pending requested id changes
 
   // Handler when ProductDetails color button clicked -> receives variant.article_id
-  const handleColorChange = (articleId: string) => {
-    console.log("Article",articleId);
-    // set requested so after fetch we can re-select that variant
-    setRequestedArticleId(articleId);
-    // fetch product/variant data for that article id
-    fetchSingleProductByArticleId(articleId);
-    // optimistically set selectedArticleId so UI can give immediate feedback (optional)
-    // setSelectedArticleId(articleId);
-    // clear size
+  const handleColorChange = useCallback((articleId: string) => {
+    console.log("Article", articleId);
+    // Navigate to the new article_id URL to update the route
+    navigate(`/products/${articleId}`, { replace: true });
+    // clear size selection when changing colors
     setSelectedSize('');
-  };
+  }, [navigate]);
 
-  const handleAddToCart = () => {
+  const handleAddToCart = useCallback(() => {
     if (!selectedSize) {
       alert('Please select a size');
       return;
@@ -118,12 +158,12 @@ const ProductDetailPage: React.FC = () => {
       discount_percentage: selectedVariant.discount_percentage,
       thumbnail_url: selectedVariant.thumbnail_url || ''
     });
-  };
+  }, [selectedSize, currentProduct, selectedArticleId, quantity, addToCart]);
 
-  const handleBuyNow = () => {
+  const handleBuyNow = useCallback(() => {
     handleAddToCart();
-    navigate('/cartpage');
-  };
+    navigate('/cart');
+  }, [handleAddToCart, navigate]);
 
   if (loading) {
     return (
@@ -152,12 +192,9 @@ const ProductDetailPage: React.FC = () => {
     );
   }
 
-  // Determine currently selected variant object
-  const selectedVariant = currentProduct.variants.find(v => v.article_id === selectedArticleId) ?? currentProduct.variants[0];
-  const availableSizes = selectedVariant ? Object.keys(selectedVariant.sizes).filter(s => (selectedVariant.sizes[s] ?? 0) > 0) : [];
 
   return (
-    <div className="min-h-screen bg-gradient-light dark:bg-gradient-dark">
+    <div className="flex-1 bg-gradient-light dark:bg-gradient-dark">
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Breadcrumbs */}
         <nav className="mb-8">
@@ -186,16 +223,18 @@ const ProductDetailPage: React.FC = () => {
             selectedSize={selectedSize}
             quantity={quantity}
             availableSizes={availableSizes}
+            fullSizeRange={getFullSizeRange}
             onColorChange={handleColorChange}        // expects article_id
             onSizeChange={(s) => setSelectedSize(s)}
             onQuantityChange={(q) => setQuantity(q)}
             onAddToCart={handleAddToCart}
             onBuyNow={handleBuyNow}
+            onWhatsAppContact={handleWhatsAppContact}
           />
         </div>
 
         {/* Customer Reviews */}
-        <CustomerReviews />
+        <CustomerReviews productId={selectedVariant?.product_id} />
 
         {/* Related Products */}
         <RelatedProducts products={relatedProducts} />

@@ -338,9 +338,9 @@ fetchOrderById: async (orderId: string) => {
           is_verified_purchase,
           created_at,
           updated_at,
-          users (
-            full_name,
-            avatar_url
+          user_profiles (
+            first_name,
+            last_name
           )
         `)
         .eq('product_id', productId)
@@ -358,8 +358,8 @@ fetchOrderById: async (orderId: string) => {
         is_verified_purchase: item.is_verified_purchase,
         created_at: item.created_at,
         updated_at: item.updated_at,
-        user_name: item.users?.full_name || 'Anonymous',
-        user_avatar: item.users?.avatar_url || null
+        user_name: item.user_profiles ? `${item.user_profiles.first_name} ${item.user_profiles.last_name}`.trim() : 'Anonymous',
+        user_avatar: undefined
       }));
 
       set({ reviews, loading: false });

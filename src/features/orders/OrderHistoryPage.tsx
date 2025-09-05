@@ -16,7 +16,9 @@ import {
   Calendar,
   CreditCard,
   Edit3,
-  X
+  X,
+  UserCheck,
+  Filter
 } from 'lucide-react';
 import ReviewModal from './components/ReviewModal';
 import type { Order, OrderItem } from '../../types/order';
@@ -33,6 +35,7 @@ const OrderHistoryPage: React.FC = () => {
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
   const [currentPage, setCurrentPage] = useState(1);
   const [editingReview, setEditingReview] = useState<any>(null);
+  const [orderFilter, setOrderFilter] = useState<'all' | 'user' | 'guest'>('all');
 
   useEffect(() => {
     if (user?.id) {
@@ -41,10 +44,18 @@ const OrderHistoryPage: React.FC = () => {
     }
   }, [user?.id, fetchOrders, fetchUserReviews]);
 
-  const totalPages = Math.ceil(orders.length / ORDERS_PER_PAGE);
+  // Filter orders based on selected filter
+  const filteredOrders = orders.filter(order => {
+    if (orderFilter === 'all') return true;
+    if (orderFilter === 'user') return !!order.user_id;
+    if (orderFilter === 'guest') return !!order.guest_session_id || !!order.guest_contact_info;
+    return true;
+  });
+
+  const totalPages = Math.ceil(filteredOrders.length / ORDERS_PER_PAGE);
   const startIndex = (currentPage - 1) * ORDERS_PER_PAGE;
   const endIndex = startIndex + ORDERS_PER_PAGE;
-  const currentOrders = orders.slice(startIndex, endIndex);
+  const currentOrders = filteredOrders.slice(startIndex, endIndex);
 
   const toggleOrderExpansion = (orderId: string) => {
     const newExpanded = new Set(expandedOrders);
@@ -118,6 +129,16 @@ const OrderHistoryPage: React.FC = () => {
     return itemsArray;
   };
 
+  const isGuestOrder = (order: Order) => {
+    return !!order.guest_session_id || !!order.guest_contact_info;
+  };
+
+  const getOrderTypeStats = () => {
+    const userOrders = orders.filter(order => !!order.user_id);
+    const guestOrders = orders.filter(order => isGuestOrder(order));
+    return { userOrders: userOrders.length, guestOrders: guestOrders.length };
+  };
+
   if (!user) {
     return (
       <div className="min-h-screen bg-gradient-light dark:bg-gradient-dark flex items-center justify-center px-4">
@@ -182,23 +203,55 @@ const OrderHistoryPage: React.FC = () => {
       <div className="max-w-6xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl md:text-4xl font-bold text-primary dark:text-secondary mb-2 font-secondary">
-            My Orders
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400 font-primary">
-            Track your orders and manage your purchases
-          </p>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+            <div>
+              <h1 className="text-3xl md:text-4xl font-bold text-primary dark:text-secondary mb-2 font-secondary">
+                My Orders
+              </h1>
+              <p className="text-gray-600 dark:text-gray-400 font-primary">
+                Track your orders and manage your purchases
+              </p>
+            </div>
+            
+            {/* Order Filter */}
+            {orders.length > 0 && (
+              <div className="flex items-center gap-2">
+                <Filter className="w-4 h-4 text-gray-500" />
+                <select
+                  value={orderFilter}
+                  onChange={(e) => {
+                    setOrderFilter(e.target.value as 'all' | 'user' | 'guest');
+                    setCurrentPage(1);
+                  }}
+                  className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-dark2 text-gray-900 dark:text-white text-sm font-primary focus:ring-2 focus:ring-primary focus:border-primary"
+                >
+                  <option value="all">All Orders</option>
+                  <option value="user">Account Orders</option>
+                  <option value="guest">Guest Orders</option>
+                </select>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Stats Summary */}
         {orders.length > 0 && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
             <div className="bg-white dark:bg-dark2 rounded-xl p-4 border border-light2/20 dark:border-gray-700 hover:shadow-lg transition-shadow duration-200">
               <div className="flex items-center gap-3">
                 <Package className="w-8 h-8 text-primary" />
                 <div>
                   <p className="text-2xl font-bold text-primary dark:text-secondary font-primary">{orders.length}</p>
                   <p className="text-sm text-gray-600 dark:text-gray-400 font-primary">Total Orders</p>
+                </div>
+              </div>
+            </div>
+            <div className="bg-white dark:bg-dark2 rounded-xl p-4 border border-light2/20 dark:border-gray-700 hover:shadow-lg transition-shadow duration-200">
+              <div className="flex items-center gap-3">
+                <UserCheck className="w-8 h-8 text-blue-500" />
+                <div>
+                  <p className="text-2xl font-bold text-primary dark:text-secondary font-primary">{getOrderTypeStats().userOrders}</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 font-primary">Account Orders</p>
                 </div>
               </div>
             </div>
@@ -276,9 +329,22 @@ const OrderHistoryPage: React.FC = () => {
                           {getStatusIcon(order.status)}
                           <div className="flex-1">
                             <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                              <h3 className="font-semibold text-primary dark:text-secondary text-lg font-primary">
-                                Order #{order.id}
-                              </h3>
+                              <div className="flex items-center gap-2">
+                                <h3 className="font-semibold text-primary dark:text-secondary text-lg font-primary">
+                                  Order #{order.id}
+                                </h3>
+                                {isGuestOrder(order) && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-amber-100 dark:bg-amber-900/20 text-amber-800 dark:text-amber-400 rounded-full text-xs font-medium">
+                                    <UserCheck className="w-3 h-3" />
+                                    Guest Order
+                                  </span>
+                                )}
+                                {order.merged_at && (
+                                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-400 rounded-full text-xs font-medium">
+                                    Merged
+                                  </span>
+                                )}
+                              </div>
                               <span className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
                                 {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
                               </span>
@@ -448,33 +514,81 @@ const OrderHistoryPage: React.FC = () => {
                                   {order.payment_status?.charAt(0).toUpperCase() + order.payment_status?.slice(1) || 'Pending'}
                                 </span>
                               </div>
+                              {isGuestOrder(order) && (
+                                <div className="flex items-center justify-between text-sm font-primary mt-2">
+                                  <span className="text-gray-600 dark:text-gray-400">Order Type:</span>
+                                  <span className="text-amber-600 dark:text-amber-400">Guest Order</span>
+                                </div>
+                              )}
+                              {order.merged_at && (
+                                <div className="flex items-center justify-between text-sm font-primary mt-2">
+                                  <span className="text-gray-600 dark:text-gray-400">Merged Date:</span>
+                                  <span className="text-green-600 dark:text-green-400">
+                                    {new Date(order.merged_at).toLocaleDateString('en-IN')}
+                                  </span>
+                                </div>
+                              )}
                             </div>
                           </div>
 
-                          {/* Shipping Address */}
-                          {order.shipping_address && (
-                            <div>
-                              <h4 className="font-semibold text-primary dark:text-secondary mb-3 font-primary">
-                                Shipping Address
-                              </h4>
-                              <div className="bg-white dark:bg-dark2 rounded-xl p-4 border border-light2/20 dark:border-gray-700">
-                                <p className="text-gray-800 dark:text-gray-200 font-primary">
-                                  {typeof order.shipping_address === 'object' ? (
-                                    <>
-                                      {order.shipping_address.name && <><strong>{order.shipping_address.name}</strong><br /></>}
-                                      {order.shipping_address.street && <>{order.shipping_address.street}<br /></>}
-                                      {order.shipping_address.city && <>{order.shipping_address.city}, </>}
-                                      {order.shipping_address.state && <>{order.shipping_address.state} </>}
-                                      {order.shipping_address.pincode && <>{order.shipping_address.pincode}</>}
-                                      {order.shipping_address.phone && <><br />Phone: {order.shipping_address.phone}</>}
-                                    </>
-                                  ) : (
-                                    order.shipping_address
-                                  )}
-                                </p>
+                          {/* Contact & Shipping Information */}
+                          <div className="space-y-4">
+                            {/* Guest Contact Info */}
+                            {isGuestOrder(order) && order.guest_contact_info && (
+                              <div>
+                                <h4 className="font-semibold text-primary dark:text-secondary mb-3 font-primary">
+                                  Guest Contact Information
+                                </h4>
+                                <div className="bg-white dark:bg-dark2 rounded-xl p-4 border border-light2/20 dark:border-gray-700">
+                                  <div className="space-y-2 text-sm font-primary">
+                                    {order.guest_contact_info.name && (
+                                      <div className="flex justify-between">
+                                        <span className="text-gray-600 dark:text-gray-400">Name:</span>
+                                        <span className="text-gray-900 dark:text-white">{order.guest_contact_info.name}</span>
+                                      </div>
+                                    )}
+                                    {order.guest_contact_info.email && (
+                                      <div className="flex justify-between">
+                                        <span className="text-gray-600 dark:text-gray-400">Email:</span>
+                                        <span className="text-gray-900 dark:text-white">{order.guest_contact_info.email}</span>
+                                      </div>
+                                    )}
+                                    {order.guest_contact_info.phone && (
+                                      <div className="flex justify-between">
+                                        <span className="text-gray-600 dark:text-gray-400">Phone:</span>
+                                        <span className="text-gray-900 dark:text-white">{order.guest_contact_info.phone}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
                               </div>
-                            </div>
-                          )}
+                            )}
+                            
+                            {/* Shipping Address */}
+                            {order.shipping_address && (
+                              <div>
+                                <h4 className="font-semibold text-primary dark:text-secondary mb-3 font-primary">
+                                  Shipping Address
+                                </h4>
+                                <div className="bg-white dark:bg-dark2 rounded-xl p-4 border border-light2/20 dark:border-gray-700">
+                                  <p className="text-gray-800 dark:text-gray-200 font-primary">
+                                    {typeof order.shipping_address === 'object' ? (
+                                      <>
+                                        {order.shipping_address.name && <><strong>{order.shipping_address.name}</strong><br /></>}
+                                        {order.shipping_address.street && <>{order.shipping_address.street}<br /></>}
+                                        {order.shipping_address.city && <>{order.shipping_address.city}, </>}
+                                        {order.shipping_address.state && <>{order.shipping_address.state} </>}
+                                        {order.shipping_address.pincode && <>{order.shipping_address.pincode}</>}
+                                        {order.shipping_address.phone && <><br />Phone: {order.shipping_address.phone}</>}
+                                      </>
+                                    ) : (
+                                      order.shipping_address
+                                    )}
+                                  </p>
+                                </div>
+                              </div>
+                            )}
+                          </div>
 
                           {/* Order Summary */}
                           <div className="bg-white dark:bg-dark2 rounded-xl p-4 border border-light2/20 dark:border-gray-700">
@@ -518,7 +632,8 @@ const OrderHistoryPage: React.FC = () => {
             {totalPages > 1 && (
               <div className="mt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="text-sm text-gray-600 dark:text-gray-400 font-primary">
-                  Showing {startIndex + 1}-{Math.min(endIndex, orders.length)} of {orders.length} orders
+                  Showing {startIndex + 1}-{Math.min(endIndex, filteredOrders.length)} of {filteredOrders.length} {orderFilter === 'all' ? '' : orderFilter} orders
+                  {orderFilter !== 'all' && ` (${orders.length} total)`}
                 </div>
                 
                 <div className="flex items-center gap-2">

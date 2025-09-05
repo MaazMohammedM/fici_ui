@@ -2,7 +2,7 @@ import React from "react";
 
 const AboutPage: React.FC = () => {
   return (
-    <div className="min-h-screen bg-[color:var(--color-light1)] dark:bg-[color:var(--color-dark1)]">
+    <div className="flex-1 bg-[color:var(--color-light1)] dark:bg-[color:var(--color-dark1)]">
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Hero Section - Mobile Layout */}
         <div className="text-center lg:hidden mb-16">

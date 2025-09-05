@@ -2,15 +2,18 @@
 import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import AddressCard from './components/AddressForm';
+import GuestAddressForm from './components/GuestAddressForm';
 import PaymentMethodCard from './components/PaymentMethods';
 import OrderSummary from './components/OrderSummary';
 import PaymentStatusModal from './modal/PaymentStatusModal';
+import GuestCheckoutForm from './components/GuestCheckoutForm';
 import { useCartStore } from '@store/cartStore';
 import { usePaymentStore } from '@store/paymentStore';
 import { useAuthStore } from '@store/authStore';
 import { supabase } from '@lib/supabase';
-import { Shield } from 'lucide-react';
+import { Shield, ArrowLeft } from 'lucide-react';
 import type { Address } from './components/AddressForm';
+import type { GuestContactInfo } from '../../types/guest';
 
 const getRazorpayKey = () => {
   if (typeof window !== 'undefined' && (window as any).__RAZORPAY_KEY__) return (window as any).__RAZORPAY_KEY__;
@@ -37,14 +40,21 @@ const CheckoutPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { items: cartItems, getCartTotal, getCartSavings, clearCart } = useCartStore();
-  const { createOrder, savePaymentDetails } = usePaymentStore();
-  const { user } = useAuthStore();
+  const { savePaymentDetails } = usePaymentStore();
+  const user = useAuthStore((state) => state.user);
+  const isGuest = useAuthStore((state) => state.isGuest);
+  const guestContactInfo = useAuthStore((state) => state.guestContactInfo);
+  const guestSession = useAuthStore((state) => state.guestSession);
+  const createGuestSession = useAuthStore((state) => state.createGuestSession);
+  const getAuthenticationType = useAuthStore((state) => state.getAuthenticationType);
 
   const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
   const [selectedPayment, setSelectedPayment] = useState<string>('razorpay');
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<'success' | 'failed' | 'pending' | null>(null);
   const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
+  const [showGuestForm, setShowGuestForm] = useState(false);
+  const [guestInfo, setGuestInfo] = useState<GuestContactInfo | null>(null);
 
   const subtotal = useMemo(() => getCartTotal(), [getCartTotal]);
   const savings = useMemo(() => getCartSavings(), [getCartSavings]);
@@ -67,11 +77,15 @@ const CheckoutPage: React.FC = () => {
   }, [selectedAddress, selectedPayment]);
 
   useEffect(() => {
-    if (!user) {
-      sessionStorage.setItem("redirectAfterLogin", location.pathname);
-      navigate("/auth/signin");
+    const authType = getAuthenticationType();
+    console.log('CheckoutPage useEffect - authType:', authType, 'guestSession:', guestSession, 'guestContactInfo:', guestContactInfo, 'guestSessionId:', useAuthStore.getState().guestSession?.guest_session_id);
+    if (authType === 'none') {
+      setShowGuestForm(true);
+    } else if (authType === 'guest' && guestContactInfo) {
+      setGuestInfo(guestContactInfo);
+      setShowGuestForm(false);
     }
-  }, [user, navigate, location.pathname]);
+  }, [user, isGuest, guestContactInfo, guestSession, guestSession?.guest_session_id, getAuthenticationType]);
 
   useEffect(() => {
     const redirectPath = sessionStorage.getItem("redirectAfterLogin");
@@ -91,16 +105,20 @@ const CheckoutPage: React.FC = () => {
 
   const handlePaymentSuccess = async (response: any, orderId: string, amountRupees: number) => {
     try {
-      await savePaymentDetails({
-        order_id: orderId,            // internal order id
-        user_id: user!.id,
+      const authType = getAuthenticationType();
+      const paymentData = {
+        order_id: orderId,
+        user_id: authType === 'user' ? user!.id : null,
+        guest_session_id: authType === 'guest' ? useAuthStore.getState().getCurrentSessionId() : null,
         provider: "razorpay",
-        payment_status: "pending",
+        payment_status: "pending" as const,
         payment_method: selectedPayment,
         amount: amountRupees,
         currency: "INR",
-        payment_reference: response.razorpay_payment_id, // will be null before webhook
-      });
+        payment_reference: response.razorpay_payment_id,
+      };
+      
+      await savePaymentDetails(paymentData);
       
 
       setCurrentOrderId(orderId);
@@ -115,15 +133,51 @@ const CheckoutPage: React.FC = () => {
     setPaymentStatus('failed');
   };
 
+  const handleGuestInfoSubmit = async (contactInfo: GuestContactInfo) => {
+    try {
+      const guestSession = await createGuestSession(contactInfo);
+      if (guestSession) {
+        setGuestInfo(contactInfo);
+        setShowGuestForm(false);
+        // Store email for potential account creation later
+        sessionStorage.setItem('guestEmail', contactInfo.email);
+      } else {
+        alert('Failed to create guest session. Please try again.');
+      }
+    } catch (error) {
+      console.error('Guest session creation failed:', error);
+      alert('Failed to create guest session. Please try again.');
+    }
+  };
+
+  const handleSignInRedirect = () => {
+    sessionStorage.setItem("redirectAfterLogin", location.pathname);
+    navigate("/auth/signin");
+  };
+
+  const handleBackToGuestForm = () => {
+    setShowGuestForm(true);
+    setGuestInfo(null);
+  };
+
   const handlePlaceOrder = async () => {
-    if (!user) {
-      alert('Please sign in');
+    const authType = getAuthenticationType();
+    
+    if (authType === 'none') {
+      alert('Please provide your contact information or sign in');
       return;
     }
+    
+    if (authType === 'guest' && !guestInfo) {
+      alert('Please provide your contact information');
+      return;
+    }
+    
     if (!validateShipping()) {
       alert('Please fill/choose a shipping address');
       return;
     }
+    
     if (!cartItems.length) {
       alert('Your cart is empty');
       return;
@@ -131,8 +185,15 @@ const CheckoutPage: React.FC = () => {
 
     setIsProcessing(true);
     try {
-      const orderData = {
-        user_id: user.id,
+      // Generate a unique order ID - let the database generate UUID
+      const orderId = crypto.randomUUID();
+
+      // Use create-order function for both COD and Razorpay
+      const invokeBody = authType === 'user' ? { 
+        amount: totalAmount,   
+        user_id: user.id,  
+        order_id: orderId,     
+        payment_method: selectedPayment,
         items: cartItems.map(i => ({
           product_id: i.product_id,
           article_id: i.article_id,
@@ -148,28 +209,43 @@ const CheckoutPage: React.FC = () => {
         subtotal,
         discount: savings,
         delivery_charge: deliveryCharge,
-        total_amount: totalAmount, 
-        status: 'pending' as const,
-        payment_status: 'pending' as const,
-        payment_method: selectedPayment,
-        shipping_address: selectedAddress,
-      };
-
-      const orderId = await createOrder(orderData);
-      if (!orderId) throw new Error('Order creation failed');
-
-      const invokeBody = { 
+        shipping_address: selectedAddress
+      } : {
         amount: totalAmount,   
-        user_id: user.id,  
+        guest_session_id: guestSession?.guest_session_id,
+        guest_contact_info: guestInfo,
         order_id: orderId,     
-        payment_method: selectedPayment
+        payment_method: selectedPayment,
+        items: cartItems.map(i => ({
+          product_id: i.product_id,
+          article_id: i.article_id,
+          name: i.name,
+          color: i.color,
+          size: i.size,
+          quantity: i.quantity,
+          price: i.price,
+          mrp: i.mrp,
+          discount_percentage: i.discount_percentage,
+          thumbnail_url: i.thumbnail_url,
+        })),
+        subtotal,
+        discount: savings,
+        delivery_charge: deliveryCharge,
+        shipping_address: selectedAddress
       };
 
       const { data, error } = await supabase.functions.invoke("create-order", {
         body: invokeBody,
       });
       if (error) throw error;
-      const razorpayOrder = data;
+      const paymentOrder = data;
+
+      // Handle COD orders - no Razorpay needed
+      if (selectedPayment === 'cod') {
+        setCurrentOrderId(orderId);
+        setPaymentStatus('success');
+        return;
+      }
 
       await loadRazorpayScript();
       const key = getRazorpayKey();
@@ -180,12 +256,18 @@ const CheckoutPage: React.FC = () => {
         currency: 'INR',
         name: 'FICI',
         description: 'Order payment',
-        order_id: razorpayOrder.id,
+        order_id: paymentOrder.id,
         handler: (response: any) => handlePaymentSuccess(response, orderId, totalAmount),
         prefill: {
-          name: (selectedAddress as any)?.name,
-          email: (selectedAddress as any)?.email,
-          contact: (selectedAddress as any)?.phone
+          name: authType === 'user' 
+            ? (selectedAddress as any)?.name 
+            : guestInfo?.name,
+          email: authType === 'user' 
+            ? (selectedAddress as any)?.email 
+            : guestInfo?.email,
+          contact: authType === 'user' 
+            ? (selectedAddress as any)?.phone 
+            : guestInfo?.phone
         },
         theme: { color: '#3B82F6' },
         modal: {
@@ -203,7 +285,6 @@ const CheckoutPage: React.FC = () => {
     }
   };
 
-// ... existing code ...
   const handleRetryPayment = () => {
     setPaymentStatus(null);
     setCurrentOrderId(null);
@@ -219,12 +300,38 @@ const CheckoutPage: React.FC = () => {
     }
   };
 
-  if (!user) {
+  // Show guest checkout form if not authenticated
+  if (showGuestForm) {
+    return (
+      <div className="min-h-screen bg-gradient-light dark:bg-gradient-dark">
+        <div className="max-w-2xl mx-auto px-4 py-8">
+          <div className="mb-6">
+            <button
+              onClick={() => navigate('/cart')}
+              className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back to Cart
+            </button>
+          </div>
+          
+          <GuestCheckoutForm
+            onGuestInfoSubmit={handleGuestInfoSubmit}
+            onSignInClick={handleSignInRedirect}
+            loading={isProcessing}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // Only show loading if we're not in guest mode and don't have a user
+  if (!user && !isGuest && !guestInfo) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p>Redirecting to sign in...</p>
+          <p>Loading checkout...</p>
         </div>
       </div>
     );
@@ -250,14 +357,41 @@ const CheckoutPage: React.FC = () => {
     <>
       <div className="min-h-screen bg-gradient-light dark:bg-gradient-dark">
         <div className="max-w-7xl mx-auto px-4 py-8">
-          <h1 className="text-3xl font-bold text-center mb-8">Checkout</h1>
+          <div className="flex items-center justify-between mb-8">
+            <h1 className="text-3xl font-bold">Checkout</h1>
+            {isGuest && guestInfo && (
+              <div className="flex items-center gap-4">
+                <div className="text-sm text-gray-600 dark:text-gray-400">
+                  <span className="font-medium">Guest:</span> {guestInfo.email}
+                </div>
+                <button
+                  onClick={handleBackToGuestForm}
+                  className="text-sm text-primary hover:text-primary-active transition-colors"
+                >
+                  Change Info
+                </button>
+              </div>
+            )}
+          </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <div className="space-y-8">
-              <AddressCard
-                selectedId={selectedAddress?.id}
-                onSelect={(addr) => setSelectedAddress(addr)}
+              {user ? (
+                <AddressCard
+                  selectedId={selectedAddress?.id}
+                  onSelect={(addr) => setSelectedAddress(addr)}
+                />
+              ) : (
+                <>
+              {console.log('Rendering GuestAddressForm with guestSessionId:', useAuthStore.getState().guestSession?.guest_session_id)}
+              <GuestAddressForm
+                selectedAddress={selectedAddress}
+                onAddressSubmit={(addr) => setSelectedAddress(addr)}
+                guestSessionId={useAuthStore.getState().guestSession?.guest_session_id || ''}
               />
+
+                </>
+              )}
 
               <PaymentMethodCard
                 selected={selectedPayment}

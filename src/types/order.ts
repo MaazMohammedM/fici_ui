@@ -25,7 +25,13 @@ export interface ShippingAddress {
 
 export interface Order {
   id: string; // order_id from database
-  user_id: string;
+  user_id?: string; // Optional for guest orders
+  guest_session_id?: string; // For guest orders
+  guest_contact_info?: {
+    name?: string;
+    email?: string;
+    phone?: string;
+  };
   items: OrderItem[] | Record<string, OrderItem>; // Can be array or JSONB object
   subtotal: number;
   discount: number;
@@ -38,6 +44,7 @@ export interface Order {
   created_at?: string;
   order_date?: string;
   updated_at?: string;
+  merged_at?: string; // When guest order was merged to user account
 }
 
 export interface Review {

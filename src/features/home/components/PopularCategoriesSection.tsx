@@ -29,7 +29,7 @@ const PopularCategoriesSection: React.FC = () => {
           {categoriesWithCount.map((category) => (
             <Link
               key={category.id}
-              to={`/products?category=${category.id}`}
+              to={`/products?sub_category=${category.id}`}
               className="flex-shrink-0 w-64 sm:w-72 rounded-2xl bg-white dark:bg-dark2 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
             >
               <div className="p-6 text-center">
@@ -47,7 +47,7 @@ const PopularCategoriesSection: React.FC = () => {
           {categoriesWithCount.map((category) => (
             <Link
               key={category.id}
-              to={`/products?category=${category.id}`}
+              to={`/products?sub_category=${category.id}`}
               className="group relative overflow-hidden rounded-2xl bg-white dark:bg-dark2 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
             >
               <div className="p-6 text-center">

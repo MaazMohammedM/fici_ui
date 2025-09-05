@@ -13,6 +13,9 @@ const AboutPage = React.lazy(() => import('@features/about/AboutPage'));
 const SignIn = React.lazy(() => import('@auth/components/SignIn'));
 const Register = React.lazy(() => import('@auth/components/Register'));
 const AuthCallback = React.lazy(() => import('@auth/components/AuthCallback'));
+const ForgotPassword = React.lazy(() => import('@auth/components/ForgotPassword'));
+const ResetPassword = React.lazy(() => import('@auth/components/ResetPassword'));
+const ProfilePage = React.lazy(() => import('@features/profile/ProfilePage'));
 const AdminPage = React.lazy(() => import('@features/admin/AdminPanel'));
 const ProductPage = React.lazy(() => import('@features/product/ProductPage'));
 const ProductDetailPage = React.lazy(() => import('@features/product/components/ProductDetailPage'));
@@ -20,10 +23,12 @@ const OrderHistoryPage = React.lazy(() => import('@features/orders/OrderHistoryP
 const CheckoutPage = React.lazy(() => import('@features/checkout/CheckoutPage'));
 
 // Loading component
+import FiciLoader from './components/ui/FiciLoader';
+
 const LoadingSpinner = () => (
   <div className="min-h-screen bg-gradient-light dark:bg-gradient-dark flex items-center justify-center px-4">
     <div className="text-center">
-      <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+      <FiciLoader size="lg" className="mx-auto mb-4" />
       <p className="text-gray-600 dark:text-gray-400">Loading...</p>
     </div>
   </div>
@@ -40,11 +45,14 @@ const App: React.FC = () => {
               <Routes>
                 <Route path="/" element={<HomePage />} />
                 <Route path="/contact" element={<ContactPage />} />
-                <Route path="/cartpage" element={<CartPage />} />
+                <Route path="/cart" element={<CartPage />} />
                 <Route path="/about" element={<AboutPage />} />
                 <Route path="/auth/signin" element={<SignIn />} />
                 <Route path="/auth/signup" element={<Register />} />
                 <Route path="/auth/callback" element={<AuthCallback />} />
+                <Route path="/auth/forgot-password" element={<ForgotPassword />} />
+                <Route path="/auth/reset-password" element={<ResetPassword />} />
+                <Route path="/profile" element={<ProfilePage />} />
                 <Route path="/admin" element={<AdminPage />} />
                 <Route path="/products" element={<ProductPage />} />
                 <Route path="/products/:article_id" element={<ProductDetailPage />} />

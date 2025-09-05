@@ -7,6 +7,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useNavigate } from 'react-router-dom';
 import { User, Mail, ArrowRight } from 'lucide-react';
 
+// Store
+import { useAuthStore } from '../../store/authStore';
+
 // UI Components
 import { Input, Button, ErrorAlert } from '../ui';
 import { 
@@ -16,31 +19,42 @@ import {
   GoogleAuthButton 
 } from '@auth/index'
 
-// Hooks and Schemas
-import { useAuth } from '../../lib/hooks/useAuth';
-import { RegisterSchema } from '../../lib/schema/authSchema';
-import type {RegisterFormData}  from '../../lib/schema/authSchema';
+// Schemas
+import { SignUpSchema, type SignUpFormData } from '../../lib/validation/schemas';
+import { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 
 const Register = memo(() => {
   const navigate = useNavigate();
-  const { isLoading, error, clearError, signUp, signInWithGoogle } = useAuth();
+  const location = useLocation();
+  const { 
+    loading: isLoading, 
+    error, 
+    clearError, 
+    signUp, 
+    signInWithGoogle
+  } = useAuthStore();
+  
+  const [prefilledEmail, setPrefilledEmail] = useState('');
 
   const {
     register,
     handleSubmit,
-    formState: { errors, isSubmitting }
-  } = useForm<RegisterFormData>({ 
-    resolver: zodResolver(RegisterSchema),
+    formState: { errors, isSubmitting },
+    setValue
+  } = useForm<SignUpFormData>({ 
+    resolver: zodResolver(SignUpSchema),
     defaultValues: {
       firstName: '',
       lastName: '',
-      email: '',
+      email: prefilledEmail,
       password: '',
       confirmPassword: ''
     }
   });
+  
 
-  const onSubmit = async (data: RegisterFormData) => {
+  const onSubmit = async (data: SignUpFormData) => {
     await signUp({
       firstName: data.firstName,
       lastName: data.lastName,
@@ -49,7 +63,20 @@ const Register = memo(() => {
     });
   };
 
-  const handleNavigation = () => navigate('/auth/signin');
+  const handleNavigation = () => {
+    navigate('/auth/signin');
+  };
+
+  // Handle email prefill from guest checkout
+  useEffect(() => {
+    const guestEmail = location.state?.guestEmail || sessionStorage.getItem('guestEmail');
+    if (guestEmail) {
+      setPrefilledEmail(guestEmail);
+      setValue('email', guestEmail);
+      sessionStorage.removeItem('guestEmail');
+    }
+  }, [location.state, setValue]);
+
 
   return (
     <AuthLayout 
@@ -59,6 +86,7 @@ const Register = memo(() => {
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 sm:space-y-6">
         {/* Error Display */}
         {error && <ErrorAlert message={error} onDismiss={clearError} />}
+        
 
         {/* Name Fields */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -82,11 +110,18 @@ const Register = memo(() => {
         <Input
           type="email"
           label="Email Address"
-          placeholder="Enter your email"
+          placeholder={prefilledEmail ? prefilledEmail : "Enter your email"}
           leftIcon={Mail}
           error={errors.email?.message}
           {...register('email')}
         />
+        
+        {/* Email prefill indicator */}
+        {prefilledEmail && (
+          <p className="text-xs text-gray-500 dark:text-gray-400 -mt-2">
+            Email pre-filled from your guest checkout
+          </p>
+        )}
 
         {/* Password Fields */}
         <div className="space-y-4">
