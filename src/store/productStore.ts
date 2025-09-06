@@ -220,9 +220,10 @@ export const useProductStore = create<ProductState>((set, get) => ({
   },
 
   fetchProductByArticleId: async (articleId: string) => {
-    set({ loading: true, error: null });
+    set({ loading: true, error: null, currentProduct: null });
     
     try {
+
       const baseArticleId = articleId.split('_')[0];
       const { data, error } = await supabase
         .from('products')
@@ -258,6 +259,7 @@ export const useProductStore = create<ProductState>((set, get) => ({
             category: firstProduct.category,
             gender: firstProduct.gender,
           },
+
           loading: false
         });
       } else {

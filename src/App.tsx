@@ -108,6 +108,7 @@ const App: React.FC = () => {
         </ErrorBoundary>
       </Router>
     </HelmetProvider>
+
   );
 };
 

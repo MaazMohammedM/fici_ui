@@ -2,6 +2,14 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { supabase } from '@lib/supabase';
+import type { 
+  GuestSession, 
+  GuestContactInfo, 
+  AuthenticationState,
+  GuestOrderSummary,
+  GuestOrderMergeResult 
+} from '../types/guest';
+import { persist } from 'zustand/middleware';
 
 import type {
   GuestSession,
@@ -20,6 +28,7 @@ interface AuthState extends AuthenticationState {
   authType: 'guest' | 'user' | null;
 
   setUser: (user: any | undefined) => void;
+
   setRole: (role: string | null) => void;
   setFirstName: (name: string | null) => void;
   signIn: (email: string, password: string) => Promise<void>;

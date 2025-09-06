@@ -48,6 +48,73 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
   const [showSizeGuide, setShowSizeGuide] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
 
+  // Get care instructions based on product sub_category
+  const getCareInstructions = (subCategory: string) => {
+    const category = subCategory.toLowerCase();
+    
+    const careInstructions: Record<string, string[]> = {
+      'shoes': [
+        'Clean with a soft, damp cloth',
+        'Use leather conditioner monthly',
+        'Store in a cool, dry place',
+        'Use shoe trees to maintain shape',
+        'Avoid direct sunlight and heat',
+        'Rotate wear to extend lifespan'
+      ],
+      'sandals': [
+        'Rinse with clean water after use',
+        'Air dry away from direct sunlight',
+        'Clean straps with mild soap',
+        'Store in a ventilated area',
+        'Avoid prolonged exposure to water',
+        'Check and tighten straps regularly'
+      ],
+      'bags': [
+        'Clean with appropriate leather/fabric cleaner',
+        'Store in dust bag when not in use',
+        'Avoid overloading to maintain shape',
+        'Keep away from sharp objects',
+        'Condition leather bags regularly',
+        'Handle with clean hands'
+      ],
+      'wallets': [
+        'Clean with soft, dry cloth',
+        'Condition leather monthly',
+        'Avoid overstuffing with cards/cash',
+        'Store in a dry place',
+        'Keep away from extreme temperatures',
+        'Handle gently to prevent cracking'
+      ],
+      'belts': [
+        'Clean with leather cleaner',
+        'Store hanging or flat',
+        'Rotate between different belts',
+        'Avoid excessive bending',
+        'Condition regularly to prevent cracking',
+        'Keep buckle clean and dry'
+      ]
+    };
+
+    // Find matching category or return general care instructions
+    for (const [key, instructions] of Object.entries(careInstructions)) {
+      if (category.includes(key)) {
+        return instructions;
+      }
+    }
+
+    // Default care instructions for leather products
+    return [
+      'Clean with appropriate cleaner',
+      'Store in a cool, dry place',
+      'Avoid direct sunlight and heat',
+      'Handle with care',
+      'Keep away from sharp objects',
+      'Regular maintenance recommended'
+    ];
+  };
+
+  const careInstructions = getCareInstructions(currentProduct.sub_category || '');
+
   return (
     <div className="space-y-6">
       <ProductTitleRating currentProduct={currentProduct} />
