@@ -1,11 +1,15 @@
 // src/App.tsx
 import React, { Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { HelmetProvider } from 'react-helmet-async';
 import ErrorBoundary from './component/ErrorBoundary';
 import Header from 'component/Header';
 import Footer from 'component/Footer';
+import SEOHead from '@lib/components/SEOHead';
+import ProtectedRoute from '@auth/ProtectedRoute';
 
 // Lazy-loaded pages
+// Import enhanced pages
 const HomePage = React.lazy(() => import('@features/home/HomePage'));
 const ContactPage = React.lazy(() => import('@features/contact/ContactPage'));
 const CartPage = React.lazy(() => import('@features/cart/CartPage'));
@@ -16,11 +20,12 @@ const AuthCallback = React.lazy(() => import('@auth/components/AuthCallback'));
 const ForgotPassword = React.lazy(() => import('@auth/components/ForgotPassword'));
 const ResetPassword = React.lazy(() => import('@auth/components/ResetPassword'));
 const ProfilePage = React.lazy(() => import('@features/profile/ProfilePage'));
-const AdminPage = React.lazy(() => import('@features/admin/AdminPanel'));
+const AdminPage = React.lazy(() => import('@features/admin/AdminPanel.refactored'));
 const ProductPage = React.lazy(() => import('@features/product/ProductPage'));
 const ProductDetailPage = React.lazy(() => import('@features/product/components/ProductDetailPage'));
 const OrderHistoryPage = React.lazy(() => import('@features/orders/OrderHistoryPage'));
 const CheckoutPage = React.lazy(() => import('@features/checkout/CheckoutPage'));
+const NotFoundPage = React.lazy(() => import('@features/error/NotFoundPage'));
 
 // Loading component
 import FiciLoader from './components/ui/FiciLoader';
@@ -36,43 +41,73 @@ const LoadingSpinner = () => (
 
 const App: React.FC = () => {
   return (
-    <Router>
-      <ErrorBoundary>
-        <div className="min-h-screen flex flex-col bg-gradient-light dark:bg-gradient-dark">
-          <Header />
-          <main className="flex-1 flex flex-col">
-            <Suspense fallback={<LoadingSpinner />}>
-              <Routes>
-                <Route path="/" element={<HomePage />} />
-                <Route path="/contact" element={<ContactPage />} />
-                <Route path="/cart" element={<CartPage />} />
-                <Route path="/about" element={<AboutPage />} />
-                <Route path="/auth/signin" element={<SignIn />} />
-                <Route path="/auth/signup" element={<Register />} />
-                <Route path="/auth/callback" element={<AuthCallback />} />
-                <Route path="/auth/forgot-password" element={<ForgotPassword />} />
-                <Route path="/auth/reset-password" element={<ResetPassword />} />
-                <Route path="/profile" element={<ProfilePage />} />
-                <Route path="/admin" element={<AdminPage />} />
-                <Route path="/products" element={<ProductPage />} />
-                <Route path="/products/:article_id" element={<ProductDetailPage />} />
-                <Route path="/orders" element={<OrderHistoryPage />} />
-                <Route path="/checkout" element={<CheckoutPage />} />
-                <Route
-                  path="*"
-                  element={
-                    <div className="text-primary dark:text-secondary text-center text-2xl font-bold w-full h-[calc(100svh-8rem)] flex items-center justify-center bg-gradient-light dark:bg-gradient-dark">
-                      404 Not Found
-                    </div>
-                  }
-                />
-              </Routes>
-            </Suspense>
-          </main>
-          <Footer />
-        </div>
-      </ErrorBoundary>
-    </Router>
+    <HelmetProvider>
+      <Router>
+        <ErrorBoundary>
+          <div className="min-h-screen flex flex-col bg-gradient-light dark:bg-gradient-dark">
+            <SEOHead />
+            <Header />
+            <main className="flex-1 flex flex-col">
+              <Suspense fallback={<LoadingSpinner />}>
+                <Routes>
+                  <Route path="/" element={<HomePage />} />
+                  <Route path="/contact" element={<ContactPage />} />
+                  <Route path="/cart" element={<CartPage />} />
+                  <Route path="/about" element={<AboutPage />} />
+                  <Route path="/auth/signin" element={<SignIn />} />
+                  <Route path="/auth/signup" element={<Register />} />
+                  <Route path="/auth/callback" element={<AuthCallback />} />
+                  <Route path="/auth/forgot-password" element={<ForgotPassword />} />
+                  <Route path="/auth/reset-password" element={<ResetPassword />} />
+                  <Route path="/profile" element={
+                    <ProtectedRoute>
+                      <ProfilePage />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/admin" element={
+                      <AdminPage />
+                  } />
+                  <Route path="/products" element={<ProductPage />} />
+                  <Route path="/products/:article_id" element={<ProductDetailPage />} />
+                  <Route path="/orders" element={
+                    <ProtectedRoute>
+                      <OrderHistoryPage />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/checkout" element={
+                    <ErrorBoundary fallback={
+                      <div className="min-h-screen flex items-center justify-center">
+                        <div className="text-center">
+                          <h2 className="text-xl font-semibold mb-4">Checkout Unavailable</h2>
+                          <p className="text-gray-600 mb-4">Please try again or contact support.</p>
+                          <button 
+                            onClick={() => window.location.href = '/cart'}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-lg"
+                          >
+                            Return to Cart
+                          </button>
+                        </div>
+                      </div>
+                    }>
+                      <CheckoutPage />
+                    </ErrorBoundary>
+                  } />
+                  <Route
+                    path="*"
+                    element={
+                      <Suspense fallback={<FiciLoader />}>
+                        <NotFoundPage />
+                      </Suspense>
+                    }
+                  />
+                </Routes>
+              </Suspense>
+            </main>
+            <Footer />
+          </div>
+        </ErrorBoundary>
+      </Router>
+    </HelmetProvider>
   );
 };
 

@@ -6,6 +6,7 @@ import { useCartStore } from '@store/cartStore';
 interface PaymentStatusModalProps {
   status: 'success' | 'failed' | 'pending';
   orderId?: string;
+  message?: string;
   onClose: () => void;
   onRetry?: () => void;
 }
@@ -13,6 +14,7 @@ interface PaymentStatusModalProps {
 const PaymentStatusModal: React.FC<PaymentStatusModalProps> = ({ 
   status, 
   orderId, 
+  message,
   onClose, 
   onRetry 
 }) => {
@@ -35,7 +37,7 @@ const PaymentStatusModal: React.FC<PaymentStatusModalProps> = ({
         return {
           icon: <CheckCircle className="w-16 h-16 text-green-500" />,
           title: 'Payment Successful!',
-          subtitle: 'Your order has been placed successfully',
+          subtitle: message||'Your order has been placed successfully',
           color: 'text-green-600',
           bgColor: 'bg-green-50',
           borderColor: 'border-green-200'

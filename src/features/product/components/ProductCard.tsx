@@ -35,10 +35,13 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode }) => {
     return url.startsWith('http') ? url : fallbackImage;
   };
 
-  // Get full article_id for routing (keep color suffix)
+  // Get base article_id for routing (remove color suffix)
   const getArticleId = (articleId: string) => {
-    return articleId; // Keep full article_id including color
+    if (!articleId) return '';
+    return articleId.split('_')[0];
   };
+  
+
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -83,7 +86,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode }) => {
         </div>
         
         <div className="flex-1 space-y-2">
-          <Link to={`/products/${getArticleId(product.article_id)}`}>
+          <Link to={`/products/${getArticleId(product.article_id).split('_')[0]}`}>
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white hover:text-primary transition-colors">
               {product.name}
             </h3>
@@ -131,7 +134,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode }) => {
   // Grid view
   return (
     <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden hover:shadow-lg transition-shadow">
-      <Link to={`/products/${getArticleId(product.article_id)}`}>
+      <Link to={`/products/${getArticleId(product.article_id).split('_')[0]}`}>
         <div className="relative">
           <img
             src={getImageUrl(product.thumbnail_url || product.images?.[0])}
@@ -156,7 +159,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, viewMode }) => {
       </Link>
       
       <div className="p-4 space-y-2">
-        <Link to={`/products/${getArticleId(product.article_id)}`}>
+        <Link to={`/products/${getArticleId(product.article_id).split('_')[0]}`}>
           <h3 className="font-semibold text-gray-900 dark:text-white line-clamp-2 hover:text-primary transition-colors">
             {product.name}
           </h3>

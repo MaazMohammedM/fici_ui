@@ -1,6 +1,6 @@
 import { Heart } from 'lucide-react';
 import React from 'react';
-import StarComponent from '../../../utils/StarComponent';
+import StarComponent from '@lib/util/StarComponent';
 import { Link } from 'react-router-dom';
 
 interface TopDealsCardProps {

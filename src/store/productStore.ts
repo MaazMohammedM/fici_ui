@@ -220,22 +220,17 @@ export const useProductStore = create<ProductState>((set, get) => ({
   },
 
   fetchProductByArticleId: async (articleId: string) => {
-    set({ loading: true, error: null, currentProduct: null });
+    set({ loading: true, error: null });
     
     try {
-      // Always fetch all variants for the base article_id
       const baseArticleId = articleId.split('_')[0];
       const { data, error } = await supabase
         .from('products')
         .select('*')
         .like('article_id', `${baseArticleId}_%`);
-
-      if (error) {
-        console.error('Fetch product error:', error);
-        set({ error: 'Failed to fetch product details' });
-        return;
-      }
-
+  
+      if (error) throw error;
+  
       if (data && data.length > 0) {
         const processedProducts = data.map(product => ({
           ...product,
@@ -244,47 +239,36 @@ export const useProductStore = create<ProductState>((set, get) => ({
           thumbnail_url: product.thumbnail_url || null,
           discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price)
         }));
-
-        // Group by base article_id and create ProductDetail
+  
         const firstProduct = processedProducts[0];
-        const baseArticleId = firstProduct.article_id.split('_')[0];
-        
-        // Extract colors from variants and add to each variant
-        const variantsWithColors = processedProducts.map(product => {
-          const colorFromArticleId = product.article_id.split('_')[1] || 'default';
-          return {
-            ...product,
-            color: colorFromArticleId
-          };
-        });
-
-        const productDetail: ProductDetail = {
-          article_id: baseArticleId,
-          name: firstProduct.name,
-          description: firstProduct.description,
-          sub_category: firstProduct.sub_category,
-          variants: variantsWithColors,
-          category: firstProduct.category,
-          gender: firstProduct.gender
-        };
-
-        set({ 
-          currentProduct: productDetail,
+        const baseId = firstProduct.article_id.split('_')[0];
+  
+        const variantsWithColors = processedProducts.map(product => ({
+          ...product,
+          color: product.article_id.split('_')[1] || 'default'
+        }));
+  
+        set({
+          currentProduct: {
+            article_id: baseId,
+            name: firstProduct.name,
+            description: firstProduct.description,
+            sub_category: firstProduct.sub_category,
+            variants: variantsWithColors,
+            category: firstProduct.category,
+            gender: firstProduct.gender,
+          },
           loading: false
         });
       } else {
-        set({ 
-          currentProduct: null,
-          error: 'Product not found',
-          loading: false
-        });
+        set({ currentProduct: null, error: 'Product not found', loading: false });
       }
-
-    } catch (error) {
-      console.error('Error fetching product:', error);
+    } catch (err) {
+      console.error('Error fetching product:', err);
       set({ error: 'Failed to fetch product details', loading: false });
     }
   },
+  
 
    fetchSingleProductByArticleId: async (articleId: string) => {
     set({ loading: true, error: null });

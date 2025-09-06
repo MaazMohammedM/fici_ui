@@ -24,7 +24,7 @@ type GuestAddressFormData = z.infer<typeof GuestAddressSchema>;
 interface GuestAddressFormProps {
   onAddressSubmit: (address: Address) => void;
   selectedAddress?: Address | null;
-  guestSessionId: string;
+  guestSessionId?: string;
 }
 
 const GuestAddressForm: React.FC<GuestAddressFormProps> = ({
