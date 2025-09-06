@@ -394,10 +394,6 @@ const CheckoutPage: React.FC = () => {
                 </>
               )}
 
-
-                </>
-              )}
-
               <PaymentMethodCard
                 selected={selectedPayment}
                 onSelect={(id) => setSelectedPayment(id)}
