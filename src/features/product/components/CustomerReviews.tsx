@@ -3,7 +3,7 @@ import { Star, Plus, Edit3, Trash2 } from 'lucide-react';
 import { supabase } from '@lib/supabase';
 import { useAuthStore } from '@store/authStore';
 import { Button } from '../../../auth/ui';
-import StarComponent from '../../../utils/StarComponent';
+import StarComponent from '@lib/util/StarComponent';
 
 interface Review {
   id: string;
@@ -46,13 +46,7 @@ const CustomerReviews: React.FC<CustomerReviewsProps> = ({ productId }) => {
     try {
       const { data, error } = await supabase
         .from('reviews')
-        .select(`
-          *,
-          user_profiles (
-            first_name,
-            last_name
-          )
-        `)
+        .select('*')
         .eq('product_id', productId)
         .order('created_at', { ascending: false });
 
@@ -78,8 +72,8 @@ const CustomerReviews: React.FC<CustomerReviewsProps> = ({ productId }) => {
       // Check if user has purchased this product
       const { data, error } = await supabase
         .from('order_items')
-        .select(`
-          id,
+        .select(` 
+          order_id,
           orders!inner (
             user_id,
             status

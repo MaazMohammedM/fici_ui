@@ -29,7 +29,8 @@
       "@store/*": ["store/*"],
       "@auth/*": ["auth/*"],
       "@orders/*": ["features/orders/*"],
-      "@checkout/*": ["featurescheckout/*"]
+      "@checkout/*": ["features/checkout/*"],
+      "@hooks/*": ["hooks/*"]
     }
   },
   "include": ["src"]

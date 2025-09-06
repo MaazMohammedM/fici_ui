@@ -9,12 +9,15 @@ interface MemoizedProductDetailsProps {
   selectedSize: string;
   quantity: number;
   availableSizes: string[];
+  fullSizeRange: string[];
   onColorChange: (articleId: string) => void;
   onSizeChange: (size: string) => void;
   onQuantityChange: (quantity: number) => void;
   onAddToCart: () => void;
   onBuyNow: () => void;
+  onWhatsAppContact: (size: string) => void;
 }
+
 
 // Memoized ProductDetails component to prevent unnecessary re-renders
 const MemoizedProductDetails = React.memo<MemoizedProductDetailsProps>(({
@@ -24,11 +27,13 @@ const MemoizedProductDetails = React.memo<MemoizedProductDetailsProps>(({
   selectedSize,
   quantity,
   availableSizes,
+  fullSizeRange,
   onColorChange,
   onSizeChange,
   onQuantityChange,
   onAddToCart,
-  onBuyNow
+  onBuyNow,
+  onWhatsAppContact
 }) => {
   return (
     <ProductDetails
@@ -38,15 +43,16 @@ const MemoizedProductDetails = React.memo<MemoizedProductDetailsProps>(({
       selectedSize={selectedSize}
       quantity={quantity}
       availableSizes={availableSizes}
+      fullSizeRange={fullSizeRange}
       onColorChange={onColorChange}
       onSizeChange={onSizeChange}
       onQuantityChange={onQuantityChange}
       onAddToCart={onAddToCart}
       onBuyNow={onBuyNow}
+      onWhatsAppContact={onWhatsAppContact}
     />
   );
 }, (prevProps, nextProps) => {
-  // Custom comparison function for better performance
   return (
     prevProps.selectedArticleId === nextProps.selectedArticleId &&
     prevProps.selectedSize === nextProps.selectedSize &&
@@ -54,7 +60,9 @@ const MemoizedProductDetails = React.memo<MemoizedProductDetailsProps>(({
     prevProps.currentProduct?.article_id === nextProps.currentProduct?.article_id &&
     prevProps.selectedVariant?.article_id === nextProps.selectedVariant?.article_id &&
     prevProps.availableSizes.length === nextProps.availableSizes.length &&
-    prevProps.availableSizes.every((size, index) => size === nextProps.availableSizes[index])
+    prevProps.availableSizes.every((size, index) => size === nextProps.availableSizes[index]) &&
+    prevProps.fullSizeRange.length === nextProps.fullSizeRange.length &&
+    prevProps.fullSizeRange.every((size, index) => size === nextProps.fullSizeRange[index])
   );
 });
 

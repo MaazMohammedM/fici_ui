@@ -1,10 +1,15 @@
 // src/features/product/ProductPage.tsx
 import React, { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import { useProductStore } from '../../store/productStore';
 import { Search, Filter, Grid, List } from 'lucide-react';
 import ProductCard from './components/ProductCard';
 import { useProductFilters } from '@lib/util/useProductFilters';
+
+// Get base article_id for navigation (removes color variant suffix)
+const getBaseArticleId = (articleId: string) => {
+  return articleId.split('_')[0];
+};
 
 const categories = [
   { value: 'all', label: 'All Categories' },
@@ -68,11 +73,59 @@ const ProductPage: React.FC = () => {
     fetchProducts(1, filters);
   }, [searchParams, fetchProducts]);
 
+  const renderProducts = () => {
+    if (viewMode === 'grid') {
+      return (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {filteredProducts.map((product) => {
+            const baseArticleId = getBaseArticleId(product.article_id);
+            return (
+              <Link 
+                key={product.article_id} 
+                to={`/products/${baseArticleId}`}
+                className="block"
+              >
+                <ProductCard 
+                  product={product} 
+                  viewMode={viewMode} 
+                />
+              </Link>
+            );
+          })}
+        </div>
+      );
+    } else {
+      return (
+        <div className="space-y-4">
+          {filteredProducts.map((product) => {
+            const baseArticleId = getBaseArticleId(product.article_id);
+            return (
+              <Link 
+                key={product.article_id} 
+                to={`/products/${baseArticleId}`}
+                className="block"
+              >
+                <ProductCard 
+                  product={product} 
+                  viewMode={viewMode} 
+                />
+              </Link>
+            );
+          })}
+        </div>
+      );
+    }
+  };
+
   if (loading && filteredProducts.length === 0) {
     return (
       <div className="min-h-screen bg-gradient-light dark:bg-gradient-dark flex items-center justify-center">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <img 
+            src="/src/assets/FICI Logo no background.jpg" 
+            alt="FICI Logo" 
+            className="h-24 w-24 mx-auto mb-4 animate-pulse"
+          />
           <p className="text-gray-600 dark:text-gray-400">Loading products...</p>
         </div>
       </div>
@@ -218,68 +271,61 @@ const ProductPage: React.FC = () => {
 
         {/* Products Grid/List */}
         {filteredProducts.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Search className="w-8 h-8 text-gray-400" />
-            </div>
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-              No products found
-            </h3>
-            <p className="text-gray-600 dark:text-gray-400">
-              Try adjusting your search or filter criteria
-            </p>
-          </div>
-        ) : (
-          <>
-            <div className={viewMode === 'grid' 
-              ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 lg:gap-6'
-              : 'space-y-4'
-            }>
-              {filteredProducts.map(product => (
-                <ProductCard key={product.product_id} product={product} viewMode={viewMode} />
-              ))}
-            </div>
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="mt-8 flex justify-center">
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setPage(currentPage - 1)}
-                    disabled={currentPage === 1}
-                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Previous
-                  </button>
-                  <div className="flex items-center gap-1">
-                    {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                      <button
-                        key={page}
-                        onClick={() => setPage(page)}
-                        className={`px-3 py-2 rounded-lg transition-colors ${
-                          page === currentPage
-                            ? 'bg-primary text-white'
-                            : 'border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800'
-                        }`}
-                      >
-                        {page}
-                      </button>
-                    ))}
-                  </div>
-                  <button
-                    onClick={() => setPage(currentPage + 1)}
-                    disabled={currentPage === totalPages}
-                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Next
-                  </button>
-                </div>
-              </div>
-            )}
-          </>
-        )}
+  <div className="text-center py-12">
+    <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
+      <Search className="w-8 h-8 text-gray-400" />
+    </div>
+    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+      No products found
+    </h3>
+    <p className="text-gray-600 dark:text-gray-400">
+      Try adjusting your search or filter criteria
+    </p>
+  </div>
+) : (
+  renderProducts()
+)}
+{/* Pagination */}
+{totalPages > 1 && (
+  <div className="mt-8 flex justify-center">
+    <div className="flex items-center gap-2">
+      <button
+        onClick={() => setPage(currentPage - 1)}
+        disabled={currentPage === 1}
+        className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        Previous
+      </button>
+      <div className="flex items-center gap-1">
+        {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+          <button
+            key={page}
+            onClick={() => setPage(page)}
+            className={`px-3 py-2 rounded-lg transition-colors ${
+              page === currentPage
+                ? 'bg-primary text-white'
+                : 'border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800'
+            }`}
+          >
+            {page}
+          </button>
+        ))}
+        <button
+          onClick={() => setPage(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Next
+        </button>
       </div>
     </div>
-  );
+  </div>
+)}
+
+          </div>
+        </div>
+   
+);
 };
 
 export default ProductPage;

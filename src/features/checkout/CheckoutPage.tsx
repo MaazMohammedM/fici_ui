@@ -385,10 +385,15 @@ const CheckoutPage: React.FC = () => {
                 <>
               {console.log('Rendering GuestAddressForm with guestSessionId:', useAuthStore.getState().guestSession?.guest_session_id)}
               <GuestAddressForm
-                selectedAddress={selectedAddress}
-                onAddressSubmit={(addr) => setSelectedAddress(addr)}
-                guestSessionId={useAuthStore.getState().guestSession?.guest_session_id || ''}
-              />
+  selectedAddress={selectedAddress}
+  onAddressSubmit={(addr) => setSelectedAddress(addr)}
+  guestSessionId={useAuthStore.getState().guestSession?.guest_session_id}
+/>
+
+
+                </>
+              )}
+
 
                 </>
               )}
@@ -454,9 +459,11 @@ const CheckoutPage: React.FC = () => {
         <PaymentStatusModal
           status={paymentStatus}
           orderId={currentOrderId || undefined}
+          message={selectedPayment === 'cod' ? 'Your order is successful with Cash on Delivery' : undefined}
           onClose={closePaymentModal}
           onRetry={paymentStatus === 'failed' ? handleRetryPayment : undefined}
         />
+
       )}
     </>
   );
