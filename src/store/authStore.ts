@@ -9,15 +9,7 @@ import type {
   GuestOrderSummary,
   GuestOrderMergeResult 
 } from '../types/guest';
-import { persist } from 'zustand/middleware';
 
-import type {
-  GuestSession,
-  GuestContactInfo,
-  AuthenticationState,
-  GuestOrderSummary,
-  GuestOrderMergeResult,
-} from '../types/guest';
 
 interface AuthState extends AuthenticationState {
   role: string | null;

@@ -115,6 +115,7 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
 
   const careInstructions = getCareInstructions(currentProduct.sub_category || '');
 
+  console.log("Care instruction ",careInstructions)
   return (
     <div className="space-y-6">
       <ProductTitleRating currentProduct={currentProduct} />
