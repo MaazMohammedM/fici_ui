@@ -1,5 +1,5 @@
 import React from "react";
-import { Ruler } from "lucide-react";
+import { Ruler, MessageCircle } from "lucide-react";
 
 interface Props {
   fullSizeRange: string[];
@@ -47,7 +47,7 @@ const ProductSizeSelector: React.FC<Props> = ({
                 ? "border-accent bg-accent text-white"
                 : isAvailable
                 ? "border-gray-300 dark:border-gray-600 hover:border-accent"
-                : "border-red-200 bg-red-50 text-red-600 hover:bg-red-100 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400"
+                : "border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400"
             }`}
             title={
               !isAvailable
@@ -57,15 +57,14 @@ const ProductSizeSelector: React.FC<Props> = ({
           >
             {size}
             {!isAvailable && (
-              <span className="absolute -top-1 -right-1 text-xs bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center">
-                !
-              </span>
+              <MessageCircle className="absolute -top-2 -right-2 w-5 h-5 text-green-500" />
             )}
           </button>
         );
       })}
     </div>
     <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+      <MessageCircle className="w-4 h-4 inline-block mr-1 text-green-500" />
       <span className="text-red-500">Out of stock sizes:</span> Click to
       contact us on WhatsApp for availability
     </div>

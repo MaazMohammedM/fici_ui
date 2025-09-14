@@ -19,7 +19,6 @@ const RelatedProducts: React.FC<RelatedProductsProps> = ({ products }) => {
           <ProductCard 
             key={product.product_id} 
             product={product} 
-            viewMode="grid" 
           />
         ))}
       </div>
