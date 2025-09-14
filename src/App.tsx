@@ -25,10 +25,13 @@ const ProductPage = React.lazy(() => import('@features/product/ProductPage'));
 const ProductDetailPage = React.lazy(() => import('@features/product/components/ProductDetailPage'));
 const OrderHistoryPage = React.lazy(() => import('@features/orders/OrderHistoryPage'));
 const CheckoutPage = React.lazy(() => import('@features/checkout/CheckoutPage'));
+const ShoeCarePage = React.lazy(() => import('@features/shoe-care/ShoeCarePage'));
+const WishlistPage = React.lazy(() => import('@features/wishlist/WishlistPage'));
 const NotFoundPage = React.lazy(() => import('@features/error/NotFoundPage'));
 
 // Loading component
 import FiciLoader from './components/ui/FiciLoader';
+import FloatingWhatsApp from './components/FloatingWhatsApp';
 
 const LoadingSpinner = () => (
   <div className="min-h-screen bg-gradient-light dark:bg-gradient-dark flex items-center justify-center px-4">
@@ -69,6 +72,12 @@ const App: React.FC = () => {
                   } />
                   <Route path="/products" element={<ProductPage />} />
                   <Route path="/products/:article_id" element={<ProductDetailPage />} />
+                  <Route path="/shoe-care" element={<ShoeCarePage />} />
+                  <Route path="/wishlist" element={
+                    <ProtectedRoute>
+                      <WishlistPage />
+                    </ProtectedRoute>
+                  } />
                   <Route path="/orders" element={
                     <ProtectedRoute>
                       <OrderHistoryPage />
@@ -104,9 +113,10 @@ const App: React.FC = () => {
               </Suspense>
             </main>
             <Footer />
-          </div>
-        </ErrorBoundary>
-      </Router>
+          <FloatingWhatsApp />
+        </div>
+      </ErrorBoundary>
+    </Router>
     </HelmetProvider>
 
   );

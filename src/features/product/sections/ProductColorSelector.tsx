@@ -60,8 +60,9 @@ const ProductColorSelector: React.FC<Props> = ({
       </h3>
       <div className="flex flex-wrap gap-3">
         {currentProduct.variants.map((variant) => {
-          const colorLabel =
-            variant.article_id.split("_")[1] || variant.color;
+          const colorLabel = String(
+            variant.article_id.split("_")[1] || variant.color || ""
+          );
           const isSelected = variant.article_id === selectedArticleId;
 
           return (
@@ -79,7 +80,7 @@ const ProductColorSelector: React.FC<Props> = ({
               <span
                 className="block w-10 h-10 rounded-full border"
                 style={{
-                  backgroundColor: getColorValue(colorLabel),
+                  backgroundColor: getColorValue(String(colorLabel)),
                   borderColor: isSelected
                     ? "rgba(0,0,0,0.06)"
                     : undefined,

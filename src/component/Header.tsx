@@ -7,6 +7,7 @@ import {
   Menu,
   X,
   ChevronDown,
+  Heart,
 } from 'lucide-react';
 import React, { useEffect, useState, useRef } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
@@ -14,6 +15,7 @@ import { useAuthStore } from '@store/authStore';
 import { useThemeStore } from '../store/themeStore';
 import { useCartStore } from '@store/cartStore';
 import { useProductStore } from '@store/productStore';
+import { useWishlistCount } from '@store/wishlistStore';
 import { useAuthRedirect } from '../hooks/useAuthRedirect';
 import logo from '../assets/fici_128x128.png';
 
@@ -22,6 +24,7 @@ const Header: React.FC = () => {
   const { user, role, signOut, firstName, getAuthenticationType } = useAuthStore();
   const { mode, toggleMode, initializeTheme } = useThemeStore();
   const { getCartCount } = useCartStore();
+  const wishlistCount = useWishlistCount();
   const { searchProducts } = useProductStore();
   const { navigateToAuth } = useAuthRedirect();
 
@@ -59,9 +62,13 @@ const Header: React.FC = () => {
         { label: 'Flats', path: '/products?gender=women&sub_category=Flats' },
       ],
     },
+    { label: 'Shoe Care', path: '/shoe-care' },
     { label: 'About', path: '/about' },
     { label: 'Contact', path: '/contact' },
-    ...(isAuthenticated || isGuest ? [{ label: 'Orders', path: '/orders' }] : []),
+    ...(isAuthenticated || isGuest ? [
+      { label: 'Wishlist', path: '/wishlist' },
+      { label: 'Orders', path: '/orders' }
+    ] : []),
     ...(role === 'admin' ? [{ label: 'Admin', path: '/admin' }] : []),
   ];
 
@@ -198,6 +205,15 @@ const Header: React.FC = () => {
             <Search className="text-black dark:text-white w-5 h-5" />
           </button>
 
+          <NavLink to="/wishlist" className="relative p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
+            <Heart className="text-black dark:text-white w-5 h-5" />
+            {wishlistCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
+                {wishlistCount > 99 ? '99+' : wishlistCount}
+              </span>
+            )}
+          </NavLink>
+
           <NavLink to="/cart" className="relative p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
             <ShoppingCart className="text-black dark:text-white w-5 h-5" />
             {cartCount > 0 && (
@@ -272,6 +288,15 @@ const Header: React.FC = () => {
           <button onClick={() => setIsSearchOpen((s) => !s)} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
             <Search className="text-black dark:text-white w-5 h-5" />
           </button>
+
+          <NavLink to="/wishlist" className="relative p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
+            <Heart className="text-black dark:text-white w-5 h-5" />
+            {wishlistCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-bold">
+                {wishlistCount > 99 ? '99+' : wishlistCount}
+              </span>
+            )}
+          </NavLink>
 
           <NavLink to="/cart" className="relative p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
             <ShoppingCart className="text-black dark:text-white w-5 h-5" />

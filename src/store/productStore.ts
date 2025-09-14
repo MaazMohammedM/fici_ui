@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '@lib/supabase';
-import type { Product,ProductDetail } from "../types/product";
+import type { Product, ProductDetail, Rating } from "../types/product";
 
 interface ProductState {
   products: Product[];
@@ -223,22 +223,42 @@ export const useProductStore = create<ProductState>((set, get) => ({
     set({ loading: true, error: null, currentProduct: null });
     
     try {
-
       const baseArticleId = articleId.split('_')[0];
-      const { data, error } = await supabase
+      
+      // First, fetch the product variants
+      const { data: productsData, error: productsError } = await supabase
         .from('products')
         .select('*')
         .like('article_id', `${baseArticleId}_%`);
   
-      if (error) throw error;
+      if (productsError) throw productsError;
   
-      if (data && data.length > 0) {
-        const processedProducts = data.map(product => ({
+      if (productsData && productsData.length > 0) {
+        // Fetch ratings for the product
+        const { data: ratingsData, error: ratingsError } = await supabase
+          .from('product_ratings')
+          .select('*')
+          .eq('article_id_base', baseArticleId)
+          .single();
+        
+        let rating: Rating | undefined;
+        if (!ratingsError && ratingsData) {
+          rating = {
+            average: parseFloat(ratingsData.average_rating) || 0,
+            count: parseInt(ratingsData.review_count) || 0,
+            distribution: ratingsData.rating_distribution || {
+              1: 0, 2: 0, 3: 0, 4: 0, 5: 0
+            }
+          };
+        }
+        
+        const processedProducts = productsData.map(product => ({
           ...product,
           sizes: safeParseSizes(product.sizes),
           images: parseImages(product.images),
           thumbnail_url: product.thumbnail_url || null,
-          discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price)
+          discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price),
+          rating: rating
         }));
   
         const firstProduct = processedProducts[0];
@@ -258,8 +278,9 @@ export const useProductStore = create<ProductState>((set, get) => ({
             variants: variantsWithColors,
             category: firstProduct.category,
             gender: firstProduct.gender,
+            rating: rating,
+            total_reviews: rating?.count || 0
           },
-
           loading: false
         });
       } else {
@@ -276,36 +297,64 @@ export const useProductStore = create<ProductState>((set, get) => ({
     set({ loading: true, error: null });
     
     try {
-      const { data, error } = await supabase
+      // First get the base article ID
+      const baseArticleId = articleId.split('_')[0];
+      
+      // Fetch the specific product
+      const { data: productData, error: productError } = await supabase
         .from('products')
         .select('*')
-        .neq('article_id', articleId)
-        .limit(1);
-      if (error) {
-        console.error('Fetch product error:', error);
-        set({ error: 'Failed to fetch product details' });
-        return;
-      }
-
-      if (data && data.length > 0) {
-        const processedProducts = data.map(product => ({
+        .eq('article_id', articleId)
+        .single();
+        
+      if (productError) throw productError;
+      
+      if (productData) {
+        // Fetch all variants
+        const { data: variantsData, error: variantsError } = await supabase
+          .from('products')
+          .select('*')
+          .like('article_id', `${baseArticleId}_%`);
+          
+        if (variantsError) throw variantsError;
+        
+        // Fetch ratings
+        const { data: ratingsData, error: ratingsError } = await supabase
+          .from('product_ratings')
+          .select('*')
+          .eq('article_id_base', baseArticleId)
+          .single();
+          
+        let rating: Rating | undefined;
+        if (!ratingsError && ratingsData) {
+          rating = {
+            average: parseFloat(ratingsData.average_rating) || 0,
+            count: parseInt(ratingsData.review_count) || 0,
+            distribution: ratingsData.rating_distribution || {
+              1: 0, 2: 0, 3: 0, 4: 0, 5: 0
+            }
+          };
+        }
+        
+        const processedProducts = variantsData.map(product => ({
           ...product,
           sizes: safeParseSizes(product.sizes),
-          images: parseImages(product.images), // Use the new parseImages function
+          images: parseImages(product.images),
           thumbnail_url: product.thumbnail_url || null,
-          discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price)
+          discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price),
+          rating: rating
         }));
 
-        // Group by article_id and create ProductDetail
-        const firstProduct = processedProducts[0];
         const productDetail: ProductDetail = {
-          article_id: firstProduct.article_id.split('_')[0],
-          name: firstProduct.name,
-          description: firstProduct.description,
-          sub_category: firstProduct.sub_category,
+          article_id: baseArticleId,
+          name: productData.name,
+          description: productData.description,
+          sub_category: productData.sub_category,
           variants: processedProducts,
-          category: firstProduct.category,
-          gender: firstProduct.gender
+          category: productData.category,
+          gender: productData.gender,
+          rating: rating,
+          total_reviews: rating?.count || 0
         };
 
         set({ 

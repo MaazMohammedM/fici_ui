@@ -7,6 +7,7 @@ export const CartPage = lazy(() => import('../features/cart/CartPage'));
 export const CheckoutPage = lazy(() => import('../features/checkout/CheckoutPage'));
 export const AboutPage = lazy(() => import('../features/about/AboutPage'));
 export const ContactPage = lazy(() => import('../features/contact/ContactPage'));
+export const ShoeCarePage = lazy(() => import('../features/shoe-care/ShoeCarePage'));
 export const SignIn = lazy(() => import('../auth/components/SignIn'));
 export const Register = lazy(() => import('../auth/components/Register'));
 
