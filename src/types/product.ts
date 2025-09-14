@@ -11,9 +11,22 @@ export interface Product {
   sizes: Record<string, number>;
   images: string[];
   thumbnail_url?: string;
-  color: string;
+  color: string | number;
   discount_percentage: number;
   created_at: string;
+  rating?: Rating;
+}
+
+export interface Rating {
+  average: number;
+  count: number;
+  distribution?: {
+    1: number;
+    2: number;
+    3: number;
+    4: number;
+    5: number;
+  };
 }
 
 export interface ProductDetail {
@@ -24,6 +37,8 @@ export interface ProductDetail {
   variants: Product[];
   category: string;
   gender: string;
+  rating?: Rating;
+  total_reviews?: number;
 }
 
 export interface Category {

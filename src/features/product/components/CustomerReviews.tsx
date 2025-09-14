@@ -4,6 +4,7 @@ import { supabase } from '@lib/supabase';
 import { useAuthStore } from '@store/authStore';
 import { Button } from '../../../auth/ui';
 import StarComponent from '@lib/util/StarComponent';
+import { useProductStore } from '@store/productStore';
 
 interface Review {
   id: string;
@@ -18,12 +19,23 @@ interface Review {
   };
 }
 
+interface RatingDistribution {
+  1: number;
+  2: number;
+  3: number;
+  4: number;
+  5: number;
+  total: number;
+  average: number;
+}
+
 interface CustomerReviewsProps {
   productId?: string;
 }
 
 const CustomerReviews: React.FC<CustomerReviewsProps> = ({ productId }) => {
   const { user } = useAuthStore();
+  const { currentProduct } = useProductStore();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [showReviewForm, setShowReviewForm] = useState(false);
@@ -32,6 +44,7 @@ const CustomerReviews: React.FC<CustomerReviewsProps> = ({ productId }) => {
   const [userReview, setUserReview] = useState<Review | null>(null);
   const [reviewForm, setReviewForm] = useState({ rating: 5, comment: '' });
   const [submitting, setSubmitting] = useState(false);
+  const [ratingDistribution, setRatingDistribution] = useState<RatingDistribution | null>(null);
 
   useEffect(() => {
     if (productId) {
@@ -41,6 +54,22 @@ const CustomerReviews: React.FC<CustomerReviewsProps> = ({ productId }) => {
       }
     }
   }, [productId, user]);
+
+  // Update rating distribution when currentProduct changes
+  useEffect(() => {
+    if (currentProduct?.rating) {
+      const dist = currentProduct.rating.distribution || {
+        1: 0, 2: 0, 3: 0, 4: 0, 5: 0
+      };
+      const total = Object.values(dist).reduce((sum, count) => sum + count, 0);
+      
+      setRatingDistribution({
+        ...dist,
+        total,
+        average: currentProduct.rating.average || 0
+      });
+    }
+  }, [currentProduct]);
 
   const fetchReviews = async () => {
     try {
@@ -161,36 +190,71 @@ const CustomerReviews: React.FC<CustomerReviewsProps> = ({ productId }) => {
     return `${firstName?.[0] || ''}${lastName?.[0] || ''}`.toUpperCase() || 'U';
   };
 
-  const averageRating = reviews.length > 0 
-    ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length 
-    : 0;
+  const averageRating = ratingDistribution?.average || 
+    (reviews.length > 0 ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length : 0);
+    
+  const totalReviews = ratingDistribution?.total || reviews.length;
 
   return (
     <div className="mt-16">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h2 className="text-2xl font-bold text-primary dark:text-secondary mb-2">
+      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6 mb-8">
+        <div className="md:w-1/3">
+          <h2 className="text-2xl font-bold text-primary dark:text-secondary mb-4">
             Customer Reviews
           </h2>
-          {reviews.length > 0 && (
-            <div className="flex items-center space-x-2">
-              <StarComponent rating={averageRating} />
-              <span className="text-sm text-gray-600 dark:text-gray-400">
-                {averageRating.toFixed(1)} out of 5 ({reviews.length} reviews)
-              </span>
+          
+          <div className="bg-white dark:bg-dark2 p-6 rounded-2xl shadow">
+            <div className="text-center mb-4">
+              <div className="text-5xl font-bold text-primary dark:text-secondary mb-2">
+                {averageRating.toFixed(1)}
+              </div>
+              <div className="mb-2">
+                <StarComponent rating={averageRating} size="lg" />
+              </div>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Based on {totalReviews} {totalReviews === 1 ? 'review' : 'reviews'}
+              </p>
+            </div>
+            
+            {ratingDistribution && (
+              <div className="space-y-2">
+                {[5, 4, 3, 2, 1].map((rating) => {
+                  const count = ratingDistribution[rating as keyof RatingDistribution] as number || 0;
+                  const percentage = totalReviews > 0 ? Math.round((count / totalReviews) * 100) : 0;
+                  
+                  return (
+                    <div key={rating} className="flex items-center space-x-2">
+                      <span className="w-8 text-sm text-gray-600 dark:text-gray-400">{rating} star</span>
+                      <div className="flex-1 h-2.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-yellow-400" 
+                          style={{ width: `${percentage}%` }}
+                        />
+                      </div>
+                      <span className="w-10 text-sm text-right text-gray-600 dark:text-gray-400">
+                        {percentage}%
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+        
+        <div className="md:w-2/3">
+          {user && userHasPurchased && !userReview && (
+            <div className="flex justify-end mb-4">
+              <Button
+                onClick={() => setShowReviewForm(true)}
+                leftIcon={Plus}
+                size="sm"
+              >
+                Write Review
+              </Button>
             </div>
           )}
         </div>
-        
-        {user && userHasPurchased && !userReview && (
-          <Button
-            onClick={() => setShowReviewForm(true)}
-            leftIcon={Plus}
-            size="sm"
-          >
-            Write Review
-          </Button>
-        )}
       </div>
 
       {/* Review Form */}
@@ -259,7 +323,7 @@ const CustomerReviews: React.FC<CustomerReviewsProps> = ({ productId }) => {
           <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-600 dark:text-gray-400">Loading reviews...</p>
         </div>
-      ) : reviews.length === 0 ? (
+      ) : totalReviews === 0 ? (
         <div className="text-center py-8">
           <p className="text-gray-600 dark:text-gray-400 mb-4">No reviews yet</p>
           {user && userHasPurchased && (
@@ -269,7 +333,7 @@ const CustomerReviews: React.FC<CustomerReviewsProps> = ({ productId }) => {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-6">
           {reviews.map((review) => (
             <div key={review.id} className="bg-white dark:bg-dark2 p-6 rounded-2xl shadow-lg">
               <div className="flex items-start justify-between mb-4">

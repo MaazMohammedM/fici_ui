@@ -2,6 +2,8 @@ import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useProductStore } from '@store/productStore';
 import { useCartStore } from '@store/cartStore';
+import { useWishlistStore, type WishlistItem } from '@store/wishlistStore';
+import { Heart, HeartOff } from 'lucide-react';
 import ProductImageGallery from './ProductImageGallery';
 import ProductDetails from './ProductDetails';
 import CustomerReviews from './CustomerReviews';
@@ -21,6 +23,7 @@ const ProductDetailPage: React.FC = () => {
   } = useProductStore();
 
   const { addToCart } = useCartStore();
+  const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlistStore();
 
   // Track selected variant by its article_id (variant.article_id)
   const [selectedArticleId, setSelectedArticleId] = useState<string>('');
@@ -28,12 +31,20 @@ const ProductDetailPage: React.FC = () => {
   const [requestedArticleId, setRequestedArticleId] = useState<string | null>(null);
   const [selectedSize, setSelectedSize] = useState<string>('');
   const [quantity, setQuantity] = useState(1);
+  const [isWishlisted, setIsWishlisted] = useState(false);
 
   // Memoized computed values for better performance
   const selectedVariant = useMemo(() => 
     currentProduct?.variants.find(v => v.article_id === selectedArticleId),
     [currentProduct, selectedArticleId]
   );
+
+  // Update wishlist status when variant changes
+  useEffect(() => {
+    if (selectedVariant) {
+      setIsWishlisted(isInWishlist(selectedVariant.article_id));
+    }
+  }, [selectedVariant, isInWishlist]);
 
   const availableSizes = useMemo(() => {
     if (!selectedVariant?.sizes) return [];
@@ -121,11 +132,15 @@ Could you please let me know when this size will be available?`;
   // Handler when ProductDetails color button clicked -> receives variant.article_id
   const handleColorChange = useCallback((articleId: string) => {
     console.log("Article", articleId);
-    // Navigate to the new article_id URL to update the route
+    // Set the requested article ID to trigger the product fetch
+    setRequestedArticleId(articleId);
+    // Fetch the product details for the selected article ID
+    fetchProductByArticleId(articleId);
+    // Update the URL to reflect the selected variant
     navigate(`/products/${articleId}`, { replace: true });
-    // clear size selection when changing colors
+    // Clear size selection when changing colors
     setSelectedSize('');
-  }, [navigate]);
+  }, [navigate, fetchProductByArticleId]);
 
   const handleAddToCart = useCallback(() => {
     if (!selectedSize) {
@@ -149,7 +164,7 @@ Could you please let me know when this size will be available?`;
       // original code used article_id split — keeping that behaviour
       article_id: (selectedVariant.article_id || '').split('_')[0],
       name: selectedVariant.name,
-      color: selectedVariant.color,
+      color: String(selectedVariant.color),
       size: selectedSize,
       image: productImage,
       price: parseFloat(selectedVariant.discount_price),
@@ -164,6 +179,41 @@ Could you please let me know when this size will be available?`;
     handleAddToCart();
     navigate('/cart');
   }, [handleAddToCart, navigate]);
+
+  const toggleWishlist = useCallback(() => {
+    if (!selectedVariant || !currentProduct) return;
+    
+    if (isWishlisted) {
+      removeFromWishlist(selectedVariant.article_id);
+    } else {
+      const wishlistItem: WishlistItem = {
+        product_id: selectedVariant.product_id,
+        article_id: selectedVariant.article_id,
+        name: currentProduct.name || selectedVariant.name,
+        price: parseFloat(selectedVariant.discount_price) || 0,
+        images: Array.isArray(selectedVariant.images) 
+          ? selectedVariant.images 
+          : [selectedVariant.thumbnail_url || ''],
+        addedAt: new Date().toISOString(),
+        mrp_price: selectedVariant.mrp_price || '0',
+        discount_price: selectedVariant.discount_price || '0',
+        gender: (currentProduct.gender === 'men' || currentProduct.gender === 'women' 
+          ? currentProduct.gender 
+          : 'unisex') as 'men' | 'women' | 'unisex',
+        created_at: new Date().toISOString(),
+        description: currentProduct.description || '',
+        sub_category: currentProduct.sub_category || '',
+        category: currentProduct.category || 'Footwear',
+        sizes: selectedVariant.sizes || {},
+        color: String(selectedVariant.color || ''),
+        discount_percentage: Number(selectedVariant.discount_percentage) || 0,
+        thumbnail_url: selectedVariant.thumbnail_url || ''
+      };
+      
+      addToWishlist(wishlistItem);
+    }
+    setIsWishlisted(!isWishlisted);
+  }, [selectedVariant, isWishlisted, currentProduct, addToWishlist, removeFromWishlist]);
 
   if (loading) {
     return (
@@ -195,7 +245,19 @@ Could you please let me know when this size will be available?`;
 
   return (
     <div className="flex-1 bg-gradient-light dark:bg-gradient-dark">
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="max-w-7xl mx-auto px-4 py-8 relative">
+        {/* Wishlist button */}
+        <button
+          onClick={toggleWishlist}
+          className="absolute top-4 right-4 z-10 p-2 rounded-full bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+        >
+          {isWishlisted ? (
+            <Heart className="w-6 h-6 text-red-500 fill-current" />
+          ) : (
+            <HeartOff className="w-6 h-6 text-gray-400 hover:text-red-500 transition-colors" />
+          )}
+        </button>
         {/* Breadcrumbs */}
         <nav className="mb-8">
           <ol className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">

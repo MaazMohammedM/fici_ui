@@ -1,5 +1,6 @@
 import React from "react";
-import { Ruler, MessageCircle } from "lucide-react";
+import { Ruler } from "lucide-react";
+import { FaWhatsapp } from "react-icons/fa";
 
 interface Props {
   fullSizeRange: string[];
@@ -57,16 +58,18 @@ const ProductSizeSelector: React.FC<Props> = ({
           >
             {size}
             {!isAvailable && (
-              <MessageCircle className="absolute -top-2 -right-2 w-5 h-5 text-green-500" />
+              <FaWhatsapp className="absolute -top-2 -right-2 w-5 h-5 text-green-500 bg-white rounded-full" />
             )}
           </button>
         );
       })}
     </div>
-    <div className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-      <MessageCircle className="w-4 h-4 inline-block mr-1 text-green-500" />
-      <span className="text-red-500">Out of stock sizes:</span> Click to
-      contact us on WhatsApp for availability
+    <div className="mt-3 text-sm text-gray-600 dark:text-gray-400 flex items-center">
+      <FaWhatsapp className="w-4 h-4 inline-block mr-2 text-green-500" />
+      <span>
+        <span className="font-medium text-red-500">Out of stock?</span> Click to
+        contact us on WhatsApp for availability
+      </span>
     </div>
   </div>
 );

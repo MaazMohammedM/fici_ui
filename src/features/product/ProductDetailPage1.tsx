@@ -139,12 +139,12 @@ useEffect(() => {
       product_id: productId!,
       article_id: selectedVariant.article_id,
       name: currentProduct!.name,
-      color: selectedVariant.color,
+      color: typeof selectedVariant.color === 'string' ? selectedVariant.color : String(selectedVariant.color),
       size: selectedSize,
       quantity,
       price: parseFloat(selectedVariant.discount_price),
       mrp: parseFloat(selectedVariant.mrp_price),
-      discount_percentage: selectedVariant.discount_percentage,
+      discount_percentage: Number(selectedVariant.discount_percentage) || 0,
       image: selectedVariant.thumbnail_url || '',
       thumbnail_url: selectedVariant.thumbnail_url || '',
     };
@@ -349,7 +349,7 @@ if (error || !currentProduct) {
                     >
                       <img
                         src={variant.thumbnail_url}
-                        alt={variant.color}
+                        alt={typeof variant.color === 'string' ? variant.color : String(variant.color)}
                         className="w-full h-full object-cover"
                       />
                     </button>

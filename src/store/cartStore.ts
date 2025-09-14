@@ -7,7 +7,7 @@ export interface CartItem {
   product_id: string;
   article_id: string;
   name: string;
-  color: string;
+  color: string | number;
   size: string;
   image: string;
   price: number;
