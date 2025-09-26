@@ -39,7 +39,7 @@ interface AuthState extends AuthenticationState {
   clearGuestSession: () => void;
 
   checkGuestOrders: (email: string, phone?: string) => Promise<GuestOrderSummary>;
-  mergeGuestOrders: (userId: string, guestSessionId?: string) => Promise<GuestOrderMergeResult>;
+  mergeGuestOrders: (userId: string, guest_session_id?: string) => Promise<GuestOrderMergeResult>;
 
   getAuthenticationType: () => 'user' | 'guest' | 'none';
   getCurrentUserId: () => string | null;
@@ -260,22 +260,28 @@ export const useAuthStore = create<AuthState>()(
 
       createGuestSession: async (contactInfo: GuestContactInfo) => {
         try {
-          const { data, error } = await supabase.functions.invoke('create-guest-session', {
-            body: { email: contactInfo.email, phone: contactInfo.phone, name: contactInfo.name },
-          });
-          if (error) throw error;
-          const guestSession = data as GuestSession;
-          set({
-            guestSession,
-            guestContactInfo: contactInfo,
+          // Always use edge function to create or fetch a valid guest session
+          const { GuestService } = await import('@lib/services/guestService');
+          const session = await GuestService.createSession(contactInfo as any);
+          if (!session) return null;
+
+          set({ 
+            guestSession: session, 
+            guestContactInfo: contactInfo, 
             isGuest: true,
+            // Keep isAuthenticated false for guest; use authType to identify context
             isAuthenticated: false,
-            authType: 'guest',
-            user: undefined,
+            authType: 'guest'
           });
-          return guestSession;
+
+          // Persist to localStorage for cross-page availability
+          if (session.guest_session_id) {
+            localStorage.setItem('guest_session_id', session.guest_session_id);
+          }
+
+          return session;
         } catch (error) {
-          console.error('Failed to create guest session:', error);
+          console.error('Error creating guest session (edge):', error);
           return null;
         }
       },
@@ -346,10 +352,10 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      mergeGuestOrders: async (userId: string, guestSessionId?: string) => {
+      mergeGuestOrders: async (userId: string, guest_session_id?: string) => {
         try {
           const { guestContactInfo } = get();
-          const sessionId = guestSessionId || get().guestSession?.guest_session_id;
+          const sessionId = guest_session_id || get().guestSession?.guest_session_id;
           const { data, error } = await supabase.functions.invoke('merge-guest-orders', {
             body: { user_id: userId, guest_session_id: sessionId, guest_contact_info: guestContactInfo },
           });
@@ -379,9 +385,21 @@ export const useAuthStore = create<AuthState>()(
       },
 
       getCurrentSessionId: () => {
-        const { user, guestSession } = get();
-        if (user?.id) return user.id;
-        return guestSession?.guest_session_id || null;
+        const state = get();
+        // First check for guest session in state
+        if (state.guestSession?.guest_session_id) {
+          return state.guestSession.guest_session_id;
+        }
+        // Check for guest session in localStorage as fallback
+        const storedSessionId = localStorage.getItem('guest_session_id');
+        if (storedSessionId) {
+          return storedSessionId;
+        }
+        // Fall back to user ID if authenticated
+        if (state.isAuthenticated && state.user?.id) {
+          return state.user.id;
+        }
+        return null;
       },
     }),
     {

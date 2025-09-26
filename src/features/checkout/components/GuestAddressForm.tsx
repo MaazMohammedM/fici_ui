@@ -24,14 +24,14 @@ type GuestAddressFormData = z.infer<typeof GuestAddressSchema>;
 interface GuestAddressFormProps {
   onAddressSubmit: (address: Address) => void;
   selectedAddress?: Address | null;
-  guestSessionId?: string;
+  guest_session_id?: string;
 
 }
 
 const GuestAddressForm: React.FC<GuestAddressFormProps> = ({
   onAddressSubmit,
   selectedAddress,
-  guestSessionId
+  guest_session_id
 }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [savedAddresses, setSavedAddresses] = useState<Address[]>([]);
@@ -58,19 +58,19 @@ const GuestAddressForm: React.FC<GuestAddressFormProps> = ({
   });
 
   useEffect(() => {
-    if (guestSessionId) {
+    if (guest_session_id) {
       loadGuestAddresses();
     }
-  }, [guestSessionId]);
+  }, [guest_session_id]);
 
   const loadGuestAddresses = async () => {
-    if (!guestSessionId) return;
+    if (!guest_session_id) return;
     
     try {
       const { data, error } = await supabase
         .from('guest_sessions')
         .select('shipping_addresses')
-        .eq('session_id', guestSessionId)
+        .eq('session_id', guest_session_id)
         .single();
 
       if (error && error.code !== 'PGRST116') {
@@ -88,7 +88,7 @@ const GuestAddressForm: React.FC<GuestAddressFormProps> = ({
   };
 
   const saveGuestAddress = async (address: Address) => {
-    if (!guestSessionId) {
+    if (!guest_session_id) {
       console.error('No guest session ID provided');
       return false;
     }
@@ -98,7 +98,7 @@ const GuestAddressForm: React.FC<GuestAddressFormProps> = ({
       const { data: existingSession, error: fetchError } = await supabase
         .from('guest_sessions')
         .select('session_id, shipping_addresses')
-        .eq('session_id', guestSessionId)
+        .eq('session_id', guest_session_id)
         .single();
 
       if (fetchError && fetchError.code !== 'PGRST116') {
@@ -108,7 +108,7 @@ const GuestAddressForm: React.FC<GuestAddressFormProps> = ({
 
       // If session doesn't exist, we can't save the address
       if (!existingSession) {
-        console.error('Guest session not found:', guestSessionId);
+        console.error('Guest session not found:', guest_session_id);
         return false;
       }
 
@@ -124,7 +124,7 @@ const GuestAddressForm: React.FC<GuestAddressFormProps> = ({
           shipping_addresses: updatedAddresses,
           updated_at: new Date().toISOString()
         })
-        .eq('session_id', guestSessionId);
+        .eq('session_id', guest_session_id);
 
       if (error) {
         console.error('Error saving guest address:', error);
@@ -155,11 +155,11 @@ const GuestAddressForm: React.FC<GuestAddressFormProps> = ({
         landmark: data.landmark
       };
 
-      console.log('Attempting to save address with guestSessionId:', guestSessionId);
+      console.log('Attempting to save address with guest_session_id:', guest_session_id);
       console.log('Address data:', newAddress);
 
-      // If no guestSessionId, just submit the address without saving
-      if (!guestSessionId) {
+      // If no guest_session_id, just submit the address without saving
+      if (!guest_session_id) {
         console.warn('No guest session ID available, submitting address without saving');
         onAddressSubmit(newAddress);
         setShowForm(false);

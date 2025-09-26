@@ -78,7 +78,7 @@ const CheckoutPage: React.FC = () => {
 
   useEffect(() => {
     const authType = getAuthenticationType();
-    console.log('CheckoutPage useEffect - authType:', authType, 'guestSession:', guestSession, 'guestContactInfo:', guestContactInfo, 'guestSessionId:', useAuthStore.getState().guestSession?.guest_session_id);
+    console.log('CheckoutPage useEffect - authType:', authType, 'guestSession:', guestSession, 'guestContactInfo:', guestContactInfo, 'guest_session_id:', useAuthStore.getState().guestSession?.guest_session_id);
     if (authType === 'none') {
       setShowGuestForm(true);
     } else if (authType === 'guest' && guestContactInfo) {
@@ -185,48 +185,26 @@ const CheckoutPage: React.FC = () => {
 
     setIsProcessing(true);
     try {
-      // Generate a unique order ID - let the database generate UUID
+      // Generate a unique order ID
       const orderId = crypto.randomUUID();
+      const authType = getAuthenticationType();
 
-      // Use create-order function for both COD and Razorpay
-      const invokeBody = authType === 'user' ? { 
-        amount: totalAmount,   
-        user_id: user.id,  
-        order_id: orderId,     
+      // Prepare order data with proper user/guest context
+      const orderData: any = {
+        amount: totalAmount,
+        order_id: orderId,
         payment_method: selectedPayment,
-        items: cartItems.map(i => ({
-          product_id: i.product_id,
-          article_id: i.article_id,
-          name: i.name,
-          color: i.color,
-          size: i.size,
-          quantity: i.quantity,
-          price: i.price,
-          mrp: i.mrp,
-          discount_percentage: i.discount_percentage,
-          thumbnail_url: i.thumbnail_url,
-        })),
-        subtotal,
-        discount: savings,
-        delivery_charge: deliveryCharge,
-        shipping_address: selectedAddress
-      } : {
-        amount: totalAmount,   
-        guest_session_id: guestSession?.guest_session_id,
-        guest_contact_info: guestInfo,
-        order_id: orderId,     
-        payment_method: selectedPayment,
-        items: cartItems.map(i => ({
-          product_id: i.product_id,
-          article_id: i.article_id,
-          name: i.name,
-          color: i.color,
-          size: i.size,
-          quantity: i.quantity,
-          price: i.price,
-          mrp: i.mrp,
-          discount_percentage: i.discount_percentage,
-          thumbnail_url: i.thumbnail_url,
+        items: cartItems.map(item => ({
+          product_id: item.product_id,
+          article_id: item.article_id,
+          name: item.name,
+          color: item.color,
+          size: item.size,
+          quantity: item.quantity,
+          price: item.price,
+          mrp: item.mrp,
+          discount_percentage: item.discount_percentage,
+          thumbnail_url: item.thumbnail_url,
         })),
         subtotal,
         discount: savings,
@@ -234,8 +212,16 @@ const CheckoutPage: React.FC = () => {
         shipping_address: selectedAddress
       };
 
+      // Add user or guest specific fields
+      if (authType === 'user') {
+        orderData.user_id = user?.id;
+      } else if (authType === 'guest') {
+        orderData.guest_session_id = useAuthStore.getState().getCurrentSessionId();
+        orderData.guest_contact_info = guestInfo;
+      }
+
       const { data, error } = await supabase.functions.invoke("create-order", {
-        body: invokeBody,
+        body: orderData,
       });
       if (error) throw error;
       const paymentOrder = data;
@@ -383,11 +369,11 @@ const CheckoutPage: React.FC = () => {
                 />
               ) : (
                 <>
-              {console.log('Rendering GuestAddressForm with guestSessionId:', useAuthStore.getState().guestSession?.guest_session_id)}
+              {console.log('Rendering GuestAddressForm with guest_session_id:', useAuthStore.getState().guestSession?.guest_session_id)}
               <GuestAddressForm
   selectedAddress={selectedAddress}
   onAddressSubmit={(addr) => setSelectedAddress(addr)}
-  guestSessionId={useAuthStore.getState().guestSession?.guest_session_id}
+  guest_session_id={useAuthStore.getState().guestSession?.guest_session_id}
 />
 
 

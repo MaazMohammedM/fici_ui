@@ -1,52 +1,50 @@
 import React, { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import heroImage from "../assets/Hero image.png";
-import hisHeroImage from "../assets/20250321_165625.png";
-import productHeroImage from "../assets/20250710_160720.png";
-import heroImage1 from "../assets/20250503_145045.png";
+
+// Import desktop images
+import pc1 from "../../../assets/1000805156_pc.jpg";
+import pc2 from "../../../assets/1000805146_pc.jpg";
+import pc3 from "../../../assets/1000805147_pc.jpg";
+import pc4 from "../../../assets/1000805148_pc.jpg";
+import pc5 from "../../../assets/1000805157_pc.jpg";
+import pc6 from "../../../assets/1000805149_pc.jpg";
+
+// Import mobile images
+import mobile1 from "../../../assets/1000806046_mobile.jpg";
+import mobile2 from "../../../assets/1000806060_mobile.jpg";
+import mobile3 from "../../../assets/1000806089_mobile.jpg";
+import mobile4 from "../../../assets/1000806090_mobile.jpg";
+import mobile5 from "../../../assets/1000806094_mobile.jpg";
+import mobile6 from "../../../assets/1000806095_mobile.jpg";
+
+const desktopImages = [pc1, pc2, pc3, pc4, pc5,pc6];
+const mobileImages = [mobile1, mobile2, mobile3, mobile4, mobile5,mobile6];
 
 const heroSlides = [
   {
     id: "1",
-    title: "Real Leather. Real You.",
-    subtitle: "Premium leather shoes made from genuine materials and honest design.",
-    image: heroImage,
-    ctaText: "Shop Now",
     ctaLink: "/products",
   },
   {
     id: "2",
-    title: "For Him",
-    subtitle: "Discover our exclusive collection of men's footwear.",
-    image: hisHeroImage,
-    ctaText: "Shop Men",
     ctaLink: "/products?gender=men",
   },
   {
     id: "3",
-    title: "For Her",
-    subtitle: "Elegant designs crafted for the modern woman.",
-    image: heroImage,
-    ctaText: "Shop Women",
     ctaLink: "/products?gender=women",
   },
   {
     id: "4",
-    title: "New Arrivals",
-    subtitle: "Be the first to explore our latest collection.",
-    image: productHeroImage,
-    ctaText: "Explore",
     ctaLink: "/products",
   },
   {
     id: "5",
-    title: "Premium Quality",
-    subtitle: "Every stitch tells a story of craftsmanship.",
-    image: heroImage1,
-    ctaText: "Learn More",
     ctaLink: "/about",
   },
+  {
+    id: "6",
+    ctaLink: "/about",
+  }
 ];
 
 const HeroSection: React.FC = () => {
@@ -59,73 +57,90 @@ const HeroSection: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
 
-  const goToPrevious = () =>
+  const goToPrevious = (e: React.MouseEvent) => {
+    e.stopPropagation();
     setCurrentSlide((prev) => (prev - 1 + heroSlides.length) % heroSlides.length);
-  const goToNext = () =>
+  };
+  
+  const goToNext = (e: React.MouseEvent) => {
+    e.stopPropagation();
     setCurrentSlide((prev) => (prev + 1) % heroSlides.length);
+  };
+
+  const handleSlideClick = (link: string) => {
+    window.location.href = link;
+  };
 
   return (
-    <section className="relative w-full h-[80vh] sm:h-[90vh] md:h-screen overflow-hidden">
+    <section className="relative w-full h-[50vh] md:h-[70vh] overflow-hidden">
       {heroSlides.map((slide, index) => (
         <div
           key={slide.id}
-          className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
-            index === currentSlide ? "opacity-100" : "opacity-0"
+          onClick={() => handleSlideClick(slide.ctaLink)}
+          className={`absolute inset-0 transition-opacity duration-1000 ease-in-out cursor-pointer ${
+            index === currentSlide ? 'opacity-100' : 'opacity-0'
           }`}
         >
-          {/* Background */}
-          <div className="absolute inset-0">
-            <img
-              src={slide.image}
-              alt={slide.title}
-              className="w-full h-full object-cover"
-            />
-            <div className="absolute inset-0 bg-black/40" />
-          </div>
-
-          {/* Content */}
-          <div className="relative z-10 flex flex-col items-center md:items-start justify-center h-full px-6 md:px-16 lg:px-24 text-center md:text-left">
-            <h1 className="text-3xl sm:text-5xl lg:text-6xl font-bold text-white drop-shadow-lg mb-4">
-              {slide.title}
-            </h1>
-            <p className="text-base sm:text-lg md:text-xl text-gray-200 max-w-xl mb-6">
-              {slide.subtitle}
-            </p>
-            <Link
-              to={slide.ctaLink}
-              className="px-6 py-3 sm:px-8 sm:py-4 bg-accent hover:bg-accent/90 text-white font-semibold rounded-full shadow-lg transition-transform duration-300 hover:scale-105"
-            >
-              {slide.ctaText}
-            </Link>
+          <div className="absolute inset-0 flex items-center justify-center">
+            {/* Desktop Image */}
+            <div className="hidden md:flex w-full h-full items-center justify-center">
+              <img
+                src={desktopImages[index]}
+                alt={`Slide ${index + 1}`}
+                className="h-full w-auto max-w-none"
+                style={{
+                  objectFit: 'contain',
+                  maxHeight: '100%',
+                  maxWidth: 'none'
+                }}
+              />
+            </div>
+            {/* Mobile Image */}
+            <div className="md:hidden w-full h-full flex items-center justify-center">
+              <img
+                src={mobileImages[index]}
+                alt={`Slide ${index + 1}`}
+                className="w-full h-auto max-h-full"
+                style={{
+                  objectFit: 'contain',
+                  maxWidth: '100%',
+                  height: 'auto'
+                }}
+              />
+            </div>
           </div>
         </div>
       ))}
 
-      {/* Controls */}
+      {/* Navigation Arrows */}
       <button
         onClick={goToPrevious}
-        className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white p-3 rounded-full z-20"
+        className="absolute left-4 top-1/2 -translate-y-1/2 z-20 p-2 rounded-full bg-black/30 text-white hover:bg-black/50 transition-colors"
+        aria-label="Previous slide"
       >
         <ChevronLeft className="w-6 h-6" />
       </button>
       <button
         onClick={goToNext}
-        className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white p-3 rounded-full z-20"
+        className="absolute right-4 top-1/2 -translate-y-1/2 z-20 p-2 rounded-full bg-black/30 text-white hover:bg-black/50 transition-colors"
+        aria-label="Next slide"
       >
         <ChevronRight className="w-6 h-6" />
       </button>
 
-      {/* Dots */}
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex space-x-2 z-20">
+      {/* Pagination Dots */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex space-x-2">
         {heroSlides.map((_, index) => (
           <button
             key={index}
-            onClick={() => setCurrentSlide(index)}
-            className={`w-3 h-3 rounded-full transition-all ${
-              index === currentSlide
-                ? "bg-accent scale-125"
-                : "bg-white/70 hover:bg-white"
+            onClick={(e) => {
+              e.stopPropagation();
+              setCurrentSlide(index);
+            }}
+            className={`w-2.5 h-2.5 rounded-full transition-colors ${
+              index === currentSlide ? 'bg-white' : 'bg-white/50'
             }`}
+            aria-label={`Go to slide ${index + 1}`}
           />
         ))}
       </div>
