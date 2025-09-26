@@ -1,15 +1,3 @@
-
-import {
-  Moon,
-  Search,
-  ShoppingCart,
-  Sun,
-  UserRound,
-  Menu,
-  X,
-  ChevronDown,
-  Heart,
-} from 'lucide-react';
 import React, { useEffect, useState, useRef } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { Menu, X, Search, Heart, ShoppingCart, UserRound, ChevronDown, Sun, Moon } from 'lucide-react';
