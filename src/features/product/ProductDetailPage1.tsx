@@ -142,7 +142,7 @@ useEffect(() => {
       color: typeof selectedVariant.color === 'string' ? selectedVariant.color : String(selectedVariant.color),
       size: selectedSize,
       quantity,
-      price: parseFloat(selectedVariant.discount_price),
+      price: parseFloat(String(selectedVariant.discount_price)),
       mrp: parseFloat(selectedVariant.mrp_price),
       discount_percentage: Number(selectedVariant.discount_percentage) || 0,
       image: selectedVariant.thumbnail_url || '',
@@ -270,7 +270,7 @@ if (error || !currentProduct) {
         description={currentProduct.description || `${currentProduct.name} - Premium quality footwear`}
         image={selectedVariant?.thumbnail_url}
         type="product"
-        price={selectedVariant?.discount_price}
+        price={String(selectedVariant?.discount_price)}
         availability={availableSizes.length > 0 ? 'in stock' : 'out of stock'}
       />
 

@@ -32,18 +32,12 @@ export class GuestService {
 
   static async validateSession(sessionId: string): Promise<boolean> {
     try {
-      const { data, error } = await supabase
-        .from('guest_sessions')
-        .select('is_active, expires_at')
-        .eq('session_id', sessionId)
-        .single();
-
-      if (error || !data) return false;
-
-      const now = new Date();
-      const expiresAt = new Date(data.expires_at);
+      const { data, error } = await supabase.functions.invoke('validate-guest-session', {
+        body: { session_id: sessionId }
+      });
       
-      return data.is_active && expiresAt > now;
+      if (error || !data) return false;
+      return data.is_valid === true;
     } catch (error) {
       console.error('Session validation error:', error);
       return false;
@@ -52,15 +46,16 @@ export class GuestService {
 
   static async extendSession(sessionId: string): Promise<boolean> {
     try {
-      const newExpiry = new Date();
-      newExpiry.setHours(newExpiry.getHours() + 24);
-
-      const { error } = await supabase
-        .from('guest_sessions')
-        .update({ expires_at: newExpiry.toISOString() })
-        .eq('session_id', sessionId);
-
-      return !error;
+      const { data, error } = await supabase.functions.invoke('extend-guest-session', {
+        body: { session_id: sessionId }
+      });
+      
+      if (error) {
+        console.error('Session extension error:', error);
+        return false;
+      }
+      
+      return data.success === true;
     } catch (error) {
       console.error('Session extension error:', error);
       return false;

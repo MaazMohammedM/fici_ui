@@ -13,8 +13,8 @@ const ProductPrice: React.FC<Props> = ({ selectedVariant }) => {
       <span className="text-3xl font-bold text-primary">
         ₹{selectedVariant.discount_price}
       </span>
-      {parseFloat(selectedVariant.mrp_price) >
-        parseFloat(selectedVariant.discount_price) && (
+      {parseFloat(String(selectedVariant.mrp_price)) >
+        parseFloat(String(selectedVariant.discount_price)) && (
         <>
           <span className="text-xl text-gray-500 line-through">
             ₹{selectedVariant.mrp_price}

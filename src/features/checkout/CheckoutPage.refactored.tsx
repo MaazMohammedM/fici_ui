@@ -262,7 +262,7 @@ const CheckoutPage: React.FC = () => {
                       });
                     }
                   }}
-                  guestSessionId={sessionId || undefined}
+                  guest_session_id={sessionId || undefined}
                 />
               )}
 

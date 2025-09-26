@@ -59,8 +59,8 @@ const TopDealsSection: React.FC = () => {
             <TopDealsCard 
               title={product.name}
               rating={4.5}
-              price={parseFloat(product.discount_price)}
-              originalPrice={parseFloat(product.mrp_price)}
+              price={parseFloat(String(product.discount_price))}
+              originalPrice={parseFloat(String(product.mrp_price))}
               reviews={Math.floor(Math.random() * 200) + 50}
               image={product.thumbnail_url || product.images?.[0]}
               link={`/products/${product.article_id.split('_').at(0)}`}

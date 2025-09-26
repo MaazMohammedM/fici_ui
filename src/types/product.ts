@@ -5,7 +5,8 @@ export interface Product {
   description?: string;
   sub_category?: string;
   mrp_price: string;
-  discount_price: string;
+  mrp: number;
+  discount_price: string | number;
   gender: 'men' | 'women' | 'unisex';
   category: 'Footwear' | 'Bags and Accessories';
   sizes: Record<string, number>;

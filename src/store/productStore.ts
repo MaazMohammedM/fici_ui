@@ -458,7 +458,7 @@ export const useProductStore = create<ProductState>((set, get) => ({
     if (filters.priceRange) {
       const [min, max] = filters.priceRange.split('-').map(Number);
       filtered = filtered.filter(product => {
-        const price = parseFloat(product.discount_price);
+        const price = parseFloat(String(product.discount_price));
         return price >= min && (max ? price <= max : true);
       });
     }

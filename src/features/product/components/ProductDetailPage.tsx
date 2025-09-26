@@ -2,8 +2,7 @@ import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useProductStore } from '@store/productStore';
 import { useCartStore } from '@store/cartStore';
-import { useWishlistStore, type WishlistItem } from '@store/wishlistStore';
-import { Heart, HeartOff } from 'lucide-react';
+import { useWishlistStore } from '@store/wishlistStore';
 import ProductImageGallery from './ProductImageGallery';
 import ProductDetails from './ProductDetails';
 import CustomerReviews from './CustomerReviews';
@@ -156,151 +155,210 @@ Could you please let me know when this size will be available?`;
 
     const productImage =
       Array.isArray(selectedVariant.images) && selectedVariant.images.length > 0
-        ? selectedVariant.images[0]
-        : selectedVariant.thumbnail_url || '';
-
+        ? selectedVariant.images[0]:
+        selectedVariant.thumbnail_url || '';
+        console.log(productImage);
     addToCart({
       product_id: selectedVariant.product_id,
-      // original code used article_id split — keeping that behaviour
-      article_id: (selectedVariant.article_id || '').split('_')[0],
-      name: selectedVariant.name,
-      color: String(selectedVariant.color),
-      size: selectedSize,
-      image: productImage,
-      price: parseFloat(selectedVariant.discount_price),
-      mrp: parseFloat(selectedVariant.mrp_price),
+      article_id: selectedVariant.article_id,
+      name: currentProduct?.name || '',
+      price: Number(selectedVariant.discount_price) || 0,
+      mrp: selectedVariant.mrp,
       quantity,
-      discount_percentage: selectedVariant.discount_percentage,
-      thumbnail_url: selectedVariant.thumbnail_url || ''
+      size: selectedSize,
+      color: String(selectedVariant.color),
+      image: selectedVariant.thumbnail_url || '',
+      thumbnail_url: selectedVariant.thumbnail_url || '',
+      discount_percentage: selectedVariant.discount_percentage || 0
     });
-  }, [selectedSize, currentProduct, selectedArticleId, quantity, addToCart]);
+  }, [selectedVariant, currentProduct, quantity, selectedSize, addToCart]);
 
   const handleBuyNow = useCallback(() => {
     handleAddToCart();
     navigate('/cart');
   }, [handleAddToCart, navigate]);
 
-  const toggleWishlist = useCallback(() => {
+  const handleWishlistToggle = useCallback(async () => {
     if (!selectedVariant || !currentProduct) return;
     
     if (isWishlisted) {
-      removeFromWishlist(selectedVariant.article_id);
+      await removeFromWishlist(selectedVariant.article_id);
     } else {
-      const wishlistItem: WishlistItem = {
+      const wishlistItem = {
         product_id: selectedVariant.product_id,
         article_id: selectedVariant.article_id,
-        name: currentProduct.name || selectedVariant.name,
-        price: parseFloat(selectedVariant.discount_price) || 0,
-        images: Array.isArray(selectedVariant.images) 
-          ? selectedVariant.images 
-          : [selectedVariant.thumbnail_url || ''],
-        addedAt: new Date().toISOString(),
-        mrp_price: selectedVariant.mrp_price || '0',
-        discount_price: selectedVariant.discount_price || '0',
-        gender: (currentProduct.gender === 'men' || currentProduct.gender === 'women' 
-          ? currentProduct.gender 
-          : 'unisex') as 'men' | 'women' | 'unisex',
-        created_at: new Date().toISOString(),
+        name: currentProduct.name,
+        price: Number(selectedVariant.discount_price) || 0,
+        mrp_price: String(selectedVariant.mrp),
+        discount_price: String(selectedVariant.discount_price || 0),
         description: currentProduct.description || '',
         sub_category: currentProduct.sub_category || '',
-        category: currentProduct.category || 'Footwear',
+        gender: currentProduct.gender as 'men' | 'women' | 'unisex',
+        category: currentProduct.category,
         sizes: selectedVariant.sizes || {},
-        color: String(selectedVariant.color || ''),
-        discount_percentage: Number(selectedVariant.discount_percentage) || 0,
-        thumbnail_url: selectedVariant.thumbnail_url || ''
+        color: String(selectedVariant.color),
+        discount_percentage: selectedVariant.discount_percentage || 0,
+        thumbnail_url: selectedVariant.thumbnail_url || '',
+        images: Array.isArray(selectedVariant.images) ? selectedVariant.images : [],
+        created_at: new Date().toISOString(),
+        addedAt: new Date().toISOString()
       };
-      
-      addToWishlist(wishlistItem);
+      await addToWishlist(wishlistItem);
     }
     setIsWishlisted(!isWishlisted);
   }, [selectedVariant, isWishlisted, currentProduct, addToWishlist, removeFromWishlist]);
 
+  // Ensure we have the selected variant
+  const currentVariant = selectedVariant || (currentProduct?.variants?.[0]);
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-light dark:bg-gradient-dark flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">Loading product...</p>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="animate-pulse flex space-x-4 w-full max-w-4xl">
+            <div className="flex-1 space-y-6 py-1">
+              <div className="h-96 bg-gray-200 rounded-lg"></div>
+              <div className="grid grid-cols-5 gap-4 mt-4">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <div key={i} className="h-20 bg-gray-200 rounded"></div>
+                ))}
+              </div>
+            </div>
+            <div className="flex-1 space-y-6 py-1 pl-8">
+              <div className="h-8 bg-gray-200 rounded w-3/4"></div>
+              <div className="space-y-3">
+                <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+                <div className="h-4 bg-gray-200 rounded w-4/6"></div>
+                <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+              </div>
+              <div className="h-12 bg-gray-200 rounded w-1/2"></div>
+              <div className="h-12 bg-gray-200 rounded w-full"></div>
+              <div className="h-12 bg-gray-200 rounded w-full"></div>
+            </div>
+          </div>
         </div>
       </div>
     );
   }
 
-  if (error || !currentProduct) {
+  if (error) {
     return (
-      <div className="min-h-screen bg-gradient-light dark:bg-gradient-dark flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-primary dark:text-secondary mb-4">Product not found</h2>
-          <button 
-            onClick={() => navigate('/products')}
-            className="bg-accent text-white px-6 py-3 rounded-lg hover:bg-accent/80 transition-colors"
-          >
-            Back to Products
-          </button>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+        <div className="text-center p-8 max-w-md mx-auto bg-white rounded-xl shadow-md overflow-hidden md:max-w-2xl">
+          <div className="flex justify-center mb-4">
+            <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center">
+              <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+              </svg>
+            </div>
+          </div>
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">Product Not Found</h2>
+          <p className="text-gray-600 mb-6">We couldn't find the product you're looking for. It might have been moved or no longer available.</p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <button
+              onClick={() => navigate(-1)}
+              className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex-1 sm:flex-none"
+            >
+              Go Back
+            </button>
+            <button
+              onClick={() => navigate('/')}
+              className="px-6 py-3 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors flex-1 sm:flex-none"
+            >
+              Continue Shopping
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
+  if (!currentProduct) {
+    return null;
+  }
 
   return (
-    <div className="flex-1 bg-gradient-light dark:bg-gradient-dark">
-      <div className="max-w-7xl mx-auto px-4 py-8 relative">
-        {/* Wishlist button */}
-        <button
-          onClick={toggleWishlist}
-          className="absolute top-4 right-4 z-10 p-2 rounded-full bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-          aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
-        >
-          {isWishlisted ? (
-            <Heart className="w-6 h-6 text-red-500 fill-current" />
-          ) : (
-            <HeartOff className="w-6 h-6 text-gray-400 hover:text-red-500 transition-colors" />
-          )}
-        </button>
-        {/* Breadcrumbs */}
-        <nav className="mb-8">
-          <ol className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
-            <li><a href="/" className="hover:text-primary">Home</a></li>
-            <li>/</li>
-            <li><a href="/products" className="hover:text-primary">Products</a></li>
-            <li>/</li>
-            <li className="text-primary">{currentProduct.name}</li>
-          </ol>
-        </nav>
+    <div className="bg-white">
+      {/* Main Product Section */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="lg:grid lg:grid-cols-2 lg:gap-12">
+          {/* Left Column - Product Images */}
+          <div className="mb-8 lg:mb-0">
+            <ProductImageGallery
+              selectedVariant={currentVariant}
+              productName={currentProduct.name}
+            />
+          </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
-          {/* Product Images */}
-          <ProductImageGallery 
-            selectedVariant={selectedVariant}
-            productName={currentProduct.name}
-            key={selectedArticleId} // re-render when selected variant changes
-          />
+          {/* Right Column - Product Details */}
+          <div className="sticky top-4">
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+              <ProductDetails
+                currentProduct={currentProduct}
+                selectedVariant={currentVariant}
+                selectedArticleId={selectedArticleId}
+                selectedSize={selectedSize}
+                quantity={quantity}
+                availableSizes={availableSizes}
+                fullSizeRange={getFullSizeRange}
+                onColorChange={handleColorChange}
+                onSizeChange={setSelectedSize}
+                onQuantityChange={setQuantity}
+                onAddToCart={handleAddToCart}
+                onBuyNow={handleBuyNow}
+                onWishlistToggle={handleWishlistToggle}
+                onWhatsAppContact={handleWhatsAppContact}
+              />
+            </div>
+            
+            {/* Trust Badges */}
+            <div className="grid grid-cols-3 gap-4 mt-6">
+              <div className="p-3 bg-gray-50 rounded-lg text-center">
+                <div className="text-gray-600 text-sm">Free Shipping</div>
+                <div className="text-xs text-gray-500">On all orders</div>
+              </div>
+              <div className="p-3 bg-gray-50 rounded-lg text-center">
+                <div className="text-gray-600 text-sm">Easy Returns</div>
+                <div className="text-xs text-gray-500">30-day policy</div>
+              </div>
+              <div className="p-3 bg-gray-50 rounded-lg text-center">
+                <div className="text-gray-600 text-sm">Secure Payment</div>
+                <div className="text-xs text-gray-500">100% secure</div>
+              </div>
+            </div>
+          </div>
 
-          {/* Product Details */}
-          <ProductDetails
-            currentProduct={currentProduct}
-            selectedVariant={selectedVariant}
-            selectedArticleId={selectedArticleId}
-            selectedSize={selectedSize}
-            quantity={quantity}
-            availableSizes={availableSizes}
-            fullSizeRange={getFullSizeRange}
-            onColorChange={handleColorChange}        // expects article_id
-            onSizeChange={(s) => setSelectedSize(s)}
-            onQuantityChange={(q) => setQuantity(q)}
-            onAddToCart={handleAddToCart}
-            onBuyNow={handleBuyNow}
-            onWhatsAppContact={handleWhatsAppContact}
-          />
         </div>
-
-        {/* Customer Reviews */}
-        <CustomerReviews productId={selectedVariant?.product_id} />
-
-        {/* Related Products */}
-        <RelatedProducts products={relatedProducts} />
       </div>
+
+      {/* Minimal description */}
+      {currentProduct.description && (
+        <div className="bg-gray-50 py-8">
+          <div className="max-w-4xl mx-auto px-4">
+            <div className="bg-white rounded-xl shadow-sm p-6">
+              <h2 className="text-xl font-semibold mb-3">Description</h2>
+              <p className="text-gray-600">{currentProduct.description}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Customer Reviews */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <h2 className="text-2xl font-bold text-gray-900 mb-8">Customer Reviews</h2>
+        <CustomerReviews productId={selectedVariant?.product_id} />
+      </div>
+
+      {/* Related Products */}
+      {relatedProducts.length > 0 && (
+        <div className="bg-gray-50 py-12">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 className="text-2xl font-bold text-gray-900 mb-8">You May Also Like</h2>
+            <RelatedProducts products={relatedProducts} />
+          </div>
+        </div>
+      )}
+
+      {/* Newsletter removed for minimal design */}
     </div>
   );
 };
