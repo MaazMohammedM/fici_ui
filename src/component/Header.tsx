@@ -1,4 +1,16 @@
-import React, { useEffect, useRef, useState } from 'react';
+
+import {
+  Moon,
+  Search,
+  ShoppingCart,
+  Sun,
+  UserRound,
+  Menu,
+  X,
+  ChevronDown,
+  Heart,
+} from 'lucide-react';
+import React, { useEffect, useState, useRef } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { Menu, X, Search, Heart, ShoppingCart, UserRound, ChevronDown, Sun, Moon } from 'lucide-react';
 import { useAuthStore } from '@store/authStore';
@@ -112,6 +124,7 @@ const Header: React.FC = () => {
                       className="absolute left-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg border dark:border-gray-700 py-2 z-50"
                       onMouseEnter={() => setActiveDropdown(label)}
                       onMouseLeave={() => setActiveDropdown(null)}
+
                     >
                       {dropdown.map(d => (
                         <NavLink key={d.path} to={d.path} className="block px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" onClick={() => setActiveDropdown(null)}>

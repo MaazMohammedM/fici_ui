@@ -210,7 +210,6 @@ Could you please let me know when this size will be available?`;
 
   // Ensure we have the selected variant
   const currentVariant = selectedVariant || (currentProduct?.variants?.[0]);
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -327,6 +326,7 @@ Could you please let me know when this size will be available?`;
               </div>
             </div>
           </div>
+
         </div>
       </div>
 
