@@ -39,27 +39,34 @@ export class GuestService {
 
   static async validateSession(sessionId: string): Promise<boolean> {
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/validate-guest-session`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
-          },
-          body: JSON.stringify({ session_id: sessionId })
-        }
-      );
+      const { data, error } = await supabase.functions.invoke('validate-guest-session', {
+        body: { session_id: sessionId }
+      });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || 'Failed to validate session');
+      if (error) {
+        throw error;
       }
 
-      const data = await response.json();
-      return data.valid === true;
+      return data?.valid === true;
     } catch (error) {
       console.error('Session validation error:', error);
+      return false;
+    }
+  }
+
+  static async extendSession(sessionId: string): Promise<boolean> {
+    try {
+      const { data, error } = await supabase.functions.invoke('extend-guest-session', {
+        body: { session_id: sessionId }
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      return data?.success === true;
+    } catch (error) {
+      console.error('Session extension error:', error);
       return false;
     }
   }}

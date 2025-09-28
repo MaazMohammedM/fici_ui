@@ -73,7 +73,12 @@ const SignIn = memo(() => {
   return (
     <AuthLayout title="Welcome Back" subtitle="Sign in to your account to continue">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 sm:space-y-6">
-        {error && <ErrorAlert message={error.message || 'An error occurred'} onDismiss={clearError} />}
+        {error && (
+          <ErrorAlert 
+            message={typeof error === 'string' ? error : (error as { message: string }).message || 'An error occurred'} 
+            onDismiss={clearError} 
+          />
+        )}
 
         <Input
           type="email"

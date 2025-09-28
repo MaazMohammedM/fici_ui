@@ -85,7 +85,12 @@ const Register = memo(() => {
     >
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 sm:space-y-6">
         {/* Error Display */}
-        {error && <ErrorAlert message={error.message || 'An error occurred'} onDismiss={clearError} />}
+        {error && (
+          <ErrorAlert 
+            message={typeof error === 'string' ? error : (error as { message: string }).message || 'An error occurred'} 
+            onDismiss={clearError} 
+          />
+        )}
         
 
         {/* Name Fields */}
