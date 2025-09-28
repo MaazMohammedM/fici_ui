@@ -1,3 +1,4 @@
+//src/auth/ui/Button.tsx
 import React, { memo } from 'react';
 type LucideIcon = React.ComponentType<React.SVGProps<SVGSVGElement>>;
 

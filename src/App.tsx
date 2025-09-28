@@ -1,12 +1,15 @@
 // src/App.tsx
-import React, { Suspense } from 'react';
+import React, { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
+import ProtectedRoute from '@auth/ProtectedRoute';
+
+const GuestOrderLookup = lazy(() => import('./features/orders/GuestOrderLookup'));
+const OrderDetailsPage = lazy(() => import('./features/orders/OrderDetailsPage'));
 import ErrorBoundary from './component/ErrorBoundary';
 import Header from 'component/Header';
 import Footer from 'component/Footer';
 import SEOHead from '@lib/components/SEOHead';
-import ProtectedRoute from '@auth/ProtectedRoute';
 
 // Lazy-loaded pages
 // Import enhanced pages
@@ -75,9 +78,17 @@ const App: React.FC = () => {
                   <Route path="/shoe-care" element={<ShoeCarePage />} />
                   <Route path="/wishlist" element={<WishlistPage />} />
                   <Route path="/orders" element={
-                    <ProtectedRoute>
                       <OrderHistoryPage />
-                    </ProtectedRoute>
+                  } />
+                  <Route path="/guest/orders" element={
+                    <Suspense fallback={<FiciLoader />}>
+                      <GuestOrderLookup />
+                    </Suspense>
+                  } />
+                  <Route path="/guest/orders/:orderId" element={
+                    <Suspense fallback={<FiciLoader />}>
+                      <OrderDetailsPage isGuest={true} />
+                    </Suspense>
                   } />
                   <Route path="/checkout" element={
                     <ErrorBoundary fallback={

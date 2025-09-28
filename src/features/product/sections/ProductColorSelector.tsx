@@ -28,6 +28,7 @@ const getColorValue = (colorName: string): string => {
     aqua: "#00FFFF",
     teal: "#008080",
     fuchsia: "#FF00FF",
+    "dk.brown": "#8B4513",
   };
   return colorMap[colorName.toLowerCase()] || "#6B7280";
 };
@@ -52,7 +53,7 @@ const ProductColorSelector: React.FC<Props> = ({
 
   return (
     <div>
-      <h3 className="text-lg font-semibold mb-2 text-primary dark:text-secondary">
+      <h3 className="text-lg font-semibold mb-2 text-black dark:text-secondary">
         Color:{" "}
         <span className="font-normal capitalize text-accent">
           {displayColorLabel}

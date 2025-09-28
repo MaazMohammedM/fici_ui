@@ -89,9 +89,10 @@ const HeroSection: React.FC = () => {
                 alt={`Slide ${index + 1}`}
                 className="h-full w-auto max-w-none"
                 style={{
-                  objectFit: 'contain',
+                  objectFit: 'cover',
                   maxHeight: '100%',
-                  maxWidth: 'none'
+                  minWidth: '100%',
+                  height: 'auto'
                 }}
               />
             </div>
@@ -102,8 +103,9 @@ const HeroSection: React.FC = () => {
                 alt={`Slide ${index + 1}`}
                 className="w-full h-auto max-h-full"
                 style={{
-                  objectFit: 'contain',
-                  maxWidth: '100%',
+                  objectFit: 'cover',
+                  minWidth: '100%',
+                  maxHeight: '100%',
                   height: 'auto'
                 }}
               />

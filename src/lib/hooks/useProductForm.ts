@@ -5,13 +5,14 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { enhancedProductSchema, type EnhancedProductFormData } from '@lib/util/formValidation';
 import { useAdminStore } from '@features/admin/store/adminStore';
 
+// Update the useProductForm hook
 export const useProductForm = () => {
   const { addProduct, uploadImages, uploadProgress, setUploadProgress } = useAdminStore();
   const [files, setFiles] = useState<FileList | null>(null);
   const [sizesList, setSizesList] = useState<Record<string, number>>({});
-  const [sizeInput, setSizeInput] = useState('');
-  const [quantityInput, setQuantityInput] = useState('');
-  const [isUploading, setIsUploading] = useState(false);
+  const [sizeInput, setSizeInput] = useState<string>('');
+  const [quantityInput, setQuantityInput] = useState<string>('');
+  const [isUploading, setIsUploading] = useState<boolean>(false);
 
   const form = useForm<EnhancedProductFormData>({
     resolver: zodResolver(enhancedProductSchema),
@@ -20,43 +21,46 @@ export const useProductForm = () => {
       name: '',
       description: '',
       sub_category: '',
-      color: '', // Include color field in form
+      color: '',
       mrp_price: '',
       discount_price: '',
       gender: undefined,
       category: undefined,
-      sizes: '',
+      sizes: '{}',
       images: '',
       thumbnail_url: ''
     }
   });
 
-  const handleAddSize = () => {
+  const handleAddSize = (): void => {
     if (sizeInput && quantityInput && parseInt(quantityInput) > 0) {
-      setSizesList((prev) => ({ ...prev, [sizeInput]: parseInt(quantityInput) }));
+      setSizesList(prev => ({
+        ...prev,
+        [sizeInput]: parseInt(quantityInput, 10)
+      }));
       setSizeInput('');
       setQuantityInput('');
     }
   };
 
-  const handleRemoveSize = (size: string) => {
-    setSizesList((prev) => {
+  const handleRemoveSize = (size: string): void => {
+    setSizesList(prev => {
       const newSizes = { ...prev };
       delete newSizes[size];
       return newSizes;
     });
   };
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
     const selectedFiles = event.target.files;
-    if (selectedFiles) {
+    if (selectedFiles && selectedFiles.length > 0) {
       setFiles(selectedFiles);
       form.clearErrors('images');
     }
   };
 
   const validateFiles = (): boolean => {
-    if (!files || files.length < 1) {
+    if (!files || files.length === 0) {
       form.setError('images', {
         type: 'manual',
         message: 'Please upload at least 1 image'
@@ -80,9 +84,7 @@ export const useProductForm = () => {
         });
         return false;
       }
-    }
 
-    for (let i = 0; i < files.length; i++) {
       if (files[i].size > 5 * 1024 * 1024) {
         form.setError('images', {
           type: 'manual',
@@ -95,38 +97,29 @@ export const useProductForm = () => {
     return true;
   };
 
-  const onSubmit = async (data: EnhancedProductFormData) => {
+  const onSubmit = async (data: EnhancedProductFormData): Promise<void> => {
     try {
-      console.log('Form data received:', data);
-      
-      if (!validateFiles()) {
-        console.log('File validation failed');
+      if (!files || !validateFiles()) {
         return;
       }
 
       setIsUploading(true);
       setUploadProgress(0);
 
-      console.log('Starting image upload...');
       const colorSlug = data.color.toLowerCase().replace(/\s+/g, '');
       const articleWithColor = `${data.article_id}_${colorSlug}`;
-      const uploadResult = await uploadImages(articleWithColor, files!);
+      const uploadResult = await uploadImages(articleWithColor, files);
 
-      
       if (!uploadResult) {
-        console.log('Upload failed');
         form.setError('images', {
           type: 'manual',
           message: 'Image upload failed. Please try again.'
         });
         return;
       }
-
+      
       const { imageUrls, thumbnail } = uploadResult;
-      console.log('Upload successful. Image URLs:', imageUrls);
-      console.log('Thumbnail URL:', thumbnail);
-
-      const productData = {
+      const productData: EnhancedProductFormData = {
         ...data,
         article_id: articleWithColor,
         sizes: JSON.stringify(sizesList),
@@ -134,20 +127,13 @@ export const useProductForm = () => {
         thumbnail_url: thumbnail
       };
 
-      console.log('Adding product to database:', productData);
-
       const success = await addProduct(productData);
-      
       if (success) {
-        console.log('Product added successfully');
         form.reset();
         setFiles(null);
         setSizesList({});
         setUploadProgress(0);
-      } else {
-        console.log('Failed to add product to database');
       }
-
     } catch (error) {
       console.error('Error submitting product:', error);
       form.setError('root', {
@@ -167,11 +153,11 @@ export const useProductForm = () => {
     quantityInput,
     isUploading,
     uploadProgress,
-    setSizeInput,
-    setQuantityInput,
+    setSizeInput: (value: string) => setSizeInput(value),
+    setQuantityInput: (value: string) => setQuantityInput(value),
     handleAddSize,
     handleRemoveSize,
     handleFileChange,
-    onSubmit
+    onSubmit: form.handleSubmit(onSubmit)
   };
 };

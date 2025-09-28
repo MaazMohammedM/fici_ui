@@ -2,7 +2,7 @@
 import React from 'react';
 import { useAdminStore } from '../store/adminStore';
 import EditProductForm from './EditProductForm';
-import fallbackImage from '../../../assets/Fici Logo.png';
+import fallbackImage from '../../../assets/Fici_logo.png';
 
 const ProductList: React.FC = () => {
   const { 

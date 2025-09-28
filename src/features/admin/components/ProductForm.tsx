@@ -25,10 +25,14 @@ const ProductForm: React.FC = () => {
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors, isSubmitting }
   } = form;
 
   const [successMessage, setSuccessMessage] = useState('');
+
+  // Watch category selection
+  const selectedCategory = watch('category');
 
   const wrappedSubmit = async (data: any) => {
     setSuccessMessage('');
@@ -37,7 +41,10 @@ const ProductForm: React.FC = () => {
   };
 
   return (
-    <form onSubmit={handleSubmit(wrappedSubmit)} className="space-y-6 bg-white dark:bg-dark2 p-6 rounded-2xl shadow-md">
+    <form
+      onSubmit={handleSubmit(wrappedSubmit)}
+      className="space-y-6 bg-white dark:bg-dark2 p-6 rounded-2xl shadow-md"
+    >
       {/* Success Message */}
       {successMessage && (
         <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded">
@@ -73,7 +80,7 @@ const ProductForm: React.FC = () => {
             <span>{Math.round(uploadProgress)}%</span>
           </div>
           <div className="w-full bg-blue-200 rounded-full h-2">
-            <div 
+            <div
               className="bg-blue-600 h-2 rounded-full transition-all duration-300"
               style={{ width: `${uploadProgress}%` }}
             ></div>
@@ -87,13 +94,15 @@ const ProductForm: React.FC = () => {
           <label className="block text-sm font-medium text-gray-700 dark:text-white">
             Article ID *
           </label>
-          <input 
-            {...register('article_id')} 
-            placeholder="e.g. SH123488" 
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white" 
+          <input
+            {...register('article_id')}
+            placeholder="e.g. SH123488"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white"
           />
           {errors.article_id && (
-            <p className="text-red-500 text-sm mt-1">{errors.article_id.message}</p>
+            <p className="text-red-500 text-sm mt-1">
+              {errors.article_id.message}
+            </p>
           )}
         </div>
 
@@ -101,10 +110,10 @@ const ProductForm: React.FC = () => {
           <label className="block text-sm font-medium text-gray-700 dark:text-white">
             Product Name *
           </label>
-          <input 
-            {...register('name')} 
-            placeholder="Product name" 
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white" 
+          <input
+            {...register('name')}
+            placeholder="Product name"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white"
           />
           {errors.name && (
             <p className="text-red-500 text-sm mt-1">{errors.name.message}</p>
@@ -115,24 +124,22 @@ const ProductForm: React.FC = () => {
           <label className="block text-sm font-medium text-gray-700 dark:text-white">
             Description
           </label>
-          <textarea 
-            {...register('description')} 
-            placeholder="Product description" 
+          <textarea
+            {...register('description')}
+            placeholder="Product description"
             rows={3}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white" 
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white"
           />
         </div>
-
-
 
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-white">
             Color
           </label>
-          <input 
-            {...register('color')} 
-            placeholder="e.g. Black, Brown" 
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white" 
+          <input
+            {...register('color')}
+            placeholder="e.g. Black, Brown"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white"
           />
           {errors.color && (
             <p className="text-red-500 text-sm mt-1">{errors.color.message}</p>
@@ -151,7 +158,9 @@ const ProductForm: React.FC = () => {
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white"
           />
           {errors.mrp_price && (
-            <p className="text-red-500 text-sm mt-1">{errors.mrp_price.message}</p>
+            <p className="text-red-500 text-sm mt-1">
+              {errors.mrp_price.message}
+            </p>
           )}
         </div>
 
@@ -166,7 +175,9 @@ const ProductForm: React.FC = () => {
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white"
           />
           {errors.discount_price && (
-            <p className="text-red-500 text-sm mt-1">{errors.discount_price.message}</p>
+            <p className="text-red-500 text-sm mt-1">
+              {errors.discount_price.message}
+            </p>
           )}
         </div>
 
@@ -175,8 +186,8 @@ const ProductForm: React.FC = () => {
           <label className="block text-sm font-medium text-gray-700 dark:text-white">
             Gender *
           </label>
-          <select 
-            {...register('gender')} 
+          <select
+            {...register('gender')}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white"
           >
             <option value="">Select Gender</option>
@@ -193,8 +204,8 @@ const ProductForm: React.FC = () => {
           <label className="block text-sm font-medium text-gray-700 dark:text-white">
             Category *
           </label>
-          <select 
-            {...register('category')} 
+          <select
+            {...register('category')}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white"
           >
             <option value="">Select Category</option>
@@ -202,20 +213,46 @@ const ProductForm: React.FC = () => {
             <option value="Bags and Accessories">Bags and Accessories</option>
           </select>
           {errors.category && (
-            <p className="text-red-500 text-sm mt-1">{errors.category.message}</p>
+            <p className="text-red-500 text-sm mt-1">
+              {errors.category.message}
+            </p>
           )}
         </div>
+
+        {/* SubCategory */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-white">
             SubCategory
           </label>
-          <input 
-            {...register('sub_category')} 
-            placeholder="SubCategory name" 
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white" 
-          />
+
+          {selectedCategory === 'Footwear' ? (
+            <select
+              {...register('sub_category')}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white"
+            >
+              <option value="">Select SubCategory</option>
+              <option value="Shoes">Shoes</option>
+              <option value="Sandals">Sandals</option>
+            </select>
+          ) : selectedCategory === 'Bags and Accessories' ? (
+            <select
+            {...register('sub_category')}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white"
+          >
+            <option value="">Select SubCategory</option>
+            <option value="Bags">Bags</option>
+            <option value="Accessories">Accessories</option>
+          </select>
+          ) : (
+            <input
+              {...register('sub_category')}
+              placeholder="SubCategory name"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white"
+            />
+          )}
         </div>
-        {/* Size Manager */}
+
+        {/* Size Manager (Responsive) */}
         <div className="md:col-span-2">
           <SizeManager
             sizesList={sizesList}
@@ -241,9 +278,9 @@ const ProductForm: React.FC = () => {
 
       {/* Submit Button */}
       <div className="pt-4">
-        <button 
-          type="submit" 
-          disabled={isSubmitting || isUploading} 
+        <button
+          type="submit"
+          disabled={isSubmitting || isUploading}
           className="w-full bg-primary hover:bg-primary-active text-white px-6 py-3 rounded-xl shadow transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isSubmitting || isUploading ? 'Adding Product...' : 'Add Product'}

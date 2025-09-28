@@ -6,7 +6,9 @@ import { MapPin, User, Phone, Mail } from 'lucide-react';
 import { Input, Button } from '../../../auth/ui';
 import { supabase } from '@lib/supabase';
 import { useAuthStore } from '@store/authStore';
+import { useGuestSession } from '@lib/guestSession';
 import type { Address } from './AddressForm';
+import type { GuestContactInfo } from '../../../types/guest';
 
 const GuestAddressSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -22,21 +24,42 @@ const GuestAddressSchema = z.object({
 type GuestAddressFormData = z.infer<typeof GuestAddressSchema>;
 
 interface GuestAddressFormProps {
+  selectedAddress: Address | null;
   onAddressSubmit: (address: Address) => void;
-  selectedAddress?: Address | null;
   guest_session_id?: string;
-
+  guestContactInfo?: GuestContactInfo;
 }
 
 const GuestAddressForm: React.FC<GuestAddressFormProps> = ({
   onAddressSubmit,
   selectedAddress,
-  guest_session_id
+  guest_session_id,
+  guestContactInfo
 }) => {
+  console.log('GuestAddressForm - Received guest_session_id:', guest_session_id);
+  console.log('GuestAddressForm - Received guestContactInfo:', guestContactInfo);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [savedAddresses, setSavedAddresses] = useState<Address[]>([]);
   const [showForm, setShowForm] = useState(!selectedAddress);
-  const { guestContactInfo } = useAuthStore();
+  const { guestSession } = useAuthStore();
+  const { updateContactInfo } = useGuestSession();
+  // Use the passed guest_session_id prop, then guestSession, then try to get it from the store
+  // Get the most up-to-date session ID
+  const effectiveGuestSessionId = React.useMemo(() => {
+    const sessionId = guest_session_id || guestSession?.guest_session_id || useAuthStore.getState().guestSession?.guest_session_id;
+    console.log('GuestAddressForm - Effective guest_session_id:', sessionId);
+    return sessionId;
+  }, [guest_session_id, guestSession]);
+  
+  // Log session info for debugging
+  useEffect(() => {
+    console.log('GuestAddressForm - Current session state:', {
+      propSessionId: guest_session_id,
+      storeSession: guestSession,
+      effectiveSessionId: effectiveGuestSessionId,
+      guestContactInfo
+    });
+  }, [guest_session_id, guestSession, effectiveGuestSessionId, guestContactInfo]);
 
   const {
     register,
@@ -57,30 +80,27 @@ const GuestAddressForm: React.FC<GuestAddressFormProps> = ({
     }
   });
 
+  // Load addresses when session ID changes
   useEffect(() => {
-    if (guest_session_id) {
+    if (effectiveGuestSessionId) {
+      console.log('Loading addresses for session:', effectiveGuestSessionId);
       loadGuestAddresses();
+    } else {
+      console.warn('No valid guest session ID available to load addresses');
     }
-  }, [guest_session_id]);
+  }, [effectiveGuestSessionId]);
 
   const loadGuestAddresses = async () => {
-    if (!guest_session_id) return;
+    if (!effectiveGuestSessionId) return;
     
     try {
       const { data, error } = await supabase
-        .from('guest_sessions')
-        .select('shipping_addresses')
-        .eq('session_id', guest_session_id)
-        .single();
+        .from('addresses')
+        .select('*')
+        .eq('guest_session_id', effectiveGuestSessionId);
 
-      if (error && error.code !== 'PGRST116') {
-        console.error('Error loading guest addresses:', error);
-        return;
-      }
-
-      if (data?.shipping_addresses) {
-        const addresses = Array.isArray(data.shipping_addresses) ? data.shipping_addresses : [];
-        setSavedAddresses(addresses);
+      if (!error && data) {
+        setSavedAddresses(data);
       }
     } catch (error) {
       console.error('Error loading guest addresses:', error);
@@ -94,44 +114,16 @@ const GuestAddressForm: React.FC<GuestAddressFormProps> = ({
     }
 
     try {
-      // First check if guest session exists
-      const { data: existingSession, error: fetchError } = await supabase
-        .from('guest_sessions')
-        .select('session_id, shipping_addresses')
-        .eq('session_id', guest_session_id)
-        .single();
-
-      if (fetchError && fetchError.code !== 'PGRST116') {
-        console.error('Error fetching guest session:', fetchError);
-        return false;
-      }
-
-      // If session doesn't exist, we can't save the address
-      if (!existingSession) {
-        console.error('Guest session not found:', guest_session_id);
-        return false;
-      }
-
-      const currentAddresses = Array.isArray(existingSession.shipping_addresses) 
-        ? existingSession.shipping_addresses 
-        : [];
-      
-      const updatedAddresses = [...currentAddresses, { ...address, id: `guest_addr_${Date.now()}` }];
-      
       const { error } = await supabase
-        .from('guest_sessions')
-        .update({ 
-          shipping_addresses: updatedAddresses,
-          updated_at: new Date().toISOString()
-        })
-        .eq('session_id', guest_session_id);
+        .from('addresses')
+        .insert([address]);
 
       if (error) {
         console.error('Error saving guest address:', error);
         return false;
       }
 
-      setSavedAddresses(updatedAddresses);
+      setSavedAddresses([...savedAddresses, address]);
       return true;
     } catch (error) {
       console.error('Error saving guest address:', error);
@@ -140,11 +132,21 @@ const GuestAddressForm: React.FC<GuestAddressFormProps> = ({
   };
 
   const onSubmit = async (data: GuestAddressFormData) => {
+    console.log('Form submitted with data:', data);
+    console.log('Current effectiveGuestSessionId:', effectiveGuestSessionId);
     setIsSubmitting(true);
     
     try {
+      console.log('Submitting address with guest_session_id:', effectiveGuestSessionId);
+      // Update guest contact info in the session
+      await updateContactInfo({
+        name: data.name,
+        email: data.email,
+        phone: data.phone
+      });
+
       const newAddress: Address = {
-        id: `guest_addr_${Date.now()}`,
+        id: `guest-${Date.now()}`,
         name: data.name,
         phone: data.phone,
         email: data.email,
@@ -152,11 +154,9 @@ const GuestAddressForm: React.FC<GuestAddressFormProps> = ({
         city: data.city,
         state: data.state,
         pincode: data.pincode,
-        landmark: data.landmark
+        landmark: data.landmark || '',
+        is_default: true,
       };
-
-      console.log('Attempting to save address with guest_session_id:', guest_session_id);
-      console.log('Address data:', newAddress);
 
       // If no guest_session_id, just submit the address without saving
       if (!guest_session_id) {

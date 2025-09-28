@@ -22,12 +22,13 @@
     /* Added for path aliasing */
     "baseUrl": "./src",
     "paths": {
-      "@components/*": ["components/*"],
-      "@features/*": ["features/*"],
-      "@lib/*": ["lib/*"],
-      "@types/*": ["types/*"],
-      "@store/*": ["store/*"],
-      "@auth/*": ["auth/*"],
+      "@/*": ["./*"],
+      "@components/*": ["./components/*"],
+      "@features/*": ["./features/*"],
+      "@lib/*": ["./lib/*"],
+      "@types/*": ["./types/*"],
+      "@store/*": ["./store/*"],
+      "@auth/*": ["./auth/*"],
       "@orders/*": ["features/orders/*"],
       "@checkout/*": ["features/checkout/*"],
       "@hooks/*": ["hooks/*"]

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, X } from 'lucide-react';
+import { X } from 'lucide-react';
 
 interface SizeManagerProps {
   sizesList: Record<string, number>;
@@ -13,11 +13,6 @@ interface SizeManagerProps {
 
 const SizeManager: React.FC<SizeManagerProps> = ({
   sizesList,
-  sizeInput,
-  quantityInput,
-  onSizeInputChange,
-  onQuantityInputChange,
-  onAddSize,
   onRemoveSize
 }) => {
   return (
@@ -26,32 +21,31 @@ const SizeManager: React.FC<SizeManagerProps> = ({
         Sizes and Quantities
       </label>
       
-      <div className="flex gap-2">
-        <input
-          type="text"
-          value={sizeInput}
-          onChange={(e) => onSizeInputChange(e.target.value)}
-          placeholder="Size (e.g. 39)"
-          className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-        />
-        <input
-          type="number"
-          value={quantityInput}
-          onChange={(e) => onQuantityInputChange(e.target.value)}
-          placeholder="Qty"
-          min="1"
-          className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-        />
-        <button
-          type="button"
-          onClick={onAddSize}
-          disabled={!sizeInput || !quantityInput || parseInt(quantityInput) <= 0}
-          className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-active disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
-        >
-          <Plus size={16} />
-          Add
-        </button>
-      </div>
+      <div className="mb-4">
+  <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+    {/* Size input */}
+    <input
+      type="text"
+      placeholder="Size (e.g. 39)"
+      className="sm:col-span-5 border rounded-md p-2 w-full"
+    />
+
+    {/* Qty input */}
+    <input
+      type="number"
+      placeholder="Qty"
+      className="sm:col-span-4 border rounded-md p-2 w-full"
+    />
+
+    {/* Add button */}
+    <button
+      type="button"
+      className="sm:col-span-3 bg-blue-500 hover:bg-blue-600 text-white font-medium px-4 py-2 rounded-md"
+    >
+      + Add
+    </button>
+  </div>
+</div>
 
       {Object.keys(sizesList).length > 0 && (
         <div className="space-y-2">

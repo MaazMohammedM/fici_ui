@@ -4,14 +4,21 @@ import { Minus, Plus } from "lucide-react";
 interface Props {
   quantity: number;
   onQuantityChange: (quantity: number) => void;
+  maxQuantity?: number;
 }
 
 const ProductQuantitySelector: React.FC<Props> = ({
   quantity,
   onQuantityChange,
+  maxQuantity = 10, // Default to 10 if not provided
 }) => {
   const decrease = () => onQuantityChange(Math.max(1, quantity - 1));
-  const increase = () => onQuantityChange(quantity + 1);
+  const increase = () => {
+    if (maxQuantity && quantity >= maxQuantity) return;
+    onQuantityChange(quantity + 1);
+  };
+
+  const isMaxReached = Boolean(maxQuantity && quantity >= maxQuantity);
 
   return (
     <div>
@@ -30,7 +37,12 @@ const ProductQuantitySelector: React.FC<Props> = ({
         </span>
         <button
           onClick={increase}
-          className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-r-xl transition"
+          disabled={isMaxReached}
+          className={`p-2 rounded-r-xl transition ${
+            isMaxReached
+              ? "text-gray-400 cursor-not-allowed"
+              : "hover:bg-gray-100 dark:hover:bg-gray-700"
+          }`}
         >
           <Plus className="w-4 h-4" />
         </button>
@@ -38,5 +50,4 @@ const ProductQuantitySelector: React.FC<Props> = ({
     </div>
   );
 };
-
 export default ProductQuantitySelector;
