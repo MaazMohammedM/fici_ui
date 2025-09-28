@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useProductStore } from '@store/productStore';
 import { useCartStore } from '@store/cartStore';
 import { useWishlistStore } from '@store/wishlistStore';
+import { trackProductVisit } from '../../../services/productAnalytics';
+import FiciLoader from '@components/ui/FiciLoader';
 import ProductImageGallery from './ProductImageGallery';
 import ProductDetails from './ProductDetails';
 import CustomerReviews from './CustomerReviews';
@@ -11,6 +13,7 @@ import RelatedProducts from './RelatedProducts';
 const ProductDetailPage: React.FC = () => {
   const { article_id } = useParams<{ article_id: string }>();
   const navigate = useNavigate();
+  const [isTrackingVisit, setIsTrackingVisit] = useState(false);
 
   const {
     currentProduct,
@@ -38,12 +41,6 @@ const ProductDetailPage: React.FC = () => {
     [currentProduct, selectedArticleId]
   );
 
-  // Update wishlist status when variant changes
-  useEffect(() => {
-    if (selectedVariant) {
-      setIsWishlisted(isInWishlist(selectedVariant.article_id));
-    }
-  }, [selectedVariant, isInWishlist]);
 
   const availableSizes = useMemo(() => {
     if (!selectedVariant?.sizes) return [];
@@ -84,11 +81,24 @@ Could you please let me know when this size will be available?`;
     window.open(whatsappUrl, '_blank');
   }, [currentProduct, selectedVariant]);
 
+  // Track product view when product data is loaded
+  useEffect(() => {
+    if (currentProduct?.article_id && !isTrackingVisit) {
+      setIsTrackingVisit(true);
+      // Use the first variant's image if available, or fallback to empty string
+      const thumbnailUrl = currentProduct.variants?.[0]?.images?.[0] || '';
+      trackProductVisit({
+        product_id: currentProduct.article_id,
+        name: currentProduct.name,
+        thumbnail_url: thumbnailUrl
+      }).catch(console.error);
+    }
+  }, [currentProduct?.article_id, isTrackingVisit, currentProduct?.name, currentProduct?.variants]);
+
   // Initial load from route
   useEffect(() => {
     if (article_id) {
-      fetchProductByArticleId(article_id);
-      // set requestedArticleId so selection will be honored after load
+      fetchProductByArticleId(article_id).catch(console.error);
       setRequestedArticleId(article_id);
     }
   }, [article_id, fetchProductByArticleId]);
@@ -130,16 +140,22 @@ Could you please let me know when this size will be available?`;
 
   // Handler when ProductDetails color button clicked -> receives variant.article_id
   const handleColorChange = useCallback((articleId: string) => {
-    console.log("Article", articleId);
-    // Set the requested article ID to trigger the product fetch
-    setRequestedArticleId(articleId);
-    // Fetch the product details for the selected article ID
-    fetchProductByArticleId(articleId);
+    // Find the variant in the current product's variants
+    const variant = currentProduct?.variants.find(v => v.article_id === articleId);
+    if (!variant) return;
+    
+    // Update the selected article ID
+    setSelectedArticleId(articleId);
     // Update the URL to reflect the selected variant
     navigate(`/products/${articleId}`, { replace: true });
     // Clear size selection when changing colors
     setSelectedSize('');
-  }, [navigate, fetchProductByArticleId]);
+    
+    // Fetch related products for the selected variant
+    if (currentProduct?.category) {
+      fetchRelatedProducts(currentProduct.category, variant.product_id);
+    }
+  }, [currentProduct, navigate, fetchRelatedProducts]);
 
   const handleAddToCart = useCallback(() => {
     if (!selectedSize) {
@@ -178,64 +194,63 @@ Could you please let me know when this size will be available?`;
     navigate('/cart');
   }, [handleAddToCart, navigate]);
 
+  // Handle wishlist toggle
   const handleWishlistToggle = useCallback(async () => {
     if (!selectedVariant || !currentProduct) return;
     
-    if (isWishlisted) {
-      await removeFromWishlist(selectedVariant.article_id);
-    } else {
-      const wishlistItem = {
-        product_id: selectedVariant.product_id,
-        article_id: selectedVariant.article_id,
-        name: currentProduct.name,
-        price: Number(selectedVariant.discount_price) || 0,
-        mrp_price: String(selectedVariant.mrp),
-        discount_price: String(selectedVariant.discount_price || 0),
-        description: currentProduct.description || '',
-        sub_category: currentProduct.sub_category || '',
-        gender: currentProduct.gender as 'men' | 'women' | 'unisex',
-        category: currentProduct.category,
-        sizes: selectedVariant.sizes || {},
-        color: String(selectedVariant.color),
-        discount_percentage: selectedVariant.discount_percentage || 0,
-        thumbnail_url: selectedVariant.thumbnail_url || '',
-        images: Array.isArray(selectedVariant.images) ? selectedVariant.images : [],
-        created_at: new Date().toISOString(),
-        addedAt: new Date().toISOString()
-      };
-      await addToWishlist(wishlistItem);
+    try {
+      if (isWishlisted) {
+        await removeFromWishlist(selectedVariant.article_id);
+      } else {
+        const wishlistItem = {
+          product_id: selectedVariant.product_id,
+          article_id: selectedVariant.article_id,
+          name: currentProduct.name,
+          price: Number(selectedVariant.discount_price) || 0,
+          mrp_price: String(selectedVariant.mrp),
+          discount_price: String(selectedVariant.discount_price || 0),
+          description: currentProduct.description || '',
+          sub_category: currentProduct.sub_category || '',
+          gender: (currentProduct.gender?.toLowerCase() as 'men' | 'women' | 'unisex') || 'unisex',
+          category: currentProduct.category,
+          sizes: selectedVariant.sizes || {},
+          color: String(selectedVariant.color),
+          discount_percentage: selectedVariant.discount_percentage || 0,
+          thumbnail_url: selectedVariant.thumbnail_url || '',
+          images: Array.isArray(selectedVariant.images) ? selectedVariant.images : [],
+          created_at: new Date().toISOString(),
+          addedAt: new Date().toISOString()
+        };
+        await addToWishlist(wishlistItem);
+      }
+      // Update the local state to reflect the change
+      setIsWishlisted(!isWishlisted);
+    } catch (error) {
+      console.error('Error updating wishlist:', error);
+      // Optionally show an error message to the user
     }
-    setIsWishlisted(!isWishlisted);
   }, [selectedVariant, isWishlisted, currentProduct, addToWishlist, removeFromWishlist]);
+
+  // Update wishlist status when selected variant changes
+  useEffect(() => {
+    if (selectedVariant) {
+      const wishlisted = isInWishlist(selectedVariant.article_id);
+      setIsWishlisted(wishlisted);
+    } else {
+      setIsWishlisted(false);
+    }
+  }, [selectedVariant, isInWishlist]);
 
   // Ensure we have the selected variant
   const currentVariant = selectedVariant || (currentProduct?.variants?.[0]);
-  if (loading) {
+  if (loading || !currentProduct) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="flex flex-col items-center space-y-4">
-          <div className="animate-pulse flex space-x-4 w-full max-w-4xl">
-            <div className="flex-1 space-y-6 py-1">
-              <div className="h-96 bg-gray-200 rounded-lg"></div>
-              <div className="grid grid-cols-5 gap-4 mt-4">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <div key={i} className="h-20 bg-gray-200 rounded"></div>
-                ))}
-              </div>
-            </div>
-            <div className="flex-1 space-y-6 py-1 pl-8">
-              <div className="h-8 bg-gray-200 rounded w-3/4"></div>
-              <div className="space-y-3">
-                <div className="h-4 bg-gray-200 rounded w-5/6"></div>
-                <div className="h-4 bg-gray-200 rounded w-4/6"></div>
-                <div className="h-4 bg-gray-200 rounded w-5/6"></div>
-              </div>
-              <div className="h-12 bg-gray-200 rounded w-1/2"></div>
-              <div className="h-12 bg-gray-200 rounded w-full"></div>
-              <div className="h-12 bg-gray-200 rounded w-full"></div>
-            </div>
-          </div>
-        </div>
+      <div className="min-h-screen flex items-center justify-center">
+        <FiciLoader 
+          size="xl" 
+          message="Loading product details..." 
+          aria-label="Loading product details"
+        />
       </div>
     );
   }

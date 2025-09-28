@@ -8,7 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { User, Mail, ArrowRight } from 'lucide-react';
 
 // Store
-import { useAuthStore } from '../../store/authStore';
+import { useAuthStore } from '@store/authStore';
 
 // UI Components
 import { Input, Button, ErrorAlert } from '../ui';
@@ -85,7 +85,12 @@ const Register = memo(() => {
     >
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 sm:space-y-6">
         {/* Error Display */}
-        {error && <ErrorAlert message={error} onDismiss={clearError} />}
+        {error && (
+          <ErrorAlert 
+            message={typeof error === 'string' ? error : (error as { message: string }).message || 'An error occurred'} 
+            onDismiss={clearError} 
+          />
+        )}
         
 
         {/* Name Fields */}

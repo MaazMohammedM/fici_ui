@@ -1,7 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useAuthStore } from '@store/authStore';
 import { useOrderStore } from '@store/orderStore';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+// Using browser's built-in toast or fallback to console
+const toast = {
+  success: (message: string) => console.log(`Success: ${message}`),
+  error: (message: string) => console.error(`Error: ${message}`)
+};
 import { 
   Package, 
   Clock, 
@@ -27,8 +32,17 @@ const ORDERS_PER_PAGE = 5;
 
 const OrderHistoryPage: React.FC = () => {
   const { user } = useAuthStore();
-  const { orders, loading, error, fetchOrders, userReviews, fetchUserReviews } = useOrderStore();
+  const { 
+    orders, 
+    loading, 
+    error, 
+    fetchOrders, 
+    fetchGuestOrders, 
+    userReviews, 
+    fetchUserReviews 
+  } = useOrderStore();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [selectedItem, setSelectedItem] = useState<OrderItem | null>(null);
   const [showReviewModal, setShowReviewModal] = useState(false);
@@ -36,13 +50,67 @@ const OrderHistoryPage: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [editingReview, setEditingReview] = useState<any>(null);
   const [orderFilter, setOrderFilter] = useState<'all' | 'user' | 'guest'>('all');
+  const [isVerifyingGuest, setIsVerifyingGuest] = useState(false);
+  const [guestEmail, setGuestEmail] = useState('');
+  const [guestPhone, setGuestPhone] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [verificationSent, setVerificationSent] = useState(false);
+  const [storedVerificationCode, setStoredVerificationCode] = useState('');
 
   useEffect(() => {
+    // Check for guest verification in URL
+    const guestEmailParam = searchParams.get('guest_email');
+    const guestPhoneParam = searchParams.get('guest_phone');
+    const verificationCode = searchParams.get('code');
+
     if (user?.id) {
+      // Fetch orders for logged-in user
       fetchOrders(user.id);
       fetchUserReviews(user.id);
+    } else if (guestEmailParam || guestPhoneParam) {
+      // Handle guest order verification from email/link
+      if (verificationCode) {
+        verifyGuestCode(guestEmailParam || '', guestPhoneParam || '', verificationCode);
+      } else {
+        setGuestEmail(guestEmailParam || '');
+        setGuestPhone(guestPhoneParam || '');
+        setIsVerifyingGuest(true);
+      }
     }
-  }, [user?.id, fetchOrders, fetchUserReviews]);
+  }, [user?.id, searchParams, fetchOrders, fetchUserReviews]);
+
+  const handleSendVerification = async () => {
+    if (!guestEmail && !guestPhone) {
+      toast.error('Please provide either email or phone number');
+      return;
+    }
+
+    // In a real app, this would be an API call to send OTP
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    setStoredVerificationCode(code);
+    console.log("Otp is",code);
+    // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    toast.success(`Verification code sent to ${guestEmail || guestPhone}`);
+    setVerificationSent(true);
+  };
+
+  const verifyGuestCode = async (email: string, phone: string, code: string) => {
+    if (code !== storedVerificationCode) {
+      toast.error('Invalid verification code');
+      return;
+    }
+
+    try {
+      await fetchGuestOrders(email, phone);
+      setOrderFilter('guest');
+      setIsVerifyingGuest(false);
+      toast.success('Verification successful! Loading your orders...');
+    } catch (error: any) {
+      toast.error('Failed to fetch orders. Please try again.');
+    }
+  };
 
   // Filter orders based on selected filter
   const filteredOrders = orders.filter(order => {
@@ -139,31 +207,144 @@ const OrderHistoryPage: React.FC = () => {
     return { userOrders: userOrders.length, guestOrders: guestOrders.length };
   };
 
-  if (!user) {
+  if (!user && !isVerifyingGuest) {
     return (
       <div className="min-h-screen bg-gradient-light dark:bg-gradient-dark flex items-center justify-center px-4">
         <div className="text-center max-w-md w-full">
           <div className="bg-white dark:bg-dark2 rounded-2xl shadow-xl p-8 border border-light2/20 dark:border-gray-700">
             <Package className="w-16 h-16 text-gray-400 mx-auto mb-6" />
             <h2 className="text-2xl font-bold text-primary dark:text-secondary mb-4 font-primary">
-              Sign In Required
+              View Your Orders
             </h2>
             <p className="text-gray-600 dark:text-gray-400 mb-6 font-primary">
-              Please sign in to view your order history
+              Sign in to view your order history or check your guest orders
             </p>
-            <button 
-              onClick={() => navigate('/auth/signin')}
-              className="w-full bg-primary hover:bg-primary-active text-white px-6 py-3 rounded-lg transition-all duration-200 font-semibold font-primary transform hover:scale-105"
-            >
-              Sign In
-            </button>
+            <div className="space-y-4">
+              <button 
+                onClick={() => navigate('/auth/signin')}
+                className="w-full bg-primary hover:bg-primary-active text-white px-6 py-3 rounded-lg transition-all duration-200 font-semibold font-primary transform hover:scale-105"
+              >
+                Sign In
+              </button>
+              <button
+                onClick={() => setIsVerifyingGuest(true)}
+                className="w-full border border-primary text-primary hover:bg-primary/10 px-6 py-3 rounded-lg transition-all duration-200 font-semibold font-primary"
+              >
+                View Guest Orders
+              </button>
+            </div>
           </div>
         </div>
       </div>
     );
   }
 
-  if (loading) {
+  if (isVerifyingGuest) {
+    return (
+      <div className="min-h-screen bg-gradient-light dark:bg-gradient-dark flex items-center justify-center px-4">
+        <div className="w-full max-w-md">
+          <div className="bg-white dark:bg-dark2 rounded-2xl shadow-xl p-8 border border-light2/20 dark:border-gray-700">
+            <h2 className="text-2xl font-bold text-primary dark:text-secondary mb-2 font-primary text-center">
+              View Guest Orders
+            </h2>
+            <p className="text-gray-600 dark:text-gray-400 mb-6 text-center font-primary">
+              Enter your email or phone number to verify your identity
+            </p>
+            
+            {!verificationSent ? (
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 font-primary">
+                    Email Address
+                  </label>
+                  <input
+                    type="email"
+                    id="email"
+                    value={guestEmail}
+                    onChange={(e) => setGuestEmail(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-dark1 dark:text-white"
+                    placeholder="your@email.com"
+                  />
+                </div>
+                <div className="relative flex items-center my-4">
+                  <div className="flex-grow border-t border-gray-300 dark:border-gray-600"></div>
+                  <span className="flex-shrink mx-4 text-gray-500 text-sm font-primary">OR</span>
+                  <div className="flex-grow border-t border-gray-300 dark:border-gray-600"></div>
+                </div>
+                <div>
+                  <label htmlFor="phone" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 font-primary">
+                    Phone Number
+                  </label>
+                  <input
+                    type="tel"
+                    id="phone"
+                    value={guestPhone}
+                    onChange={(e) => setGuestPhone(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-dark1 dark:text-white"
+                    placeholder="+91 XXXXXXXXXX"
+                  />
+                </div>
+                <button
+                  onClick={handleSendVerification}
+                  disabled={!guestEmail && !guestPhone}
+                  className="w-full bg-primary hover:bg-primary-active text-white px-6 py-3 rounded-lg transition-all duration-200 font-semibold font-primary transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Send Verification Code
+                </button>
+                <button
+                  onClick={() => {
+                    setIsVerifyingGuest(false);
+                    setGuestEmail('');
+                    setGuestPhone('');
+                  }}
+                  className="w-full text-gray-600 dark:text-gray-400 hover:text-primary dark:hover:text-secondary mt-2 text-sm font-medium font-primary"
+                >
+                  Back to Sign In
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="verificationCode" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 font-primary">
+                    Enter Verification Code
+                  </label>
+                  <input
+                    type="text"
+                    id="verificationCode"
+                    value={verificationCode}
+                    onChange={(e) => setVerificationCode(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-dark1 dark:text-white text-center text-xl tracking-widest"
+                    placeholder="XXXXXX"
+                    maxLength={6}
+                  />
+                  <p className="text-xs text-gray-500 mt-1 text-center font-primary">
+                    We've sent a 6-digit code to {guestEmail || guestPhone}
+                  </p>
+                </div>
+                <button
+                  onClick={() => verifyGuestCode(guestEmail, guestPhone, verificationCode)}
+                  disabled={verificationCode.length !== 6}
+                  className="w-full bg-primary hover:bg-primary-active text-white px-6 py-3 rounded-lg transition-all duration-200 font-semibold font-primary transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Verify & View Orders
+                </button>
+                <div className="text-center">
+                  <button
+                    onClick={() => setVerificationSent(false)}
+                    className="text-sm text-primary hover:text-primary-active font-medium font-primary"
+                  >
+                    Resend Code
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading && !isVerifyingGuest) {
     return (
       <div className="min-h-screen bg-gradient-light dark:bg-gradient-dark flex items-center justify-center">
         <div className="text-center">
@@ -174,7 +355,7 @@ const OrderHistoryPage: React.FC = () => {
     );
   }
 
-  if (error) {
+  if (error && !isVerifyingGuest) {
     return (
       <div className="min-h-screen bg-gradient-light dark:bg-gradient-dark flex items-center justify-center px-4">
         <div className="text-center max-w-md w-full">

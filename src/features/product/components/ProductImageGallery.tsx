@@ -1,217 +1,191 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import type { Product } from '../../../types/product';
-import fallbackImage from '../../../assets/Fici Logo.png';
+import fallbackImage from '../../../assets/Fici_logo.png';
 import { ZoomIn, ZoomOut, X } from 'lucide-react';
+
+interface Position {
+  x: number;
+  y: number;
+}
 
 interface ProductImageGalleryProps {
   selectedVariant: Product | undefined;
   productName: string;
 }
 
-const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({ selectedVariant, productName }) => {
+const LENS_SIZE = 250; // Increased lens size for better visibility
+const ZOOM_LEVEL = 3.5; // Increased zoom level for better detail
+
+const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({ 
+  selectedVariant, 
+  productName 
+}) => {
   const [selectedImage, setSelectedImage] = useState(0);
   const [isZoomOpen, setIsZoomOpen] = useState(false);
+  const [position, setPosition] = useState<Position>({ x: 0, y: 0 });
+  const [isHovering, setIsHovering] = useState(false);
+  const [showLens, setShowLens] = useState(false);
+  const [lensPosition, setLensPosition] = useState<Position>({ x: 0, y: 0 });
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalImageIndex, setModalImageIndex] = useState(0);
+  const [touchStart, setTouchStart] = useState(0);
+  const [touchEnd, setTouchEnd] = useState(0);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
+  const lensRef = useRef<HTMLDivElement>(null);
+  const zoomedImgRef = useRef<HTMLDivElement>(null);
 
   // Reset selected image when variant changes
   useEffect(() => {
     setSelectedImage(0);
   }, [selectedVariant]);
 
-  if (!selectedVariant) {
-    return (
-      <div className="aspect-square bg-gray-100 dark:bg-gray-800 rounded-2xl flex items-center justify-center">
-        <div className="text-gray-400">No product selected</div>
-      </div>
-    );
-  }
-
-  // Helper to parse images safely
-  const parseImages = (images: any): string[] => {
+  // Parse images with proper type safety
+  const parseImages = useCallback((images: unknown): string[] => {
     if (!images) return [];
+    
     if (Array.isArray(images)) {
-      return images.filter(img => img && typeof img === 'string' && img.trim() !== '');
+      return images.filter((img): img is string => 
+        Boolean(img) && typeof img === 'string' && img.trim() !== ''
+      );
     }
+    
     if (typeof images === 'string') {
       const trimmed = images.trim();
       if (!trimmed) return [];
+      
       if (trimmed.startsWith('http')) {
-        return trimmed.split(',').map(url => url.trim()).filter(url => url !== '');
+        return trimmed
+          .split(',')
+          .map(url => url.trim())
+          .filter(Boolean);
       }
+      
       try {
-        const parsed = JSON.parse(trimmed);
+        const parsed = JSON.parse(trimmed) as unknown;
         if (Array.isArray(parsed)) {
-          return parsed.filter(img => img && typeof img === 'string' && img.trim() !== '');
+          return parsed.filter((img): img is string => 
+            Boolean(img) && typeof img === 'string' && img.trim() !== ''
+          );
         }
         return [];
       } catch {
         return [trimmed];
       }
     }
+    
     return [];
-  };
+  }, []);
 
-  let validImages = parseImages(selectedVariant.images);
-  if (validImages.length === 0 && selectedVariant.thumbnail_url?.trim() !== '') {
-    validImages = [selectedVariant.images[0]];
-  }
-  const finalImages = validImages.length > 0 ? validImages : [fallbackImage];
+  // Get valid images with proper typing
+  const finalImages = useMemo(() => {
+    if (!selectedVariant) return [fallbackImage];
+    
+    let validImages = parseImages(selectedVariant.images);
+    
+    if (validImages.length === 0 && selectedVariant.thumbnail_url?.trim()) {
+      validImages = [selectedVariant.thumbnail_url];
+    }
+    
+    return validImages.length > 0 ? validImages : [fallbackImage];
+  }, [selectedVariant, parseImages]);
 
-  // Zoom state
-  const [position, setPosition] = useState({ x: 0, y: 0 });
-  const [isHovering, setIsHovering] = useState(false);
-  const [showLens, setShowLens] = useState(false);
-  const [lensPosition, setLensPosition] = useState({ x: 0, y: 0 });
-  const containerRef = useRef<HTMLDivElement>(null);
-  const imgRef = useRef<HTMLImageElement>(null);
-  const lensRef = useRef<HTMLDivElement>(null);
-  const zoomedImgRef = useRef<HTMLDivElement>(null);
+  // Navigation handlers
+  const nextImage = useCallback(() => {
+    setSelectedImage(prev => (prev + 1) % finalImages.length);
+  }, [finalImages.length]);
 
-  // Zoom lens size and zoom level
-  const LENS_SIZE = 200; // Slightly larger lens for better visibility
-  const ZOOM_LEVEL = 3; // Increased zoom level for better detail
+  const prevImage = useCallback(() => {
+    setSelectedImage(prev => (prev - 1 + finalImages.length) % finalImages.length);
+  }, [finalImages.length]);
 
-  // Handle mouse enter/leave for the container
-  const handleMouseEnter = () => {
+  // Event handlers
+  const handleMouseEnter = useCallback(() => {
     setIsHovering(true);
-  };
+  }, []);
 
-  const handleMouseLeave = () => {
-    // Add a small delay before hiding to prevent flickering when moving to zoom preview
+  const handleMouseLeave = useCallback(() => {
     const timer = setTimeout(() => {
       setIsHovering(false);
       setShowLens(false);
     }, 100);
-    
     return () => clearTimeout(timer);
-  };
+  }, []);
 
-  // Handle mouse move for the lens effect
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!isHovering || !containerRef.current || !imgRef.current) return;
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (!isHovering || !containerRef.current) return;
     
     const container = containerRef.current;
     const rect = container.getBoundingClientRect();
-    
-    // Calculate cursor position relative to the container
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     
-    // Calculate lens position (centered on cursor)
-    const lensX = x - (LENS_SIZE / 2);
-    const lensY = y - (LENS_SIZE / 2);
+    const lensX = Math.max(0, Math.min(x - LENS_SIZE / 2, rect.width - LENS_SIZE));
+    const lensY = Math.max(0, Math.min(y - LENS_SIZE / 2, rect.height - LENS_SIZE));
     
-    // Keep lens within container bounds
-    const maxX = rect.width - LENS_SIZE;
-    const maxY = rect.height - LENS_SIZE;
-    
-    const boundedX = Math.max(0, Math.min(lensX, maxX));
-    const boundedY = Math.max(0, Math.min(lensY, maxY));
-    
-    // Calculate the percentage for the zoomed image
-    // Invert the x-axis for more natural movement
-    const xPercent = (boundedX / (maxX || 1)) * 100;
-    const yPercent = (boundedY / (maxY || 1)) * 100;
-    
-    setLensPosition({ x: boundedX, y: boundedY });
-    setPosition({ 
-      x: xPercent, 
-      y: yPercent 
+    setLensPosition({ x: lensX, y: lensY });
+    setPosition({
+      x: (lensX / (rect.width - LENS_SIZE || 1)) * 100,
+      y: (lensY / (rect.height - LENS_SIZE || 1)) * 100
     });
     
-    // Only update showLens if we're not currently showing the lens
     if (!showLens) {
       setShowLens(true);
     }
-  };
-  
-  // Modal and zoom state
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalImageIndex, setModalImageIndex] = useState(0);
+  }, [isHovering, showLens]);
 
-  // Toggle zoom lens visibility
-  const toggleZoom = (e: React.MouseEvent) => {
+  const toggleZoom = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     setShowLens(prev => !prev);
-  };
+  }, []);
 
-  const openImageModal = (index: number) => {
+  const openImageModal = useCallback((index: number) => {
     setModalImageIndex(index);
     setIsModalOpen(true);
     document.body.style.overflow = 'hidden';
-  };
+  }, []);
 
-  const closeImageModal = () => {
+  const closeImageModal = useCallback(() => {
     setIsModalOpen(false);
     document.body.style.overflow = 'unset';
-  };
+  }, []);
 
-  const navigateModalImage = (direction: 'prev' | 'next') => {
-    setModalImageIndex(prev => {
-      if (direction === 'next') {
-        return (prev + 1) % finalImages.length;
-      } else {
-        return (prev - 1 + finalImages.length) % finalImages.length;
-      }
-    });
-  };
-  
-  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
+  const closeZoomModal = useCallback(() => {
+    setIsZoomOpen(false);
+    document.body.style.overflow = 'unset';
+  }, []);
+
+  const navigateModalImage = useCallback((direction: 'prev' | 'next') => {
+    setModalImageIndex(prev => 
+      direction === 'next' 
+        ? (prev + 1) % finalImages.length 
+        : (prev - 1 + finalImages.length) % finalImages.length
+    );
+  }, [finalImages.length]);
+
+  const handleImageError = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
     const target = e.target as HTMLImageElement;
     if (target.src !== fallbackImage) {
       target.src = fallbackImage;
     }
-  };
+  }, []);
 
-  const closeZoomModal = () => {
-    setIsZoomOpen(false);
-    document.body.style.overflow = 'unset';
-  };
-
-  const nextImage = () => setSelectedImage((prev) => (prev + 1) % finalImages.length);
-  const prevImage = () => setSelectedImage((prev) => (prev - 1 + finalImages.length) % finalImages.length);
-
-  // Keyboard navigation in zoom modal
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (!isZoomOpen) return;
-      if (e.key === 'Escape') closeZoomModal();
-      if (e.key === 'ArrowRight') nextImage();
-      if (e.key === 'ArrowLeft') prevImage();
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isZoomOpen, finalImages.length]);
-
-  // Close modal on escape key
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isModalOpen) {
-        closeImageModal();
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isModalOpen]);
-
-  // Touch gesture handling for image navigation
-  const [touchStart, setTouchStart] = useState(0);
-  const [touchEnd, setTouchEnd] = useState(0);
-
-  const handleTouchStart = (e: React.TouchEvent) => {
+  // Touch event handlers
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
     if (e.touches.length === 1) {
       setTouchStart(e.touches[0].clientX);
       setTouchEnd(e.touches[0].clientX);
     }
-  };
+  }, []);
 
-  const handleTouchMove = (e: React.TouchEvent) => {
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
     if (e.touches.length === 1) {
       setTouchEnd(e.touches[0].clientX);
     }
-  };
+  }, []);
 
-  const handleTouchEnd = () => {
-    // Handle swipe for image navigation
+  const handleTouchEnd = useCallback(() => {
     const swipeThreshold = 50;
     const swipeDiff = touchStart - touchEnd;
     
@@ -225,12 +199,69 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({ selectedVaria
     
     setTouchStart(0);
     setTouchEnd(0);
-  };
+  }, [nextImage, prevImage, touchEnd, touchStart]);
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (isZoomOpen) {
+        if (e.key === 'Escape') {
+          closeZoomModal();
+        } else if (e.key === 'ArrowRight') {
+          nextImage();
+        } else if (e.key === 'ArrowLeft') {
+          prevImage();
+        }
+      }
+      
+      if (e.key === 'Escape' && isModalOpen) {
+        closeImageModal();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [closeImageModal, closeZoomModal, isModalOpen, isZoomOpen, nextImage, prevImage]);
+
+  if (!selectedVariant) {
+    return (
+      <div className="aspect-square bg-gray-100 dark:bg-gray-800 rounded-2xl flex items-center justify-center">
+        <div className="text-gray-400">No product selected</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
       {/* Main Image with Zoom Lens */}
-      <div className="relative">
+      <div className="relative group">
+        {/* Navigation Arrows */}
+        {finalImages.length > 1 && (
+          <>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                prevImage();
+              }}
+              className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/80 dark:bg-gray-800/80 rounded-full flex items-center justify-center shadow-lg hover:bg-white dark:hover:bg-gray-700 transition-colors z-10 opacity-0 group-hover:opacity-100"
+              aria-label="Previous image"
+            >
+              ❮
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                nextImage();
+              }}
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/80 dark:bg-gray-800/80 rounded-full flex items-center justify-center shadow-lg hover:bg-white dark:hover:bg-gray-700 transition-colors z-10 opacity-0 group-hover:opacity-100"
+              aria-label="Next image"
+            >
+              ❯
+            </button>
+          </>
+        )}
         <div 
           ref={containerRef}
           className="relative aspect-square bg-gray-100 dark:bg-gray-800 rounded-2xl overflow-hidden group"
@@ -245,7 +276,9 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({ selectedVaria
             ref={imgRef}
             src={finalImages[selectedImage]}
             alt={productName}
-            className={`w-full h-full object-cover transition-all duration-300 ${isHovering ? 'cursor-crosshair' : 'cursor-default'}`}
+            className={`w-full h-full object-cover transition-all duration-300 ${
+              isHovering ? 'cursor-crosshair' : 'cursor-default'
+            }`}
             onClick={() => openImageModal(selectedImage)}
             onError={handleImageError}
           />
@@ -266,51 +299,67 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({ selectedVaria
             />
           )}
 
-          {/* Zoomed Image Preview - Fixed position on the right */}
+          {/* Zoomed Image Preview - Larger and more prominent */}
           {isHovering && showLens && (
             <div 
               ref={zoomedImgRef}
-              className="fixed left-1/2 ml-8 w-[400px] h-[400px] bg-white dark:bg-gray-800 rounded-lg shadow-2xl overflow-hidden z-50 hidden md:block pointer-events-none"
+              className="fixed left-1/2 ml-12 w-[500px] h-[500px] bg-white dark:bg-gray-800 rounded-xl shadow-2xl overflow-hidden z-50 hidden md:block pointer-events-none transition-all duration-300 ease-in-out transform scale-100 group-hover:scale-105"
               style={{
                 backgroundImage: `url(${finalImages[selectedImage]})`,
                 backgroundSize: `${100 * ZOOM_LEVEL}%`,
                 backgroundPosition: `${position.x}% ${position.y}%`,
                 backgroundRepeat: 'no-repeat',
                 backgroundOrigin: 'border-box',
-                border: '1px solid rgba(0,0,0,0.1)',
+                border: '2px solid rgba(255,255,255,0.2)',
                 top: '50%',
-                transform: 'translateY(-50%)',
-                marginLeft: '20px',
-                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+                transform: 'translateY(-50%) scale(1.05)',
+                marginLeft: '30px',
+                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                transition: 'all 0.3s ease-in-out',
+                opacity: 1,
+                transformOrigin: 'left center'
               }}
             />
           )}
         </div>
         
-        {/* Zoom Toggle Button */}
-        <button 
-          onClick={(e) => { e.stopPropagation(); toggleZoom(e); }}
-          className="absolute bottom-4 right-4 p-2 bg-white/80 dark:bg-gray-800/80 rounded-full shadow-lg hover:bg-white dark:hover:bg-gray-700 transition-colors z-10"
-          aria-label={showLens ? 'Disable zoom' : 'Enable zoom'}
-        >
-          {showLens ? (
-            <ZoomOut className="w-5 h-5 text-gray-800 dark:text-white" />
-          ) : (
-            <ZoomIn className="w-5 h-5 text-gray-800 dark:text-white" />
+        {/* Enhanced Zoom Toggle Button */}
+        <div className="absolute bottom-4 right-4 flex flex-col space-y-2 z-10">
+          <button 
+            onClick={toggleZoom}
+            className="p-2.5 bg-white/90 dark:bg-gray-800/90 rounded-full shadow-lg hover:bg-white dark:hover:bg-gray-700 transition-all transform hover:scale-110"
+            aria-label={showLens ? 'Disable zoom' : 'Enable zoom'}
+          >
+            {showLens ? (
+              <ZoomOut className="w-6 h-6 text-gray-800 dark:text-white" />
+            ) : (
+              <ZoomIn className="w-6 h-6 text-gray-800 dark:text-white" />
+            )}
+          </button>
+          
+          {/* Slide Show Toggle Button */}
+          {finalImages.length > 1 && (
+            <button
+              onClick={() => openImageModal(selectedImage)}
+              className="p-2.5 bg-white/90 dark:bg-gray-800/90 rounded-full shadow-lg hover:bg-white dark:hover:bg-gray-700 transition-all transform hover:scale-110 text-sm font-medium text-gray-800 dark:text-white"
+              aria-label="View slideshow"
+            >
+              🖼️
+            </button>
           )}
-        </button>
+        </div>
       </div>
 
-      {/* Thumbnails */}
+      {/* Enhanced Thumbnails with Slide Indicator */}
       {finalImages.length > 1 && (
         <div className="flex space-x-2 overflow-x-auto pb-2 scrollbar-hide">
           {finalImages.map((image, index) => (
             <button
               key={index}
               onClick={() => setSelectedImage(index)}
-              className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all ${
+              className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all transform hover:scale-105 ${
                 index === selectedImage 
-                  ? 'border-accent' 
+                  ? 'border-accent scale-105 ring-2 ring-accent/50' 
                   : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
               }`}
             >

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import type { Product, ProductDetail } from "../../../types/product";
 import ProductColorSelector from "@features/product/sections/ProductColorSelector";
 import ProductSizeSelector from "@features/product/sections/ProductSizeSelector";
@@ -41,6 +41,21 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
 }) => {
   const [showSizeGuide, setShowSizeGuide] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+
+  // Generate shoe sizes (39-47) if the product is footwear
+  const shoeSizes = useMemo(() => {
+    return Array.from({ length: 9 }, (_, i) => (39 + i).toString());
+  }, []);
+
+  // Determine which sizes to show based on product category
+  const displaySizes = useMemo(() => {
+    if (currentProduct.category?.toLowerCase().includes('footwear')) {
+      return shoeSizes;
+    }
+    return availableSizes.length > 0 ? availableSizes : fullSizeRange;
+  }, [currentProduct.category, availableSizes, fullSizeRange, shoeSizes]);
+
+  // Get the product name to display (prefer variant name if available)
 
   // Get care instructions based on product sub_category
   const getCareInstructions = (subCategory: string) => {
@@ -111,31 +126,14 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
 
   console.log("Care instruction ",careInstructions)
 
-  // Extract brand and product name
-  const [brand, ...nameParts] = currentProduct.name.split(' ');
-  const productName = nameParts.join(' ');
+
 
   return (
     <div className="space-y-6">
       {/* Brand and Category */}
       <div className="space-y-1">
-        <p className="text-sm font-medium text-gray-500">{brand}</p>
-        <h1 className="text-2xl font-bold text-gray-900">{productName}</h1>
-        <div className="flex items-center space-x-2">
-          <div className="flex items-center">
-            {[1, 2, 3, 4, 5].map((star) => (
-              <svg
-                key={star}
-                className={`w-5 h-5 ${star <= 4 ? 'text-yellow-400' : 'text-gray-300'}`}
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
-                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-              </svg>
-            ))}
-          </div>
-          <span className="text-sm text-gray-500">(24 reviews)</span>
-        </div>
+        <h1 className="text-2xl font-bold text-gray-900">{selectedVariant?.name}</h1>
+
       </div>
 
       {/* Price */}
@@ -160,7 +158,6 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
 
       {/* Color Selector */}
       <div className="pt-4 border-t border-gray-200">
-        <h3 className="text-sm font-medium text-gray-900">Color</h3>
         <ProductColorSelector
           currentProduct={currentProduct}
           selectedArticleId={selectedArticleId}
@@ -171,43 +168,35 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
 
       {/* Size Selector */}
       <div className="pt-4 border-t border-gray-200">
-        <div className="flex justify-between items-center mb-3">
-          <h3 className="text-sm font-medium text-gray-900">Size</h3>
-          <button 
-            type="button" 
-            onClick={() => setShowSizeGuide(true)}
-            className="text-sm font-medium text-accent hover:text-accent/80"
-          >
-            Size Guide
-          </button>
-        </div>
         <ProductSizeSelector
-          fullSizeRange={fullSizeRange}
+          fullSizeRange={displaySizes}
           availableSizes={availableSizes}
           selectedSize={selectedSize}
           onSizeChange={onSizeChange}
           onWhatsAppContact={onWhatsAppContact}
           onShowSizeGuide={() => setShowSizeGuide(true)}
         />
+        {!displaySizes.length && (
+          <p className="mt-2 text-sm text-gray-500">Please select a color to see available sizes</p>
+        )}
       </div>
 
-      {/* Quantity Selector */}
-      <div className="pt-4 border-t border-gray-200">
-        <h3 className="text-sm font-medium text-gray-900 mb-3">Quantity</h3>
-        <ProductQuantitySelector
-          quantity={quantity}
-          onQuantityChange={onQuantityChange}
-        />
-      </div>
-
-      {/* Action Buttons */}
+      {/* Quantity Selector - Only show if a size is selected */}
+      {selectedSize && (
+        <div className="pt-4 border-t border-gray-200">
+          <ProductQuantitySelector
+            quantity={quantity}
+            onQuantityChange={onQuantityChange}
+            maxQuantity={selectedVariant?.sizes[selectedSize] || 10}
+          />
+        </div>
+      )}
       <div className="pt-4 space-y-3">
         <ProductActionButtons
           onAddToCart={onAddToCart}
           onBuyNow={onBuyNow}
         />
         
-        {/* Secure Checkout Badge */}
         <div className="flex items-center justify-center space-x-2 py-2">
           <svg className="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />

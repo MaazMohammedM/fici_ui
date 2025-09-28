@@ -91,7 +91,13 @@ const Header: React.FC = () => {
         </button>
 
         {/* Logo */}
-        <NavLink to="/" className="text-2xl font-extrabold text-black dark:text-white">FICI</NavLink>
+        <NavLink to="/" className="flex items-center h-12">
+          <img 
+            src="/src/assets/fici_512x512.webp" 
+            alt="FICI Logo" 
+            className="h-full w-auto"
+          />
+        </NavLink>
 
         {/* Desktop Nav */}
         <nav className="hidden md:flex gap-2 lg:gap-3 xl:gap-6 items-center" ref={desktopDropdownRef}>

@@ -25,26 +25,48 @@ export interface ShippingAddress {
 
 export interface Order {
   id: string; // order_id from database
-  user_id?: string; // Optional for guest orders
-  guest_session_id?: string; // For guest orders
+  user_id?: string; // For registered users
+  
+  // Guest order fields
+  guest_session_id?: string;
+  guest_email?: string;
+  guest_phone?: string;
+  guest_name?: string;
+  
+  // Deprecated - keeping for backward compatibility
   guest_contact_info?: {
     name?: string;
     email?: string;
     phone?: string;
   };
+  
   items: OrderItem[] | Record<string, OrderItem>; // Can be array or JSONB object
   subtotal: number;
   discount: number;
   delivery_charge: number;
   total_amount: number;
-  status: 'pending' | 'paid' | 'shipped' | 'delivered' | 'cancelled';
-  payment_status: 'pending' | 'paid' | 'failed' | 'refunded';
+  status: 'pending' | 'paid' | 'shipped' | 'delivered' | 'cancelled' | 'returned';
+  payment_status: 'pending' | 'paid' | 'failed' | 'refunded' | 'partially_refunded';
   payment_method?: string;
+  payment_id?: string;
   shipping_address?: ShippingAddress | string;
+  billing_address?: ShippingAddress | string;
+  tracking_number?: string;
+  tracking_url?: string;
+  notes?: string;
+  
+  // Timestamps
   created_at?: string;
   order_date?: string;
   updated_at?: string;
+  paid_at?: string;
+  shipped_at?: string;
+  delivered_at?: string;
+  cancelled_at?: string;
+  
+  // Internal use
   merged_at?: string; // When guest order was merged to user account
+  is_guest_order?: boolean;
 }
 
 export interface Review {
