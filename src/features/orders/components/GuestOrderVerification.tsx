@@ -177,13 +177,27 @@ export const GuestOrderVerification: React.FC<GuestOrderVerificationProps> = ({ 
     }
 
     try {
+      setIsLoading(true);
+      // Store guest email/phone in localStorage for persistence
+      if (email) localStorage.setItem('guest_email', email);
+      if (phone) localStorage.setItem('guest_phone', phone);
+      
       // Fetch guest orders with the verified email/phone
       await fetchGuestOrders(email, phone);
+      
+      // Notify parent component about successful verification
       onVerificationSuccess(email, phone);
       toast.success('Verification successful! Loading your orders...');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to fetch orders';
+      console.error('Verification error:', error);
       toast.error(errorMessage);
+      
+      // Clear invalid guest session on error
+      localStorage.removeItem('guest_email');
+      localStorage.removeItem('guest_phone');
+    } finally {
+      setIsLoading(false);
     }
   };
 

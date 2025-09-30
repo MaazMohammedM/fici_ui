@@ -57,6 +57,28 @@ const OrderHistoryPage: React.FC = () => {
   const [verificationSent, setVerificationSent] = useState(false);
   const [storedVerificationCode, setStoredVerificationCode] = useState('');
 
+  // Add a function to check and load guest session
+  const checkAndLoadGuestSession = async () => {
+    const guestEmail = localStorage.getItem('guest_email');
+    const guestPhone = localStorage.getItem('guest_phone');
+    
+    if (guestEmail || guestPhone) {
+      try {
+        await fetchGuestOrders(guestEmail || '', guestPhone || '');
+        setOrderFilter('guest');
+        setGuestEmail(guestEmail || '');
+        setGuestPhone(guestPhone || '');
+      } catch (error) {
+        console.error('Failed to load guest orders:', error);
+        // Clear invalid guest session
+        localStorage.removeItem('guest_email');
+        localStorage.removeItem('guest_phone');
+      }
+    }
+  };
+
+  
+
   useEffect(() => {
     // Check for guest verification in URL
     const guestEmailParam = searchParams.get('guest_email');
@@ -67,6 +89,9 @@ const OrderHistoryPage: React.FC = () => {
       // Fetch orders for logged-in user
       fetchOrders(user.id);
       fetchUserReviews(user.id);
+      // Clear any guest session when user is logged in
+      localStorage.removeItem('guest_email');
+      localStorage.removeItem('guest_phone');
     } else if (guestEmailParam || guestPhoneParam) {
       // Handle guest order verification from email/link
       if (verificationCode) {
@@ -76,6 +101,9 @@ const OrderHistoryPage: React.FC = () => {
         setGuestPhone(guestPhoneParam || '');
         setIsVerifyingGuest(true);
       }
+    } else {
+      // Check for existing guest session
+      checkAndLoadGuestSession();
     }
   }, [user?.id, searchParams, fetchOrders, fetchUserReviews]);
 
@@ -103,12 +131,28 @@ const OrderHistoryPage: React.FC = () => {
     }
 
     try {
+      setIsVerifyingGuest(true);
+      // Store guest info in localStorage for persistence
+      if (email) localStorage.setItem('guest_email', email);
+      if (phone) localStorage.setItem('guest_phone', phone);
+      
       await fetchGuestOrders(email, phone);
       setOrderFilter('guest');
+      setGuestEmail(email);
+      setGuestPhone(phone);
       setIsVerifyingGuest(false);
       toast.success('Verification successful! Loading your orders...');
+      
+      // Clear the verification code from URL
+      window.history.replaceState({}, document.title, window.location.pathname);
     } catch (error: any) {
-      toast.error('Failed to fetch orders. Please try again.');
+      console.error('Verification error:', error);
+      toast.error(error.message || 'Failed to fetch orders. Please try again.');
+      // Clear invalid guest session on error
+      localStorage.removeItem('guest_email');
+      localStorage.removeItem('guest_phone');
+    } finally {
+      setIsVerifyingGuest(false);
     }
   };
 

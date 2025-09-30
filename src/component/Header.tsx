@@ -5,6 +5,7 @@ import { useAuthStore } from '@store/authStore';
 import { useThemeStore } from '../store/themeStore';
 import { useCartStore } from '@store/cartStore';
 import { useWishlistCount } from '@store/wishlistStore';
+import ficiLogo from '../assets/fici_transparent.png'
 
 const Header: React.FC = () => {
   const navigate = useNavigate();
@@ -24,6 +25,25 @@ const Header: React.FC = () => {
   const userDropdownRef = useRef<HTMLDivElement>(null);
   const desktopDropdownRef = useRef<HTMLDivElement>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
+  // Delay close to avoid flicker when moving cursor from button to panel
+  const hoverTimeoutRef = useRef<number | null>(null);
+
+  const openDropdown = (label: string) => {
+    if (hoverTimeoutRef.current) {
+      window.clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
+    }
+    setActiveDropdown(label);
+  };
+
+  const closeDropdownWithDelay = (delay = 200) => {
+    if (hoverTimeoutRef.current) {
+      window.clearTimeout(hoverTimeoutRef.current);
+    }
+    hoverTimeoutRef.current = window.setTimeout(() => {
+      setActiveDropdown(null);
+    }, delay);
+  };
 
   useEffect(() => { initializeTheme(); }, [initializeTheme]);
 
@@ -56,7 +76,6 @@ const Header: React.FC = () => {
     { label: 'About', path: '/about' },
     { label: 'Contact', path: '/contact' },
     ...(isAuthenticated || isGuest ? [{ label: 'Wishlist', path: '/wishlist' }, { label: 'Orders', path: '/orders' }] : []),
-    ...(role === 'admin' ? [{ label: 'Admin', path: '/admin' }] : []),
   ];
 
   const handleSearch = (e: React.FormEvent) => {
@@ -93,7 +112,7 @@ const Header: React.FC = () => {
         {/* Logo */}
         <NavLink to="/" className="flex items-center h-12">
           <img 
-            src="/src/assets/fici_512x512.webp" 
+            src={ficiLogo} 
             alt="FICI Logo" 
             className="h-full w-auto"
           />
@@ -102,12 +121,16 @@ const Header: React.FC = () => {
         {/* Desktop Nav */}
         <nav className="hidden md:flex gap-2 lg:gap-3 xl:gap-6 items-center" ref={desktopDropdownRef}>
           {navItems.map(({ label, path, dropdown }) => (
-            <div key={label} className="relative">
+            <div
+              key={label}
+              className="relative"
+              onMouseEnter={() => dropdown ? openDropdown(label) : undefined}
+              onMouseLeave={() => dropdown ? closeDropdownWithDelay(180) : undefined}
+            >
               {dropdown ? (
                 <>
                   <button
-                    onMouseEnter={() => setActiveDropdown(label)}
-                    onMouseLeave={() => setActiveDropdown(null)}
+                    onMouseEnter={() => openDropdown(label)}
                     className="flex items-center gap-1 px-3 py-2 rounded-lg hover:text-blue-600 transition-colors"
                     aria-expanded={activeDropdown === label}
                   >
@@ -115,10 +138,9 @@ const Header: React.FC = () => {
                   </button>
                   {activeDropdown === label && (
                     <div
-                      className="absolute left-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg border dark:border-gray-700 py-2 z-50"
-                      onMouseEnter={() => setActiveDropdown(label)}
-                      onMouseLeave={() => setActiveDropdown(null)}
-
+                      className="absolute left-0 mt-1 pt-1 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg border dark:border-gray-700 py-2 z-50"
+                      onMouseEnter={() => openDropdown(label)}
+                      onMouseLeave={() => closeDropdownWithDelay(180)}
                     >
                       {dropdown.map(d => (
                         <NavLink key={d.path} to={d.path} className="block px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" onClick={() => setActiveDropdown(null)}>
@@ -169,6 +191,17 @@ const Header: React.FC = () => {
                   <div className="absolute right-0 mt-1 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border dark:border-gray-700 py-2">
                     <button onClick={() => { navigate('/profile'); setUserDropdown(false); }} className="block w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700">My Profile</button>
                     <button onClick={() => { navigate('/orders'); setUserDropdown(false); }} className="block w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700">My Orders</button>
+                    {role === 'admin' && (
+                      <button 
+                        onClick={() => { 
+                          navigate('/admin'); 
+                          setUserDropdown(false); 
+                        }} 
+                        className="block w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700"
+                      >
+                        Admin Dashboard
+                      </button>
+                    )}
                     <hr className="my-1 border-gray-100 dark:border-gray-700" />
                     <button onClick={() => { signOut(); setUserDropdown(false); }} className="block w-full text-left px-4 py-2 text-red-500 hover:bg-gray-100 dark:hover:bg-gray-700">Sign Out</button>
                   </div>

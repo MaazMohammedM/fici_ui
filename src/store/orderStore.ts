@@ -413,65 +413,66 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   fetchGuestOrders: async (email: string, phone: string) => {
     set({ loading: true, error: null });
     try {
-      // Build queries that include related order_items and search both legacy columns and JSON guest_contact_info
+      // Build queries that include related order_items
       const baseSelect = `*, order_items (*)`;
-
-      // Collect PostgrestFilterBuilder instances; Promise.all accepts thenables
       const queries: any[] = [];
 
-      if (email) {
-        queries.push(
-          supabase
-            .from('orders')
-            .select(baseSelect, { count: 'exact' })
-            .eq('guest_email', email)
-            .order('created_at', { ascending: false })
-        );
-        queries.push(
-          supabase
-            .from('orders')
-            .select(baseSelect, { count: 'exact' })
-            .contains('guest_contact_info', { email })
-            .order('created_at', { ascending: false })
-        );
+      // First, try to find orders by guest_email or guest_phone
+      if (email || phone) {
+        const query = supabase
+          .from('orders')
+          .select(baseSelect, { count: 'exact' })
+          .order('created_at', { ascending: false });
+
+        // Build OR conditions for email and phone
+        const orConditions = [];
+        if (email) {
+          orConditions.push(`guest_email.eq.${email}`);
+        }
+        if (phone) {
+          orConditions.push(`guest_phone.eq.${phone}`);
+        }
+
+        if (orConditions.length > 0) {
+          query.or(orConditions.join(','));
+          queries.push(query);
+        }
       }
 
-      if (phone) {
-        queries.push(
-          supabase
-            .from('orders')
-            .select(baseSelect, { count: 'exact' })
-            .eq('guest_phone', phone)
-            .order('created_at', { ascending: false })
-        );
-        queries.push(
-          supabase
-            .from('orders')
-            .select(baseSelect, { count: 'exact' })
-            .contains('guest_contact_info', { phone })
-            .order('created_at', { ascending: false })
-        );
-      }
-
-      // If neither email nor phone provided, nothing to fetch
+      // If no queries to run, set empty orders
       if (queries.length === 0) {
-        set({ orders: [], loading: false });
+        set({ 
+          orders: [], 
+          loading: false,
+          pagination: {
+            total: 0,
+            page: 1,
+            limit: 10,
+            totalPages: 0
+          }
+        });
         return;
       }
 
       const results = await Promise.all(queries);
 
-      // Throw if any errors
+      // Check for errors in results
       for (const r of results) {
-        if (r.error) throw r.error;
+        if (r.error) {
+          console.error('Error in guest order query:', r.error);
+          // Don't throw for individual query errors, continue with successful ones
+          continue;
+        }
       }
 
       // Combine and deduplicate by order_id
       const orderMap = new Map<string, any>();
       for (const r of results) {
-        for (const row of r.data || []) {
-          if (!orderMap.has(row.order_id)) {
-            orderMap.set(row.order_id, row);
+        if (r.data && Array.isArray(r.data)) {
+          for (const row of r.data) {
+            if (row?.order_id && !orderMap.has(row.order_id)) {
+              orderMap.set(row.order_id, row);
+            }
           }
         }
       }
@@ -480,9 +481,9 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       const totalCount = uniqueOrders.length;
 
       const transformedOrders: Order[] = uniqueOrders.map((order: any) => {
-        const guestEmail = order.guest_email || (order.guest_contact_info?.email);
-        const guestPhone = order.guest_phone || (order.guest_contact_info?.phone);
-        const guestName = order.guest_name || (order.guest_contact_info?.name);
+        const guestEmail = order.guest_email;
+        const guestPhone = order.guest_phone;
+        const guestName = order.guest_name;
 
         return {
           id: order.order_id,
@@ -514,7 +515,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
           cancelled_at: order.cancelled_at,
           merged_at: order.merged_at,
           is_guest_order: true,
-          guest_contact_info: order.guest_contact_info || {
+          guest_contact_info: {
             name: guestName,
             email: guestEmail,
             phone: guestPhone,

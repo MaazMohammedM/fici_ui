@@ -10,6 +10,7 @@ import ErrorBoundary from './component/ErrorBoundary';
 import Header from 'component/Header';
 import Footer from 'component/Footer';
 import SEOHead from '@lib/components/SEOHead';
+import ScrollToTop from './components/ScrollToTop';
 
 // Lazy-loaded pages
 // Import enhanced pages
@@ -31,6 +32,9 @@ const CheckoutPage = React.lazy(() => import('@features/checkout/CheckoutPage'))
 const ShoeCarePage = React.lazy(() => import('@features/shoe-care/ShoeCarePage'));
 const WishlistPage = React.lazy(() => import('@features/wishlist/WishlistPage'));
 const NotFoundPage = React.lazy(() => import('@features/error/NotFoundPage'));
+const PrivacyPolicy = React.lazy(() => import('@features/policy/PrivacyPolicy'));
+const TermsOfService = React.lazy(() => import('@features/policy/TermsOfService'));
+const ShippingReturnsPolicy = React.lazy(() => import('@features/policy/ShippingReturnsPolicy'));
 
 // Loading component
 import FiciLoader from './components/ui/FiciLoader';
@@ -49,6 +53,7 @@ const App: React.FC = () => {
   return (
     <HelmetProvider>
       <Router>
+        <ScrollToTop />
         <ErrorBoundary>
           <div className="min-h-screen flex flex-col bg-gradient-light dark:bg-gradient-dark">
             <SEOHead />
@@ -71,12 +76,17 @@ const App: React.FC = () => {
                     </ProtectedRoute>
                   } />
                   <Route path="/admin" element={
+                    <ProtectedRoute>
                       <AdminPage />
+                    </ProtectedRoute>
                   } />
                   <Route path="/products" element={<ProductPage />} />
                   <Route path="/products/:article_id" element={<ProductDetailPage />} />
                   <Route path="/shoe-care" element={<ShoeCarePage />} />
                   <Route path="/wishlist" element={<WishlistPage />} />
+                  <Route path="/privacy" element={<PrivacyPolicy />} />
+                  <Route path="/terms" element={<TermsOfService />} />
+                  <Route path="/shipping" element={<ShippingReturnsPolicy />} />
                   <Route path="/orders" element={
                       <OrderHistoryPage />
                   } />
