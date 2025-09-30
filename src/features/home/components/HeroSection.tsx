@@ -73,7 +73,7 @@ const HeroSection: React.FC = () => {
 
   return (
     <section
-      className="relative w-full h-[42vh] sm:h-[50vh] md:h-[65vh] lg:h-[75vh] overflow-hidden mt-0"
+      className="relative w-full h-[40vh] sm:h-[50vh] md:h-[60vh] lg:h-[70vh] xl:h-[75vh] overflow-hidden mt-0 bg-black"
       aria-label="Featured banners carousel"
     >
       {heroSlides.map((slide, index) => (
@@ -84,17 +84,17 @@ const HeroSection: React.FC = () => {
             index === currentSlide ? 'opacity-100' : 'opacity-0'
           }`}
         >
-          {/* Desktop Image */}
+          {/* Desktop Image - contained on sm/md, cover on lg+ */}
           <img
             src={desktopImages[index]}
             alt={`Slide ${index + 1}`}
-            className="hidden md:block w-full h-full object-cover"
+            className="hidden sm:block w-full h-full object-contain sm:object-cover lg:object-cover"
           />
-          {/* Mobile Image */}
+          {/* Mobile Image - always contained */}
           <img
             src={mobileImages[index]}
             alt={`Slide ${index + 1}`}
-            className="block md:hidden w-full h-full object-cover"
+            className="block sm:hidden w-full h-full object-contain bg-black"
           />
         </div>
       ))}

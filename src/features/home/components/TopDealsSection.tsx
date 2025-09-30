@@ -12,7 +12,7 @@ const TopDealsSection: React.FC = () => {
 
   if (loading && topDeals.length === 0) {
     return (
-      <div className='bg-[color:var(--color-light1)] dark:bg-[color:var(--color-dark1)] min-h-[50svh] sm:min-h-[70svh] w-full px-4 sm:px-8 lg:px-16 flex items-center justify-center'>
+      <div className='bg-[color:var(--color-light1)] dark:bg-[color:var(--color-dark1)] w-full px-4 sm:px-8 lg:px-16 py-8 sm:py-10 flex items-center justify-center'>
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-[color:var(--color-primary)] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-600 dark:text-gray-400 text-sm sm:text-base">Loading deals...</p>
@@ -23,7 +23,7 @@ const TopDealsSection: React.FC = () => {
 
   if (topDeals.length === 0) {
     return (
-      <div className='bg-[color:var(--color-light1)] dark:bg-[color:var(--color-dark1)] min-h-[50svh] sm:min-h-[70svh] w-full px-4 sm:px-8 lg:px-16 flex items-center justify-center'>
+      <div className='bg-[color:var(--color-light1)] dark:bg-[color:var(--color-dark1)] w-full px-4 sm:px-8 lg:px-16 py-8 sm:py-10 flex items-center justify-center'>
         <div className="text-center">
           <p className="text-gray-600 dark:text-gray-400 text-sm sm:text-base mb-4">
             No deals available at the moment.
@@ -40,7 +40,7 @@ const TopDealsSection: React.FC = () => {
   }
 
   return (
-    <div className='bg-[color:var(--color-light1)] dark:bg-[color:var(--color-dark1)] min-h-[50svh] sm:min-h-[70svh] w-full px-4 sm:px-8 lg:px-16 flex flex-col gap-4 sm:gap-6 justify-center py-6 sm:py-8 lg:py-0'>
+    <div className='bg-[color:var(--color-light1)] dark:bg-[color:var(--color-dark1)] w-full px-4 sm:px-8 lg:px-16 flex flex-col gap-4 sm:gap-5 justify-center py-6 sm:py-8'>
       <div className='flex flex-row justify-between items-center w-full gap-4'>
         <h2 className='text-lg sm:text-xl lg:text-2xl xl:text-3xl font-bold font-secondary text-[color:var(--color-primary)] dark:text-[color:var(--color-secondary)]'>
           Amazing deals for you!
