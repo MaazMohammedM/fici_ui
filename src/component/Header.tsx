@@ -119,7 +119,7 @@ const Header: React.FC = () => {
         </NavLink>
 
         {/* Desktop Nav */}
-        <nav className="hidden md:flex gap-2 lg:gap-3 xl:gap-6 items-center" ref={desktopDropdownRef}>
+        <nav className="hidden md:flex gap-1 lg:gap-2 xl:gap-4 items-center text-sm md:text-[13px] lg:text-sm" ref={desktopDropdownRef}>
           {navItems.map(({ label, path, dropdown }) => (
             <div
               key={label}
@@ -131,19 +131,24 @@ const Header: React.FC = () => {
                 <>
                   <button
                     onMouseEnter={() => openDropdown(label)}
-                    className="flex items-center gap-1 px-3 py-2 rounded-lg hover:text-blue-600 transition-colors"
+                    className="flex items-center gap-0.5 px-2 py-1.5 rounded-lg hover:text-blue-600 transition-colors whitespace-nowrap"
                     aria-expanded={activeDropdown === label}
                   >
-                    {label} <ChevronDown className="w-4 h-4" />
+                    {label} <ChevronDown className="w-3.5 h-3.5" />
                   </button>
                   {activeDropdown === label && (
                     <div
-                      className="absolute left-0 mt-1 pt-1 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg border dark:border-gray-700 py-2 z-50"
+                      className="absolute left-0 mt-1 pt-1 w-56 bg-white dark:bg-gray-800 rounded-lg shadow-lg border dark:border-gray-700 py-1.5 z-50 text-sm"
                       onMouseEnter={() => openDropdown(label)}
                       onMouseLeave={() => closeDropdownWithDelay(180)}
                     >
                       {dropdown.map(d => (
-                        <NavLink key={d.path} to={d.path} className="block px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" onClick={() => setActiveDropdown(null)}>
+                        <NavLink 
+                          key={d.path} 
+                          to={d.path} 
+                          className="block px-3 py-1.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" 
+                          onClick={() => setActiveDropdown(null)}
+                        >
                           {d.label}
                         </NavLink>
                       ))}
@@ -151,14 +156,19 @@ const Header: React.FC = () => {
                   )}
                 </>
               ) : (
-                <NavLink to={path!} className="px-3 py-2 hover:text-blue-600 transition-colors">{label}</NavLink>
+                <NavLink 
+                  to={path!} 
+                  className="px-2 py-1.5 hover:text-blue-600 transition-colors whitespace-nowrap"
+                  onMouseEnter={() => activeDropdown && setActiveDropdown(null)}
+                >
+                  {label}
+                </NavLink>
               )}
             </div>
           ))}
         </nav>
 
-        {/* Right Section */}
-        <div className="flex items-center gap-4 lg:gap-6">
+        <div className="flex items-center gap-3 md:gap-4 lg:gap-5">
           <button onClick={() => setIsSearch(!isSearch)} className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800" aria-label="Open search">
             <Search className="w-5 h-5" />
           </button>

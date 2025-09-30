@@ -11,12 +11,16 @@ const Footer: React.FC = () => {
 
   return (
     <footer className="bg-[color:var(--color-dark1)] text-white">
+      {/* Full-bleed white logo strip (all breakpoints) */}
+      <div className="w-full bg-white py-3 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-center">
+          <img src={logo} alt="FICI Logo" className="h-14 sm:h-20 w-auto object-contain" />
+        </div>
+      </div>
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
         {/* Brand + Tagline */}
         <div className="flex flex-col items-center text-center gap-1.5 sm:gap-2 mb-3 sm:mb-5">
-          <div className="bg-white rounded-full p-2 shadow-sm">
-            <img src={logo} alt="FICI Logo" className="w-20 h-20 sm:w-24 sm:h-24 object-contain" />
-          </div>
           <p className="text-gray-300 text-sm sm:text-[15px] leading-snug max-w-lg">
             Premium leather footwear crafted with passion and precision. Discover the perfect blend
             of style, comfort, and quality.
@@ -67,26 +71,36 @@ const Footer: React.FC = () => {
         <div className="grid grid-cols-2 md:grid-cols-3 gap-5 lg:gap-8">
           {/* Quick Links */}
           <div className="order-1">
-            <h3 className="text-lg sm:text-xl font-semibold mb-3">Quick Links</h3>
+            <h3 className="text-lg sm:text-xl font-semibold mb-3">Resources</h3>
             <ul className="space-y-2">
               <li>
-                <Link to="/" className="text-gray-300 hover:text-white text-sm sm:text-base transition-colors">
-                  Home
-                </Link>
-              </li>
-              <li>
-                <Link to="/products" className="text-gray-300 hover:text-white text-sm sm:text-base transition-colors">
-                  Products
-                </Link>
-              </li>
-              <li>
                 <Link to="/about" className="text-gray-300 hover:text-white text-sm sm:text-base transition-colors">
-                  About Us
+                  Our Story
+                </Link>
+              </li>
+              <li>
+                <Link to="/terms" className="text-gray-300 hover:text-white text-sm sm:text-base transition-colors">
+                  Terms & Conditions
+                </Link>
+              </li>
+              <li>
+                <Link to="/shipping" className="text-gray-300 hover:text-white text-sm sm:text-base transition-colors">
+                  Shipping & Returns
+                </Link>
+              </li>
+              <li>
+                <Link to="/privacy" className="text-gray-300 hover:text-white text-sm sm:text-base transition-colors">
+                  Privacy Policy
+                </Link>
+              </li>
+              <li>
+                <Link to="/profile" className="text-gray-300 hover:text-white text-sm sm:text-base transition-colors">
+                  My Account
                 </Link>
               </li>
               <li>
                 <Link to="/contact" className="text-gray-300 hover:text-white text-sm sm:text-base transition-colors">
-                  Contact
+                  Contact Us
                 </Link>
               </li>
             </ul>
@@ -114,10 +128,10 @@ const Footer: React.FC = () => {
               </li>
               <li>
                 <Link
-                  to="/products?sub_category=Chappals"
+                  to="/products?sub_category=Bags&?sub_category=Accessories"
                   className="text-gray-300 hover:text-white text-sm sm:text-base transition-colors"
                 >
-                  Chappals
+                  Bags & Accessories
                 </Link>
               </li>
               <li>
@@ -139,8 +153,20 @@ const Footer: React.FC = () => {
             </ul>
           </div>
 
+          {/* Mobile-only: Razorpay payments strip above Contact Info */}
+          <div className="order-3 col-span-2 md:hidden mt-2 mb-2">
+            <div className="-mx-4 w-[calc(100%+2rem)] bg-white py-4 px-3 shadow-sm flex items-center justify-center">
+              <img
+                src={razorpayPayments}
+                alt="Payment processing partner Razorpay – Cards, Wallets, UPI & Netbanking"
+                className="h-14 w-auto object-contain"
+                loading="lazy"
+              />
+            </div>
+          </div>
+
           {/* Contact Info */}
-          <div className="order-3 col-span-2 md:col-span-1">
+          <div className="order-4 md:order-none col-span-2 md:col-span-1">
             <h3 className="text-lg sm:text-xl font-semibold mb-3">Contact Info</h3>
             <div className="space-y-2.5">
               <div className="flex items-start gap-3">
@@ -173,8 +199,8 @@ const Footer: React.FC = () => {
           </div>
         </div>
 
-        {/* Payments Row */}
-        <div className="mt-3 sm:mt-5">
+        {/* Payments Row (desktop/tablet only) */}
+        <div className="mt-3 sm:mt-5 hidden md:block">
           <hr className="border-white/10 mb-3" />
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
             <h4 className="text-sm sm:text-base text-gray-300">We accept the following payment methods</h4>
