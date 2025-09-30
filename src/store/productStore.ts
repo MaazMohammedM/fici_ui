@@ -12,6 +12,7 @@ interface ProductState {
   error: string | null;
   selectedCategory: string | null;
   selectedGender: string | null;
+  selectedSubCategory: string | null;
   selectedPriceRange: string | null;
   searchQuery: string;
   currentPage: number;
@@ -29,6 +30,8 @@ interface ProductState {
   setPage: (page: number) => void;
   clearError: () => void;
   fetchSingleProductByArticleId: (articleId: string) => Promise<void>;
+  highlightProducts: Product[];
+  fetchHighlightProducts: () => Promise<void>;
 }
 
 // Helper function to safely parse JSON - only for sizes
@@ -107,11 +110,13 @@ export const useProductStore = create<ProductState>((set, get) => ({
   filteredProducts: [],
   topDeals: [],
   relatedProducts: [],
+  highlightProducts: [],
   currentProduct: null,
   loading: false,
   error: null,
   selectedCategory: null,
   selectedGender: null,
+  selectedSubCategory: null,
   selectedPriceRange: null,
   searchQuery: '',
   currentPage: 1,
@@ -180,6 +185,18 @@ export const useProductStore = create<ProductState>((set, get) => ({
       console.error('Error fetching products:', error);
       set({ error: 'Failed to fetch products', loading: false });
     }
+  },
+
+  clearFilters: () => {
+    const { products } = get();
+    set({ 
+      filteredProducts: products,
+      selectedCategory: null,
+      selectedGender: null,
+      selectedSubCategory: null,
+      selectedPriceRange: null,
+      searchQuery: ''
+    });
   },
 
   fetchTopDeals: async () => {
@@ -442,7 +459,60 @@ export const useProductStore = create<ProductState>((set, get) => ({
       set({ error: 'Failed to fetch related products', loading: false });
     }
   },
-
+  fetchHighlightProducts: async () => {
+    const now = new Date().toDateString();
+    const lastFetched = localStorage.getItem('highlightProductsLastFetched');
+    const cachedProducts = localStorage.getItem('highlightProducts');
+    
+    // Return cached products if they exist and it's the same day
+    if (cachedProducts && lastFetched === now) {
+      set({ highlightProducts: JSON.parse(cachedProducts) });
+      return;
+    }
+  
+    try {
+      // Get all products
+      const { data: products, error } = await supabase
+        .from('products')
+        .select('*')
+        .in('sub_category', ['Shoes', 'Sandals', 'Bags']);
+  
+      if (error) throw error;
+  
+      // Shuffle function
+      const shuffleArray = (array: any[]) => {
+        const newArray = [...array];
+        for (let i = newArray.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+        }
+        return newArray;
+      };
+  
+      // Shuffle products within each category
+      const shuffledShoes = shuffleArray(products.filter(p => p.sub_category === 'Shoes'));
+      const shuffledSandals = shuffleArray(products.filter(p => p.sub_category === 'Sandals'));
+      const shuffledBags = shuffleArray(products.filter(p => p.sub_category === 'Bags'));
+  
+      // Select products after shuffling
+      const selectedProducts = [
+        ...shuffledShoes.slice(0, 2),
+        ...shuffledSandals.slice(0, 2),
+        ...shuffledBags.slice(0, 1)
+      ];
+  
+      // Shuffle the final selection to mix categories
+      const shuffledSelection = shuffleArray(selectedProducts);
+  
+      // Cache the results
+      localStorage.setItem('highlightProducts', JSON.stringify(shuffledSelection));
+      localStorage.setItem('highlightProductsLastFetched', now);
+      
+      set({ highlightProducts: shuffledSelection });
+    } catch (error) {
+      console.error('Error fetching highlight products:', error);
+    }
+  },  
   filterProducts: (filters) => {
     const { products } = get();
     let filtered = [...products];
@@ -453,6 +523,10 @@ export const useProductStore = create<ProductState>((set, get) => ({
 
     if (filters.gender && filters.gender !== 'all') {
       filtered = filtered.filter(product => product.gender === filters.gender);
+    }
+
+    if (filters.sub_category && filters.sub_category !== 'all') {
+      filtered = filtered.filter(product => product.sub_category === filters.sub_category);
     }
 
     if (filters.priceRange) {
@@ -476,6 +550,7 @@ export const useProductStore = create<ProductState>((set, get) => ({
       filteredProducts: filtered,
       selectedCategory: filters.category || null,
       selectedGender: filters.gender || null,
+      selectedSubCategory: filters.sub_category || null,
       selectedPriceRange: filters.priceRange || null,
       searchQuery: filters.search || ''
     });
@@ -483,24 +558,13 @@ export const useProductStore = create<ProductState>((set, get) => ({
 
   searchProducts: (query) => {
     set({ searchQuery: query, currentPage: 1 });
-    const { selectedCategory, selectedGender, selectedPriceRange } = get();
+    const { selectedCategory, selectedGender, selectedSubCategory, selectedPriceRange } = get();
     get().fetchProducts(1, {
       category: selectedCategory,
       gender: selectedGender,
+      sub_category: selectedSubCategory,
       priceRange: selectedPriceRange,
       search: query
-    });
-  },
-  
-
-  clearFilters: () => {
-    const { products } = get();
-    set({ 
-      filteredProducts: products,
-      selectedCategory: null,
-      selectedGender: null,
-      selectedPriceRange: null,
-      searchQuery: ''
     });
   },
 
@@ -509,6 +573,7 @@ export const useProductStore = create<ProductState>((set, get) => ({
     get().fetchProducts(page, {
       category: get().selectedCategory,
       gender: get().selectedGender,
+      sub_category: get().selectedSubCategory,
       priceRange: get().selectedPriceRange,
       search: get().searchQuery
     });

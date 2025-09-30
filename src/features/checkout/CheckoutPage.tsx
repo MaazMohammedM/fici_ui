@@ -427,7 +427,7 @@ const CheckoutPage: React.FC = () => {
                 <button
                   onClick={handlePlaceOrder}
                   disabled={isProcessing}
-                  className="w-full bg-accent text-white py-3 rounded-xl font-semibold disabled:opacity-50"
+                  className="w-full bg-primary text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:bg-primary-active transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isProcessing ? 'Processing...' : `Place Order • ₹${totalAmount.toLocaleString('en-IN')}`}
                 </button>
@@ -436,7 +436,6 @@ const CheckoutPage: React.FC = () => {
           </div>
         </div>
       </div>
-
       {paymentStatus && (
         <PaymentStatusModal
           status={paymentStatus}

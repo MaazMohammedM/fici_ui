@@ -72,45 +72,30 @@ const HeroSection: React.FC = () => {
   };
 
   return (
-    <section className="relative w-full h-[50vh] md:h-[70vh] overflow-hidden">
+    <section
+      className="relative w-full h-[42vh] sm:h-[50vh] md:h-[65vh] lg:h-[75vh] overflow-hidden mt-0"
+      aria-label="Featured banners carousel"
+    >
       {heroSlides.map((slide, index) => (
         <div
           key={slide.id}
           onClick={() => handleSlideClick(slide.ctaLink)}
-          className={`absolute inset-0 transition-opacity duration-1000 ease-in-out cursor-pointer ${
+          className={`absolute inset-0 transition-opacity duration-700 ease-in-out cursor-pointer ${
             index === currentSlide ? 'opacity-100' : 'opacity-0'
           }`}
         >
-          <div className="absolute inset-0 flex items-center justify-center">
-            {/* Desktop Image */}
-            <div className="hidden md:flex w-full h-full items-center justify-center">
-              <img
-                src={desktopImages[index]}
-                alt={`Slide ${index + 1}`}
-                className="h-full w-auto max-w-none"
-                style={{
-                  objectFit: 'cover',
-                  maxHeight: '100%',
-                  minWidth: '100%',
-                  height: 'auto'
-                }}
-              />
-            </div>
-            {/* Mobile Image */}
-            <div className="md:hidden w-full h-full flex items-center justify-center">
-              <img
-                src={mobileImages[index]}
-                alt={`Slide ${index + 1}`}
-                className="w-full h-auto max-h-full"
-                style={{
-                  objectFit: 'cover',
-                  minWidth: '100%',
-                  maxHeight: '100%',
-                  height: 'auto'
-                }}
-              />
-            </div>
-          </div>
+          {/* Desktop Image */}
+          <img
+            src={desktopImages[index]}
+            alt={`Slide ${index + 1}`}
+            className="hidden md:block w-full h-full object-cover"
+          />
+          {/* Mobile Image */}
+          <img
+            src={mobileImages[index]}
+            alt={`Slide ${index + 1}`}
+            className="block md:hidden w-full h-full object-cover"
+          />
         </div>
       ))}
 
@@ -131,7 +116,7 @@ const HeroSection: React.FC = () => {
       </button>
 
       {/* Pagination Dots */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex space-x-2">
+      <div className="absolute bottom-3 sm:bottom-4 left-1/2 -translate-x-1/2 z-20 flex space-x-2">
         {heroSlides.map((_, index) => (
           <button
             key={index}
@@ -139,7 +124,7 @@ const HeroSection: React.FC = () => {
               e.stopPropagation();
               setCurrentSlide(index);
             }}
-            className={`w-2.5 h-2.5 rounded-full transition-colors ${
+            className={`w-2.5 h-2.5 rounded-full border border-white/70 transition-colors ${
               index === currentSlide ? 'bg-white' : 'bg-white/50'
             }`}
             aria-label={`Go to slide ${index + 1}`}
