@@ -1,6 +1,6 @@
 // src/pages/CheckoutPage.tsx
 import React, { useCallback, useMemo, useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import AddressCard from './components/AddressForm';
 import GuestAddressForm from './components/GuestAddressForm';
 import PaymentMethodCard from './components/PaymentMethods';
@@ -38,7 +38,6 @@ const CHECKOUT_DRAFT_KEY = 'checkoutDraft';
 
 const CheckoutPage: React.FC = () => {
   const navigate = useNavigate();
-  const location = useLocation();
   const { items: cartItems, getCartTotal, getCartSavings, clearCart } = useCartStore();
   const { savePaymentDetails } = usePaymentStore();
   const user = useAuthStore((state) => state.user);
@@ -131,33 +130,6 @@ const CheckoutPage: React.FC = () => {
   const handlePaymentFailure = (err: any) => {
     console.error('Payment failed:', err);
     setPaymentStatus('failed');
-  };
-
-  const handleGuestInfoSubmit = async (contactInfo: GuestContactInfo) => {
-    try {
-      const guestSession = await createGuestSession(contactInfo);
-      if (guestSession) {
-        setGuestInfo(contactInfo);
-        setShowGuestForm(false);
-        // Store email for potential account creation later
-        sessionStorage.setItem('guestEmail', contactInfo.email);
-      } else {
-        alert('Failed to create guest session. Please try again.');
-      }
-    } catch (error) {
-      console.error('Guest session creation failed:', error);
-      alert('Failed to create guest session. Please try again.');
-    }
-  };
-
-  const handleSignInRedirect = () => {
-    sessionStorage.setItem("redirectAfterLogin", location.pathname);
-    navigate("/auth/signin");
-  };
-
-  const handleBackToGuestForm = () => {
-    setShowGuestForm(true);
-    setGuestInfo(null);
   };
 
   const handlePlaceOrder = async () => {
@@ -286,21 +258,46 @@ const CheckoutPage: React.FC = () => {
     }
   };
 
+  const handleGuestInfoSubmit = async (contactInfo: GuestContactInfo) => {
+    try {
+      const guestSession = await createGuestSession(contactInfo);
+      if (guestSession) {
+        setGuestInfo(contactInfo);
+        setShowGuestForm(false);
+        // Store email for potential account creation later
+        sessionStorage.setItem('guestEmail', contactInfo.email);
+      } else {
+        alert('Failed to create guest session. Please try again.');
+      }
+    } catch (error) {
+      console.error('Guest session creation failed:', error);
+      alert('Failed to create guest session. Please try again.');
+    }
+  };
+
+  const handleSignInRedirect = () => {
+    sessionStorage.setItem('redirectAfterLogin', '/checkout');
+    navigate('/auth/signin');
+  };
+
+  const handleBackToGuestForm = () => {
+    setShowGuestForm(true);
+    setGuestInfo(null);
+  };
   // Show guest checkout form if not authenticated
   if (showGuestForm) {
     return (
       <div className="min-h-screen bg-gradient-light dark:bg-gradient-dark">
-        <div className="max-w-2xl mx-auto px-4 py-8">
-          <div className="mb-6">
-            <button
-              onClick={() => navigate('/cart')}
-              className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Back to Cart
-            </button>
+        <div className="max-w-2xl mx-auto px-4 py-6 sm:py-8">
+          <div className="mb-4 sm:mb-6">
+            <Link to="/cart">
+              <button className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
+                <ArrowLeft className="w-4 h-4" />
+                Back to Cart
+              </button>
+            </Link>
           </div>
-          
+
           <GuestCheckoutForm
             onGuestInfoSubmit={handleGuestInfoSubmit}
             onSignInClick={handleSignInRedirect}
@@ -342,17 +339,17 @@ const CheckoutPage: React.FC = () => {
   return (
     <>
       <div className="min-h-screen bg-gradient-light dark:bg-gradient-dark">
-        <div className="max-w-7xl mx-auto px-4 py-8">
-          <div className="flex items-center justify-between mb-8">
-            <h1 className="text-3xl font-bold">Checkout</h1>
+        <div className="max-w-7xl mx-auto px-4 py-4 sm:py-8">
+          <div className="flex items-center justify-between mb-6 sm:mb-8">
+            <h1 className="text-2xl sm:text-3xl font-bold">Checkout</h1>
             {isGuest && guestInfo && (
-              <div className="flex items-center gap-4">
-                <div className="text-sm text-gray-600 dark:text-gray-400">
+              <div className="flex items-center gap-2 sm:gap-4">
+                <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                   <span className="font-medium">Guest:</span> {guestInfo.email}
                 </div>
                 <button
                   onClick={handleBackToGuestForm}
-                  className="text-sm text-primary hover:text-primary-active transition-colors"
+                  className="text-xs sm:text-sm text-primary hover:text-primary-active transition-colors"
                 >
                   Change Info
                 </button>
@@ -360,8 +357,8 @@ const CheckoutPage: React.FC = () => {
             )}
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div className="space-y-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8">
+            <div className="space-y-4 sm:space-y-8">
               {user ? (
                 <AddressCard
                   selectedId={selectedAddress?.id}
@@ -369,14 +366,11 @@ const CheckoutPage: React.FC = () => {
                 />
               ) : (
                 <>
-              {console.log('Rendering GuestAddressForm with guest_session_id:', useAuthStore.getState().guestSession?.guest_session_id)}
-              <GuestAddressForm
-  selectedAddress={selectedAddress}
-  onAddressSubmit={(addr) => setSelectedAddress(addr)}
-  guest_session_id={useAuthStore.getState().guestSession?.guest_session_id}
-/>
-
-
+                  <GuestAddressForm
+                    selectedAddress={selectedAddress}
+                    onAddressSubmit={(addr) => setSelectedAddress(addr)}
+                    guest_session_id={useAuthStore.getState().guestSession?.guest_session_id}
+                  />
                 </>
               )}
 
@@ -385,30 +379,30 @@ const CheckoutPage: React.FC = () => {
                 onSelect={(id) => setSelectedPayment(id)}
               />
 
-              <div className="bg-white dark:bg-dark2 rounded-2xl shadow-lg p-6">
-                <h3 className="font-semibold text-lg mb-4">Your Items</h3>
-                <div className="space-y-4">
+              <div className="bg-white dark:bg-dark2 rounded-2xl shadow-lg p-4 sm:p-6">
+                <h3 className="font-semibold text-base sm:text-lg mb-3 sm:mb-4">Your Items</h3>
+                <div className="space-y-3 sm:space-y-4 max-h-96 overflow-y-auto">
                   {cartItems.map((item: any) => (
-                    <div key={item.id} className="flex items-center gap-4 border-b pb-3">
+                    <div key={item.id} className="flex items-center gap-3 sm:gap-4 border-b pb-2 sm:pb-3">
                       <img
                         src={item.thumbnail_url}
                         alt={item.name}
-                        className="w-16 h-16 rounded object-cover"
+                        className="w-12 h-12 sm:w-16 sm:h-16 rounded object-cover flex-shrink-0"
                       />
-                      <div className="flex-1">
-                        <p className="font-medium">{item.name}</p>
-                        <p className="text-sm text-gray-500">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-sm sm:text-base truncate">{item.name}</p>
+                        <p className="text-xs sm:text-sm text-gray-500">
                           {item.size ? `Size: ${item.size} • ` : ''}Qty: {item.quantity} × ₹{item.price}
                         </p>
                       </div>
-                      <div className="font-semibold">₹{(item.price * item.quantity).toLocaleString('en-IN')}</div>
+                      <div className="font-semibold text-sm sm:text-base flex-shrink-0">₹{(item.price * item.quantity).toLocaleString('en-IN')}</div>
                     </div>
                   ))}
                 </div>
               </div>
             </div>
 
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               <OrderSummary
                 items={cartItems}
                 subtotal={subtotal}
@@ -417,17 +411,17 @@ const CheckoutPage: React.FC = () => {
                 total={totalAmount}
               />
 
-              <div className="bg-white dark:bg-dark2 rounded-2xl shadow-lg p-6">
-                <div className="flex items-center gap-3 mb-4">
-                  <Shield className="w-6 h-6 text-green-600" />
-                  <h3 className="font-semibold">Secure Checkout</h3>
+              <div className="bg-white dark:bg-dark2 rounded-2xl shadow-lg p-4 sm:p-6 sticky top-4">
+                <div className="flex items-center gap-3 mb-3 sm:mb-4">
+                  <Shield className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
+                  <h3 className="font-semibold text-sm sm:text-base">Secure Checkout</h3>
                 </div>
-                <p className="text-sm text-gray-600 mb-4">Your payment information is encrypted and secure</p>
+                <p className="text-xs sm:text-sm text-gray-600 mb-3 sm:mb-4">Your payment information is encrypted and secure</p>
 
                 <button
                   onClick={handlePlaceOrder}
                   disabled={isProcessing}
-                  className="w-full bg-primary text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:bg-primary-active transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full bg-primary text-white py-3 sm:py-4 rounded-xl font-bold text-base sm:text-lg shadow-lg hover:bg-primary-active transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isProcessing ? 'Processing...' : `Place Order • ₹${totalAmount.toLocaleString('en-IN')}`}
                 </button>

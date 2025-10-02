@@ -1,37 +1,5 @@
 import React from "react";
-import { Check } from "lucide-react";
 import type { Product, ProductDetail } from "../../../types/product";
-
-const getColorValue = (colorName: string): string => {
-  const colorMap: Record<string, string> = {
-    black: "#000000",
-    white: "#FFFFFF",
-    brown: "#8B4513",
-    tan: "#D2B48C",
-    navy: "#000080",
-    blue: "#0000FF",
-    red: "#FF0000",
-    green: "#008000",
-    gray: "#808080",
-    grey: "#808080",
-    beige: "#F5F5DC",
-    cream: "#FFFDD0",
-    pink: "#FFC0CB",
-    yellow: "#FFFF00",
-    orange: "#FFA500",
-    purple: "#800080",
-    silver: "#C0C0C0",
-    gold: "#FFD700",
-    maroon: "#800000",
-    olive: "#808000",
-    lime: "#00FF00",
-    aqua: "#00FFFF",
-    teal: "#008080",
-    fuchsia: "#FF00FF",
-    "dk.brown": "#8B4513",
-  };
-  return colorMap[colorName.toLowerCase()] || "#6B7280";
-};
 
 interface Props {
   currentProduct: ProductDetail;
@@ -46,10 +14,10 @@ const ProductColorSelector: React.FC<Props> = ({
   selectedArticleId,
   onColorChange,
 }) => {
-  if (currentProduct.variants.length <= 1) return null;
-
   const displayColorLabel =
-    selectedVariant?.color || currentProduct.variants[0]?.color || "";
+    selectedVariant?.color ||
+    currentProduct.variants[0]?.color ||
+    "";
 
   return (
     <div>
@@ -61,36 +29,58 @@ const ProductColorSelector: React.FC<Props> = ({
       </h3>
       <div className="flex flex-wrap gap-3">
         {currentProduct.variants.map((variant) => {
-          const colorLabel = String(
-            variant.article_id.split("_")[1] || variant.color || ""
-          );
+          const colorLabel =
+            String(variant.color || variant.article_id.split("_")[1] || "");
           const isSelected = variant.article_id === selectedArticleId;
+          const thumbnailUrl =
+            variant.thumbnail_url ||
+            (Array.isArray(variant.images) && variant.images.length > 0
+              ? variant.images[0]
+              : "");
 
           return (
             <button
               key={variant.article_id}
               onClick={() => onColorChange(variant.article_id)}
               title={colorLabel}
-              className={`relative flex items-center justify-center w-12 h-12 rounded-full transition-transform transform ${
+              disabled={currentProduct.variants.length === 1}
+              className={`relative flex items-center justify-center w-16 h-16 rounded-md overflow-hidden transition-transform transform ${
                 isSelected
-                  ? "scale-110 ring-2 ring-accent/40 shadow-lg"
+                  ? "ring-2 ring-accent shadow-lg scale-105"
                   : "hover:scale-105"
+              } ${
+                currentProduct.variants.length === 1 ? "cursor-default" : ""
               }`}
               aria-pressed={isSelected}
             >
-              <span
-                className="block w-10 h-10 rounded-full border"
-                style={{
-                  backgroundColor: getColorValue(String(colorLabel)),
-                  borderColor: isSelected
-                    ? "rgba(0,0,0,0.06)"
-                    : undefined,
-                }}
-              />
-              {isSelected && (
-                <Check className="absolute w-4 h-4 text-white" />
+              {thumbnailUrl ? (
+                <img
+                  src={thumbnailUrl}
+                  alt={colorLabel}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    const target = e.currentTarget;
+                    target.onerror = null;
+                    target.src = "";
+                    target.style.backgroundColor = "#f3f4f6";
+                    target.alt = `${colorLabel} color`;
+                  }}
+                />
+              ) : (
+                <div
+                  className="w-full h-full flex items-center justify-center bg-gray-100"
+                  style={{
+                    backgroundColor: colorLabel
+                      ? `#${colorLabel}`
+                      : "#f3f4f6",
+                  }}
+                >
+                  <span className="text-xs text-gray-500">
+                    {colorLabel || "N/A"}
+                  </span>
+                </div>
               )}
-              <span className="sr-only">{colorLabel}</span>
+              <span className="sr-only">{colorLabel} color option</span>
             </button>
           );
         })}

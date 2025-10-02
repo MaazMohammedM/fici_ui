@@ -463,22 +463,22 @@ export const useProductStore = create<ProductState>((set, get) => ({
     const now = new Date().toDateString();
     const lastFetched = localStorage.getItem('highlightProductsLastFetched');
     const cachedProducts = localStorage.getItem('highlightProducts');
-    
+
     // Return cached products if they exist and it's the same day
     if (cachedProducts && lastFetched === now) {
       set({ highlightProducts: JSON.parse(cachedProducts) });
       return;
     }
-  
+
     try {
       // Get all products
       const { data: products, error } = await supabase
         .from('products')
         .select('*')
         .in('sub_category', ['Shoes', 'Sandals', 'Bags']);
-  
+
       if (error) throw error;
-  
+
       // Shuffle function
       const shuffleArray = (array: any[]) => {
         const newArray = [...array];
@@ -488,27 +488,36 @@ export const useProductStore = create<ProductState>((set, get) => ({
         }
         return newArray;
       };
-  
+
       // Shuffle products within each category
-      const shuffledShoes = shuffleArray(products.filter(p => p.sub_category === 'Shoes'));
-      const shuffledSandals = shuffleArray(products.filter(p => p.sub_category === 'Sandals'));
-      const shuffledBags = shuffleArray(products.filter(p => p.sub_category === 'Bags'));
-  
+      const shuffledShoes = shuffleArray(products.filter((p: Product) => p.sub_category === 'Shoes'));
+      const shuffledSandals = shuffleArray(products.filter((p: Product) => p.sub_category === 'Sandals'));
+      const shuffledBags = shuffleArray(products.filter((p: Product) => p.sub_category === 'Bags'));
+
       // Select products after shuffling
       const selectedProducts = [
         ...shuffledShoes.slice(0, 2),
         ...shuffledSandals.slice(0, 2),
         ...shuffledBags.slice(0, 1)
       ];
-  
+
       // Shuffle the final selection to mix categories
       const shuffledSelection = shuffleArray(selectedProducts);
-  
+
+      // Process products with proper image parsing and discount calculation
+      const processedProducts = shuffledSelection.map(product => ({
+        ...product,
+        sizes: safeParseSizes(product.sizes),
+        images: parseImages(product.images), // Use the parseImages function
+        thumbnail_url: product.thumbnail_url || null,
+        discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price)
+      }));
+
       // Cache the results
-      localStorage.setItem('highlightProducts', JSON.stringify(shuffledSelection));
+      localStorage.setItem('highlightProducts', JSON.stringify(processedProducts));
       localStorage.setItem('highlightProductsLastFetched', now);
-      
-      set({ highlightProducts: shuffledSelection });
+
+      set({ highlightProducts: processedProducts });
     } catch (error) {
       console.error('Error fetching highlight products:', error);
     }
@@ -546,7 +555,7 @@ export const useProductStore = create<ProductState>((set, get) => ({
       );
     }
 
-    set({ 
+    set({
       filteredProducts: filtered,
       selectedCategory: filters.category || null,
       selectedGender: filters.gender || null,

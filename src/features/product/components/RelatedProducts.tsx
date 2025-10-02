@@ -1,26 +1,43 @@
 import React from 'react';
-import ProductCard from './ProductCard';
 import type { Product } from '../../../types/product';
+import ProductCard from './ProductCard';
 
 interface RelatedProductsProps {
   products: Product[];
+  className?: string;
 }
 
-const RelatedProducts: React.FC<RelatedProductsProps> = ({ products }) => {
-  if (products.length === 0) return null;
+const RelatedProducts: React.FC<RelatedProductsProps> = ({ 
+  products,
+  className = ''
+}) => {
+  if (!products || products.length === 0) return null;
 
   return (
-    <div className="mt-16">
-      <h2 className="text-2xl font-bold text-primary dark:text-secondary mb-8">
-        Related Products
-      </h2>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {products.map(product => (
-          <ProductCard 
-            key={product.product_id} 
-            product={product} 
-          />
-        ))}
+    <div className={`w-full bg-[color:var(--color-light1)] dark:bg-[color:var(--color-dark1)] ${className}`}>
+      <div className="w-full px-4 sm:px-8 lg:px-16 py-6 sm:py-8">
+        <div className="flex items-center justify-between mb-4 sm:mb-6">
+          <h2 className="text-lg sm:text-xl lg:text-2xl font-bold font-secondary text-[color:var(--color-primary)] dark:text-[color:var(--color-secondary)]">
+            You May Also Like
+          </h2>
+        </div>
+        
+        <div className="relative">
+          <div className="relative w-full overflow-x-auto pb-4 scrollbar-hide">
+            <div className="flex gap-3 sm:gap-4 lg:gap-6 w-max">
+              {products.map((product) => (
+                <div 
+                  key={product.product_id} 
+                  className="flex-shrink-0 w-40 sm:w-48 md:w-56 lg:w-64 xl:w-72"
+                >
+                  <ProductCard 
+                    product={product}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

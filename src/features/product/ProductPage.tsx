@@ -130,7 +130,7 @@ const ProductPage: React.FC = () => {
           >
             <option value="all">All Categories</option>
             <option value="Footwear">Footwear</option>
-            <option value="Bags and Accessories">Bags</option>
+            <option value="Bags and Accessories">Bags and Accessories</option>
           </select>
 
           <select
@@ -169,7 +169,6 @@ const ProductPage: React.FC = () => {
             <option value="all">All</option>
             <option value="men">Men</option>
             <option value="women">Women</option>
-            <option value="unisex">Unisex</option>
           </select>
         </div>
       </div>

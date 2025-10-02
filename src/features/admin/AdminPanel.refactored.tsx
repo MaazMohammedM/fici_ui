@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { BarChart3, List, Plus } from "lucide-react";
+import { BarChart3, List, Plus, Package } from "lucide-react";
 
 // Dashboard Components
 import DashboardStats from "./components/DashboardStats";
@@ -11,12 +11,15 @@ import ProductVisitsTable from "./components/ProductVisitsTable";
 import ProductForm from "./components/ProductForm";
 import ProductList from "./components/ProductList";
 
+// Order Management Components
+import OrderManagement from "./components/OrderManagement";
+
 // Store + Hooks
 import { useAdminStore } from "./store/adminStore";
 import { useAdminDashboard } from "./hooks/useAdminDashboard";
 
 const AdminPage: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<"dashboard" | "list" | "add">(
+  const [activeTab, setActiveTab] = useState<"dashboard" | "list" | "add" | "orders">(
     "dashboard"
   );
 
@@ -80,6 +83,17 @@ const AdminPage: React.FC = () => {
             <Plus className="w-4 h-4" />
             Add Product
           </button>
+          <button
+            onClick={() => setActiveTab("orders")}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl shadow transition ${
+              activeTab === "orders"
+                ? "bg-blue-600 text-white"
+                : "bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
+            }`}
+          >
+            <Package className="w-4 h-4" />
+            Orders
+          </button>
         </div>
 
         {/* Tab Content */}
@@ -91,6 +105,8 @@ const AdminPage: React.FC = () => {
               totalOrders={stats.totalOrders}
               totalUsers={stats.totalUsers}
               conversionRate={stats.conversionRate}
+              totalRevenue={stats.totalRevenue}
+              pendingOrders={stats.pendingOrders}
             />
 
             {/* Charts */}
@@ -113,6 +129,7 @@ const AdminPage: React.FC = () => {
 
         {activeTab === "list" && <ProductList />}
         {activeTab === "add" && <ProductForm />}
+        {activeTab === "orders" && <OrderManagement />}
       </div>
     </div>
   );

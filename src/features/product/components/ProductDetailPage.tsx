@@ -68,7 +68,7 @@ const ProductDetailPage: React.FC = () => {
 
   const handleWhatsAppContact = useCallback((size: string) => {
     const productName = currentProduct?.name || '';
-    const productUrl = currentProduct?.variants[0].thumbnail_url || '';
+    const productUrl = window.location.href;
     const color = selectedVariant?.color || '';
     
     const message = `Hi! I'm interested in ${productName} in ${color} color, size ${size}. 
@@ -88,7 +88,7 @@ Could you please let me know when this size will be available?`;
       // Use the first variant's image if available, or fallback to empty string
       const thumbnailUrl = currentProduct.variants?.[0]?.images?.[0] || '';
       trackProductVisit({
-        product_id: currentProduct.article_id,
+        product_id: currentProduct.variants?.[0]?.product_id || currentProduct.article_id,
         name: currentProduct.name,
         thumbnail_url: thumbnailUrl
       }).catch(console.error);
@@ -157,23 +157,24 @@ Could you please let me know when this size will be available?`;
     }
   }, [currentProduct, navigate, fetchRelatedProducts]);
 
-  const handleAddToCart = useCallback(() => {
+  const handleAddToCart = useCallback((): boolean => {
     if (!selectedSize) {
       alert('Please select a size');
-      return;
+      return false;
     }
 
     const selectedVariant = currentProduct?.variants.find(v => v.article_id === selectedArticleId);
     if (!selectedVariant) {
       alert('Please select a product variant');
-      return;
+      return false;
     }
 
     const productImage =
       Array.isArray(selectedVariant.images) && selectedVariant.images.length > 0
         ? selectedVariant.images[0]:
         selectedVariant.thumbnail_url || '';
-        console.log(productImage);
+    console.log(productImage);
+    
     addToCart({
       product_id: selectedVariant.product_id,
       article_id: selectedVariant.article_id,
@@ -187,19 +188,32 @@ Could you please let me know when this size will be available?`;
       thumbnail_url: selectedVariant.thumbnail_url || '',
       discount_percentage: selectedVariant.discount_percentage || 0
     });
-  }, [selectedVariant, currentProduct, quantity, selectedSize, addToCart]);
+    
+    // Show success message and return true to indicate success
+    alert('Product added to cart successfully!');
+    return true;
+  }, [selectedArticleId, currentProduct, selectedSize, addToCart, quantity]);
 
   const handleBuyNow = useCallback(() => {
-    handleAddToCart();
-    navigate('/cart');
+    const added = handleAddToCart();
+    if (added) {
+      navigate('/cart');
+    }
   }, [handleAddToCart, navigate]);
 
   // Handle wishlist toggle
+  // Update wishlist status when selectedVariant changes
+  useEffect(() => {
+    if (selectedVariant) {
+      setIsWishlisted(isInWishlist(selectedVariant.article_id));
+    }
+  }, [selectedVariant, isInWishlist]);
+
   const handleWishlistToggle = useCallback(async () => {
     if (!selectedVariant || !currentProduct) return;
     
     try {
-      if (isWishlisted) {
+if (isInWishlist(selectedVariant.article_id)) {
         await removeFromWishlist(selectedVariant.article_id);
       } else {
         const wishlistItem = {
@@ -224,7 +238,7 @@ Could you please let me know when this size will be available?`;
         await addToWishlist(wishlistItem);
       }
       // Update the local state to reflect the change
-      setIsWishlisted(!isWishlisted);
+      setIsWishlisted(!isInWishlist(selectedVariant.article_id));
     } catch (error) {
       console.error('Error updating wishlist:', error);
       // Optionally show an error message to the user

@@ -153,20 +153,8 @@ const Footer: React.FC = () => {
             </ul>
           </div>
 
-          {/* Mobile-only: Razorpay payments strip above Contact Info */}
-          <div className="order-3 col-span-2 md:hidden mt-2 mb-2">
-            <div className="-mx-4 w-[calc(100%+2rem)] bg-white py-4 px-3 shadow-sm flex items-center justify-center">
-              <img
-                src={razorpayPayments}
-                alt="Payment processing partner Razorpay – Cards, Wallets, UPI & Netbanking"
-                className="h-14 w-auto object-contain"
-                loading="lazy"
-              />
-            </div>
-          </div>
-
-          {/* Contact Info */}
-          <div className="order-4 md:order-none col-span-2 md:col-span-1">
+          {/* Contact Info - Moved to 3rd column on desktop */}
+          <div className="order-4 md:order-2 col-span-2 md:col-span-1">
             <h3 className="text-lg sm:text-xl font-semibold mb-3">Contact Info</h3>
             <div className="space-y-2.5">
               <div className="flex items-start gap-3">
@@ -197,6 +185,19 @@ const Footer: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {/* Mobile-only: Razorpay payments strip above Contact Info */}
+          <div className="order-3 col-span-2 md:hidden mt-2 mb-2">
+            <div className="-mx-4 w-[calc(100%+2rem)] bg-white py-4 px-3 shadow-sm flex items-center justify-center">
+              <img
+                src={razorpayPayments}
+                alt="Payment processing partner Razorpay – Cards, Wallets, UPI & Netbanking"
+                className="h-14 w-auto object-contain"
+                loading="lazy"
+              />
+            </div>
+          </div>
+
         </div>
 
         {/* Payments Row (desktop/tablet only) */}

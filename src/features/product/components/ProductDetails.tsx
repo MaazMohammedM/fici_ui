@@ -29,18 +29,18 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
   selectedVariant,
   selectedArticleId,
   selectedSize,
-  quantity,
   availableSizes,
   fullSizeRange,
   onColorChange,
   onSizeChange,
-  onQuantityChange,
   onAddToCart,
   onBuyNow,
   onWhatsAppContact,
 }) => {
   const [showSizeGuide, setShowSizeGuide] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [quantitys, setQuantity] = useState(1);
+
 
   // Generate shoe sizes (39-47) if the product is footwear
   const shoeSizes = useMemo(() => {
@@ -138,17 +138,17 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
 
       {/* Price */}
       <div className="mt-4">
-        <div className="flex items-baseline space-x-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <span className="text-3xl font-bold text-gray-900">
             ₹{Number(selectedVariant?.discount_price || 0).toLocaleString('en-IN')}
           </span>
-          {selectedVariant?.mrp && Number(selectedVariant.mrp) > Number(selectedVariant.discount_price || 0) && (
+          {selectedVariant?.mrp_price && Number(selectedVariant.mrp_price) > Number(selectedVariant.discount_price || 0) && (
             <>
               <span className="text-lg text-gray-500 line-through">
-                ₹{Number(selectedVariant.mrp).toLocaleString('en-IN')}
+                ₹{Number(selectedVariant.mrp_price).toLocaleString('en-IN')}
               </span>
-              <span className="ml-2 text-sm font-medium text-green-600">
-                {Math.round(((Number(selectedVariant.mrp) - Number(selectedVariant.discount_price || 0)) / Number(selectedVariant.mrp)) * 100)}% off
+              <span className="text-sm bg-green-100 text-green-800 px-2 py-1 rounded font-medium">
+                Save ₹{(Number(selectedVariant.mrp_price) - Number(selectedVariant.discount_price || 0)).toLocaleString('en-IN')}
               </span>
             </>
           )}
@@ -160,8 +160,8 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
       <div className="pt-4 border-t border-gray-200">
         <ProductColorSelector
           currentProduct={currentProduct}
-          selectedArticleId={selectedArticleId}
           selectedVariant={selectedVariant}
+          selectedArticleId={selectedArticleId}
           onColorChange={onColorChange}
         />
       </div>
@@ -184,11 +184,12 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
       {/* Quantity Selector - Only show if a size is selected */}
       {selectedSize && (
         <div className="pt-4 border-t border-gray-200">
-          <ProductQuantitySelector
-            quantity={quantity}
-            onQuantityChange={onQuantityChange}
-            maxQuantity={selectedVariant?.sizes[selectedSize] || 10}
-          />
+
+<ProductQuantitySelector
+  quantity={quantitys}
+  onQuantityChange={setQuantity}
+  maxQuantity={ 10}
+/>
         </div>
       )}
       <div className="pt-4 space-y-3">

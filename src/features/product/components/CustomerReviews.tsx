@@ -32,6 +32,7 @@ const CustomerReviews: React.FC<CustomerReviewsProps> = ({ productId, className 
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [editingReview, setEditingReview] = useState<Review | null>(null);
   const [userHasPurchased, setUserHasPurchased] = useState(false);
+  const [verifyingPurchase, setVerifyingPurchase] = useState(false);
   const [userReview, setUserReview] = useState<Review | null>(null);
   const [reviewForm, setReviewForm] = useState<{ rating: number; comment: string }>({ 
     rating: 5, 
@@ -100,18 +101,47 @@ const CustomerReviews: React.FC<CustomerReviewsProps> = ({ productId, className 
   // Check if user has purchased the product
   const verifyUserPurchase = useCallback(async () => {
     if (!user?.id || !productId) return;
-    
+
+    setVerifyingPurchase(true);
     try {
-      const { data, error } = await supabase
+      // First, get orders for this user
+      const { data: orders, error: ordersError } = await supabase
+        .from('orders')
+        .select('order_id')
+        .eq('user_id', user.id)
+        .in('status', ['paid', 'shipped', 'delivered']);
+
+      if (ordersError) {
+        console.error('Error fetching user orders:', ordersError);
+        setUserHasPurchased(false);
+        return;
+      }
+
+      if (!orders || orders.length === 0) {
+        setUserHasPurchased(false);
+        return;
+      }
+
+      // Then, check if any of these orders contain the current product
+      const orderIds = orders.map(order => order.order_id);
+      const { data: orderItems, error: itemsError } = await supabase
         .from('order_items')
         .select('*')
-        .eq('user_id', user.id)
-        .eq('product_id', productId)
-        .maybeSingle();
-      
-      setUserHasPurchased(!!(!error && data));
+        .in('order_id', orderIds)
+        .eq('product_id', productId);
+
+      if (itemsError) {
+        console.error('Error fetching order items:', itemsError);
+        setUserHasPurchased(false);
+        return;
+      }
+
+      setUserHasPurchased(!!(orderItems && orderItems.length > 0));
     } catch (error) {
       console.error('Error checking user purchase:', error);
+      setUserHasPurchased(false);
+    } finally {
+      setVerifyingPurchase(false);
     }
   }, [user?.id, productId]);
 
@@ -126,7 +156,7 @@ const CustomerReviews: React.FC<CustomerReviewsProps> = ({ productId, className 
       };
       initializeData();
     }
-  }, [productId, loadReviews, verifyUserPurchase]);
+  }, [productId, loadReviews, verifyUserPurchase, user?.id]);
 
   // Handle review form submission
   const handleReviewSubmit = async (e: React.FormEvent) => {
@@ -171,7 +201,7 @@ const CustomerReviews: React.FC<CustomerReviewsProps> = ({ productId, className 
       <div className={`text-center p-8 ${className}`}>
         <h3 className="text-lg font-medium mb-2">No Reviews Yet</h3>
         <p className="text-gray-600 mb-4">Be the first to review this product!</p>
-        {user && (
+        {user && userHasPurchased && (
           <Button
             onClick={() => setShowReviewForm(true)}
             className="bg-primary text-white hover:bg-primary-dark"
@@ -179,6 +209,19 @@ const CustomerReviews: React.FC<CustomerReviewsProps> = ({ productId, className 
             <Plus className="mr-2 h-4 w-4" />
             Write a Review
           </Button>
+        )}
+
+        {user && !userHasPurchased && !verifyingPurchase && (
+          <p className="text-sm text-gray-500 italic">
+            Purchase this product to write a review
+          </p>
+        )}
+
+        {verifyingPurchase && (
+          <div className="flex items-center justify-center text-sm text-gray-500">
+            <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-gray-400 mr-2"></div>
+            Checking purchase status...
+          </div>
         )}
       </div>
     );
@@ -198,7 +241,7 @@ const CustomerReviews: React.FC<CustomerReviewsProps> = ({ productId, className 
             </div>
           )}
         
-        {user && !userReview && (
+        {user && !userReview && userHasPurchased && (
           <Button
             onClick={() => setShowReviewForm(true)}
             className="bg-primary text-white hover:bg-primary-dark"
@@ -206,6 +249,19 @@ const CustomerReviews: React.FC<CustomerReviewsProps> = ({ productId, className 
             <Plus className="mr-2 h-4 w-4" />
             Write a Review
           </Button>
+        )}
+
+        {user && !userHasPurchased && !verifyingPurchase && (
+          <p className="text-sm text-gray-500 italic">
+            Purchase this product to write a review
+          </p>
+        )}
+
+        {verifyingPurchase && (
+          <div className="flex items-center text-sm text-gray-500">
+            <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-gray-400 mr-2"></div>
+            Checking purchase status...
+          </div>
         )}
       </div>
 
