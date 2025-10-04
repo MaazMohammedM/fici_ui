@@ -8,7 +8,6 @@ import OrderSummary from './components/OrderSummary';
 import PaymentStatusModal from './modal/PaymentStatusModal';
 import GuestCheckoutForm from './components/GuestCheckoutForm';
 import { useCartStore } from '@store/cartStore';
-import { usePaymentStore } from '@store/paymentStore';
 import { useAuthStore } from '@store/authStore';
 import { supabase } from '@lib/supabase';
 import { Shield, ArrowLeft } from 'lucide-react';
@@ -39,7 +38,6 @@ const CHECKOUT_DRAFT_KEY = 'checkoutDraft';
 const CheckoutPage: React.FC = () => {
   const navigate = useNavigate();
   const { items: cartItems, getCartTotal, getCartSavings, clearCart } = useCartStore();
-  const { savePaymentDetails } = usePaymentStore();
   const user = useAuthStore((state) => state.user);
   const isGuest = useAuthStore((state) => state.isGuest);
   const guestContactInfo = useAuthStore((state) => state.guestContactInfo);
@@ -114,28 +112,15 @@ const CheckoutPage: React.FC = () => {
     return required.every(k => !!(selectedAddress as any)[k]);
   }, [selectedAddress]);
 
-  const handlePaymentSuccess = async (response: any, orderId: string, amountRupees: number) => {
+  const handlePaymentSuccess = async (orderId: string) => {
     try {
-      const authType = getAuthenticationType();
-      const paymentData = {
-        order_id: orderId,
-        user_id: authType === 'user' ? user!.id : null,
-        guest_session_id: authType === 'guest' ? useAuthStore.getState().getCurrentSessionId() : null,
-        provider: "razorpay",
-        payment_status: "pending" as const,
-        payment_method: selectedPayment,
-        amount: amountRupees,
-        currency: "INR",
-        payment_reference: response.razorpay_payment_id,
-      };
-      
-      await savePaymentDetails(paymentData);
-      
+      // ✅ REMOVED: savePaymentDetails call - webhook will handle payment status updates
+      // The webhook will receive the payment and update the payment record with proper status
 
       setCurrentOrderId(orderId);
       setPaymentStatus('success');
     } catch (err) {
-      console.error('savePaymentDetails error', err);
+      console.error('Payment success handling error', err);
       setPaymentStatus('failed');
     }
   };
@@ -209,17 +194,19 @@ const CheckoutPage: React.FC = () => {
         body: orderData,
       });
       if (error) throw error;
-      const paymentOrder = data;
+
+      // Handle response format from edge function
+      const { razorpay_order_id, order_id: internalOrderId, key: razorpayKey, payment_method } = data;
 
       // Handle COD orders - no Razorpay needed
-      if (selectedPayment === 'cod') {
-        setCurrentOrderId(orderId);
+      if (payment_method === 'cod') {
+        setCurrentOrderId(internalOrderId);
         setPaymentStatus('success');
         return;
       }
 
       await loadRazorpayScript();
-      const key = getRazorpayKey();
+      const key = razorpayKey || getRazorpayKey();
 
       const rzp = new (window as any).Razorpay({
         key,
@@ -227,17 +214,17 @@ const CheckoutPage: React.FC = () => {
         currency: 'INR',
         name: 'FICI',
         description: 'Order payment',
-        order_id: paymentOrder.id,
-        handler: (response: any) => handlePaymentSuccess(response, orderId, totalAmount),
+        order_id: razorpay_order_id, // ✅ Use Razorpay order ID from Orders API
+        handler: () => handlePaymentSuccess(internalOrderId),
         prefill: {
-          name: authType === 'user' 
-            ? (selectedAddress as any)?.name 
+          name: authType === 'user'
+            ? (selectedAddress as any)?.name
             : guestInfo?.name,
-          email: authType === 'user' 
-            ? (selectedAddress as any)?.email 
+          email: authType === 'user'
+            ? (selectedAddress as any)?.email
             : guestInfo?.email,
-          contact: authType === 'user' 
-            ? (selectedAddress as any)?.phone 
+          contact: authType === 'user'
+            ? (selectedAddress as any)?.phone
             : guestInfo?.phone
         },
         theme: { color: '#3B82F6' },
