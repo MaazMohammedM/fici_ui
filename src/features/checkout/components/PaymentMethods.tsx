@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 export type PaymentMethod = {
   id: string;
@@ -15,14 +15,19 @@ interface Props {
 const PaymentMethods: React.FC<Props> = ({ selected, onSelect }) => {
   const [local, setLocal] = useState(selected);
 
+  // Update local state when selected prop changes
+  useEffect(() => {
+    setLocal(selected);
+  }, [selected]);
+
   const methods: PaymentMethod[] = [
     { id: 'razorpay', name: 'Online Payment', description: 'Cards, UPI, Netbanking', icon: '💳' },
     { id: 'cod', name: 'Cash on Delivery', description: 'Pay on delivery', icon: '💵' }
   ];
 
-  const continueClicked = () => {
-    setLocal(local);
-    onSelect(local);
+  const handleMethodSelect = (methodId: string) => {
+    setLocal(methodId);
+    onSelect(methodId); // ✅ Immediately call onSelect to update parent state
   };
 
   return (
@@ -33,14 +38,14 @@ const PaymentMethods: React.FC<Props> = ({ selected, onSelect }) => {
 
       <div className="space-y-3">
         {methods.map(m => (
-          <div key={m.id} onClick={() => setLocal(m.id)} className={`p-4 border rounded-lg cursor-pointer ${local === m.id ? 'border-accent bg-accent/5' : 'border-gray-200 dark:border-gray-700'}`}>
+          <div key={m.id} onClick={() => handleMethodSelect(m.id)} className={`p-4 border rounded-lg cursor-pointer transition-colors ${local === m.id ? 'border-accent bg-accent/5' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'}`}>
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
                 <div className="text-2xl">{m.icon}</div>
                 <div>
                   <div className="flex items-center gap-3">
                     <h3 className="font-semibold">{m.name}</h3>
-                    <input type="radio" checked={local === m.id} onChange={() => setLocal(m.id)} />
+                    <input type="radio" checked={local === m.id} onChange={() => handleMethodSelect(m.id)} />
                   </div>
                   <p className="text-sm text-gray-600">{m.description}</p>
                 </div>
@@ -62,10 +67,6 @@ const PaymentMethods: React.FC<Props> = ({ selected, onSelect }) => {
           </div>
         ))}
       </div>
-
-      <button onClick={continueClicked} disabled={!local} className="w-full mt-6 bg-accent text-white py-2 rounded-lg">
-        Continue
-      </button>
     </div>
   );
 };

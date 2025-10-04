@@ -1,19 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@lib/supabase";
 
-type VisitRecord = {
-  product_id: string;
-  visited_at: string;
-  name: string | null;
-  thumbnail_url: string | null;
-};
-
-
 interface DashboardStats {
   totalVisits: number;
   totalOrders: number;
   totalUsers: number;
   conversionRate: number;
+  totalRevenue: number;
+  pendingOrders: number;
 }
 
 interface TopProduct {
@@ -33,7 +27,7 @@ interface ProductVisit {
   name: string;
   visit_count: number;
   thumbnail_url?: string;
-  last_visited?: string;
+  last_visited_at: string;
 }
 
 export const useAdminDashboard = () => {
@@ -42,6 +36,8 @@ export const useAdminDashboard = () => {
     totalOrders: 0,
     totalUsers: 0,
     conversionRate: 0,
+    totalRevenue: 0,
+    pendingOrders: 0,
   });
   const [topProducts, setTopProducts] = useState<TopProduct[]>([]);
   const [dailyVisits, setDailyVisits] = useState<DailyVisit[]>([]);
@@ -54,32 +50,51 @@ export const useAdminDashboard = () => {
   const [searchQuery, setSearchQuery] = useState("");
 
   /**
-   * 📊 Dashboard Stats
+   * 📊 Dashboard Stats - Updated for new schema
    */
   const fetchDashboardStats = useCallback(async () => {
     try {
       setError(null);
 
-      const { count: totalVisits } = await supabase
-        .from("product_visits")
-        .select("*", { count: "exact", head: true });
+      // Get total visits from product_visit_stats
+      const { data: visitData, error: visitError } = await supabase
+        .from("product_visit_stats")
+        .select("visit_count");
 
-      const { count: totalOrders } = await supabase
+      if (visitError) throw visitError;
+
+      const totalVisits = visitData?.reduce((sum, item) => sum + item.visit_count, 0) || 0;
+
+      // Get total orders and revenue
+      const { data: ordersData, error: ordersError } = await supabase
         .from("orders")
-        .select("*", { count: "exact", head: true });
+        .select("total_amount, status, payment_status");
 
-      const { count: totalUsers } = await supabase
+      if (ordersError) throw ordersError;
+
+      const totalOrders = ordersData?.length || 0;
+      const totalRevenue = ordersData?.reduce((sum, order) =>
+        order.payment_status === 'paid' ? sum + (order.total_amount || 0) : sum, 0) || 0;
+      const pendingOrders = ordersData?.filter(order =>
+        order.payment_status === 'paid' && order.status !== 'shipped' && order.status !== 'delivered'
+      ).length || 0;
+
+      // Get total users
+      const { count: totalUsers, error: usersError } = await supabase
         .from("user_profiles")
         .select("*", { count: "exact", head: true });
 
-      const conversionRate =
-        totalVisits && totalOrders ? (totalOrders / totalVisits) * 100 : 0;
+      if (usersError) throw usersError;
+
+      const conversionRate = totalVisits && totalOrders ? (totalOrders / totalVisits) * 100 : 0;
 
       setStats({
-        totalVisits: totalVisits || 0,
-        totalOrders: totalOrders || 0,
+        totalVisits,
+        totalOrders,
         totalUsers: totalUsers || 0,
         conversionRate,
+        totalRevenue,
+        pendingOrders,
       });
     } catch (err) {
       console.error("Error fetching dashboard stats:", err);
@@ -88,42 +103,28 @@ export const useAdminDashboard = () => {
   }, []);
 
   /**
-   * 🏆 Top Products
+   * 🏆 Top Products - Updated for new schema
    */
   const fetchTopProducts = useCallback(async () => {
     try {
       setError(null);
+
       const { data, error } = await supabase
-      .from("product_visits")
-      .select("product_id, name, thumbnail_url, visited_at");
-    
+        .from("product_visit_stats")
+        .select("product_id, name, thumbnail_url, visit_count, last_visited_at")
+        .order("visit_count", { ascending: false })
+        .limit(10);
 
       if (error) throw error;
 
-      const productVisits = (data as VisitRecord[]).reduce<
-      Record<string, TopProduct>
-    >((acc, visit) => {
-      const pid = visit.product_id;
-    
-      if (!acc[pid] && visit.name) {
-        acc[pid] = {
-          product_id: pid,
-          name: visit.name,
-          thumbnail_url: visit.thumbnail_url || undefined,
-          visit_count: 0,
-        };
-      }
-      if (acc[pid]) acc[pid].visit_count++;
-      return acc;
-    }, {});
-    
-    
+      const topProductsData: TopProduct[] = (data || []).map(item => ({
+        product_id: item.product_id,
+        name: item.name,
+        visit_count: item.visit_count,
+        thumbnail_url: item.thumbnail_url || undefined,
+      }));
 
-      setTopProducts(
-        Object.values(productVisits)
-          .sort((a, b) => b.visit_count - a.visit_count)
-          .slice(0, 10)
-      );
+      setTopProducts(topProductsData);
     } catch (err) {
       console.error("Error fetching top products:", err);
       setError("Failed to fetch top products");
@@ -131,25 +132,26 @@ export const useAdminDashboard = () => {
   }, []);
 
   /**
-   * 📈 Daily Visits (last 30 days)
+   * 📈 Daily Visits (last 30 days) - Updated for new schema
    */
   const fetchDailyVisits = useCallback(async () => {
     try {
       setError(null);
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
+      // For now, we'll aggregate visits by date from product_visit_stats
+      // In a real scenario, you might want a separate daily_visits table
       const { data, error } = await supabase
-        .from("product_visits")
-        .select("visited_at")
-        .gte("visited_at", thirtyDaysAgo.toISOString());
+        .from("product_visit_stats")
+        .select("last_visited_at");
 
       if (error) throw error;
 
       const visitsByDate = (data || []).reduce(
         (acc: Record<string, number>, visit) => {
-          const date = new Date(visit.visited_at).toISOString().split("T")[0];
-          acc[date] = (acc[date] || 0) + 1;
+          if (visit.last_visited_at) {
+            const date = new Date(visit.last_visited_at).toISOString().split("T")[0];
+            acc[date] = (acc[date] || 0) + 1;
+          }
           return acc;
         },
         {}
@@ -174,7 +176,7 @@ export const useAdminDashboard = () => {
   }, []);
 
   /**
-   * 📦 All Products (paginated + search)
+   * 📦 All Products (paginated + search) - Updated for new schema
    */
   const fetchAllProducts = useCallback(
     async (page = 1, search = "") => {
@@ -183,56 +185,30 @@ export const useAdminDashboard = () => {
         const pageSize = 20;
         const from = (page - 1) * pageSize;
         const to = from + pageSize - 1;
-        let query =  supabase
-        .from("product_visits")
-        .select("product_id, name, thumbnail_url, visited_at");
-      
-      
+
+        let query = supabase
+          .from("product_visit_stats")
+          .select("product_id, name, thumbnail_url, visit_count, last_visited_at");
 
         if (search) {
-          // ✅ match alias `products`
-          query = query.ilike("products.name", `%${search}%`);
+          query = query.ilike("name", `%${search}%`);
         }
 
         const { data, error, count } = await query
           .range(from, to)
-          .order("visited_at", { ascending: false });
+          .order("visit_count", { ascending: false });
 
         if (error) throw error;
 
-        const productVisits = (data as VisitRecord[]).reduce<
-  Record<string, TopProduct>
->((acc, visit) => {
-  const pid = visit.product_id;
+        const productVisits: ProductVisit[] = (data || []).map(item => ({
+          product_id: item.product_id,
+          name: item.name,
+          visit_count: item.visit_count,
+          thumbnail_url: item.thumbnail_url || undefined,
+          last_visited_at: item.last_visited_at,
+        }));
 
-  if (!acc[pid] && visit.name) {
-    acc[pid] = {
-      product_id: pid,
-      name: visit.name,
-      thumbnail_url: visit.thumbnail_url || undefined,
-      visit_count: 0,
-    };
-  }
-
-
-          if (acc[pid]) {
-            acc[pid].visit_count++;
-            // const visitDate = visit.visited_at
-            //   ? new Date(visit.visited_at)
-            //   : null;
-            // const lastVisited = acc[pid].visit_count
-            //   ? new Date(acc[pid].visit_count)
-            //   : null;
-
-            // if (visitDate && (!lastVisited || visitDate > lastVisited)) {
-            //   acc[pid].visit_count = visit.visited_at;
-            // }
-          }
-
-          return acc;
-        }, {});
-
-        setAllProducts(Object.values(productVisits));
+        setAllProducts(productVisits);
         setTotalPages(Math.ceil((count || 0) / pageSize));
       } catch (err) {
         console.error("Error fetching all products:", err);

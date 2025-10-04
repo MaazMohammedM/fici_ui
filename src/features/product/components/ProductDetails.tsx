@@ -29,18 +29,18 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
   selectedVariant,
   selectedArticleId,
   selectedSize,
-  quantity,
   availableSizes,
   fullSizeRange,
   onColorChange,
   onSizeChange,
-  onQuantityChange,
   onAddToCart,
   onBuyNow,
   onWhatsAppContact,
 }) => {
   const [showSizeGuide, setShowSizeGuide] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [quantitys, setQuantity] = useState(1);
+
 
   // Generate shoe sizes (39-47) if the product is footwear
   const shoeSizes = useMemo(() => {
@@ -138,17 +138,17 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
 
       {/* Price */}
       <div className="mt-4">
-        <div className="flex items-baseline space-x-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <span className="text-3xl font-bold text-gray-900">
             ₹{Number(selectedVariant?.discount_price || 0).toLocaleString('en-IN')}
           </span>
-          {selectedVariant?.mrp && Number(selectedVariant.mrp) > Number(selectedVariant.discount_price || 0) && (
+          {selectedVariant?.mrp_price && Number(selectedVariant.mrp_price) > Number(selectedVariant.discount_price || 0) && (
             <>
               <span className="text-lg text-gray-500 line-through">
-                ₹{Number(selectedVariant.mrp).toLocaleString('en-IN')}
+                ₹{Number(selectedVariant.mrp_price).toLocaleString('en-IN')}
               </span>
-              <span className="ml-2 text-sm font-medium text-green-600">
-                {Math.round(((Number(selectedVariant.mrp) - Number(selectedVariant.discount_price || 0)) / Number(selectedVariant.mrp)) * 100)}% off
+              <span className="text-sm bg-green-100 text-green-800 px-2 py-1 rounded font-medium">
+                Save ₹{(Number(selectedVariant.mrp_price) - Number(selectedVariant.discount_price || 0)).toLocaleString('en-IN')}
               </span>
             </>
           )}
@@ -160,8 +160,8 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
       <div className="pt-4 border-t border-gray-200">
         <ProductColorSelector
           currentProduct={currentProduct}
-          selectedArticleId={selectedArticleId}
           selectedVariant={selectedVariant}
+          selectedArticleId={selectedArticleId}
           onColorChange={onColorChange}
         />
       </div>
@@ -184,11 +184,12 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
       {/* Quantity Selector - Only show if a size is selected */}
       {selectedSize && (
         <div className="pt-4 border-t border-gray-200">
-          <ProductQuantitySelector
-            quantity={quantity}
-            onQuantityChange={onQuantityChange}
-            maxQuantity={selectedVariant?.sizes[selectedSize] || 10}
-          />
+
+<ProductQuantitySelector
+  quantity={quantitys}
+  onQuantityChange={setQuantity}
+  maxQuantity={ 10}
+/>
         </div>
       )}
       <div className="pt-4 space-y-3">
@@ -197,11 +198,11 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
           onBuyNow={onBuyNow}
         />
         
-        <div className="flex items-center justify-center space-x-2 py-2">
+        <div className="flex items-center justify-left space-x-2 py-2">
           <svg className="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
           </svg>
-          <span className="text-xs text-gray-500">Secure Checkout</span>
+          <span className="text-xs text-gray-500">Secure Checkout with Razorpay</span>
         </div>
       </div>
 
@@ -255,13 +256,7 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
             <svg className="h-5 w-5 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
             </svg>
-            Share
-          </button>
-          <button className="flex items-center text-sm font-medium text-gray-700 hover:text-accent">
-            <svg className="h-5 w-5 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-            </svg>
-            Save for later
+            Share this Product
           </button>
           <button className="flex items-center text-sm font-medium text-gray-700 hover:text-accent">
             <svg className="h-5 w-5 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

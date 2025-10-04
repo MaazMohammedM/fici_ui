@@ -18,9 +18,9 @@ interface OrderState {
   // For authenticated users
   fetchOrders: (userId: string, filters?: OrderFilters & { page?: number; limit?: number }) => Promise<void>;
   // For guest users
-  fetchGuestOrders: (email: string, phone: string) => Promise<void>;
+  fetchGuestOrders: (email: string, phone: string, tpin?: string) => Promise<void>;
   // Common methods
-  fetchOrderById: (orderId: string, email?: string, phone?: string) => Promise<Order | null>;
+  fetchOrderById: (orderId: string, email?: string, phone?: string, tpin?: string) => Promise<Order | null>;
   createOrder: (orderData: Omit<Order, 'id' | 'created_at'>) => Promise<string | null>;
   updateOrderStatus: (orderId: string, status: Order['status']) => Promise<void>;
   submitReview: (review: Omit<Review, 'review_id' | 'created_at'>) => Promise<void>;
@@ -47,10 +47,17 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     totalPages: 0
   },
 
-  setPage: (page: number) => {
-    set(state => ({
-      pagination: { ...state.pagination, page }
-    }));
+  verifyGuestTPIN: async (tpin: string) => {
+    set({ loading: true, error: null });
+    try {
+      // Use the existing fetchGuestOrders logic for TPIN verification
+      await get().fetchGuestOrders('', '', tpin);
+      set({ loading: false });
+    } catch (error: any) {
+      console.error('Error verifying TPIN:', error);
+      set({ error: error.message || 'Failed to verify TPIN', loading: false });
+      throw error;
+    }
   },
 
   fetchOrders: async (userId: string, filters: OrderFilters & { page?: number; limit?: number } = {}) => {
@@ -141,7 +148,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     }
   },
 
-  fetchOrderById: async (orderId: string, email?: string, phone?: string): Promise<Order | null> => {
+  fetchOrderById: async (orderId: string, email?: string, phone?: string, tpin?: string): Promise<Order | null> => {
     set({ loading: true, error: null });
     try {
       let query = supabase
@@ -152,9 +159,10 @@ export const useOrderStore = create<OrderState>((set, get) => ({
         `)
         .eq('order_id', orderId);
 
-      // For guest orders, verify email/phone matches
+      // For guest orders, verify email/phone/tpin matches
       if (email) query = query.eq('guest_email', email);
       if (phone) query = query.eq('guest_phone', phone);
+      if (tpin) query = query.eq('guest_tpin', tpin);
 
       const { data, error } = await query.single();
 
@@ -165,6 +173,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       const guestEmail = data.guest_email || (data.guest_contact_info?.email);
       const guestPhone = data.guest_phone || (data.guest_contact_info?.phone);
       const guestName = data.guest_name || (data.guest_contact_info?.name);
+      const guestTPIN = data.guest_tpin;
       const isGuestOrder = !data.user_id || data.guest_session_id;
 
       const transformedOrder: Order = {
@@ -174,6 +183,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
         guest_email: guestEmail,
         guest_phone: guestPhone,
         guest_name: guestName,
+        guest_tpin: guestTPIN,
         items: data.order_items || [],
         subtotal: data.subtotal || 0,
         discount: data.discount || 0,
@@ -408,29 +418,38 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     }
   },
 
-  clearError: () => set({ error: null }),
-  
-  fetchGuestOrders: async (email: string, phone: string) => {
+  setPage: (page: number) => {
+    set(state => ({
+      pagination: { ...state.pagination, page }
+    }));
+  },
+
+  fetchGuestOrders: async (email: string, phone: string, tpin?: string) => {
     set({ loading: true, error: null });
     try {
       // Build queries that include related order_items
       const baseSelect = `*, order_items (*)`;
       const queries: any[] = [];
 
-      // First, try to find orders by guest_email or guest_phone
-      if (email || phone) {
+      // First, try to find orders by guest_email, guest_phone, or guest_tpin
+      if (email || phone || tpin) {
         const query = supabase
           .from('orders')
           .select(baseSelect, { count: 'exact' })
           .order('created_at', { ascending: false });
 
-        // Build OR conditions for email and phone
+        // Build OR conditions for email, phone, and tpin
         const orConditions = [];
         if (email) {
           orConditions.push(`guest_email.eq.${email}`);
         }
         if (phone) {
           orConditions.push(`guest_phone.eq.${phone}`);
+        }
+        if (tpin) {
+          // Check both guest_tpin and guest_pin_hash fields for TPIN
+          orConditions.push(`guest_tpin.eq.${tpin}`);
+          orConditions.push(`guest_pin_hash.eq.${tpin}`);
         }
 
         if (orConditions.length > 0) {
@@ -441,8 +460,8 @@ export const useOrderStore = create<OrderState>((set, get) => ({
 
       // If no queries to run, set empty orders
       if (queries.length === 0) {
-        set({ 
-          orders: [], 
+        set({
+          orders: [],
           loading: false,
           pagination: {
             total: 0,
@@ -558,7 +577,9 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       return !!data;
     } catch (error) {
       console.error('Error verifying guest order access:', error);
-      return false;
+      return false; // Explicit return for error case
     }
-  }
+  },
+
+  clearError: () => set({ error: null })
 }));

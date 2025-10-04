@@ -32,6 +32,7 @@ export interface Order {
   guest_email?: string;
   guest_phone?: string;
   guest_name?: string;
+  guest_tpin?: string; // For guest order verification during payment
   
   // Deprecated - keeping for backward compatibility
   guest_contact_info?: {

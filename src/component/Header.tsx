@@ -75,7 +75,7 @@ const Header: React.FC = () => {
     { label: 'Shoe Care', path: '/shoe-care' },
     { label: 'About', path: '/about' },
     { label: 'Contact', path: '/contact' },
-    ...(isAuthenticated || isGuest ? [{ label: 'Wishlist', path: '/wishlist' }, { label: 'Orders', path: '/orders' }] : []),
+    ...(isAuthenticated || isGuest ? [ { label: 'Orders', path: '/orders' }] : []),
   ];
 
   const handleSearch = (e: React.FormEvent) => {
@@ -201,12 +201,12 @@ const Header: React.FC = () => {
                   <div className="absolute right-0 mt-1 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border dark:border-gray-700 py-2">
                     <button onClick={() => { navigate('/profile'); setUserDropdown(false); }} className="block w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700">My Profile</button>
                     <button onClick={() => { navigate('/orders'); setUserDropdown(false); }} className="block w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700">My Orders</button>
-                    {role === 'admin' && (
-                      <button 
-                        onClick={() => { 
-                          navigate('/admin'); 
-                          setUserDropdown(false); 
-                        }} 
+                    {((role?.toLowerCase() === 'admin') || (user?.user_metadata?.role?.toLowerCase() === 'admin')) && (
+                      <button
+                        onClick={() => {
+                          navigate('/admin');
+                          setUserDropdown(false);
+                        }}
                         className="block w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700"
                       >
                         Admin Dashboard

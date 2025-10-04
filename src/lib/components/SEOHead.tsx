@@ -14,7 +14,7 @@ interface SEOHeadProps {
 }
 
 const SEOHead: React.FC<SEOHeadProps> = ({
-  title = 'FICI Shoes - Premium Leather Footwear',
+  title = '',
   description = 'Discover premium leather shoes, sandals, and accessories. Handcrafted quality with modern style. Free shipping on orders above ₹999.',
   keywords = 'leather shoes, premium footwear, handcrafted shoes, men shoes, women shoes, sandals, boots',
   image = '/og-image.jpg',
@@ -24,8 +24,8 @@ const SEOHead: React.FC<SEOHeadProps> = ({
   currency = 'INR',
   availability = 'in stock'
 }) => {
-  const siteName = 'FICI Shoes';
-  const fullTitle = title.includes(siteName) ? title : `${title} | ${siteName}`;
+  const siteName = 'FiCi Shoes';
+  const fullTitle = title.includes(siteName) ? title : `${title} ${siteName}`;
 
   return (
     <Helmet>

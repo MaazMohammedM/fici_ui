@@ -1,348 +1,373 @@
+// src/features/product/components/ProductImageGallery.tsx
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import type { Product } from '../../../types/product';
 import fallbackImage from '../../../assets/Fici_logo.png';
 import { ZoomIn, ZoomOut, X } from 'lucide-react';
-
-interface Position {
-  x: number;
-  y: number;
-}
 
 interface ProductImageGalleryProps {
   selectedVariant: Product | undefined;
   productName: string;
 }
 
-const LENS_SIZE = 250; // Increased lens size for better visibility
-const ZOOM_LEVEL = 3.5; // Increased zoom level for better detail
+const LENS_SIZE = 250;
+const ZOOM_LEVEL = 3.5;
 
-const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({ 
-  selectedVariant, 
-  productName 
-}) => {
+const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({ selectedVariant, productName }: ProductImageGalleryProps) => {
   const [selectedImage, setSelectedImage] = useState(0);
-  const [isZoomOpen, setIsZoomOpen] = useState(false);
-  const [position, setPosition] = useState<Position>({ x: 0, y: 0 });
+
+  // Hover / lens state (desktop)
   const [isHovering, setIsHovering] = useState(false);
   const [showLens, setShowLens] = useState(false);
-  const [lensPosition, setLensPosition] = useState<Position>({ x: 0, y: 0 });
+  const [lensPosition, setLensPosition] = useState({ x: 0, y: 0 });
+  const [zoomPos, setZoomPos] = useState({ x: 50, y: 50 });
+
+  // Modal & slideshow
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalImageIndex, setModalImageIndex] = useState(0);
-  const [touchStart, setTouchStart] = useState(0);
-  const [touchEnd, setTouchEnd] = useState(0);
 
-  const containerRef = useRef<HTMLDivElement>(null);
-  const imgRef = useRef<HTMLImageElement>(null);
-  const lensRef = useRef<HTMLDivElement>(null);
-  const zoomedImgRef = useRef<HTMLDivElement>(null);
+  // Touch/swipe
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
+  const [touchEndX, setTouchEndX] = useState<number | null>(null);
+
+  // Zoom level detection and management
+  const [browserZoomLevel, setBrowserZoomLevel] = useState(100);
+  const [isZoomDisabled, setIsZoomDisabled] = useState(false);
+
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
   // Reset selected image when variant changes
   useEffect(() => {
     setSelectedImage(0);
   }, [selectedVariant]);
 
-  // Parse images with proper type safety
+  // Detect browser zoom level and disable zoom functionality at 150%+
+  useEffect(() => {
+    const detectZoomLevel = () => {
+      let zoom = 100;
+
+      // Method 1: Use visualViewport API if available (most accurate)
+      if (window.visualViewport) {
+        zoom = Math.round(window.visualViewport.scale * 100);
+      }
+      // Method 2: Fallback using devicePixelRatio
+      else {
+        zoom = Math.round((window.devicePixelRatio * window.screen.width) / window.innerWidth * 100);
+      }
+
+      // Additional check for high DPI displays
+      if (window.devicePixelRatio > 1) {
+        const calculatedZoom = Math.round((window.innerWidth * window.devicePixelRatio) / window.screen.width * 100);
+        if (Math.abs(calculatedZoom - zoom) < 10) { // Within 10% tolerance
+          zoom = calculatedZoom;
+        }
+      }
+
+      console.log('Detected zoom level:', zoom);
+      setBrowserZoomLevel(zoom);
+      setIsZoomDisabled(zoom >= 150);
+
+      // Force reset hover and zoom state when zoom is disabled
+      if (zoom >= 150) {
+        setIsHovering(false);
+        setShowLens(false);
+      }
+    };
+
+    // Listen for zoom changes with multiple methods
+    const handleResize = () => detectZoomLevel();
+    const handleVisualViewportChange = () => detectZoomLevel();
+
+    window.addEventListener('resize', handleResize);
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', handleVisualViewportChange);
+    }
+
+    // Also listen for orientation changes (mobile)
+    window.addEventListener('orientationchange', handleResize);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', handleVisualViewportChange);
+      }
+    };
+  }, []); // Empty dependency array - only run once on mount
+
+  // Reset hover/zoom states when zoom becomes disabled
+  useEffect(() => {
+    if (isZoomDisabled) {
+      console.log('Zoom disabled - resetting states');
+      setIsHovering(false);
+      setShowLens(false);
+    }
+  }, [isZoomDisabled]);
   const parseImages = useCallback((images: unknown): string[] => {
     if (!images) return [];
-    
-    if (Array.isArray(images)) {
-      return images.filter((img): img is string => 
-        Boolean(img) && typeof img === 'string' && img.trim() !== ''
-      );
-    }
-    
+    if (Array.isArray(images)) return images.filter((i): i is string => !!i && typeof i === 'string');
     if (typeof images === 'string') {
       const trimmed = images.trim();
       if (!trimmed) return [];
-      
-      if (trimmed.startsWith('http')) {
-        return trimmed
-          .split(',')
-          .map(url => url.trim())
-          .filter(Boolean);
-      }
-      
+      // comma separated
+      if (trimmed.includes(',')) return trimmed.split(',').map(s => s.trim()).filter(Boolean);
+      // try JSON
       try {
-        const parsed = JSON.parse(trimmed) as unknown;
-        if (Array.isArray(parsed)) {
-          return parsed.filter((img): img is string => 
-            Boolean(img) && typeof img === 'string' && img.trim() !== ''
-          );
-        }
-        return [];
-      } catch {
-        return [trimmed];
-      }
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) return parsed.filter((i): i is string => !!i && typeof i === 'string');
+      } catch { /* ignore */ }
+      return [trimmed];
     }
-    
     return [];
   }, []);
 
-  // Get valid images with proper typing
   const finalImages = useMemo(() => {
     if (!selectedVariant) return [fallbackImage];
-    
-    let validImages = parseImages(selectedVariant.images);
-    
-    if (validImages.length === 0 && selectedVariant.thumbnail_url?.trim()) {
-      validImages = [selectedVariant.thumbnail_url];
-    }
-    
-    return validImages.length > 0 ? validImages : [fallbackImage];
+    let imgs = parseImages(selectedVariant.images);
+    if (imgs.length === 0 && selectedVariant.thumbnail_url) imgs = [selectedVariant.thumbnail_url];
+    return imgs.length ? imgs : [fallbackImage];
   }, [selectedVariant, parseImages]);
 
-  // Navigation handlers
-  const nextImage = useCallback(() => {
-    setSelectedImage(prev => (prev + 1) % finalImages.length);
-  }, [finalImages.length]);
+  const nextImage = useCallback(() => setSelectedImage(p => (p + 1) % finalImages.length), [finalImages.length]);
+  const prevImage = useCallback(() => setSelectedImage(p => (p - 1 + finalImages.length) % finalImages.length), [finalImages.length]);
 
-  const prevImage = useCallback(() => {
-    setSelectedImage(prev => (prev - 1 + finalImages.length) % finalImages.length);
-  }, [finalImages.length]);
-
-  // Event handlers
+  // Desktop: track mouse and compute lens + zoom position.
   const handleMouseEnter = useCallback(() => {
+    // do not enable hover behavior on touch devices — but mouse events will not fire there typically
+    if (isZoomDisabled) {
+      console.log('Mouse enter blocked - zoom disabled');
+      return;
+    }
     setIsHovering(true);
-  }, []);
+  }, [isZoomDisabled]);
 
   const handleMouseLeave = useCallback(() => {
-    const timer = setTimeout(() => {
-      setIsHovering(false);
-      setShowLens(false);
-    }, 100);
-    return () => clearTimeout(timer);
+    setIsHovering(false);
+    setShowLens(false);
   }, []);
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-    if (!isHovering || !containerRef.current) return;
-    
-    const container = containerRef.current;
-    const rect = container.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    
-    const lensX = Math.max(0, Math.min(x - LENS_SIZE / 2, rect.width - LENS_SIZE));
-    const lensY = Math.max(0, Math.min(y - LENS_SIZE / 2, rect.height - LENS_SIZE));
-    
-    setLensPosition({ x: lensX, y: lensY });
-    setPosition({
-      x: (lensX / (rect.width - LENS_SIZE || 1)) * 100,
-      y: (lensY / (rect.height - LENS_SIZE || 1)) * 100
-    });
-    
-    if (!showLens) {
-      setShowLens(true);
+    if (isZoomDisabled) {
+      console.log('Mouse move blocked - zoom disabled');
+      return;
     }
-  }, [isHovering, showLens]);
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    // compute lens top-left limited inside container
+    const rawX = e.clientX - rect.left;
+    const rawY = e.clientY - rect.top;
+    const left = Math.max(0, Math.min(rawX - LENS_SIZE / 2, rect.width - LENS_SIZE));
+    const top = Math.max(0, Math.min(rawY - LENS_SIZE / 2, rect.height - LENS_SIZE));
+    setLensPosition({ x: left, y: top });
 
+    // background position for zoom box (percentage)
+    const px = (left / (rect.width - LENS_SIZE || 1)) * 100;
+    const py = (top / (rect.height - LENS_SIZE || 1)) * 100;
+    setZoomPos({ x: px, y: py });
+
+    // only show lens when mouse is moving inside container
+    if (!showLens) setShowLens(true);
+  }, [showLens, isZoomDisabled]);
+
+  // Toggle zoom lens with button (keeps old behavior: user can enable/disable)
   const toggleZoom = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    setShowLens(prev => !prev);
-  }, []);
+    if (isZoomDisabled) {
+      console.log('Zoom toggle blocked - zoom disabled');
+      return;
+    }
+    setShowLens(s => !s);
+  }, [isZoomDisabled]);
 
+  // Modal controls
   const openImageModal = useCallback((index: number) => {
     setModalImageIndex(index);
     setIsModalOpen(true);
     document.body.style.overflow = 'hidden';
   }, []);
-
   const closeImageModal = useCallback(() => {
     setIsModalOpen(false);
     document.body.style.overflow = 'unset';
   }, []);
-
-  const closeZoomModal = useCallback(() => {
-    setIsZoomOpen(false);
-    document.body.style.overflow = 'unset';
-  }, []);
-
-  const navigateModalImage = useCallback((direction: 'prev' | 'next') => {
-    setModalImageIndex(prev => 
-      direction === 'next' 
-        ? (prev + 1) % finalImages.length 
-        : (prev - 1 + finalImages.length) % finalImages.length
-    );
+  const navigateModalImage = useCallback((dir: 'prev' | 'next') => {
+    setModalImageIndex(p => (dir === 'next' ? (p + 1) % finalImages.length : (p - 1 + finalImages.length) % finalImages.length));
   }, [finalImages.length]);
 
-  const handleImageError = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
-    const target = e.target as HTMLImageElement;
-    if (target.src !== fallbackImage) {
-      target.src = fallbackImage;
-    }
-  }, []);
-
-  // Touch event handlers
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+  // Touch (swipe) handlers for mobile — don't show lens for touch devices
+  const handleTouchStart = (e: React.TouchEvent) => {
     if (e.touches.length === 1) {
-      setTouchStart(e.touches[0].clientX);
-      setTouchEnd(e.touches[0].clientX);
+      setTouchStartX(e.touches[0].clientX);
+      setTouchEndX(null);
     }
-  }, []);
-
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (e.touches.length === 1) {
-      setTouchEnd(e.touches[0].clientX);
+  };
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 1) setTouchEndX(e.touches[0].clientX);
+  };
+  const handleTouchEnd = () => {
+    if (touchStartX == null || touchEndX == null) {
+      setTouchStartX(null);
+      setTouchEndX(null);
+      return;
     }
-  }, []);
-
-  const handleTouchEnd = useCallback(() => {
-    const swipeThreshold = 50;
-    const swipeDiff = touchStart - touchEnd;
-    
-    if (Math.abs(swipeDiff) > swipeThreshold) {
-      if (swipeDiff > 0) {
-        nextImage();
-      } else {
-        prevImage();
-      }
+    const diff = touchStartX - touchEndX;
+    const threshold = 50;
+    if (Math.abs(diff) > threshold) {
+      diff > 0 ? nextImage() : prevImage();
     }
-    
-    setTouchStart(0);
-    setTouchEnd(0);
-  }, [nextImage, prevImage, touchEnd, touchStart]);
+    setTouchStartX(null);
+    setTouchEndX(null);
+  };
 
-  // Keyboard navigation
+  // Keyboard navigation (modal / zoom)
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (isZoomOpen) {
-        if (e.key === 'Escape') {
-          closeZoomModal();
-        } else if (e.key === 'ArrowRight') {
-          nextImage();
-        } else if (e.key === 'ArrowLeft') {
-          prevImage();
-        }
-      }
-      
-      if (e.key === 'Escape' && isModalOpen) {
-        closeImageModal();
+    const onKey = (e: KeyboardEvent) => {
+      if (isModalOpen) {
+        if (e.key === 'Escape') closeImageModal();
+        if (e.key === 'ArrowRight') navigateModalImage('next');
+        if (e.key === 'ArrowLeft') navigateModalImage('prev');
+      } else {
+        // when not modal, allow left/right for images
+        if (e.key === 'ArrowRight') nextImage();
+        if (e.key === 'ArrowLeft') prevImage();
       }
     };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isModalOpen, closeImageModal, navigateModalImage, nextImage, prevImage]);
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [closeImageModal, closeZoomModal, isModalOpen, isZoomOpen, nextImage, prevImage]);
-
-  if (!selectedVariant) {
-    return (
-      <div className="aspect-square bg-gray-100 dark:bg-gray-800 rounded-2xl flex items-center justify-center">
-        <div className="text-gray-400">No product selected</div>
-      </div>
-    );
-  }
+  // image onError fallback
+  const handleImageError = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
+    const t = e.target as HTMLImageElement;
+    if (t.src !== fallbackImage) t.src = fallbackImage;
+  }, []);
 
   return (
     <div className="space-y-4">
-      {/* Main Image with Zoom Lens */}
+      {/* Main image area */}
       <div className="relative group">
-        {/* Navigation Arrows */}
+        {/* Prev / Next arrows
+            - Mobile: always visible
+            - Desktop: appear on hover (kept visually subtle via opacity)
+        */}
         {finalImages.length > 1 && (
           <>
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                prevImage();
-              }}
-              className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/80 dark:bg-gray-800/80 rounded-full flex items-center justify-center shadow-lg hover:bg-white dark:hover:bg-gray-700 transition-colors z-10 opacity-0 group-hover:opacity-100"
+              onClick={(e) => { e.stopPropagation(); prevImage(); }}
               aria-label="Previous image"
+              className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/90 dark:bg-gray-800/90 rounded-full flex items-center justify-center shadow-lg z-20
+                         md:opacity-0 md:group-hover:opacity-100 transition-opacity"
             >
               ❮
             </button>
+
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                nextImage();
-              }}
-              className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/80 dark:bg-gray-800/80 rounded-full flex items-center justify-center shadow-lg hover:bg-white dark:hover:bg-gray-700 transition-colors z-10 opacity-0 group-hover:opacity-100"
+              onClick={(e) => { e.stopPropagation(); nextImage(); }}
               aria-label="Next image"
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/90 dark:bg-gray-800/90 rounded-full flex items-center justify-center shadow-lg z-20
+                         md:opacity-0 md:group-hover:opacity-100 transition-opacity"
             >
               ❯
             </button>
           </>
         )}
-        <div 
+
+        <div
           ref={containerRef}
-          className="relative aspect-square bg-gray-100 dark:bg-gray-800 rounded-2xl overflow-hidden group"
+          className="relative aspect-square bg-gray-100 dark:bg-gray-800 rounded-2xl overflow-hidden"
           onMouseEnter={handleMouseEnter}
-          onMouseMove={handleMouseMove}
           onMouseLeave={handleMouseLeave}
+          onMouseMove={handleMouseMove}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
         >
+          {/* Zoom disabled indicator */}
+          {isZoomDisabled && (
+            <div className="absolute top-4 left-4 bg-yellow-100 dark:bg-yellow-900/80 text-yellow-800 dark:text-yellow-200 px-3 py-2 rounded-lg text-sm font-medium shadow-lg z-30">
+              Zoom disabled at {browserZoomLevel}% browser zoom
+            </div>
+          )}
+
           <img
-            ref={imgRef}
             src={finalImages[selectedImage]}
             alt={productName}
             className={`w-full h-full object-cover transition-all duration-300 ${
-              isHovering ? 'cursor-crosshair' : 'cursor-default'
+              isZoomDisabled ? 'cursor-default' : (isHovering ? 'cursor-crosshair' : 'cursor-default')
             }`}
             onClick={() => openImageModal(selectedImage)}
             onError={handleImageError}
           />
 
-          {/* Zoom Lens */}
-          {isHovering && showLens && (
-            <div 
-              ref={lensRef}
-              className="absolute border-2 border-white/50 rounded-full pointer-events-none z-10"
+          {/* Lens circle (desktop only) - Only show when zoom is NOT disabled */}
+          {isHovering && showLens && !isZoomDisabled && (
+            <div
+              className="absolute rounded-full pointer-events-none z-30"
               style={{
                 width: `${LENS_SIZE}px`,
                 height: `${LENS_SIZE}px`,
                 left: `${lensPosition.x}px`,
                 top: `${lensPosition.y}px`,
-                boxShadow: '0 0 0 1000px rgba(0, 0, 0, 0.3)',
+                boxShadow: '0 0 0 1000px rgba(0,0,0,0.3)',
+                border: '2px solid rgba(255,255,255,0.6)',
                 clipPath: `circle(${LENS_SIZE/2}px at ${LENS_SIZE/2}px ${LENS_SIZE/2}px)`
               }}
             />
           )}
 
-          {/* Zoomed Image Preview - Larger and more prominent */}
-          {isHovering && showLens && (
-            <div 
-              ref={zoomedImgRef}
-              className="fixed left-1/2 ml-12 w-[500px] h-[500px] bg-white dark:bg-gray-800 rounded-xl shadow-2xl overflow-hidden z-50 hidden md:block pointer-events-none transition-all duration-300 ease-in-out transform scale-100 group-hover:scale-105"
+          {/* Zoom preview box (desktop only) - Only show when zoom is NOT disabled */}
+          {isHovering && showLens && !isZoomDisabled && (
+            <div
+              className="hidden md:block fixed z-40 rounded-xl overflow-hidden shadow-2xl"
               style={{
+                width: 500,
+                height: 500,
+                left: '60%', // approximate placement to the right of content (same approach as your original)
+                top: '50%',
+                transform: 'translateY(-50%)',
                 backgroundImage: `url(${finalImages[selectedImage]})`,
                 backgroundSize: `${100 * ZOOM_LEVEL}%`,
-                backgroundPosition: `${position.x}% ${position.y}%`,
+                backgroundPosition: `${zoomPos.x}% ${zoomPos.y}%`,
                 backgroundRepeat: 'no-repeat',
-                backgroundOrigin: 'border-box',
-                border: '2px solid rgba(255,255,255,0.2)',
-                top: '50%',
-                transform: 'translateY(-50%) scale(1.05)',
-                marginLeft: '30px',
-                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-                transition: 'all 0.3s ease-in-out',
-                opacity: 1,
-                transformOrigin: 'left center'
+                border: '2px solid rgba(255,255,255,0.12)'
               }}
             />
           )}
         </div>
-        
-        {/* Enhanced Zoom Toggle Button */}
-        <div className="absolute bottom-4 right-4 flex flex-col space-y-2 z-10">
-          <button 
+
+        {/* Zoom toggle & slideshow button */}
+        <div className="absolute bottom-4 right-4 flex flex-col space-y-2 z-30">
+          <button
             onClick={toggleZoom}
-            className="p-2.5 bg-white/90 dark:bg-gray-800/90 rounded-full shadow-lg hover:bg-white dark:hover:bg-gray-700 transition-all transform hover:scale-110"
+            disabled={isZoomDisabled}
             aria-label={showLens ? 'Disable zoom' : 'Enable zoom'}
+            className={`p-2.5 rounded-full shadow-lg transition-transform ${
+              isZoomDisabled
+                ? 'bg-gray-400/90 dark:bg-gray-600/90 cursor-not-allowed opacity-50'
+                : 'bg-white/90 dark:bg-gray-800/90 hover:scale-105 hover:bg-white dark:hover:bg-gray-700'
+            }`}
+            title={isZoomDisabled ? `Zoom disabled at ${browserZoomLevel}% browser zoom` : (showLens ? 'Disable zoom' : 'Enable zoom')}
+            onMouseDown={(e) => {
+              if (isZoomDisabled) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Zoom button click blocked - zoom disabled');
+              }
+            }}
+            onTouchStart={(e) => {
+              if (isZoomDisabled) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Zoom button touch blocked - zoom disabled');
+              }
+            }}
           >
-            {showLens ? (
-              <ZoomOut className="w-6 h-6 text-gray-800 dark:text-white" />
-            ) : (
-              <ZoomIn className="w-6 h-6 text-gray-800 dark:text-white" />
-            )}
+            {showLens ? <ZoomOut className="w-5 h-5" /> : <ZoomIn className="w-5 h-5" />}
           </button>
-          
-          {/* Slide Show Toggle Button */}
+
           {finalImages.length > 1 && (
             <button
-              onClick={() => openImageModal(selectedImage)}
-              className="p-2.5 bg-white/90 dark:bg-gray-800/90 rounded-full shadow-lg hover:bg-white dark:hover:bg-gray-700 transition-all transform hover:scale-110 text-sm font-medium text-gray-800 dark:text-white"
-              aria-label="View slideshow"
+              onClick={(e) => { e.stopPropagation(); openImageModal(selectedImage); }}
+              aria-label="Open slideshow"
+              className="p-2.5 bg-white/90 dark:bg-gray-800/90 rounded-full shadow-lg hover:scale-105 transition-transform"
             >
               🖼️
             </button>
@@ -350,84 +375,73 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
         </div>
       </div>
 
-      {/* Enhanced Thumbnails with Slide Indicator */}
+      {/* Thumbnails */}
       {finalImages.length > 1 && (
         <div className="flex space-x-2 overflow-x-auto pb-2 scrollbar-hide">
-          {finalImages.map((image, index) => (
+          {finalImages.map((img, idx) => (
             <button
-              key={index}
-              onClick={() => setSelectedImage(index)}
-              className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all transform hover:scale-105 ${
-                index === selectedImage 
-                  ? 'border-accent scale-105 ring-2 ring-accent/50' 
-                  : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+              key={idx}
+              onClick={() => setSelectedImage(idx)}
+              className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-transform ${
+                idx === selectedImage ? 'border-accent scale-105 ring-2 ring-accent/50' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
               }`}
+              aria-label={`Thumbnail ${idx + 1}`}
             >
-              <img
-                src={image}
-                alt={`${productName} ${index + 1}`}
-                className="w-full h-full object-cover"
-                onError={handleImageError}
-              />
+              <img src={img} alt={`${productName} ${idx + 1}`} className="w-full h-full object-cover" onError={handleImageError} />
             </button>
           ))}
         </div>
       )}
 
-      {/* Image Modal */}
+      {/* Modal */}
       {isModalOpen && (
-        <div 
-          className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
-          onClick={closeImageModal}
-        >
-          <div className="relative w-full max-w-4xl max-h-[90vh]" onClick={e => e.stopPropagation()}>
-            <button 
-              onClick={closeImageModal}
-              className="absolute -top-10 right-0 text-white hover:text-gray-300 z-10"
-              aria-label="Close modal"
-            >
+        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" onClick={closeImageModal}>
+          <div className="relative w-full max-w-4xl max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
+            <button onClick={closeImageModal} className="absolute -top-10 right-0 text-white">
               <X className="w-8 h-8" />
             </button>
-            
-            <div className="relative w-full h-full">
-              <img
-                src={finalImages[modalImageIndex]}
-                alt={`${productName} - ${modalImageIndex + 1} of ${finalImages.length}`}
-                className="max-w-full max-h-[80vh] mx-auto object-contain"
-                onClick={(e) => e.stopPropagation()}
-              />
-              
-              {finalImages.length > 1 && (
-                <>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigateModalImage('prev');
-                    }}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/50 text-white p-2 rounded-full hover:bg-black/70 transition-colors"
-                    aria-label="Previous image"
-                  >
-                    ❮
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      navigateModalImage('next');
-                    }}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/50 text-white p-2 rounded-full hover:bg-black/70 transition-colors"
-                    aria-label="Next image"
-                  >
-                    ❯
-                  </button>
-                  <div className="absolute bottom-4 left-0 right-0 text-center text-white text-sm">
-                    {modalImageIndex + 1} / {finalImages.length}
-                  </div>
-                </>
-              )}
-            </div>
+
+            <img
+              src={finalImages[modalImageIndex]}
+              alt={`${productName} - ${modalImageIndex + 1}`}
+              className="max-w-full max-h-[80vh] mx-auto object-contain"
+              onError={handleImageError}
+            />
+
+            {finalImages.length > 1 && (
+              <>
+                <button
+                  onClick={(e) => { e.stopPropagation(); navigateModalImage('prev'); }}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/50 text-white p-2 rounded-full"
+                  aria-label="Previous"
+                >
+                  ❮
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); navigateModalImage('next'); }}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/50 text-white p-2 rounded-full"
+                  aria-label="Next"
+                >
+                  ❯
+                </button>
+                <div className="absolute bottom-4 left-0 right-0 text-center text-white text-sm">
+                  {modalImageIndex + 1} / {finalImages.length}
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
+
+      {/* Color disclaimer */}
+      <div className="mt-4 px-4">
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 p-3 rounded">
+          <p className="text-sm text-yellow-700 dark:text-yellow-300">
+            <span className="font-medium">Color Disclaimer:</span> Product colors may appear slightly different due to
+            monitor settings. Every effort is made to display colors accurately.
+          </p>
+        </div>
+      </div>
     </div>
   );
 };
