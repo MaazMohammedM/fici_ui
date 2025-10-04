@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Package, Truck, CheckCircle, XCircle, Clock, Eye } from 'lucide-react';
+import { Package, Truck, CheckCircle, XCircle, Clock, Eye, Filter, RefreshCw } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 
 interface Order {
@@ -20,13 +20,13 @@ interface Order {
     phone: string;
     email: string;
   };
-  items: Array<{
+  order_items: Array<{
     order_item_id: string;
     product_name: string;
     size: string;
     quantity: number;
     price_at_purchase: number;
-    product_thumbnail_url: string;
+    thumbnail_url: string;
   }>;
 }
 
@@ -36,10 +36,15 @@ interface OrderManagementProps {
 
 const OrderManagement: React.FC<OrderManagementProps> = ({ className = '' }) => {
   const [orders, setOrders] = useState<Order[]>([]);
+  const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [updating, setUpdating] = useState(false);
+
+  // Filter state
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Form state for shipment details
   const [shipmentForm, setShipmentForm] = useState({
@@ -52,21 +57,20 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ className = '' }) => 
     fetchOrders();
   }, []);
 
+  useEffect(() => {
+    filterOrders();
+  }, [orders, statusFilter, searchTerm]);
+
   const fetchOrders = async () => {
     try {
       setLoading(true);
 
-      // Fetch orders that are paid but not shipped
       const { data: ordersData, error: ordersError } = await supabase
         .from('orders')
         .select(`
           *,
           order_items (*)
         `)
-        .eq('payment_status', 'paid')
-        .neq('status', 'shipped')
-        .neq('status', 'delivered')
-        .neq('status', 'cancelled')
         .order('order_date', { ascending: false });
 
       if (ordersError) {
@@ -80,6 +84,27 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ className = '' }) => 
     } finally {
       setLoading(false);
     }
+  };
+
+  const filterOrders = () => {
+    let filtered = orders;
+
+    // Filter by status
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(order => order.status === statusFilter);
+    }
+
+    // Filter by search term (order ID, customer email, phone)
+    if (searchTerm) {
+      filtered = filtered.filter(order =>
+        order.order_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (order.guest_email && order.guest_email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (order.guest_phone && order.guest_phone.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (order.shipping_address?.name && order.shipping_address.name.toLowerCase().includes(searchTerm.toLowerCase()))
+      );
+    }
+
+    setFilteredOrders(filtered);
   };
 
   const handleUpdateShipment = async () => {
@@ -136,19 +161,32 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ className = '' }) => 
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400';
       case 'paid':
-        return 'bg-green-100 text-green-800';
+        return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400';
       case 'shipped':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400';
       case 'delivered':
         return 'bg-green-600 text-white';
       case 'cancelled':
-        return 'bg-red-100 text-red-800';
+        return 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400';
     }
   };
+
+  const getTotalOrderStats = () => {
+    return {
+      total: orders.length,
+      pending: orders.filter(o => o.status === 'pending').length,
+      paid: orders.filter(o => o.status === 'paid').length,
+      shipped: orders.filter(o => o.status === 'shipped').length,
+      delivered: orders.filter(o => o.status === 'delivered').length,
+      cancelled: orders.filter(o => o.status === 'cancelled').length,
+    };
+  };
+
+  const stats = getTotalOrderStats();
 
   if (loading) {
     return (
@@ -164,22 +202,117 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ className = '' }) => 
         <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
           Order Management
         </h2>
-        <span className="text-sm text-gray-500">
-          {orders.length} pending orders
-        </span>
+        <button
+          onClick={fetchOrders}
+          className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
+        >
+          <RefreshCw className="w-4 h-4" />
+          Refresh
+        </button>
       </div>
 
-      {orders.length === 0 ? (
+      {/* Stats Summary */}
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+        <div className="bg-white dark:bg-dark2 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+          <div className="flex items-center gap-2">
+            <Package className="w-5 h-5 text-blue-500" />
+            <div>
+              <p className="text-lg font-bold text-gray-900 dark:text-white">{stats.total}</p>
+              <p className="text-xs text-gray-500">Total</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white dark:bg-dark2 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+          <div className="flex items-center gap-2">
+            <Clock className="w-5 h-5 text-yellow-500" />
+            <div>
+              <p className="text-lg font-bold text-gray-900 dark:text-white">{stats.pending}</p>
+              <p className="text-xs text-gray-500">Pending</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white dark:bg-dark2 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+          <div className="flex items-center gap-2">
+            <CheckCircle className="w-5 h-5 text-green-500" />
+            <div>
+              <p className="text-lg font-bold text-gray-900 dark:text-white">{stats.paid}</p>
+              <p className="text-xs text-gray-500">Paid</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white dark:bg-dark2 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+          <div className="flex items-center gap-2">
+            <Truck className="w-5 h-5 text-blue-500" />
+            <div>
+              <p className="text-lg font-bold text-gray-900 dark:text-white">{stats.shipped}</p>
+              <p className="text-xs text-gray-500">Shipped</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white dark:bg-dark2 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+          <div className="flex items-center gap-2">
+            <CheckCircle className="w-5 h-5 text-green-600" />
+            <div>
+              <p className="text-lg font-bold text-gray-900 dark:text-white">{stats.delivered}</p>
+              <p className="text-xs text-gray-500">Delivered</p>
+            </div>
+          </div>
+        </div>
+        <div className="bg-white dark:bg-dark2 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+          <div className="flex items-center gap-2">
+            <XCircle className="w-5 h-5 text-red-500" />
+            <div>
+              <p className="text-lg font-bold text-gray-900 dark:text-white">{stats.cancelled}</p>
+              <p className="text-xs text-gray-500">Cancelled</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex items-center gap-2">
+          <Filter className="w-4 h-4 text-gray-500" />
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-dark2 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="all">All Orders</option>
+            <option value="pending">Pending</option>
+            <option value="paid">Paid</option>
+            <option value="shipped">Shipped</option>
+            <option value="delivered">Delivered</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </div>
+
+        <div className="flex-1">
+          <input
+            type="text"
+            placeholder="Search by order ID, customer name, email, or phone..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-dark2 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          />
+        </div>
+      </div>
+
+      <div className="text-sm text-gray-600 dark:text-gray-400">
+        Showing {filteredOrders.length} of {orders.length} orders
+      </div>
+
+      {filteredOrders.length === 0 ? (
         <div className="text-center py-12">
           <Package className="mx-auto h-12 w-12 text-gray-400" />
-          <h3 className="mt-2 text-sm font-medium text-gray-900">No pending orders</h3>
+          <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">No orders found</h3>
           <p className="mt-1 text-sm text-gray-500">
-            All paid orders have been processed or shipped.
+            {orders.length === 0 ? 'No orders available.' : 'Try adjusting your filters.'}
           </p>
         </div>
       ) : (
         <div className="grid gap-6">
-          {orders.map((order) => (
+          {filteredOrders.map((order) => (
             <div
               key={order.order_id}
               className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 border border-gray-200 dark:border-gray-700"
@@ -216,29 +349,32 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ className = '' }) => 
                   <div className="mb-4">
                     <p className="text-sm text-gray-500 mb-2">Customer</p>
                     <p className="font-medium">
-                      {order.user_id ? `User ID: ${order.user_id}` : `${order.guest_email} (${order.guest_phone})`}
+                      {order.user_id ? `User ID: ${order.user_id}` : `${order.guest_email || 'N/A'} (${order.guest_phone || 'N/A'})`}
                     </p>
                   </div>
 
                   <div className="mb-4">
                     <p className="text-sm text-gray-500 mb-2">Shipping Address</p>
                     <div className="text-sm">
-                      <p>{order.shipping_address?.name}</p>
-                      <p>{order.shipping_address?.address}</p>
-                      <p>{order.shipping_address?.city}, {order.shipping_address?.state} - {order.shipping_address?.pincode}</p>
-                      <p>Phone: {order.shipping_address?.phone}</p>
+                      <p>{order.shipping_address?.name || 'N/A'}</p>
+                      <p>{order.shipping_address?.address || 'N/A'}</p>
+                      <p>{order.shipping_address?.city || 'N/A'}, {order.shipping_address?.state || 'N/A'} - {order.shipping_address?.pincode || 'N/A'}</p>
+                      <p>Phone: {order.shipping_address?.phone || 'N/A'}</p>
                     </div>
                   </div>
 
                   <div className="mb-4">
-                    <p className="text-sm text-gray-500 mb-2">Items ({order.items.length})</p>
+                    <p className="text-sm text-gray-500 mb-2">Items ({order.order_items?.length || 0})</p>
                     <div className="space-y-2">
-                      {order.items.slice(0, 3).map((item) => (
+                      {order.order_items?.slice(0, 3).map((item) => (
                         <div key={item.order_item_id} className="flex items-center gap-3 text-sm">
                           <img
-                            src={item.product_thumbnail_url}
+                            src={item.thumbnail_url || '/placeholder-image.jpg'}
                             alt={item.product_name}
                             className="w-8 h-8 object-cover rounded"
+                            onError={(e) => {
+                              e.currentTarget.src = '/placeholder-image.jpg';
+                            }}
                           />
                           <div className="flex-1">
                             <p className="font-medium">{item.product_name}</p>
@@ -247,9 +383,9 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ className = '' }) => 
                           <p className="font-medium">₹{(item.price_at_purchase * item.quantity).toFixed(2)}</p>
                         </div>
                       ))}
-                      {order.items.length > 3 && (
+                      {(order.order_items?.length || 0) > 3 && (
                         <p className="text-sm text-gray-500">
-                          +{order.items.length - 3} more items
+                          +{(order.order_items?.length || 0) - 3} more items
                         </p>
                       )}
                     </div>
@@ -257,15 +393,17 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ className = '' }) => 
                 </div>
 
                 <div className="flex flex-col gap-2 ml-4">
-                  <button
-                    onClick={() => {
-                      setSelectedOrder(order);
-                      setShowUpdateModal(true);
-                    }}
-                    className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    Ship Order
-                  </button>
+                  {order.status === 'paid' && (
+                    <button
+                      onClick={() => {
+                        setSelectedOrder(order);
+                        setShowUpdateModal(true);
+                      }}
+                      className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      Ship Order
+                    </button>
+                  )}
                   <button
                     onClick={() => {
                       // View order details logic here

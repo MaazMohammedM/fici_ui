@@ -340,18 +340,35 @@ if (isInWishlist(selectedVariant.article_id)) {
             </div>
             
             {/* Trust Badges */}
-            <div className="grid grid-cols-3 gap-4 mt-6">
-              <div className="p-3 bg-gray-50 rounded-lg text-center">
-                <div className="text-gray-600 text-sm">Free Shipping</div>
-                <div className="text-xs text-gray-500">On all orders</div>
-              </div>
-              <div className="p-3 bg-gray-50 rounded-lg text-center">
-                <div className="text-gray-600 text-sm">Easy Returns</div>
-                <div className="text-xs text-gray-500">30-day policy</div>
-              </div>
-              <div className="p-3 bg-gray-50 rounded-lg text-center">
-                <div className="text-gray-600 text-sm">Secure Payment</div>
-                <div className="text-xs text-gray-500">100% secure</div>
+            <div className="mt-6">
+              <img
+                src="/src/assets/trust-badges.svg"
+                alt="Trust Badges - 3 Days Exchange Policy, Made in India, Free Delivery 5-7 Days"
+                className="w-full max-w-sm mx-auto rounded-lg shadow-sm"
+                onError={(e) => {
+                  // Fallback to original text badges if image fails to load
+                  const target = e.currentTarget as HTMLImageElement;
+                  const fallbackElement = target.nextElementSibling as HTMLElement;
+                  if (fallbackElement) {
+                    target.style.display = 'none';
+                    fallbackElement.style.display = 'grid';
+                  }
+                }}
+              />
+              {/* Fallback to original text badges if image is not available */}
+              <div className="hidden grid grid-cols-3 gap-3 mt-6 px-4" style={{display: 'none'}}>
+                <div className="p-3 bg-gray-50 rounded-lg text-center">
+                  <div className="text-gray-600 text-sm">3 Days Exchange</div>
+                  <div className="text-xs text-gray-500">Policy</div>
+                </div>
+                <div className="p-3 bg-gray-50 rounded-lg text-center">
+                  <div className="text-gray-600 text-sm">Made in India</div>
+                  <div className="text-xs text-gray-500">Quality assured</div>
+                </div>
+                <div className="p-3 bg-gray-50 rounded-lg text-center">
+                  <div className="text-gray-600 text-sm">Free Delivery</div>
+                  <div className="text-xs text-gray-500">Within 5-7 days</div>
+                </div>
               </div>
             </div>
           </div>

@@ -12,7 +12,7 @@ interface ProductImageGalleryProps {
 const LENS_SIZE = 250;
 const ZOOM_LEVEL = 3.5;
 
-const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({ selectedVariant, productName }) => {
+const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({ selectedVariant, productName }: ProductImageGalleryProps) => {
   const [selectedImage, setSelectedImage] = useState(0);
 
   // Hover / lens state (desktop)
@@ -29,6 +29,10 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({ selectedVaria
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const [touchEndX, setTouchEndX] = useState<number | null>(null);
 
+  // Zoom level detection and management
+  const [browserZoomLevel, setBrowserZoomLevel] = useState(100);
+  const [isZoomDisabled, setIsZoomDisabled] = useState(false);
+
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   // Reset selected image when variant changes
@@ -36,7 +40,68 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({ selectedVaria
     setSelectedImage(0);
   }, [selectedVariant]);
 
-  // Parse images robustly (array / json-string / comma list / single url)
+  // Detect browser zoom level and disable zoom functionality at 150%+
+  useEffect(() => {
+    const detectZoomLevel = () => {
+      let zoom = 100;
+
+      // Method 1: Use visualViewport API if available (most accurate)
+      if (window.visualViewport) {
+        zoom = Math.round(window.visualViewport.scale * 100);
+      }
+      // Method 2: Fallback using devicePixelRatio
+      else {
+        zoom = Math.round((window.devicePixelRatio * window.screen.width) / window.innerWidth * 100);
+      }
+
+      // Additional check for high DPI displays
+      if (window.devicePixelRatio > 1) {
+        const calculatedZoom = Math.round((window.innerWidth * window.devicePixelRatio) / window.screen.width * 100);
+        if (Math.abs(calculatedZoom - zoom) < 10) { // Within 10% tolerance
+          zoom = calculatedZoom;
+        }
+      }
+
+      console.log('Detected zoom level:', zoom);
+      setBrowserZoomLevel(zoom);
+      setIsZoomDisabled(zoom >= 150);
+
+      // Force reset hover and zoom state when zoom is disabled
+      if (zoom >= 150) {
+        setIsHovering(false);
+        setShowLens(false);
+      }
+    };
+
+    // Listen for zoom changes with multiple methods
+    const handleResize = () => detectZoomLevel();
+    const handleVisualViewportChange = () => detectZoomLevel();
+
+    window.addEventListener('resize', handleResize);
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', handleVisualViewportChange);
+    }
+
+    // Also listen for orientation changes (mobile)
+    window.addEventListener('orientationchange', handleResize);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleResize);
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', handleVisualViewportChange);
+      }
+    };
+  }, []); // Empty dependency array - only run once on mount
+
+  // Reset hover/zoom states when zoom becomes disabled
+  useEffect(() => {
+    if (isZoomDisabled) {
+      console.log('Zoom disabled - resetting states');
+      setIsHovering(false);
+      setShowLens(false);
+    }
+  }, [isZoomDisabled]);
   const parseImages = useCallback((images: unknown): string[] => {
     if (!images) return [];
     if (Array.isArray(images)) return images.filter((i): i is string => !!i && typeof i === 'string');
@@ -68,8 +133,12 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({ selectedVaria
   // Desktop: track mouse and compute lens + zoom position.
   const handleMouseEnter = useCallback(() => {
     // do not enable hover behavior on touch devices — but mouse events will not fire there typically
+    if (isZoomDisabled) {
+      console.log('Mouse enter blocked - zoom disabled');
+      return;
+    }
     setIsHovering(true);
-  }, []);
+  }, [isZoomDisabled]);
 
   const handleMouseLeave = useCallback(() => {
     setIsHovering(false);
@@ -77,6 +146,10 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({ selectedVaria
   }, []);
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    if (isZoomDisabled) {
+      console.log('Mouse move blocked - zoom disabled');
+      return;
+    }
     if (!containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
     // compute lens top-left limited inside container
@@ -93,13 +166,17 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({ selectedVaria
 
     // only show lens when mouse is moving inside container
     if (!showLens) setShowLens(true);
-  }, [showLens]);
+  }, [showLens, isZoomDisabled]);
 
   // Toggle zoom lens with button (keeps old behavior: user can enable/disable)
   const toggleZoom = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
+    if (isZoomDisabled) {
+      console.log('Zoom toggle blocked - zoom disabled');
+      return;
+    }
     setShowLens(s => !s);
-  }, []);
+  }, [isZoomDisabled]);
 
   // Modal controls
   const openImageModal = useCallback((index: number) => {
@@ -203,16 +280,25 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({ selectedVaria
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
         >
+          {/* Zoom disabled indicator */}
+          {isZoomDisabled && (
+            <div className="absolute top-4 left-4 bg-yellow-100 dark:bg-yellow-900/80 text-yellow-800 dark:text-yellow-200 px-3 py-2 rounded-lg text-sm font-medium shadow-lg z-30">
+              Zoom disabled at {browserZoomLevel}% browser zoom
+            </div>
+          )}
+
           <img
             src={finalImages[selectedImage]}
             alt={productName}
-            className={`w-full h-full object-cover transition-all duration-300 ${isHovering ? 'cursor-crosshair' : 'cursor-default'}`}
+            className={`w-full h-full object-cover transition-all duration-300 ${
+              isZoomDisabled ? 'cursor-default' : (isHovering ? 'cursor-crosshair' : 'cursor-default')
+            }`}
             onClick={() => openImageModal(selectedImage)}
             onError={handleImageError}
           />
 
-          {/* Lens circle (desktop only) */}
-          {isHovering && showLens && (
+          {/* Lens circle (desktop only) - Only show when zoom is NOT disabled */}
+          {isHovering && showLens && !isZoomDisabled && (
             <div
               className="absolute rounded-full pointer-events-none z-30"
               style={{
@@ -227,8 +313,8 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({ selectedVaria
             />
           )}
 
-          {/* Zoom preview box (desktop only) */}
-          {isHovering && showLens && (
+          {/* Zoom preview box (desktop only) - Only show when zoom is NOT disabled */}
+          {isHovering && showLens && !isZoomDisabled && (
             <div
               className="hidden md:block fixed z-40 rounded-xl overflow-hidden shadow-2xl"
               style={{
@@ -251,8 +337,28 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({ selectedVaria
         <div className="absolute bottom-4 right-4 flex flex-col space-y-2 z-30">
           <button
             onClick={toggleZoom}
+            disabled={isZoomDisabled}
             aria-label={showLens ? 'Disable zoom' : 'Enable zoom'}
-            className="p-2.5 bg-white/90 dark:bg-gray-800/90 rounded-full shadow-lg hover:scale-105 transition-transform"
+            className={`p-2.5 rounded-full shadow-lg transition-transform ${
+              isZoomDisabled
+                ? 'bg-gray-400/90 dark:bg-gray-600/90 cursor-not-allowed opacity-50'
+                : 'bg-white/90 dark:bg-gray-800/90 hover:scale-105 hover:bg-white dark:hover:bg-gray-700'
+            }`}
+            title={isZoomDisabled ? `Zoom disabled at ${browserZoomLevel}% browser zoom` : (showLens ? 'Disable zoom' : 'Enable zoom')}
+            onMouseDown={(e) => {
+              if (isZoomDisabled) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Zoom button click blocked - zoom disabled');
+              }
+            }}
+            onTouchStart={(e) => {
+              if (isZoomDisabled) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Zoom button touch blocked - zoom disabled');
+              }
+            }}
           >
             {showLens ? <ZoomOut className="w-5 h-5" /> : <ZoomIn className="w-5 h-5" />}
           </button>
@@ -261,7 +367,7 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({ selectedVaria
             <button
               onClick={(e) => { e.stopPropagation(); openImageModal(selectedImage); }}
               aria-label="Open slideshow"
-              className="p-2.5 bg-white/90 dark:bg-gray-800/90 rounded-full shadow-lg"
+              className="p-2.5 bg-white/90 dark:bg-gray-800/90 rounded-full shadow-lg hover:scale-105 transition-transform"
             >
               🖼️
             </button>

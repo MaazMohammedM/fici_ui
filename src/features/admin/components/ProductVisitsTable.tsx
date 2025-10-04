@@ -60,7 +60,8 @@ const ProductVisitsTable: React.FC<ProductVisitsTableProps> = ({
       <div className="p-6 border-b">
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-semibold text-gray-900">All Product Visits</h3>
-          
+          </div>
+          <div>
           {onSearch && (
             <form onSubmit={handleSearch} className="flex items-center space-x-2">
               <div className="relative">

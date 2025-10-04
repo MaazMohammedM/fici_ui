@@ -147,7 +147,8 @@ export const useCartStore = create<CartState>()(
 
       getCartSavings: () => {
         return get().items.reduce((savings, item) => {
-          const mrpTotal = item.mrp * item.quantity;
+          const mrp = item.mrp || item.price || 0;  // ✅ Fallback to price if mrp is missing
+          const mrpTotal = mrp * item.quantity;
           const discountedTotal = item.price * item.quantity;
           return savings + (mrpTotal - discountedTotal);
         }, 0);

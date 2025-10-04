@@ -16,11 +16,6 @@ const RelatedProducts: React.FC<RelatedProductsProps> = ({
   return (
     <div className={`w-full bg-[color:var(--color-light1)] dark:bg-[color:var(--color-dark1)] ${className}`}>
       <div className="w-full px-4 sm:px-8 lg:px-16 py-6 sm:py-8">
-        <div className="flex items-center justify-between mb-4 sm:mb-6">
-          <h2 className="text-lg sm:text-xl lg:text-2xl font-bold font-secondary text-[color:var(--color-primary)] dark:text-[color:var(--color-secondary)]">
-            You May Also Like
-          </h2>
-        </div>
         
         <div className="relative">
           <div className="relative w-full overflow-x-auto pb-4 scrollbar-hide">

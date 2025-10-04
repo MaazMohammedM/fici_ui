@@ -7,6 +7,7 @@ interface PaymentStatusModalProps {
   status: 'success' | 'failed' | 'pending';
   orderId?: string;
   message?: string;
+  savings?: number;
   onClose: () => void;
   onRetry?: () => void;
 }
@@ -15,14 +16,15 @@ const PaymentStatusModal: React.FC<PaymentStatusModalProps> = ({
   status,
   orderId,
   message,
+  savings,
   onClose,
   onRetry
 }) => {
   const navigate = useNavigate();
-  const { items: cartItems, getCartTotal, getCartSavings, clearCart } = useCartStore();
+  const { items: cartItems, getCartTotal, clearCart } = useCartStore();
 
   const subtotal = getCartTotal();
-  const savings = getCartSavings();
+  const savingsValue = savings || 0; // Use provided savings or fallback to 0
   const total = subtotal;
 
   const closePaymentModal = () => {
@@ -114,7 +116,7 @@ const PaymentStatusModal: React.FC<PaymentStatusModalProps> = ({
                 </div>
                 <div className="flex justify-between text-sm sm:text-base">
                   <span className="text-gray-600 dark:text-gray-400">Savings:</span>
-                  <span className="font-medium text-green-600">₹{savings.toLocaleString('en-IN')}</span>
+                  <span className="font-medium text-green-600">₹{savingsValue.toLocaleString('en-IN')}</span>
                 </div>
                 <div className="flex justify-between text-base sm:text-lg font-bold text-gray-900 dark:text-white">
                   <span>Total:</span>

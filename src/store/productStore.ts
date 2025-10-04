@@ -163,13 +163,22 @@ export const useProductStore = create<ProductState>((set, get) => ({
       }
 
       // Process products with proper image parsing and discount calculation
-      const processedProducts = (data || []).map(product => ({
-        ...product,
-        sizes: safeParseSizes(product.sizes),
-        images: parseImages(product.images), // Use the new parseImages function
-        thumbnail_url: product.thumbnail_url || null,
-        discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price)
-      }));
+      const processedProducts = (data || []).map(product => {
+        console.log('Processing product:', {
+          article_id: product.article_id,
+          mrp_price: product.mrp_price,
+          discount_price: product.discount_price,
+          name: product.name
+        });
+        return {
+          ...product,
+          sizes: safeParseSizes(product.sizes),
+          images: parseImages(product.images), // Use the new parseImages function
+          thumbnail_url: product.thumbnail_url || null,
+          discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price),
+          mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0  // ✅ Fallback to discount_price if mrp_price is missing
+        };
+      });
 
       const totalPages = Math.ceil((count || 0) / get().itemsPerPage);
 
@@ -215,12 +224,21 @@ export const useProductStore = create<ProductState>((set, get) => ({
         return;
       }
 
-      const parsedProducts = (data || []).map(product => ({
-        ...product,
-        sizes: safeParseSizes(product.sizes),
-        images: parseImages(product.images), // Use the new parseImages function
-        discount_percentage: product.discount_percentage || calculateDiscountPercentage(product.mrp_price, product.discount_price)
-      }));
+      const parsedProducts = (data || []).map(product => {
+        console.log('Processing top deal product:', {
+          article_id: product.article_id,
+          mrp_price: product.mrp_price,
+          discount_price: product.discount_price,
+          name: product.name
+        });
+        return {
+          ...product,
+          sizes: safeParseSizes(product.sizes),
+          images: parseImages(product.images), // Use the new parseImages function
+          discount_percentage: product.discount_percentage || calculateDiscountPercentage(product.mrp_price, product.discount_price),
+          mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0  // ✅ Fallback to discount_price if mrp_price is missing
+        };
+      });
 
       // Filter products with discount percentage > 10% for top deals
       const topDeals = parsedProducts
@@ -281,10 +299,19 @@ export const useProductStore = create<ProductState>((set, get) => ({
         const firstProduct = processedProducts[0];
         const baseId = firstProduct.article_id.split('_')[0];
   
-        const variantsWithColors = processedProducts.map(product => ({
-          ...product,
-          color: product.article_id.split('_')[1] || 'default'
-        }));
+        const variantsWithColors = processedProducts.map(product => {
+          console.log('Processing variant:', {
+            article_id: product.article_id,
+            mrp_price: product.mrp_price,
+            discount_price: product.discount_price,
+            name: product.name
+          });
+          return {
+            ...product,
+            color: product.article_id.split('_')[1] || 'default',
+            mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0  // ✅ Fallback to discount_price if mrp_price is missing
+          };
+        });
   
         set({
           currentProduct: {
@@ -353,14 +380,23 @@ export const useProductStore = create<ProductState>((set, get) => ({
           };
         }
         
-        const processedProducts = variantsData.map(product => ({
-          ...product,
-          sizes: safeParseSizes(product.sizes),
-          images: parseImages(product.images),
-          thumbnail_url: product.thumbnail_url || null,
-          discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price),
-          rating: rating
-        }));
+        const processedProducts = variantsData.map(product => {
+          console.log('Processing variant in fetchSingleProductByArticleId:', {
+            article_id: product.article_id,
+            mrp_price: product.mrp_price,
+            discount_price: product.discount_price,
+            name: product.name
+          });
+          return {
+            ...product,
+            sizes: safeParseSizes(product.sizes),
+            images: parseImages(product.images),
+            thumbnail_url: product.thumbnail_url || null,
+            discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price),
+            rating: rating,
+            mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0  // ✅ Fallback to discount_price if mrp_price is missing
+          };
+        });
 
         const productDetail: ProductDetail = {
           article_id: baseArticleId,
@@ -425,13 +461,22 @@ export const useProductStore = create<ProductState>((set, get) => ({
 
         if (!randomError && randomData) {
           const allProducts = [...(data || []), ...randomData];
-          const processedProducts = allProducts.map(product => ({
-            ...product,
-            sizes: safeParseSizes(product.sizes),
-            images: parseImages(product.images), // Use the new parseImages function
-            thumbnail_url: product.thumbnail_url || null,
-            discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price)
-          }));
+          const processedProducts = allProducts.map(product => {
+            console.log('Processing related product:', {
+              article_id: product.article_id,
+              mrp_price: product.mrp_price,
+              discount_price: product.discount_price,
+              name: product.name
+            });
+            return {
+              ...product,
+              sizes: safeParseSizes(product.sizes),
+              images: parseImages(product.images), // Use the new parseImages function
+              thumbnail_url: product.thumbnail_url || null,
+              discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price),
+              mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0  // ✅ Fallback to discount_price if mrp_price is missing
+            };
+          });
 
           set({ 
             relatedProducts: processedProducts,
@@ -441,13 +486,22 @@ export const useProductStore = create<ProductState>((set, get) => ({
         }
       }
 
-      const processedProducts = (data || []).map(product => ({
-        ...product,
-        sizes: safeParseSizes(product.sizes),
-        images: parseImages(product.images), // Use the new parseImages function
-        thumbnail_url: product.thumbnail_url || null,
-        discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price)
-      }));
+      const processedProducts = (data || []).map(product => {
+        console.log('Processing related product (final):', {
+          article_id: product.article_id,
+          mrp_price: product.mrp_price,
+          discount_price: product.discount_price,
+          name: product.name
+        });
+        return {
+          ...product,
+          sizes: safeParseSizes(product.sizes),
+          images: parseImages(product.images), // Use the new parseImages function
+          thumbnail_url: product.thumbnail_url || null,
+          discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price),
+          mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0  // ✅ Fallback to discount_price if mrp_price is missing
+        };
+      });
 
       set({ 
         relatedProducts: processedProducts,
@@ -505,18 +559,28 @@ export const useProductStore = create<ProductState>((set, get) => ({
       const shuffledSelection = shuffleArray(selectedProducts);
 
       // Process products with proper image parsing and discount calculation
-      const processedProducts = shuffledSelection.map(product => ({
-        ...product,
-        sizes: safeParseSizes(product.sizes),
-        images: parseImages(product.images), // Use the parseImages function
-        thumbnail_url: product.thumbnail_url || null,
-        discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price)
-      }));
+      const processedProducts = shuffledSelection.map(product => {
+        console.log('Processing highlight product:', {
+          article_id: product.article_id,
+          mrp_price: product.mrp_price,
+          discount_price: product.discount_price,
+          name: product.name
+        });
+        return {
+          ...product,
+          sizes: safeParseSizes(product.sizes),
+          images: parseImages(product.images), // Use the new parseImages function
+          thumbnail_url: product.thumbnail_url || null,
+          discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price),
+          mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0  // ✅ Fallback to discount_price if mrp_price is missing
+        };
+      });
 
       // Cache the results
       localStorage.setItem('highlightProducts', JSON.stringify(processedProducts));
       localStorage.setItem('highlightProductsLastFetched', now);
 
+      // Set the highlight products state
       set({ highlightProducts: processedProducts });
     } catch (error) {
       console.error('Error fetching highlight products:', error);

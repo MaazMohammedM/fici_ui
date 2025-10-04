@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        .trust-badges {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            max-width: 600px;
+            padding: 20px;
+        }
+        .badge {
+            background: #f9fafb;
+            border-radius: 8px;
+            padding: 16px 12px;
+            text-align: center;
+            border: 1px solid #e5e7eb;
+        }
+        .badge-icon {
+            font-size: 24px;
+            margin-bottom: 8px;
+            color: #059669;
+        }
+        .badge-title {
+            color: #374151;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        .badge-subtitle {
+            color: #6b7280;
+            font-size: 11px;
+        }
+        .exchange-icon::before { content: "🔄"; }
+        .india-icon::before { content: "🇮🇳"; }
+        .delivery-icon::before { content: "🚚"; }
+    </style>
+</head>
+<body>
+    <div class="trust-badges">
+        <div class="badge">
+            <div class="badge-icon exchange-icon"></div>
+            <div class="badge-title">3 Days Exchange</div>
+            <div class="badge-subtitle">Policy</div>
+        </div>
+        <div class="badge">
+            <div class="badge-icon india-icon"></div>
+            <div class="badge-title">Made in India</div>
+            <div class="badge-subtitle">Quality assured</div>
+        </div>
+        <div class="badge">
+            <div class="badge-icon delivery-icon"></div>
+            <div class="badge-title">Free Delivery</div>
+            <div class="badge-subtitle">Within 5-7 days</div>
+        </div>
+    </div>
+</body>
+</html>

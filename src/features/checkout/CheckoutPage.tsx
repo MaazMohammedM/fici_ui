@@ -58,7 +58,19 @@ const CheckoutPage: React.FC = () => {
   const subtotal = useMemo(() => getCartTotal(), [getCartTotal]);
   const savings = useMemo(() => getCartSavings(), [getCartSavings]);
   const deliveryCharge = subtotal > 999 ? 0 : 0;
-  const totalAmount = subtotal + deliveryCharge; 
+
+  // ✅ COD Price Surcharge - Enterprise level pricing strategy
+  const COD_FEE_PERCENTAGE = 0.02; // 2% COD convenience fee
+  const COD_FEE_MINIMUM = 29; // Minimum ₹29 COD fee
+  const codFee = useMemo(() => {
+    if (selectedPayment === 'cod' && subtotal > 0) {
+      const calculatedFee = Math.round(subtotal * COD_FEE_PERCENTAGE);
+      return Math.max(calculatedFee, COD_FEE_MINIMUM);
+    }
+    return 0;
+  }, [selectedPayment, subtotal]);
+
+  const totalAmount = subtotal + deliveryCharge + codFee; 
 
   useEffect(() => {
     const saved = sessionStorage.getItem(CHECKOUT_DRAFT_KEY);
@@ -181,6 +193,7 @@ const CheckoutPage: React.FC = () => {
         subtotal,
         discount: savings,
         delivery_charge: deliveryCharge,
+        cod_fee: codFee, // ✅ Include COD fee in order data
         shipping_address: selectedAddress
       };
 
@@ -409,6 +422,8 @@ const CheckoutPage: React.FC = () => {
                 shipping={deliveryCharge}
                 tax={0}
                 total={totalAmount}
+                savings={savings}
+                codFee={codFee} // ✅ Pass COD fee to OrderSummary
               />
 
               <div className="bg-white dark:bg-dark2 rounded-2xl shadow-lg p-4 sm:p-6 sticky top-4">
@@ -435,6 +450,7 @@ const CheckoutPage: React.FC = () => {
           status={paymentStatus}
           orderId={currentOrderId || undefined}
           message={selectedPayment === 'cod' ? 'Your order is successful with Cash on Delivery' : undefined}
+          savings={savings}
           onClose={closePaymentModal}
           onRetry={paymentStatus === 'failed' ? handleRetryPayment : undefined}
         />

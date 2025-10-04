@@ -90,6 +90,11 @@ const App: React.FC = () => {
                   <Route path="/orders" element={
                       <OrderHistoryPage />
                   } />
+                  <Route path="/orders/:orderId" element={
+                    <Suspense fallback={<FiciLoader />}>
+                      <OrderDetailsPage isGuest={false} />
+                    </Suspense>
+                  } />
                   <Route path="/guest/orders" element={
                     <Suspense fallback={<FiciLoader />}>
                       <GuestOrderLookup />

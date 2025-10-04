@@ -64,10 +64,12 @@ const OrderDetailsPage = ({ isGuest = false }: { isGuest?: boolean }) => {
 
         if (isGuest) {
           const email = searchParams.get('email');
-          if (!email) {
-            throw new Error('Email verification required');
+          const tpin = searchParams.get('tpin');
+          if (!email && !tpin) {
+            throw new Error('Email or TPIN verification required');
           }
-          orderQuery = orderQuery.eq('guest_email', email);
+          if (email) orderQuery = orderQuery.eq('guest_email', email);
+          if (tpin) orderQuery = orderQuery.eq('guest_tpin', tpin);
         } else if (isGuestUser && guestSession?.guest_session_id) {
           orderQuery = orderQuery.eq('guest_session_id', guestSession.guest_session_id);
         } else if (user) {
