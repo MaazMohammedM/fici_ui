@@ -1,6 +1,5 @@
 import { useState, useCallback } from 'react';
 import { useCartStore } from '@store/cartStore';
-import { usePaymentStore } from '@store/paymentStore';
 import { useAuthStore } from '@store/authStore';
 import { useGuestSession } from '@hooks/useGuestSession';
 import { OrderService } from '@lib/services/orderService';
@@ -8,7 +7,6 @@ import type { Address } from '@lib/validation/checkout';
 
 export const useCheckout = () => {
   const { items: cartItems, getCartTotal, getCartSavings, clearCart } = useCartStore();
-  const { savePaymentDetails } = usePaymentStore();
   const user = useAuthStore((state) => state.user);
   const getAuthenticationType = useAuthStore((state) => state.getAuthenticationType);
   const { guestSession, guestContactInfo, sessionId } = useGuestSession();
@@ -102,22 +100,11 @@ export const useCheckout = () => {
     user, sessionId, guestContactInfo
   ]);
 
-  const handlePaymentSuccess = useCallback(async (response: any, orderId: string) => {
+  const handlePaymentSuccess = useCallback(async (orderId: string) => {
     try {
-      const authType = getAuthenticationType();
-      const paymentData = {
-        order_id: orderId,
-        user_id: authType === 'user' ? user!.id : null,
-        guest_session_id: authType === 'guest' ? sessionId : null,
-        provider: "razorpay",
-        payment_status: "pending" as const,
-        payment_method: selectedPayment,
-        amount: totalAmount,
-        currency: "INR",
-        payment_reference: response.razorpay_payment_id,
-      };
-      
-      await savePaymentDetails(paymentData);
+      // ✅ REMOVED: savePaymentDetails call - webhook will handle payment status updates
+      // The webhook will receive the payment and update the payment record with proper status
+
       setCurrentOrderId(orderId);
       setPaymentStatus('success');
       clearCart();
@@ -125,7 +112,7 @@ export const useCheckout = () => {
       console.error('Payment processing failed:', error);
       setPaymentStatus('failed');
     }
-  }, [getAuthenticationType, user, sessionId, selectedPayment, totalAmount, savePaymentDetails, clearCart]);
+  }, [clearCart]);
 
   const handlePaymentFailure = useCallback((error: any) => {
     console.error('Payment failed:', error);

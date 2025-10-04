@@ -78,22 +78,16 @@ export const useAuthStore = create<AuthState>()(
       signIn: async (email: string, password: string): Promise<void> => {
         set({ loading: true, error: null });
         try {
-          // check guest orders first (keeps your earlier flow)
-          const guestOrders = await get().checkGuestOrders(email);
-
           const { data, error } = await supabase.auth.signInWithPassword({
             email: email.trim(),
             password: password.trim(),
           });
 
           if (error) {
-            // explicit error, stop
             set({ error: error.message || 'Sign in failed', loading: false });
             throw error;
           }
 
-          // Some Supabase responses may not include user directly.
-          // Try to obtain user from signIn response, otherwise fetch session.
           let user = data?.user ?? null;
 
           if (!user) {
@@ -140,27 +134,25 @@ export const useAuthStore = create<AuthState>()(
               loading: false,
             });
 
-            // merge guest orders if exist
-            if ((guestOrders as any)?.has_guest_orders) {
-              try {
+            // Check for guest orders after authentication
+            try {
+              const guestOrders = await get().checkGuestOrders(email);
+              if (guestOrders?.has_guest_orders) {
                 await get().mergeGuestOrders(user.id);
                 get().clearGuestSession();
-              } catch (e) {
-                console.warn('mergeGuestOrders failed', e);
               }
+            } catch (e) {
+              console.warn('Guest order merge failed:', e);
             }
 
-            // handle redirect if requested
             const redirectPath = sessionStorage.getItem('redirectAfterLogin');
             if (redirectPath) {
               sessionStorage.removeItem('redirectAfterLogin');
-              // keep small timeout to allow store to persist
               setTimeout(() => {
                 window.location.href = redirectPath;
               }, 100);
             }
           } else {
-            // no user present
             set({ loading: false });
           }
         } catch (err: any) {
@@ -177,8 +169,6 @@ export const useAuthStore = create<AuthState>()(
       }) => {
         set({ loading: true, error: null });
         try {
-          const guestOrders = await get().checkGuestOrders(userData.email);
-
           const { data, error } = await supabase.auth.signUp({
             email: userData.email,
             password: userData.password,
@@ -217,6 +207,9 @@ export const useAuthStore = create<AuthState>()(
               isGuest: false,
               loading: false,
             });
+
+            // Check for guest orders after profile is created
+            const guestOrders = await get().checkGuestOrders(userData.email);
 
             if (guestOrders?.has_guest_orders) {
               await get().mergeGuestOrders(data.user.id);

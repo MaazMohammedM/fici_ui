@@ -51,20 +51,19 @@ export interface PaymentResponse {
   razorpay_payment_id: string;
   razorpay_signature: string;
 }
-
 interface PaymentState {
   loading: boolean;
   error: string | null;
   currentPayment: PaymentDetails | null;
 
-  /** Inserts row in orders and its order_items; returns order_id on success */
-  createOrder: (orderData: OrderCreateInput) => Promise<string | null>;
+  /** Creates order in Razorpay and returns razorpay_order_id */
+  createRazorpayOrder: (amount: number, currency: string) => Promise<any>;
+
+  /** Creates internal order and links it to Razorpay order */
+  createOrderWithRazorpay: (orderData: OrderCreateInput, razorpayOrderId: string) => Promise<string | null>;
 
   /** Insert payment row and update orders.{status,payment_status} */
   savePaymentDetails: (paymentData: Omit<PaymentDetails, 'paid_at' | 'updated_at'>) => Promise<void>;
-
-  /** Optional: if you add a server verifier later */
-  verifyPayment: (response: PaymentResponse, orderId: string) => Promise<boolean>;
 
   clearError: () => void;
 }
@@ -74,19 +73,36 @@ export const usePaymentStore = create<PaymentState>((set) => ({
   error: null,
   currentPayment: null,
 
-  createOrder: async (orderData) => {
+  /** Creates order in Razorpay and returns razorpay_order_id */
+  createRazorpayOrder: async (amount: number, currency: string = 'INR') => {
+    try {
+      const { data, error } = await supabase.functions.invoke('create-razorpay-order', {
+        body: { amount, currency }
+      });
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Failed to create Razorpay order:', error);
+      throw error;
+    }
+  },
+
+  /** Creates internal order and links it to Razorpay order */
+  createOrderWithRazorpay: async (orderData: OrderCreateInput, razorpayOrderId: string) => {
     set({ loading: true, error: null });
     try {
-      // 1) Insert into orders
+      // 1) Insert into orders with razorpay_order_id
       const orderInsertData: any = {
         subtotal: orderData.subtotal,
         discount: orderData.discount,
         delivery_charge: orderData.delivery_charge,
-        total_amount: orderData.total_amount, // ✅ RUPEES in DB
+        total_amount: orderData.total_amount,
         status: orderData.status,
         payment_status: orderData.payment_status,
         payment_method: orderData.payment_method,
         shipping_address: orderData.shipping_address,
+        razorpay_order_id: razorpayOrderId, // Link to Razorpay order
       };
 
       // Add user_id or guest session data based on order type
@@ -96,7 +112,6 @@ export const usePaymentStore = create<PaymentState>((set) => ({
       } else if (orderData.guest_session_id) {
         orderInsertData.guest_session_id = orderData.guest_session_id;
         orderInsertData.order_type = 'guest';
-        // Extract guest email and phone from guest_contact_info
         if (orderData.guest_contact_info) {
           orderInsertData.guest_email = orderData.guest_contact_info.email;
           orderInsertData.guest_phone = orderData.guest_contact_info.phone;
@@ -114,13 +129,13 @@ export const usePaymentStore = create<PaymentState>((set) => ({
 
       // 2) Insert order_items
       if (orderData.items?.length) {
-        const itemsToInsert = orderData.items.map((i) => ({
+        const itemsToInsert = orderData.items.map((i: CartItemForOrder) => ({
           order_id: orderId,
           product_id: i.product_id,
           size: i.size ?? null,
           quantity: i.quantity,
           price_at_purchase: i.price,
-          thumbnail_url: i.thumbnail_url, // ✅ RUPEES
+          thumbnail_url: i.thumbnail_url,
         }));
 
         const { error: itemsErr } = await supabase
@@ -133,7 +148,7 @@ export const usePaymentStore = create<PaymentState>((set) => ({
       set({ loading: false });
       return orderId;
     } catch (e: any) {
-      console.error("createOrder error:", e);
+      console.error("createOrderWithRazorpay error:", e);
       set({ error: e?.message ?? "Failed to create order", loading: false });
       return null;
     }
@@ -145,30 +160,73 @@ export const usePaymentStore = create<PaymentState>((set) => ({
       const now = new Date().toISOString();
       const isPaid = paymentData.payment_status === "completed";
 
-      // 1) Insert payments
-      const paymentInsert: any = {
-        order_id: paymentData.order_id,
-        provider: paymentData.provider,
-        payment_status: paymentData.payment_status,
-        payment_method: paymentData.payment_method,
-        amount: paymentData.amount, // ✅ RUPEES
-        currency: paymentData.currency,
-        payment_reference: paymentData.payment_reference ?? null,
-        paid_at: isPaid ? now : null,
-        updated_at: now,
-      };
+      // If order_id is not provided, try to find it from existing payment record
+      let orderId = paymentData.order_id;
+      if (!orderId && paymentData.payment_reference) {
+        // Look up the order_id from the payments table using payment_reference
+        const { data: existingPayment } = await supabase
+          .from("payments")
+          .select("order_id")
+          .eq("payment_reference", paymentData.payment_reference)
+          .single();
 
-      // Add user_id or guest_session_id based on payment type
-      if (paymentData.user_id) {
-        paymentInsert.user_id = paymentData.user_id;
-        paymentInsert.payment_type = 'registered';
-      } else if (paymentData.guest_session_id) {
-        paymentInsert.guest_session_id = paymentData.guest_session_id;
-        paymentInsert.payment_type = 'guest';
+        if (existingPayment) {
+          orderId = existingPayment.order_id;
+        }
       }
 
-      const { error: payErr } = await supabase.from("payments").insert([paymentInsert]);
-      if (payErr) throw payErr;
+      if (!orderId) {
+        throw new Error("Could not determine order_id for payment");
+      }
+
+      // Check if payment record already exists
+      const { data: existingPayment } = await supabase
+        .from("payments")
+        .select("*")
+        .eq("payment_reference", paymentData.payment_reference)
+        .single();
+
+      if (existingPayment) {
+        // Update existing payment record
+        const { error: updateErr } = await supabase
+          .from("payments")
+          .update({
+            payment_status: paymentData.payment_status,
+            payment_method: paymentData.payment_method,
+            amount: paymentData.amount,
+            currency: paymentData.currency,
+            paid_at: isPaid ? now : null,
+            updated_at: now,
+          })
+          .eq("payment_reference", paymentData.payment_reference);
+
+        if (updateErr) throw updateErr;
+      } else {
+        // Insert new payment record
+        const paymentInsert: any = {
+          order_id: orderId,
+          provider: paymentData.provider,
+          payment_status: paymentData.payment_status,
+          payment_method: paymentData.payment_method,
+          amount: paymentData.amount, // ✅ RUPEES
+          currency: paymentData.currency,
+          payment_reference: paymentData.payment_reference ?? null,
+          paid_at: isPaid ? now : null,
+          updated_at: now,
+        };
+
+        // Add user_id or guest_session_id based on payment type
+        if (paymentData.user_id) {
+          paymentInsert.user_id = paymentData.user_id;
+          paymentInsert.payment_type = 'registered';
+        } else if (paymentData.guest_session_id) {
+          paymentInsert.guest_session_id = paymentData.guest_session_id;
+          paymentInsert.payment_type = 'guest';
+        }
+
+        const { error: payErr } = await supabase.from("payments").insert([paymentInsert]);
+        if (payErr) throw payErr;
+      }
 
       // 2) Update orders.{status,payment_status}
       const nextOrderStatus: OrderStatusDB = isPaid
@@ -183,13 +241,14 @@ export const usePaymentStore = create<PaymentState>((set) => ({
           status: nextOrderStatus,
           payment_status: paymentData.payment_status,
         })
-        .eq("order_id", paymentData.order_id);
+        .eq("order_id", orderId);
 
       if (updErr) throw updErr;
 
       set({
         currentPayment: {
           ...paymentData,
+          order_id: orderId,
           paid_at: isPaid ? now : null,
           updated_at: now,
         },
