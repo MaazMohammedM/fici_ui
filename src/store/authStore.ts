@@ -106,11 +106,29 @@ export const useAuthStore = create<AuthState>()(
 
           if (user) {
             // fetch profile (if any)
-            const { data: profile } = await supabase
+            const { data: profile, error: profileError } = await supabase
               .from('user_profiles')
               .select('role, first_name')
               .eq('user_id', user.id)
-              .single();
+              .maybeSingle();
+
+            // Create profile if it doesn't exist
+            if (!profile && !profileError) {
+              const firstName = user.user_metadata?.first_name || user.user_metadata?.full_name?.split(' ')[0] || '';
+
+              const { error: insertError } = await supabase
+                .from('user_profiles')
+                .insert({
+                  user_id: user.id,
+                  email: user.email,
+                  first_name: firstName,
+                  role: 'customer'
+                });
+
+              if (insertError) {
+                console.error('Profile creation failed in signIn:', insertError);
+              }
+            }
 
             set({
               user,
@@ -175,13 +193,20 @@ export const useAuthStore = create<AuthState>()(
           if (error) throw error;
 
           if (data.user) {
-            await supabase.from('user_profiles').insert({
-              user_id: data.user.id,
-              email: userData.email,
-              first_name: userData.firstName,
-              last_name: userData.lastName,
-              role: 'customer',
-            });
+            // Create profile for new user
+            const { error: insertError } = await supabase
+              .from('user_profiles')
+              .insert({
+                user_id: data.user.id,
+                email: userData.email,
+                first_name: userData.firstName,
+                last_name: userData.lastName,
+                role: 'customer',
+              });
+
+            if (insertError) {
+              console.error('Profile creation failed in signUp:', insertError);
+            }
 
             set({
               user: data.user,
