@@ -11,6 +11,8 @@ const ProductPage: React.FC = () => {
     currentPage,
     totalPages,
     clearFilters,
+    loading,
+    error
   } = useProductStore();
 
   const location = useLocation();
@@ -40,6 +42,7 @@ const ProductPage: React.FC = () => {
     if (sub_category) filters.sub_category = sub_category;
     if (q) filters.search = q;
 
+    console.log('ProductPage: Fetching products with filters:', filters, 'page:', page);
     fetchProducts(page, filters);
 
     // Reflect URL params in UI controls
@@ -48,6 +51,16 @@ const ProductPage: React.FC = () => {
     setSelectedSubCategory(sub_category || 'all');
     setSearchInput(q || '');
   }, [location.search, fetchProducts]);
+
+  // Initial load when component mounts (for direct URL access)
+  useEffect(() => {
+    // Always fetch products on mount if we don't have any in the store
+    const { filteredProducts } = useProductStore.getState();
+    if (filteredProducts.length === 0) {
+      console.log('ProductPage: Initial load, no products in store');
+      fetchProducts(1, {});
+    }
+  }, []); // Only run on mount
 
   // Handle search on click or enter
   const handleSearch = () => {
@@ -79,33 +92,33 @@ const ProductPage: React.FC = () => {
   };
 
   return (
-    <div className="px-4 sm:px-6 py-6 sm:py-8 max-w-7xl mx-auto">
+    <div className="w-full px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8 max-w-7xl mx-auto">
       {/* Search + Filters */}
-      <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 sm:gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4 mb-6">
         {/* Search Bar */}
-        <div className="flex items-center w-full md:w-1/2 border rounded-lg overflow-hidden">
+        <div className="flex items-center w-full sm:w-1/2 border rounded-lg overflow-hidden">
           <input
             type="text"
             placeholder="Search products..."
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            className="w-full px-4 py-2 focus:outline-none"
+            className="w-full px-3 sm:px-4 py-2 sm:py-3 focus:outline-none text-sm sm:text-base"
           />
           {/* Search Icon */}
           <button
             onClick={handleSearch}
-            className="px-3 py-2 text-gray-500 hover:text-black transition"
+            className="px-2 sm:px-3 py-2 sm:py-3 text-gray-500 hover:text-black transition"
           >
-            <Search size={20} />
+            <Search size={18} className="sm:w-5 sm:h-5" />
           </button>
           {/* Clear Icon */}
           {searchInput && (
             <button
               onClick={handleClear}
-              className="px-3 py-2 text-gray-500 hover:text-red-600 transition"
+              className="px-2 sm:px-3 py-2 sm:py-3 text-gray-500 hover:text-red-600 transition"
             >
-              <X size={20} />
+              <X size={18} className="sm:w-5 sm:h-5" />
             </button>
           )}
         </div>
@@ -113,7 +126,7 @@ const ProductPage: React.FC = () => {
         {/* Filters (compact on mobile in a single row) */}
         <div
           ref={filtersRef}
-          className="flex gap-2 md:gap-4 overflow-x-auto md:overflow-visible items-center"
+          className="flex gap-2 sm:gap-3 md:gap-4 overflow-x-auto md:overflow-visible items-center pb-1"
         >
           <select
             value={selectedCategory}
@@ -126,7 +139,7 @@ const ProductPage: React.FC = () => {
               params.delete('page');
               navigate({ pathname: '/products', search: params.toString() });
             }}
-            className="px-2 py-1 md:px-3 md:py-2 border rounded-lg text-xs sm:text-sm min-w-[130px]"
+            className="px-2 py-2 sm:px-3 sm:py-2 border rounded-lg text-xs sm:text-sm min-w-[120px] sm:min-w-[130px] bg-white"
           >
             <option value="all">All Categories</option>
             <option value="Footwear">Footwear</option>
@@ -144,7 +157,7 @@ const ProductPage: React.FC = () => {
               params.delete('page');
               navigate({ pathname: '/products', search: params.toString() });
             }}
-            className="px-2 py-1 md:px-3 md:py-2 border rounded-lg text-xs sm:text-sm min-w-[140px]"
+            className="px-2 py-2 sm:px-3 sm:py-2 border rounded-lg text-xs sm:text-sm min-w-[130px] sm:min-w-[140px] bg-white"
           >
             <option value="all">All Subcategories</option>
             <option value="Shoes">Shoes</option>
@@ -164,7 +177,7 @@ const ProductPage: React.FC = () => {
               params.delete('page');
               navigate({ pathname: '/products', search: params.toString() });
             }}
-            className="px-2 py-1 md:px-3 md:py-2 border rounded-lg text-xs sm:text-sm min-w-[110px]"
+            className="px-2 py-2 sm:px-3 sm:py-2 border rounded-lg text-xs sm:text-sm min-w-[100px] sm:min-w-[110px] bg-white"
           >
             <option value="all">All</option>
             <option value="men">Men</option>
@@ -174,23 +187,45 @@ const ProductPage: React.FC = () => {
       </div>
 
       {/* Empty state or Product Grid */}
-      {filteredProducts.length === 0 ? (
-        <div className="flex flex-col items-center justify-center text-center bg-gray-50 border border-dashed rounded-xl p-8 sm:p-12 my-8">
-          <div className="text-xl sm:text-2xl font-semibold mb-2">No products found</div>
-          <p className="text-gray-600 mb-4 max-w-md">Try changing the filters to see other products. You can also clear all filters to view everything.</p>
+      {loading ? (
+        <div className="flex flex-col items-center justify-center text-center bg-gray-50 border border-dashed rounded-xl p-6 sm:p-8 md:p-12 my-6 sm:my-8">
+          <div className="mb-6">
+            <img
+              src="/src/assets/fici_transparent.png"
+              alt="FICI Loading"
+              className="w-16 h-16 mx-auto animate-pulse opacity-60"
+            />
+          </div>
+          <p className="text-gray-600">Loading products...</p>
+        </div>
+      ) : error ? (
+        <div className="flex flex-col items-center justify-center text-center bg-red-50 border border-red-200 rounded-xl p-6 sm:p-8 md:p-12 my-6 sm:my-8">
+          <div className="text-red-600 mb-2">Error loading products</div>
+          <p className="text-red-600 mb-4">{error}</p>
+          <button
+            onClick={() => fetchProducts(1, {})}
+            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+          >
+            Try Again
+          </button>
+        </div>
+      ) : filteredProducts.length === 0 ? (
+        <div className="flex flex-col items-center justify-center text-center bg-gray-50 border border-dashed rounded-xl p-6 sm:p-8 md:p-12 my-6 sm:my-8">
+          <div className="text-lg sm:text-xl md:text-2xl font-semibold mb-2">No products found</div>
+          <p className="text-gray-600 mb-4 max-w-md text-sm sm:text-base">Try changing the filters to see other products. You can also clear all filters to view everything.</p>
           <div className="flex flex-col sm:flex-row gap-3">
             <button
               onClick={handleClear}
-              className="px-5 py-2 rounded-lg bg-black text-white hover:bg-black/90"
+              className="px-4 sm:px-5 py-2 sm:py-3 rounded-lg bg-black text-white hover:bg-black/90 text-sm sm:text-base"
             >
               Clear All Filters
             </button>
           </div>
         </div>
       ) : (
-        <div 
+        <div
           ref={productGridRef}
-          className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6"
+          className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-6"
         >
           {filteredProducts.map((product) => (
             <ProductCard key={product.product_id} product={product} />
@@ -200,17 +235,17 @@ const ProductPage: React.FC = () => {
 
       {/* Pagination */}
       {totalPages > 1 && (
-        <div className="flex justify-center mt-12 mb-8">
+        <div className="flex justify-center mt-8 sm:mt-12 mb-6 sm:mb-8">
           <div className="flex items-center gap-1 bg-white rounded-lg shadow-sm p-1">
             {Array.from({ length: totalPages }, (_, idx) => {
               const page = idx + 1;
               const isCurrent = page === currentPage;
-              const isNearCurrent = 
-                page === currentPage - 1 || 
+              const isNearCurrent =
+                page === currentPage - 1 ||
                 page === currentPage + 1 ||
-                page === 1 || 
+                page === 1 ||
                 page === totalPages;
-              
+
               // Show first, last, current and adjacent pages
               if (isNearCurrent || isCurrent) {
                 return (
@@ -224,9 +259,9 @@ const ProductPage: React.FC = () => {
                         productGridRef.current.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
                       }
                     }}
-                    className={`w-10 h-10 flex items-center justify-center rounded-md transition-colors ${
-                      isCurrent 
-                        ? 'bg-black text-white' 
+                    className={`w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center rounded-md transition-colors text-sm sm:text-base ${
+                      isCurrent
+                        ? 'bg-black text-white'
                         : 'hover:bg-gray-100'
                     }`}
                   >
@@ -234,12 +269,12 @@ const ProductPage: React.FC = () => {
                   </button>
                 );
               }
-              
+
               // Show ellipsis for gaps
               if (page === 2 || page === totalPages - 1) {
-                return <span key={page} className="px-2">...</span>;
+                return <span key={page} className="px-2 text-sm sm:text-base">...</span>;
               }
-              
+
               return null;
             })}
           </div>

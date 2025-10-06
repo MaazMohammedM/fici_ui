@@ -432,18 +432,70 @@ export const useAuthStore = create<AuthState>()(
   )
 );
 
+// Helper function to ensure user profile exists
+const ensureUserProfile = async (user: any) => {
+  try {
+    // Check if user profile exists
+    const { data: profile, error: profileError } = await supabase
+      .from('user_profiles')
+      .select('first_name, role')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (profileError && profileError.code !== 'PGRST116') {
+      console.error('Profile query failed:', profileError);
+      return;
+    }
+
+    if (!profile) {
+      // Create new profile for users (OAuth or email/password)
+      const fullName = user.user_metadata?.full_name || user.user_metadata?.name || '';
+      const firstName = user.user_metadata?.first_name || user.user_metadata?.given_name || fullName.split(' ')[0] || '';
+
+      const { error: insertError } = await supabase
+        .from('user_profiles')
+        .insert([
+          {
+            user_id: user.id,
+            email: user.email,
+            first_name: firstName,
+            role: 'customer'
+          }
+        ]);
+
+      if (insertError) {
+        console.error('Profile creation failed during auth init:', insertError);
+      } else {
+        // Update store with profile data
+        useAuthStore.getState().setFirstName(firstName);
+        useAuthStore.getState().setRole('customer');
+      }
+    } else {
+      // Update store with existing profile data
+      useAuthStore.getState().setFirstName(profile.first_name || '');
+      useAuthStore.getState().setRole(profile.role || 'customer');
+    }
+  } catch (error) {
+    console.error('Error ensuring user profile:', error);
+  }
+};
+
 // Initialize store user from Supabase and subscribe to auth changes
 (async () => {
   try {
     const { data } = await supabase.auth.getUser();
     if (data?.user) {
+      // Ensure user profile exists for authenticated users
+      await ensureUserProfile(data.user);
       useAuthStore.getState().setUser(data.user);
     }
 
     // subscribe to changes so your UI syncs with Supabase auth state
-    supabase.auth.onAuthStateChange((_event, session) => {
+    supabase.auth.onAuthStateChange(async (_event, session) => {
       const user = session?.user;
       if (user) {
+        // Ensure user profile exists when auth state changes
+        await ensureUserProfile(user);
         useAuthStore.getState().setUser(user);
       } else {
         useAuthStore.getState().setUser(undefined);
