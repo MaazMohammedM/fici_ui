@@ -18,9 +18,9 @@ interface ProductState {
   currentPage: number;
   totalPages: number;
   itemsPerPage: number;
-  
+
   // Actions
-  fetchProducts: (page?: number, filters?: any) => Promise<void>;
+  fetchProducts: (page?: number, filters?: any, retryCount?: number) => Promise<void>;
   fetchTopDeals: () => Promise<void>;
   fetchProductByArticleId: (articleId: string) => Promise<void>;
   fetchRelatedProducts: (category: string, currentProductId: string) => Promise<void>;
@@ -123,66 +123,83 @@ export const useProductStore = create<ProductState>((set, get) => ({
   totalPages: 1,
   itemsPerPage: 12,
 
-  fetchProducts: async (page = 1, filters = {}) => {
+  fetchProducts: async (page = 1, filters = {}, retryCount = 0) => {
+    console.log('productStore: fetchProducts called with page:', page, 'filters:', filters, 'retry:', retryCount);
+    const maxRetries = 3;
+    const timeoutMs = 15000; // 15 seconds timeout
+
     set({ loading: true, error: null });
-    
+
+    const fetchWithTimeout = async () => {
+      return new Promise<{ data: any[]; count: number | null }>(async (resolve, reject) => {
+        const timeoutId = setTimeout(() => {
+          reject(new Error('Request timeout'));
+        }, timeoutMs);
+
+        try {
+          let query = supabase
+            .from('products')
+            .select('*', { count: 'exact' });
+
+          // Apply filters
+          if (filters.category && filters.category !== 'all') {
+            query = query.eq('category', filters.category);
+          }
+
+          if (filters.sub_category && filters.sub_category !== 'all') {
+            query = query.eq('sub_category', filters.sub_category);
+          }
+          if (filters.gender && filters.gender !== 'all') {
+            query = query.eq('gender', filters.gender);
+          }
+
+          if (filters.search) {
+            query = query.or(`name.ilike.%${filters.search}%,description.ilike.%${filters.search}%,sub_category.ilike.%${filters.search}%`);
+          }
+
+          // Apply pagination
+          const offset = (page - 1) * get().itemsPerPage;
+          query = query.range(offset, offset + get().itemsPerPage - 1);
+
+          // Order by creation date
+          query = query.order('created_at', { ascending: false });
+
+          const { data, error, count } = await query;
+
+          clearTimeout(timeoutId);
+
+          if (error) {
+            console.error('Fetch error:', error);
+            reject(error);
+            return;
+          }
+
+          resolve({ data: data || [], count });
+        } catch (error) {
+          clearTimeout(timeoutId);
+          reject(error);
+        }
+      });
+    };
+
     try {
-      let query = supabase
-        .from('products')
-        .select('*', { count: 'exact' });
-
-      // Apply filters
-      if (filters.category && filters.category !== 'all') {
-        query = query.eq('category', filters.category);
-      }
-      
-      if (filters.sub_category && filters.sub_category !== 'all') {
-        query = query.eq('sub_category', filters.sub_category);
-      }
-      if (filters.gender && filters.gender !== 'all') {
-        query = query.eq('gender', filters.gender);
-      }
-      
-      if (filters.search) {
-        query = query.or(`name.ilike.%${filters.search}%,description.ilike.%${filters.search}%,sub_category.ilike.%${filters.search}%`);
-      }
-
-      // Apply pagination
-      const offset = (page - 1) * get().itemsPerPage;
-      query = query.range(offset, offset + get().itemsPerPage - 1);
-      
-      // Order by creation date
-      query = query.order('created_at', { ascending: false });
-
-      const { data, error, count } = await query;
-
-      if (error) {
-        console.error('Fetch error:', error);
-        set({ error: 'Failed to fetch products' });
-        return;
-      }
+      const { data, count } = await fetchWithTimeout();
 
       // Process products with proper image parsing and discount calculation
-      const processedProducts = (data || []).map(product => {
-        console.log('Processing product:', {
-          article_id: product.article_id,
-          mrp_price: product.mrp_price,
-          discount_price: product.discount_price,
-          name: product.name
-        });
+      const processedProducts: Product[] = (data || []).map((product: any) => {
         return {
           ...product,
           sizes: safeParseSizes(product.sizes),
-          images: parseImages(product.images), // Use the new parseImages function
+          images: parseImages(product.images),
           thumbnail_url: product.thumbnail_url || null,
           discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price),
-          mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0  // ✅ Fallback to discount_price if mrp_price is missing
+          mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0
         };
       });
 
       const totalPages = Math.ceil((count || 0) / get().itemsPerPage);
 
-      set({ 
+      set({
         products: processedProducts,
         filteredProducts: processedProducts,
         currentPage: page,
@@ -192,7 +209,21 @@ export const useProductStore = create<ProductState>((set, get) => ({
 
     } catch (error) {
       console.error('Error fetching products:', error);
-      set({ error: 'Failed to fetch products', loading: false });
+
+      // Retry logic
+      if (retryCount < maxRetries) {
+        console.log(`Retrying... Attempt ${retryCount + 1}/${maxRetries}`);
+        setTimeout(() => {
+          get().fetchProducts(page, filters, retryCount + 1);
+        }, 1000 * (retryCount + 1)); // Exponential backoff
+        return;
+      }
+
+      // Final failure after all retries
+      set({
+        error: error instanceof Error ? error.message : 'Failed to fetch products after multiple attempts',
+        loading: false
+      });
     }
   },
 
