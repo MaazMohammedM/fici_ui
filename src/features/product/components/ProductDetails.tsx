@@ -132,28 +132,28 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
     <div className="space-y-6">
       {/* Brand and Category */}
       <div className="space-y-1">
-        <h1 className="text-2xl font-bold text-gray-900">{selectedVariant?.name}</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{selectedVariant?.name}</h1>
 
       </div>
 
       {/* Price */}
       <div className="mt-4">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-3xl font-bold text-gray-900">
+          <span className="text-3xl font-bold text-gray-900 dark:text-white">
             ₹{Number(selectedVariant?.discount_price || 0).toLocaleString('en-IN')}
           </span>
           {selectedVariant?.mrp_price && Number(selectedVariant.mrp_price) > Number(selectedVariant.discount_price || 0) && (
             <>
-              <span className="text-lg text-gray-500 line-through">
+              <span className="text-lg text-gray-500 dark:text-gray-400 line-through">
                 ₹{Number(selectedVariant.mrp_price).toLocaleString('en-IN')}
               </span>
-              <span className="text-sm bg-green-100 text-green-800 px-2 py-1 rounded font-medium">
+              <span className="text-sm bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 px-2 py-1 rounded font-medium">
                 Save ₹{(Number(selectedVariant.mrp_price) - Number(selectedVariant.discount_price || 0)).toLocaleString('en-IN')}
               </span>
             </>
           )}
         </div>
-        <p className="text-sm text-green-600 mt-1">Inclusive of all taxes</p>
+        <p className="text-sm text-green-600 dark:text-green-400 mt-1">Inclusive of all taxes</p>
       </div>
 
       {/* Color Selector */}
@@ -202,14 +202,14 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
           <svg className="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
           </svg>
-          <span className="text-xs text-gray-500">Secure Checkout with Razorpay</span>
+          <span className="text-xs text-gray-500 dark:text-gray-400">Secure Checkout with Razorpay</span>
         </div>
       </div>
 
       {/* Product Highlights */}
-      <div className="pt-4 border-t border-gray-200">
-        <h3 className="text-sm font-medium text-gray-900 mb-3">Product Highlights</h3>
-        <ul className="space-y-2 text-sm text-gray-600">
+      <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+        <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Product Highlights</h3>
+        <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
           <li className="flex items-start">
             <svg className="h-5 w-5 text-green-500 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -232,33 +232,33 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
       </div>
 
       {/* Care Instructions */}
-      <div className="pt-4 border-t border-gray-200">
-        <h3 className="text-sm font-medium text-gray-900 mb-3">Care Instructions</h3>
+      <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+        <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Care Instructions</h3>
         <div className="grid grid-cols-2 gap-2">
           {careInstructions.slice(0, 4).map((instruction, index) => (
             <div key={index} className="flex items-start">
-              <svg className="h-4 w-4 text-gray-400 mt-0.5 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="h-4 w-4 text-gray-400 dark:text-gray-500 mt-0.5 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
-              <span className="text-xs text-gray-600">{instruction}</span>
+              <span className="text-xs text-gray-600 dark:text-gray-400">{instruction}</span>
             </div>
           ))}
         </div>
       </div>
 
       {/* Share & More */}
-      <div className="pt-4 border-t border-gray-200">
+      <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
         <div className="flex items-center justify-between">
           <button 
             onClick={() => setShowShareModal(true)}
-            className="flex items-center text-sm font-medium text-gray-700 hover:text-accent"
+            className="flex items-center text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-accent transition-colors"
           >
             <svg className="h-5 w-5 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
             </svg>
             Share this Product
           </button>
-          <button className="flex items-center text-sm font-medium text-gray-700 hover:text-accent">
+          <button className="flex items-center text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-accent transition-colors">
             <svg className="h-5 w-5 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
             </svg>

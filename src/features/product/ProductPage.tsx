@@ -108,7 +108,7 @@ const ProductPage: React.FC = () => {
           {/* Search Icon */}
           <button
             onClick={handleSearch}
-            className="px-2 sm:px-3 py-2 sm:py-3 text-gray-500 hover:text-black transition"
+            className="px-2 sm:px-3 py-2 sm:py-3 text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white transition"
           >
             <Search size={18} className="sm:w-5 sm:h-5" />
           </button>
@@ -116,7 +116,7 @@ const ProductPage: React.FC = () => {
           {searchInput && (
             <button
               onClick={handleClear}
-              className="px-2 sm:px-3 py-2 sm:py-3 text-gray-500 hover:text-red-600 transition"
+              className="px-2 sm:px-3 py-2 sm:py-3 text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition"
             >
               <X size={18} className="sm:w-5 sm:h-5" />
             </button>
@@ -139,7 +139,7 @@ const ProductPage: React.FC = () => {
               params.delete('page');
               navigate({ pathname: '/products', search: params.toString() });
             }}
-            className="px-2 py-2 sm:px-3 sm:py-2 border rounded-lg text-xs sm:text-sm min-w-[120px] sm:min-w-[130px] bg-white"
+            className="px-2 py-2 sm:px-3 sm:py-2 border rounded-lg text-xs sm:text-sm min-w-[120px] sm:min-w-[130px] bg-white dark:bg-dark2 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
           >
             <option value="all">All Categories</option>
             <option value="Footwear">Footwear</option>
@@ -157,7 +157,7 @@ const ProductPage: React.FC = () => {
               params.delete('page');
               navigate({ pathname: '/products', search: params.toString() });
             }}
-            className="px-2 py-2 sm:px-3 sm:py-2 border rounded-lg text-xs sm:text-sm min-w-[130px] sm:min-w-[140px] bg-white"
+            className="px-2 py-2 sm:px-3 sm:py-2 border rounded-lg text-xs sm:text-sm min-w-[130px] sm:min-w-[140px] bg-white dark:bg-dark2 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
           >
             <option value="all">All Subcategories</option>
             <option value="Shoes">Shoes</option>
@@ -177,7 +177,7 @@ const ProductPage: React.FC = () => {
               params.delete('page');
               navigate({ pathname: '/products', search: params.toString() });
             }}
-            className="px-2 py-2 sm:px-3 sm:py-2 border rounded-lg text-xs sm:text-sm min-w-[100px] sm:min-w-[110px] bg-white"
+            className="px-2 py-2 sm:px-3 sm:py-2 border rounded-lg text-xs sm:text-sm min-w-[100px] sm:min-w-[110px] bg-white dark:bg-dark2 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
           >
             <option value="all">All</option>
             <option value="men">Men</option>
@@ -188,7 +188,7 @@ const ProductPage: React.FC = () => {
 
       {/* Empty state or Product Grid */}
       {loading ? (
-        <div className="flex flex-col items-center justify-center text-center bg-gray-50 border border-dashed rounded-xl p-6 sm:p-8 md:p-12 my-6 sm:my-8">
+        <div className="flex flex-col items-center justify-center text-center bg-gray-50 dark:bg-dark3 border border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-6 sm:p-8 md:p-12 my-6 sm:my-8">
           <div className="mb-6">
             <img
               src="/src/assets/fici_transparent.png"
@@ -196,27 +196,27 @@ const ProductPage: React.FC = () => {
               className="w-16 h-16 mx-auto animate-pulse opacity-60"
             />
           </div>
-          <p className="text-gray-600">Loading products...</p>
+          <p className="text-gray-600 dark:text-gray-400">Loading products...</p>
         </div>
       ) : error ? (
-        <div className="flex flex-col items-center justify-center text-center bg-red-50 border border-red-200 rounded-xl p-6 sm:p-8 md:p-12 my-6 sm:my-8">
-          <div className="text-red-600 mb-2">Error loading products</div>
-          <p className="text-red-600 mb-4">{error}</p>
+        <div className="flex flex-col items-center justify-center text-center bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-6 sm:p-8 md:p-12 my-6 sm:my-8">
+          <div className="text-red-600 dark:text-red-400 mb-2">Error loading products</div>
+          <p className="text-red-600 dark:text-red-400 mb-4">{error}</p>
           <button
             onClick={() => fetchProducts(1, {})}
-            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+            className="px-4 py-2 bg-red-600 hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 text-white dark:text-white rounded-lg transition-colors"
           >
             Try Again
           </button>
         </div>
       ) : filteredProducts.length === 0 ? (
-        <div className="flex flex-col items-center justify-center text-center bg-gray-50 border border-dashed rounded-xl p-6 sm:p-8 md:p-12 my-6 sm:my-8">
-          <div className="text-lg sm:text-xl md:text-2xl font-semibold mb-2">No products found</div>
-          <p className="text-gray-600 mb-4 max-w-md text-sm sm:text-base">Try changing the filters to see other products. You can also clear all filters to view everything.</p>
+        <div className="flex flex-col items-center justify-center text-center bg-gray-50 dark:bg-dark3 border border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-6 sm:p-8 md:p-12 my-6 sm:my-8">
+          <div className="text-lg sm:text-xl md:text-2xl font-semibold mb-2 text-gray-900 dark:text-white">No products found</div>
+          <p className="text-gray-600 dark:text-gray-400 mb-4 max-w-md text-sm sm:text-base">Try changing the filters to see other products. You can also clear all filters to view everything.</p>
           <div className="flex flex-col sm:flex-row gap-3">
             <button
               onClick={handleClear}
-              className="px-4 sm:px-5 py-2 sm:py-3 rounded-lg bg-black text-white hover:bg-black/90 text-sm sm:text-base"
+              className="px-4 sm:px-5 py-2 sm:py-3 rounded-lg bg-black dark:bg-white text-white dark:text-black hover:bg-black/90 dark:hover:bg-gray-100 transition-colors text-sm sm:text-base"
             >
               Clear All Filters
             </button>
@@ -236,7 +236,7 @@ const ProductPage: React.FC = () => {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex justify-center mt-8 sm:mt-12 mb-6 sm:mb-8">
-          <div className="flex items-center gap-1 bg-white rounded-lg shadow-sm p-1">
+          <div className="flex items-center gap-1 bg-white dark:bg-dark2 rounded-lg shadow-sm p-1 border border-gray-200 dark:border-gray-700">
             {Array.from({ length: totalPages }, (_, idx) => {
               const page = idx + 1;
               const isCurrent = page === currentPage;
@@ -261,8 +261,8 @@ const ProductPage: React.FC = () => {
                     }}
                     className={`w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center rounded-md transition-colors text-sm sm:text-base ${
                       isCurrent
-                        ? 'bg-black text-white'
-                        : 'hover:bg-gray-100'
+                        ? 'bg-black dark:bg-white text-white dark:text-black'
+                        : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
                     }`}
                   >
                     {page}
@@ -272,7 +272,7 @@ const ProductPage: React.FC = () => {
 
               // Show ellipsis for gaps
               if (page === 2 || page === totalPages - 1) {
-                return <span key={page} className="px-2 text-sm sm:text-base">...</span>;
+                return <span key={page} className="px-2 text-sm sm:text-base text-gray-500 dark:text-gray-400">...</span>;
               }
 
               return null;

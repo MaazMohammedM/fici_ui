@@ -14,7 +14,7 @@ const RelatedProducts: React.FC<RelatedProductsProps> = ({
   if (!products || products.length === 0) return null;
 
   return (
-    <div className={`w-full bg-[color:var(--color-light1)] dark:bg-[color:var(--color-dark1)] ${className}`}>
+    <div className={`w-full bg-gray-50 dark:bg-dark3 ${className}`}>
       <div className="w-full px-4 sm:px-8 lg:px-16 py-6 sm:py-8">
         
         <div className="relative">

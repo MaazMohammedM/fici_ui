@@ -3,7 +3,7 @@ import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import AddressCard from './components/AddressForm';
 import GuestAddressForm from './components/GuestAddressForm';
-import PaymentMethodCard from './components/PaymentMethods';
+import PaymentMethods from './components/PaymentMethods';
 import OrderSummary from './components/OrderSummary';
 import PaymentStatusModal from './modal/PaymentStatusModal';
 import GuestCheckoutForm from './components/GuestCheckoutForm';
@@ -21,17 +21,6 @@ const getRazorpayKey = () => {
   return 'rzp_test_R5h4s0BLbxYV33';
 };
 
-const loadRazorpayScript = (): Promise<void> => {
-  return new Promise((resolve, reject) => {
-    if ((window as any).Razorpay) return resolve();
-    const script = document.createElement('script');
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-    script.async = true;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error('Razorpay SDK failed to load'));
-    document.head.appendChild(script);
-  });
-};
 
 const CHECKOUT_DRAFT_KEY = 'checkoutDraft';
 
@@ -46,7 +35,7 @@ const CheckoutPage: React.FC = () => {
   const getAuthenticationType = useAuthStore((state) => state.getAuthenticationType);
 
   const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
-  const [selectedPayment, setSelectedPayment] = useState<string>('razorpay');
+  const [selectedPayment, setSelectedPayment] = useState<string>('cod'); // Default to COD
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<'success' | 'failed' | 'pending' | null>(null);
   const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
@@ -76,13 +65,20 @@ const CheckoutPage: React.FC = () => {
       try {
         const parsed = JSON.parse(saved);
         if (parsed?.selectedAddress) setSelectedAddress(parsed.selectedAddress);
-        if (parsed?.selectedPayment) setSelectedPayment(parsed.selectedPayment);
-      } catch {}
+        if (parsed?.selectedPayment) {
+          console.log('Loading saved payment method:', parsed.selectedPayment);
+          setSelectedPayment(parsed.selectedPayment);
+        }
+      } catch (error) {
+        console.error('Error parsing checkout draft:', error);
+      }
     }
   }, []);
 
   useEffect(() => {
-    sessionStorage.setItem(CHECKOUT_DRAFT_KEY, JSON.stringify({ selectedAddress, selectedPayment }));
+    const draftData = { selectedAddress, selectedPayment };
+    console.log('Saving checkout draft:', draftData);
+    sessionStorage.setItem(CHECKOUT_DRAFT_KEY, JSON.stringify(draftData));
   }, [selectedAddress, selectedPayment]);
 
   useEffect(() => {
@@ -158,6 +154,11 @@ const CheckoutPage: React.FC = () => {
       const orderId = crypto.randomUUID();
       const authType = getAuthenticationType();
 
+      console.log('Starting order placement:');
+      console.log('Selected payment method:', selectedPayment);
+      console.log('Total amount:', totalAmount);
+      console.log('Auth type:', authType);
+
       // Prepare order data with proper user/guest context
       const orderData: any = {
         amount: totalAmount,
@@ -196,16 +197,21 @@ const CheckoutPage: React.FC = () => {
       if (error) throw error;
 
       // Handle response format from edge function
-      const { razorpay_order_id, order_id: internalOrderId, key: razorpayKey, payment_method } = data;
+      const { razorpay_order_id, order_id: internalOrderId, key: razorpayKey } = data;
 
       // Handle COD orders - no Razorpay needed
-      if (payment_method === 'cod') {
+      if (selectedPayment === 'cod') {
+        console.log('Processing COD order, skipping Razorpay');
+        console.log('Selected payment method:', selectedPayment);
+        console.log('Order data sent:', orderData.payment_method);
         setCurrentOrderId(internalOrderId);
         setPaymentStatus('success');
         return;
       }
 
-      await loadRazorpayScript();
+      console.log('Processing online payment with Razorpay');
+      console.log('Selected payment method:', selectedPayment);
+
       const key = razorpayKey || getRazorpayKey();
 
       const rzp = new (window as any).Razorpay({
@@ -374,7 +380,7 @@ const CheckoutPage: React.FC = () => {
                 </>
               )}
 
-              <PaymentMethodCard
+              <PaymentMethods
                 selected={selectedPayment}
                 onSelect={(id) => setSelectedPayment(id)}
               />

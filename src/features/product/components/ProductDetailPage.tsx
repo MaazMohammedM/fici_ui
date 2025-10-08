@@ -1,5 +1,6 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect,useMemo, useCallback } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import ProductDescription from "./ProductDescription";
 import { useProductStore } from '@store/productStore';
 import { useCartStore } from '@store/cartStore';
 import { useWishlistStore } from '@store/wishlistStore';
@@ -306,7 +307,7 @@ if (isInWishlist(selectedVariant.article_id)) {
   }
 
   return (
-    <div className="bg-white">
+    <div className="bg-white dark:bg-dark1">
       {/* Main Product Section */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="lg:grid lg:grid-cols-2 lg:gap-12">
@@ -320,7 +321,7 @@ if (isInWishlist(selectedVariant.article_id)) {
 
           {/* Right Column - Product Details */}
           <div className="sticky top-4">
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+            <div className="bg-white dark:bg-dark2 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
               <ProductDetails
                 currentProduct={currentProduct}
                 selectedVariant={currentVariant}
@@ -357,17 +358,17 @@ if (isInWishlist(selectedVariant.article_id)) {
               />
               {/* Fallback to original text badges if image is not available */}
               <div className="hidden grid grid-cols-3 gap-3 mt-6 px-4" style={{display: 'none'}}>
-                <div className="p-3 bg-gray-50 rounded-lg text-center">
-                  <div className="text-gray-600 text-sm">3 Days Exchange</div>
-                  <div className="text-xs text-gray-500">Policy</div>
+                <div className="p-3 bg-gray-50 dark:bg-dark3 rounded-lg text-center">
+                  <div className="text-gray-600 dark:text-gray-400 text-sm">3 Days Exchange</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-500">Policy</div>
                 </div>
-                <div className="p-3 bg-gray-50 rounded-lg text-center">
-                  <div className="text-gray-600 text-sm">Made in India</div>
-                  <div className="text-xs text-gray-500">Quality assured</div>
+                <div className="p-3 bg-gray-50 dark:bg-dark3 rounded-lg text-center">
+                  <div className="text-gray-600 dark:text-gray-400 text-sm">Made in India</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-500">Quality assured</div>
                 </div>
-                <div className="p-3 bg-gray-50 rounded-lg text-center">
-                  <div className="text-gray-600 text-sm">Free Delivery</div>
-                  <div className="text-xs text-gray-500">Within 5-7 days</div>
+                <div className="p-3 bg-gray-50 dark:bg-dark3 rounded-lg text-center">
+                  <div className="text-gray-600 dark:text-gray-400 text-sm">Free Delivery</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-500">Within 5-7 days</div>
                 </div>
               </div>
             </div>
@@ -378,27 +379,26 @@ if (isInWishlist(selectedVariant.article_id)) {
 
       {/* Minimal description */}
       {currentProduct.description && (
-        <div className="bg-gray-50 py-8">
+        <div className="bg-gray-50 dark:bg-dark3 py-8">
           <div className="max-w-4xl mx-auto px-4">
-            <div className="bg-white rounded-xl shadow-sm p-6">
-              <h2 className="text-xl font-semibold mb-3">Description</h2>
-              <p className="text-gray-600">{currentProduct.description}</p>
-            </div>
+            <ProductDescription
+              description={currentProduct.description}
+            />
           </div>
         </div>
       )}
 
       {/* Customer Reviews */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <h2 className="text-2xl font-bold text-gray-900 mb-8">Customer Reviews</h2>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-8">Customer Reviews</h2>
         <CustomerReviews productId={selectedVariant?.product_id} />
       </div>
 
       {/* Related Products */}
       {relatedProducts.length > 0 && (
-        <div className="bg-gray-50 py-12">
+        <div className="bg-gray-50 dark:bg-dark3 py-12">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-8">You May Also Like</h2>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-8">You May Also Like</h2>
             <RelatedProducts products={relatedProducts} />
           </div>
         </div>

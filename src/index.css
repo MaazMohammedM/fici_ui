@@ -178,6 +178,39 @@
         background-clip: text;
     }
     
+    /* Text Color Utilities with Dark Mode Support */
+    .text-primary {
+        color: var(--color-text-primary);
+    }
+    
+    .text-secondary {
+        color: var(--color-text-secondary);
+    }
+    
+    .text-muted {
+        color: var(--color-text-muted);
+    }
+    
+    .text-inverse {
+        color: var(--color-text-inverse);
+    }
+    
+    .dark .text-primary {
+        color: var(--color-text-inverse);
+    }
+    
+    .dark .text-secondary {
+        color: var(--color-light3);
+    }
+    
+    .dark .text-muted {
+        color: var(--color-text-muted);
+    }
+    
+    .dark .text-inverse {
+        color: var(--color-text-primary);
+    }
+    
     .heading-hero {
         font-size: clamp(2rem, 5vw, 4rem);
         font-weight: 800;

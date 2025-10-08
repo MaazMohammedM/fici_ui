@@ -297,13 +297,13 @@ const CustomerReviews: React.FC<CustomerReviewsProps> = ({ productId, className 
             </div>
             
             <div className="mb-4">
-              <label htmlFor="comment" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="comment" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Review
               </label>
               <textarea
                 id="comment"
                 rows={4}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-primary focus:border-primary"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-primary focus:border-primary bg-white dark:bg-dark2 text-black dark:text-white"
                 placeholder="Share your thoughts about this product..."
                 value={reviewForm.comment}
                 onChange={(e) =>
@@ -321,7 +321,7 @@ const CustomerReviews: React.FC<CustomerReviewsProps> = ({ productId, className 
                   setEditingReview(null);
                   setReviewForm({ rating: 5, comment: '' });
                 }}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-dark2 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700"
                 disabled={submitting}
               >
                 Cancel
@@ -341,33 +341,33 @@ const CustomerReviews: React.FC<CustomerReviewsProps> = ({ productId, className 
       {/* Reviews List */}
       <div className="space-y-6">
         {reviews.map((review) => (
-          <div key={review.review_id} className="border-b border-gray-200 pb-6">
+          <div key={review.review_id} className="border-b border-gray-200 dark:border-gray-700 pb-6">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center">
-                <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-medium">
+                <div className="h-10 w-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400 font-medium">
                   {review.user?.user_metadata?.full_name?.charAt(0) || 'U'}
                 </div>
                 <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-900">
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">
                     {review.user?.user_metadata?.full_name || 'Anonymous'}
                   </p>
                   <div className="flex items-center">
                     <StarComponent rating={review.rating} size="md" />
                     {review.is_verified_purchase && (
-                      <span className="ml-2 text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded">
+                      <span className="ml-2 text-xs text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-2 py-0.5 rounded">
                         Verified Purchase
                       </span>
                     )}
                   </div>
                 </div>
               </div>
-              <span className="text-sm text-gray-500">
+              <span className="text-sm text-gray-500 dark:text-gray-400">
                 {new Date(review.created_at).toLocaleDateString()}
               </span>
             </div>
             
             {review.comment && (
-              <p className="mt-2 text-gray-700">{review.comment}</p>
+              <p className="mt-2 text-gray-700 dark:text-gray-300">{review.comment}</p>
             )}
             
             {user?.id === review.user_id && (

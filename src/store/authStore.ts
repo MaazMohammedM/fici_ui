@@ -104,10 +104,22 @@ export const useAuthStore = create<AuthState>()(
               .from('user_profiles')
               .select('role, first_name')
               .eq('user_id', user.id)
-              .maybeSingle();
+              .single();
+
+            // Handle different error scenarios
+            if (profileError) {
+              if (profileError.code === 'PGRST116') {
+                // Profile doesn't exist, create it
+                console.log('Profile not found in signIn, creating new profile...');
+              } else {
+                console.error('Profile query failed in signIn:', profileError);
+                set({ error: profileError.message || 'Profile query failed', loading: false });
+                throw profileError;
+              }
+            }
 
             // Create profile if it doesn't exist
-            if (!profile && !profileError) {
+            if (!profile) {
               const firstName = user.user_metadata?.first_name || user.user_metadata?.full_name?.split(' ')[0] || '';
 
               const { error: insertError } = await supabase
@@ -115,18 +127,27 @@ export const useAuthStore = create<AuthState>()(
                 .insert({
                   user_id: user.id,
                   email: user.email,
-                  first_name: firstName,
-                  role: 'customer'
+                  first_name: firstName || 'User',
+                  role: 'user'
                 });
 
               if (insertError) {
                 console.error('Profile creation failed in signIn:', insertError);
+                // Don't throw error if profile already exists (duplicate key)
+                if (insertError.code !== '23505') {
+                  set({ error: insertError.message || 'Profile creation failed', loading: false });
+                  throw insertError;
+                }
+              } else {
+                console.log('Profile created successfully in signIn');
               }
+            } else {
+              console.log('Profile found in signIn, using existing profile');
             }
 
             set({
               user,
-              role: profile?.role || 'customer',
+              role: profile?.role || 'user', // ✅ Use correct default role
               firstName: profile?.first_name || user.user_metadata?.first_name || '',
               isAuthenticated: true,
               authType: 'user',
@@ -191,16 +212,21 @@ export const useAuthStore = create<AuthState>()(
                 email: userData.email,
                 first_name: userData.firstName,
                 last_name: userData.lastName,
-                role: 'customer',
+                role: 'user' // ✅ Use correct default role
               });
 
             if (insertError) {
               console.error('Profile creation failed in signUp:', insertError);
+              // Don't throw error if profile already exists (duplicate key)
+              if (insertError.code !== '23505') {
+                set({ error: insertError.message || 'Profile creation failed', loading: false });
+                throw insertError;
+              }
             }
 
             set({
               user: data.user,
-              role: 'customer',
+              role: 'user', // ✅ Use correct default role
               firstName: userData.firstName,
               isAuthenticated: true,
               authType: 'user',
@@ -432,10 +458,8 @@ export const useAuthStore = create<AuthState>()(
   )
 );
 
-// Helper function to ensure user profile exists
 const ensureUserProfile = async (user: any) => {
   try {
-    // Check if user profile exists
     const { data: profile, error: profileError } = await supabase
       .from('user_profiles')
       .select('first_name, role')
@@ -452,57 +476,100 @@ const ensureUserProfile = async (user: any) => {
       const fullName = user.user_metadata?.full_name || user.user_metadata?.name || '';
       const firstName = user.user_metadata?.first_name || user.user_metadata?.given_name || fullName.split(' ')[0] || '';
 
-      const { error: insertError } = await supabase
-        .from('user_profiles')
-        .insert([
-          {
-            user_id: user.id,
-            email: user.email,
-            first_name: firstName,
-            role: 'customer'
-          }
-        ]);
+      try {
+        const { error: insertError } = await supabase
+          .from('user_profiles')
+          .insert([
+            {
+              user_id: user.id,
+              email: user.email,
+              first_name: firstName || 'User',
+              role: 'user'
+            }
+          ]);
 
-      if (insertError) {
-        console.error('Profile creation failed during auth init:', insertError);
-      } else {
-        // Update store with profile data
-        useAuthStore.getState().setFirstName(firstName);
-        useAuthStore.getState().setRole('customer');
+        if (insertError) {
+          if (insertError.code !== '23505') {
+            return;
+          }
+        } else {
+          useAuthStore.getState().setFirstName(firstName);
+          useAuthStore.getState().setRole('user');
+        }
+      } catch (insertError) {
+        console.error('Profile insert failed:', insertError);
+        return;
       }
     } else {
       // Update store with existing profile data
       useAuthStore.getState().setFirstName(profile.first_name || '');
-      useAuthStore.getState().setRole(profile.role || 'customer');
+      useAuthStore.getState().setRole(profile.role || 'user');
     }
   } catch (error) {
     console.error('Error ensuring user profile:', error);
+    // Don't let profile errors break auth flow
   }
 };
 
 // Initialize store user from Supabase and subscribe to auth changes
+let authStoreInitialized = false;
+
 (async () => {
+  if (authStoreInitialized) {
+    return;
+  }
+
+  authStoreInitialized = true;
+
   try {
+
+    // Check if we're in an auth callback context - if so, let the callback handle it
+    const urlParams = new URLSearchParams(window.location.search);
+    const isAuthCallback = urlParams.has('code') || urlParams.has('error') || window.location.pathname.includes('/auth/callback');
+
+    if (isAuthCallback) {
+      supabase.auth.onAuthStateChange(async (_event, session) => {
+
+        const user = session?.user;
+        if (user) {
+          ensureUserProfile(user).catch(error => {
+            console.error('Error ensuring profile during auth change:', error);
+          });
+          useAuthStore.getState().setUser(user);
+        } else {
+          useAuthStore.getState().setUser(undefined);
+        }
+      });
+      return;
+    }
+
+    // For non-callback scenarios, proceed with normal initialization
     const { data } = await supabase.auth.getUser();
     if (data?.user) {
-      // Ensure user profile exists for authenticated users
-      await ensureUserProfile(data.user);
+      // Ensure user profile exists for authenticated users (non-blocking)
+      ensureUserProfile(data.user).catch(error => {
+        console.error('Error ensuring profile during init:', error);
+      });
       useAuthStore.getState().setUser(data.user);
     }
 
     // subscribe to changes so your UI syncs with Supabase auth state
     supabase.auth.onAuthStateChange(async (_event, session) => {
+
       const user = session?.user;
       if (user) {
-        // Ensure user profile exists when auth state changes
-        await ensureUserProfile(user);
+        // Ensure user profile exists when auth state changes (non-blocking)
+        ensureUserProfile(user).catch(error => {
+          console.error('Error ensuring profile during auth change:', error);
+        });
         useAuthStore.getState().setUser(user);
       } else {
         useAuthStore.getState().setUser(undefined);
       }
     });
   } catch (err) {
-    // non-fatal
-    // console.warn('auth init error', err);
+    console.error('Auth store initialization failed:', err);
+    // Ensure we have a clean state on failure
+    useAuthStore.getState().setUser(undefined);
   }
 })();
