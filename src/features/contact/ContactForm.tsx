@@ -57,20 +57,19 @@ const ContactForm: React.FC = () => {
       setStatusType('error');
     }
   };
-
   return (
     <main className="flex flex-col justify-between min-h-screen">
       <div className="flex flex-col justify-center items-center px-4 sm:px-6 lg:px-8 py-8 sm:py-10 lg:py-12 flex-grow">
         <div className="max-w-5xl w-full text-center mb-8 sm:mb-10">
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-secondary font-bold text-[color:var(--color-accent)] mb-4 sm:mb-6">
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-secondary font-bold text-accent mb-4 sm:mb-6">
             Contact Us
           </h1>
-          <p className="text-base sm:text-lg lg:text-xl text-[color:var(--color-primary)] dark:text-gray-300 mb-6 sm:mb-8 px-4">
+          <p className="text-base sm:text-lg lg:text-xl text-primary dark:text-gray-300 mb-6 sm:mb-8 px-4">
             We'd love to hear from you. Feel free to reach out!
           </p>
 
           {/* Contact Info Grid - Mobile Responsive */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 justify-center gap-4 sm:gap-6 lg:gap-8 lg:gap-12 text-left text-[color:var(--color-primary)] dark:text-gray-300 px-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 justify-center gap-4 sm:gap-6 lg:gap-8 lg:gap-12 text-left text-primary dark:text-gray-300 px-4">
             {/* First Row - Address and Phone */}
             <div className="col-span-1 sm:col-span-1">
               <p className="font-semibold text-base sm:text-lg mb-2">Address</p>
@@ -95,41 +94,41 @@ const ContactForm: React.FC = () => {
                   href="https://www.facebook.com/FICI-Shoes"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="p-2 rounded-lg hover:bg-[color:var(--color-accent)]/10 transition-colors"
+                  className="p-2 rounded-lg hover:bg-accent/10 transition-colors"
                 >
-                  <FaFacebook className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 hover:text-[color:var(--color-accent)] transition-colors" />
+                  <FaFacebook className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 hover:text-accent transition-colors" />
                 </a>
                 <a
                   href="https://x.com/ficiShoes"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="p-2 rounded-lg hover:bg-[color:var(--color-accent)]/10 transition-colors"
+                  className="p-2 rounded-lg hover:bg-accent/10 transition-colors"
                 >
-                  <FaX className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 hover:text-[color:var(--color-accent)] transition-colors" />
+                  <FaX className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 hover:text-accent transition-colors" />
                 </a>
                 <a
                   href="https://www.instagram.com/FICI_Shoes"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="p-2 rounded-lg hover:bg-[color:var(--color-accent)]/10 transition-colors"
+                  className="p-2 rounded-lg hover:bg-accent/10 transition-colors"
                 >
-                  <FaInstagram className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 hover:text-[color:var(--color-accent)] transition-colors" />
+                  <FaInstagram className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 hover:text-accent transition-colors" />
                 </a>
                 <a
                   href="https://wa.me/918122003006"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="p-2 rounded-lg hover:bg-[color:var(--color-accent)]/10 transition-colors"
+                  className="p-2 rounded-lg hover:bg-accent/10 transition-colors"
                 >
-                  <FaWhatsapp className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 hover:text-[color:var(--color-accent)] transition-colors" />
+                  <FaWhatsapp className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 hover:text-accent transition-colors" />
                 </a>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="max-w-3xl w-full bg-[color:var(--color-secondary)] dark:bg-[color:var(--color-dark2)] p-6 sm:p-8 lg:p-10 rounded-2xl shadow-xl border border-[color:var(--color-secondary)]/30">
-          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-center mb-6 sm:mb-8 text-[color:var(--color-primary)] dark:text-[color:var(--color-accent)]">
+        <div className="max-w-3xl w-full bg-secondary dark:bg-dark2 p-6 sm:p-8 lg:p-10 rounded-2xl shadow-xl border border-secondary/30">
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-center mb-6 sm:mb-8 text-primary dark:text-accent">
             Get In Touch
           </h2>
 
@@ -146,7 +145,7 @@ const ContactForm: React.FC = () => {
               <input
                 {...register('name')}
                 placeholder="Name"
-                className="w-full px-3 sm:px-4 py-3 sm:py-4 rounded-lg border border-[color:var(--color-secondary)] bg-white dark:bg-[color:var(--color-dark1)] text-black dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[color:var(--color-accent)] text-sm sm:text-base"
+                className="w-full px-3 sm:px-4 py-3 sm:py-4 rounded-lg border border-secondary bg-white dark:bg-dark1 text-black dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-accent text-sm sm:text-base"
               />
               {errors.name && <p className="text-xs sm:text-sm text-red-500 mt-1 italic">{errors.name.message}</p>}
             </div>
@@ -155,7 +154,7 @@ const ContactForm: React.FC = () => {
               <input
                 {...register('email')}
                 placeholder="Email"
-                className="w-full px-3 sm:px-4 py-3 sm:py-4 rounded-lg border border-[color:var(--color-secondary)] bg-white dark:bg-[color:var(--color-dark1)] text-black dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[color:var(--color-accent)] text-sm sm:text-base"
+                className="w-full px-3 sm:px-4 py-3 sm:py-4 rounded-lg border border-secondary bg-white dark:bg-dark1 text-black dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-accent text-sm sm:text-base"
               />
               {errors.email && <p className="text-xs sm:text-sm text-red-500 mt-1 italic">{errors.email.message}</p>}
             </div>
@@ -164,18 +163,18 @@ const ContactForm: React.FC = () => {
               <input
                 {...register('phone')}
                 placeholder="Phone"
-                className="w-full px-3 sm:px-4 py-3 sm:py-4 rounded-lg border border-[color:var(--color-secondary)] bg-white dark:bg-[color:var(--color-dark1)] text-black dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[color:var(--color-accent)] text-sm sm:text-base"
+                className="w-full px-3 sm:px-4 py-3 sm:py-4 rounded-lg border border-secondary bg-white dark:bg-dark1 text-black dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-accent text-sm sm:text-base"
               />
               {errors.phone && <p className="text-xs sm:text-sm text-red-500 mt-1 italic">{errors.phone.message}</p>}
             </div>
 
             <div className="sm:col-span-1 flex items-center gap-2 sm:gap-3">
-              <input 
-                type="checkbox" 
-                {...register('isBusiness')} 
-                className="accent-[color:var(--color-accent)] size-4 sm:size-5" 
+              <input
+                type="checkbox"
+                {...register('isBusiness')}
+                className="accent-accent size-4 sm:size-5"
               />
-              <label className="text-sm sm:text-base text-[color:var(--color-primary)] dark:text-white">
+              <label className="text-sm sm:text-base text-primary dark:text-white">
                 Business Inquiry?
               </label>
             </div>
@@ -185,7 +184,7 @@ const ContactForm: React.FC = () => {
                 {...register('message')}
                 placeholder="Your Message"
                 rows={5}
-                className="w-full px-3 sm:px-4 py-3 sm:py-4 rounded-lg border border-[color:var(--color-secondary)] bg-white dark:bg-[color:var(--color-dark1)] text-black dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[color:var(--color-accent)] text-sm sm:text-base resize-none"
+                className="w-full px-3 sm:px-4 py-3 sm:py-4 rounded-lg border border-secondary bg-white dark:bg-dark1 text-black dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-accent text-sm sm:text-base resize-none"
               />
               {errors.message && <p className="text-xs sm:text-sm text-red-500 mt-1 italic">{errors.message.message}</p>}
             </div>
@@ -193,7 +192,7 @@ const ContactForm: React.FC = () => {
             <div className="sm:col-span-2 text-center">
               <button
                 type="submit"
-                className="w-full sm:w-auto px-6 sm:px-8 lg:px-10 py-3 sm:py-4 bg-[color:var(--color-accent)] text-white font-semibold rounded-lg shadow-md hover:bg-[color:var(--color-primary-active)] transition-all duration-200 text-sm sm:text-base lg:text-lg"
+                className="w-full sm:w-auto px-6 sm:px-8 lg:px-10 py-3 sm:py-4 bg-accent text-white font-semibold rounded-lg shadow-md hover:bg-primary-active transition-all duration-200 text-sm sm:text-base lg:text-lg"
               >
                 SEND REQUEST
               </button>

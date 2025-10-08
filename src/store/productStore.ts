@@ -126,7 +126,7 @@ export const useProductStore = create<ProductState>((set, get) => ({
   fetchProducts: async (page = 1, filters = {}, retryCount = 0) => {
     console.log('productStore: fetchProducts called with page:', page, 'filters:', filters, 'retry:', retryCount);
     const maxRetries = 3;
-    const timeoutMs = 15000; // 15 seconds timeout
+    const timeoutMs = 10000; // 10 seconds timeout
 
     set({ loading: true, error: null });
 
@@ -226,7 +226,6 @@ export const useProductStore = create<ProductState>((set, get) => ({
       });
     }
   },
-
   clearFilters: () => {
     const { products } = get();
     set({ 
@@ -265,17 +264,17 @@ export const useProductStore = create<ProductState>((set, get) => ({
         return {
           ...product,
           sizes: safeParseSizes(product.sizes),
-          images: parseImages(product.images), // Use the new parseImages function
+          images: parseImages(product.images),
           discount_percentage: product.discount_percentage || calculateDiscountPercentage(product.mrp_price, product.discount_price),
-          mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0  // ✅ Fallback to discount_price if mrp_price is missing
+          mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0
         };
       });
 
       // Filter products with discount percentage > 10% for top deals
       const topDeals = parsedProducts
         .filter(product => product.discount_percentage > 10)
-        .sort((a, b) => b.discount_percentage - a.discount_percentage) // Sort by highest discount
-        .slice(0, 6); // Limit to 6 items
+        .sort((a, b) => b.discount_percentage - a.discount_percentage)
+        .slice(0, 6);
 
       set({ topDeals });
     } catch (error) {
@@ -287,18 +286,18 @@ export const useProductStore = create<ProductState>((set, get) => ({
 
   fetchProductByArticleId: async (articleId: string) => {
     set({ loading: true, error: null, currentProduct: null });
-    
+
     try {
       const baseArticleId = articleId.split('_')[0];
-      
+
       // First, fetch the product variants
       const { data: productsData, error: productsError } = await supabase
         .from('products')
         .select('*')
         .like('article_id', `${baseArticleId}_%`);
-  
+
       if (productsError) throw productsError;
-  
+
       if (productsData && productsData.length > 0) {
         // Fetch ratings for the product
         const { data: ratingsData, error: ratingsError } = await supabase
@@ -306,7 +305,7 @@ export const useProductStore = create<ProductState>((set, get) => ({
           .select('*')
           .eq('article_id_base', baseArticleId)
           .single();
-        
+
         let rating: Rating | undefined;
         if (!ratingsError && ratingsData) {
           rating = {
@@ -317,7 +316,7 @@ export const useProductStore = create<ProductState>((set, get) => ({
             }
           };
         }
-        
+
         const processedProducts = productsData.map(product => ({
           ...product,
           sizes: safeParseSizes(product.sizes),
@@ -326,10 +325,10 @@ export const useProductStore = create<ProductState>((set, get) => ({
           discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price),
           rating: rating
         }));
-  
+
         const firstProduct = processedProducts[0];
         const baseId = firstProduct.article_id.split('_')[0];
-  
+
         const variantsWithColors = processedProducts.map(product => {
           console.log('Processing variant:', {
             article_id: product.article_id,
@@ -340,10 +339,10 @@ export const useProductStore = create<ProductState>((set, get) => ({
           return {
             ...product,
             color: product.article_id.split('_')[1] || 'default',
-            mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0  // ✅ Fallback to discount_price if mrp_price is missing
+            mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0
           };
         });
-  
+
         set({
           currentProduct: {
             article_id: baseId,

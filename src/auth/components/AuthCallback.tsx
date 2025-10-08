@@ -18,7 +18,7 @@ const AuthCallback = memo(() => {
     const handleAuth = async () => {
       try {
         setStep('loading');
-        
+
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
         if (sessionError || !session?.user) {
@@ -26,50 +26,16 @@ const AuthCallback = memo(() => {
         }
 
         const user = session.user;
+        console.log('AuthCallback: Setting user in store:', user.id);
+
+        // Set user in store - profile will be handled by auth store automatically
         setUser(user);
 
-        // Check if user profile exists
-        const { data: profile, error: profileError } = await supabase
-          .from('user_profiles')
-          .select('first_name, role')
-          .eq('user_id', user.id)
-          .maybeSingle();
-
-        if (profileError && profileError.code !== 'PGRST116') {
-          console.error('Profile query failed:', profileError);
-          throw new Error('Failed to fetch user profile');
-        }
-
-        if (!profile) {
-          // Create new profile for OAuth users
-          const fullName = user.user_metadata?.full_name || '';
-          const [firstName = ''] = fullName.split(' ');
-
-          const { error: insertError } = await supabase
-            .from('user_profiles')
-            .insert([
-              {
-                user_id: user.id,
-                email: user.email,
-                first_name: firstName,
-                role: 'user'
-              }
-            ]);
-
-          if (insertError) {
-            console.error('Profile creation failed:', insertError);
-            throw new Error('Failed to create user profile');
-          }
-
-          setFirstName(firstName);
-          setRole('user');
-        } else {
-          setFirstName(profile.first_name || '');
-          setRole(profile.role || 'user');
-        }
+        // Wait a bit for profile to be created by auth store
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
         setStep('success');
-        
+
         // Redirect after a short delay
         setTimeout(() => navigate('/'), 1500);
 

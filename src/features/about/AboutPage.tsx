@@ -13,11 +13,11 @@ const AboutPage: React.FC = () => {
             </div>
           </div>
 
-          <h1 className="text-4xl md:text-5xl font-bold text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] mb-6 tracking-tight">
+          <h1 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-6 tracking-tight">
             THE FiCi STORY
           </h1>
 
-          <p className="text-lg md:text-xl text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] max-w-4xl mx-auto leading-relaxed">
+          <p className="text-lg md:text-xl text-gray-600 dark:text-gray-300 max-w-4xl mx-auto leading-relaxed">
             At FiCi, we believe footwear is more than fashion — it’s an expression of confidence, comfort, and class.
             Every step we craft is built on tradition, powered by innovation, and designed to win hearts everywhere.
           </p>
@@ -25,11 +25,11 @@ const AboutPage: React.FC = () => {
 
         <div className="hidden lg:flex items-center justify-between mb-16">
           <div className="flex-1 pr-12">
-            <h1 className="text-5xl font-bold text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] mb-6 tracking-tight">
+            <h1 className="text-5xl font-bold text-gray-900 dark:text-white mb-6 tracking-tight">
               Our Mission
             </h1>
 
-            <div className="text-xl text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] leading-relaxed space-y-6">
+            <div className="text-xl text-gray-600 dark:text-gray-300 leading-relaxed space-y-6">
               <p>
                 At <strong>FiCi</strong>, our mission is simple yet powerful:{" "}
                 <strong>
@@ -87,11 +87,11 @@ const AboutPage: React.FC = () => {
           </div>
 
           <div className="order-1 lg:order-2">
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] mb-6 tracking-tight">
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 dark:text-white mb-6 tracking-tight">
               Our Story
             </h2>
 
-            <div className="text-lg text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] leading-relaxed space-y-4">
+            <div className="text-lg text-gray-600 dark:text-gray-300 leading-relaxed space-y-4">
               <p>
                 Every great brand begins with a bold step—and ours started behind the scenes. Established in{" "}
                 <strong>2015</strong>, <strong>NMF INTERNATIONAL</strong> began its journey in{" "}

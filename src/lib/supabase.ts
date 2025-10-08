@@ -12,13 +12,18 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true
+  },
+  global: {
+    headers: {
+      'apikey': supabaseAnonKey,
+      'Content-Type': 'application/json'
+    }
   }
 })
 
 // Types for authentication
 export type AuthUser = {
   id: string
-  email?: string
   user_metadata?: {
     name?: string
     full_name?: string

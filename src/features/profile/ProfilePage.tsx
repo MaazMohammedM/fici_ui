@@ -75,7 +75,7 @@ const ProfilePage: React.FC = () => {
           firstName: data.first_name || '',
           lastName: data.last_name || '',
           email: data.email || user.email || '',
-          phone: data.phone || ''
+          phone: data.phone_number || ''
         });
       } catch (error) {
         console.error('Error fetching user profile:', error);
@@ -100,7 +100,7 @@ const ProfilePage: React.FC = () => {
           first_name: data.firstName,
           last_name: data.lastName,
           email: data.email,
-          phone: data.phone || null
+          phone_number: data.phone || null
         })
         .eq('user_id', user.id);
 
@@ -122,7 +122,7 @@ const ProfilePage: React.FC = () => {
         first_name: data.firstName,
         last_name: data.lastName,
         email: data.email,
-        phone: data.phone
+        phone_number: data.phone
       }));
 
       setProfileSuccess('Profile updated successfully!');
@@ -314,7 +314,7 @@ const ProfilePage: React.FC = () => {
                       Phone Number
                     </label>
                     <p className="text-gray-900 dark:text-white">
-                      {userProfile?.phone || 'Not provided'}
+                      {userProfile?.phone_number || 'Not provided'}
                     </p>
                   </div>
                 </div>
