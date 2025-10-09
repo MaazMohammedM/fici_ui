@@ -12,7 +12,8 @@ const ProductPage: React.FC = () => {
     totalPages,
     clearFilters,
     loading,
-    error
+    error,
+    clearError
   } = useProductStore();
 
   const location = useLocation();
@@ -203,7 +204,10 @@ const ProductPage: React.FC = () => {
           <div className="text-red-600 dark:text-red-400 mb-2">Error loading products</div>
           <p className="text-red-600 dark:text-red-400 mb-4">{error}</p>
           <button
-            onClick={() => fetchProducts(1, {})}
+            onClick={() => {
+              clearError(); // Clear the error state first
+              fetchProducts(1, {}, 0); // Reset retry count to 0
+            }}
             className="px-4 py-2 bg-red-600 hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 text-white dark:text-white rounded-lg transition-colors"
           >
             Try Again

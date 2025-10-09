@@ -12,7 +12,7 @@ interface Product {
   gender: 'men' | 'women' | 'unisex';
   category: 'Footwear' | 'Bags and Accessories';
   sizes: Record<string, number>;
-  images: string[];
+  images: string[]; // Keep as string array for frontend use
   thumbnail_url: string;
   article_id: string;
   created_at: string;
@@ -158,10 +158,20 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
     try {
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
+
         const fileExtension = file.name.split('.').pop();
         const fileName = `${folderName}_${i + 1}.${fileExtension}`;
         const filePath = `${folderName}/${fileName}`;
-        
+
+        console.log('File details:', {
+          name: (file as any).name,
+          type: (file as any).type,
+          size: (file as any).size,
+          extension: fileExtension,
+          fileName: fileName,
+          filePath: filePath
+        });
+
         const { error: uploadError } = await supabase.storage
           .from('ficishoesimages')
           .upload(filePath, file, {
@@ -169,14 +179,16 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
             upsert: false
           });
 
-        if (uploadError) throw uploadError;
+        if (uploadError) {
+          throw new Error(`Failed to upload ${file.name}: ${uploadError.message}`);
+        }
 
         const { data: urlData } = supabase.storage
           .from('ficishoesimages')
           .getPublicUrl(filePath);
-        
+
         imageUrls.push(urlData.publicUrl);
-        
+
         const progress = ((i + 1) / totalFiles) * 100;
         set({ uploadProgress: progress });
       }
@@ -256,16 +268,16 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
 
   addProduct: async (productData) => {
     set({ loading: true, error: null });
-    
+
     try {
       const { color, ...dataToSave } = productData;
-      
+
       const formattedData = {
         ...dataToSave,
-        sizes: typeof dataToSave.sizes === 'string' 
-          ? dataToSave.sizes 
+        sizes: typeof dataToSave.sizes === 'string'
+          ? dataToSave.sizes
           : JSON.stringify(dataToSave.sizes),
-        images: dataToSave.images
+        images: dataToSave.images // Store as comma-separated string for now
       };
 
       const { error } = await supabase
@@ -294,6 +306,12 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
     try {
       const { sizes, ...rest } = formData;
 
+      console.log('Updating product:', {
+        productId,
+        ...rest,
+        sizes: JSON.stringify(sizes),
+      });
+
       const { error } = await supabase
         .from('products')
         .update({
@@ -302,11 +320,17 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
         })
         .eq('product_id', productId);
 
-      if (error) throw error;
-
-      await get().fetchProducts();
-      set({ editingProduct: null });
-      return true;
+      if (error) {
+        console.error('Update error:', error);
+        set({ error: `Failed to update product: ${error.message}` });
+        return false;
+      } else {
+        console.log('Product updated successfully');
+        await get().fetchProducts();
+        set({ editingProduct: null, success: 'Product updated successfully' });
+        setTimeout(() => set({ success: null }), 3000);
+        return true;
+      }
     } catch (error) {
       console.error('Update product error:', error);
       set({ error: 'Failed to update product' });

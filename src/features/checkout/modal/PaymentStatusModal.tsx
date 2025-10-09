@@ -8,6 +8,8 @@ interface PaymentStatusModalProps {
   orderId?: string;
   message?: string;
   savings?: number;
+  totalAmount?: number;
+  prepaidDiscount?: number;
   onClose: () => void;
   onRetry?: () => void;
 }
@@ -17,6 +19,8 @@ const PaymentStatusModal: React.FC<PaymentStatusModalProps> = ({
   orderId,
   message,
   savings,
+  totalAmount,
+  prepaidDiscount,
   onClose,
   onRetry
 }) => {
@@ -25,7 +29,8 @@ const PaymentStatusModal: React.FC<PaymentStatusModalProps> = ({
 
   const subtotal = getCartTotal();
   const savingsValue = savings || 0; // Use provided savings or fallback to 0
-  const total = subtotal;
+  const discountValue = prepaidDiscount || 0; // Use provided discount or fallback to 0
+  const finalTotal = totalAmount !== undefined ? totalAmount : subtotal; // Use provided total or fallback to subtotal
 
   const closePaymentModal = () => {
     const wasSuccess = status === 'success';
@@ -118,9 +123,15 @@ const PaymentStatusModal: React.FC<PaymentStatusModalProps> = ({
                   <span className="text-gray-600 dark:text-gray-400">Savings:</span>
                   <span className="font-medium text-green-600">₹{savingsValue.toLocaleString('en-IN')}</span>
                 </div>
+                {discountValue > 0 && (
+                  <div className="flex justify-between text-sm sm:text-base">
+                    <span className="text-gray-600 dark:text-gray-400">Prepaid Discount:</span>
+                    <span className="font-medium text-green-600">-₹{discountValue.toLocaleString('en-IN')}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-base sm:text-lg font-bold text-gray-900 dark:text-white">
                   <span>Total:</span>
-                  <span>₹{total.toLocaleString('en-IN')}</span>
+                  <span>₹{finalTotal.toLocaleString('en-IN')}</span>
                 </div>
               </div>
             </div>

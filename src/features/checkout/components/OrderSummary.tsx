@@ -9,10 +9,10 @@ interface OrderSummaryProps {
   tax: number;
   total: number;
   savings?: number;
-  codFee?: number; // ✅ Add COD fee prop
+  prepaidDiscount?: number; // ✅ Add prepaid discount prop
 }
 
-const OrderSummary: React.FC<OrderSummaryProps> = ({ items, subtotal, shipping, tax, total, savings = 0, codFee = 0 }) => {
+const OrderSummary: React.FC<OrderSummaryProps> = ({ items, subtotal, shipping, tax, total, savings = 0, prepaidDiscount = 0 }) => {
   return (
     <div className="bg-[color:var(--color-light1)] dark:bg-[color:var(--color-dark2)] p-8 rounded-2xl shadow-lg h-fit border-2 border-blue-200 dark:border-[color:var(--color-dark1)]">
       <div className="flex items-center gap-2 mb-4">
@@ -26,16 +26,15 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({ items, subtotal, shipping, 
         <span className="font-semibold">{items.length}</span>
       </div>
 
-      <div className="mb-6 flex flex-col gap-2">
         <div className="flex justify-between">
           <span>Subtotal</span>
           <span>₹{subtotal.toLocaleString("en-IN")}</span>
         </div>
 
-        {savings > 0 && (
+        {prepaidDiscount > 0 && (
           <div className="flex justify-between text-green-600 dark:text-green-400">
-            <span>Savings</span>
-            <span>-₹{savings.toLocaleString("en-IN")}</span>
+            <span>Prepaid Discount</span>
+            <span>-₹{prepaidDiscount.toLocaleString("en-IN")}</span>
           </div>
         )}
 
@@ -43,13 +42,6 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({ items, subtotal, shipping, 
           <span>Shipping</span>
           <span>{shipping === 0 ? "Free" : `₹${shipping}`}</span>
         </div>
-
-        {codFee > 0 && (
-          <div className="flex justify-between text-orange-600 dark:text-orange-400">
-            <span>COD Fee</span>
-            <span>₹{codFee.toLocaleString("en-IN")}</span>
-          </div>
-        )}
 
         <div className="flex justify-between">
           <span>Tax</span>
@@ -61,7 +53,6 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({ items, subtotal, shipping, 
           <span>₹{total.toLocaleString("en-IN")}</span>
         </div>
       </div>
-    </div>
   );
 };
 
