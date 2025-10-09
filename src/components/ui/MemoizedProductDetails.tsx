@@ -17,6 +17,7 @@ interface MemoizedProductDetailsProps {
   onBuyNow: () => void;
   onWishlistToggle: () => void;
   onWhatsAppContact: (size: string) => void;
+  isWishlisted: boolean;
 }
 
 // Memoized ProductDetails component to prevent unnecessary re-renders
@@ -34,7 +35,8 @@ const MemoizedProductDetails = React.memo<MemoizedProductDetailsProps>(({
   onAddToCart,
   onBuyNow,
   onWishlistToggle,
-  onWhatsAppContact
+  onWhatsAppContact,
+  isWishlisted
 }) => {
   return (
     <ProductDetails
@@ -52,6 +54,7 @@ const MemoizedProductDetails = React.memo<MemoizedProductDetailsProps>(({
       onBuyNow={onBuyNow}
       onWishlistToggle={onWishlistToggle}
       onWhatsAppContact={onWhatsAppContact}
+      isWishlisted={isWishlisted}
     />
   );
 }, (prevProps, nextProps) => {
