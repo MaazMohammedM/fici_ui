@@ -1,17 +1,16 @@
 import { useState, useEffect } from 'react';
-import { Blurhash } from 'react-blurhash';
 
 interface ImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   blurHash?: string;
   className?: string;
 }
 
-export const Image: React.FC<ImageProps> = ({ 
-  src, 
-  alt, 
-  blurHash, 
+export const Image: React.FC<ImageProps> = ({
+  src,
+  alt,
+  blurHash,
   className = '',
-  ...props 
+  ...props
 }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [imageSrc, setImageSrc] = useState('');
@@ -24,7 +23,7 @@ export const Image: React.FC<ImageProps> = ({
 
     const img = new window.Image();
     img.src = src;
-    
+
     const handleLoad = () => {
       setImageSrc(src);
       setIsLoading(false);
@@ -46,17 +45,8 @@ export const Image: React.FC<ImageProps> = ({
 
   return (
     <div className={`relative overflow-hidden ${className}`}>
-      {isLoading && blurHash && (
-        <div className="absolute inset-0">
-          <Blurhash
-            hash={blurHash}
-            width="100%"
-            height="100%"
-            resolutionX={32}
-            resolutionY={32}
-            punch={1}
-          />
-        </div>
+      {isLoading && (
+        <div className="absolute inset-0 bg-gradient-to-r from-gray-200 via-gray-300 to-gray-200 animate-pulse" />
       )}
       <img
         {...props}
