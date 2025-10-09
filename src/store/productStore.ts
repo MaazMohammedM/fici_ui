@@ -18,6 +18,7 @@ interface ProductState {
   currentPage: number;
   totalPages: number;
   itemsPerPage: number;
+  abortController: AbortController | null;
 
   // Actions
   fetchProducts: (page?: number, filters?: any, retryCount?: number) => Promise<void>;
@@ -122,13 +123,20 @@ export const useProductStore = create<ProductState>((set, get) => ({
   currentPage: 1,
   totalPages: 1,
   itemsPerPage: 12,
+  abortController: null,
 
   fetchProducts: async (page = 1, filters = {}, retryCount = 0) => {
     console.log('productStore: fetchProducts called with page:', page, 'filters:', filters, 'retry:', retryCount);
     const maxRetries = 3;
-    const timeoutMs = 10000; // 10 seconds timeout
+    const timeoutMs = 30000; // Increased to 30 seconds for better reliability
 
-    set({ loading: true, error: null });
+    // Cancel any ongoing request
+    if (get().abortController) {
+      get().abortController!.abort();
+    }
+
+    const abortController = new AbortController();
+    set({ loading: true, error: null, abortController });
 
     const fetchWithTimeout = async () => {
       return new Promise<{ data: any[]; count: number | null }>(async (resolve, reject) => {
@@ -204,25 +212,37 @@ export const useProductStore = create<ProductState>((set, get) => ({
         filteredProducts: processedProducts,
         currentPage: page,
         totalPages,
-        loading: false
+        loading: false,
+        abortController: null // Clear abort controller on success
       });
 
     } catch (error) {
       console.error('Error fetching products:', error);
 
-      // Retry logic
+      // Don't retry on abort errors
+      if (error instanceof Error && (error.name === 'AbortError' || error.message.includes('aborted'))) {
+        set({ loading: false, abortController: null });
+        return;
+      }
+
+      // Retry logic with exponential backoff
       if (retryCount < maxRetries) {
         console.log(`Retrying... Attempt ${retryCount + 1}/${maxRetries}`);
+        const delay = Math.min(1000 * Math.pow(2, retryCount), 5000); // Max 5 seconds delay
+
         setTimeout(() => {
-          get().fetchProducts(page, filters, retryCount + 1);
-        }, 1000 * (retryCount + 1)); // Exponential backoff
+          // Use the current state to avoid stale closures
+          const currentState = get();
+          currentState.fetchProducts(page, filters, retryCount + 1);
+        }, delay);
         return;
       }
 
       // Final failure after all retries
       set({
         error: error instanceof Error ? error.message : 'Failed to fetch products after multiple attempts',
-        loading: false
+        loading: false,
+        abortController: null
       });
     }
   },

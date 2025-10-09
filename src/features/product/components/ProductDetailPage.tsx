@@ -35,6 +35,52 @@ const ProductDetailPage: React.FC = () => {
   const [selectedSize, setSelectedSize] = useState<string>('');
   const [quantity, setQuantity] = useState(1);
   const [isWishlisted, setIsWishlisted] = useState(false);
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+
+  const handleAddToCart = useCallback((): boolean => {
+    if (!selectedSize) {
+      alert('Please select a size');
+      return false;
+    }
+
+    const selectedVariant = currentProduct?.variants.find(v => v.article_id === selectedArticleId);
+    if (!selectedVariant) {
+      alert('Please select a product variant');
+      return false;
+    }
+
+    const productImage =
+      Array.isArray(selectedVariant.images) && selectedVariant.images.length > 0
+        ? selectedVariant.images[0]:
+        selectedVariant.thumbnail_url || '';
+    console.log(productImage);
+
+    addToCart({
+      product_id: selectedVariant.product_id,
+      article_id: selectedVariant.article_id,
+      name: currentProduct?.name || '',
+      price: Number(selectedVariant.discount_price) || 0,
+      mrp: selectedVariant.mrp,
+      quantity,
+      size: selectedSize,
+      color: String(selectedVariant.color),
+      image: selectedVariant.thumbnail_url || '',
+      thumbnail_url: selectedVariant.thumbnail_url || '',
+      discount_percentage: selectedVariant.discount_percentage || 0
+    });
+
+    // Show success message instead of alert
+    setShowSuccessMessage(true);
+    setTimeout(() => setShowSuccessMessage(false), 3000);
+    return true;
+  }, [selectedArticleId, currentProduct, selectedSize, addToCart, quantity]);
+
+  const handleBuyNow = useCallback(() => {
+    const added = handleAddToCart();
+    if (added) {
+      navigate('/cart');
+    }
+  }, [handleAddToCart, navigate]);
 
   // Memoized computed values for better performance
   const selectedVariant = useMemo(() => 
@@ -158,50 +204,6 @@ Could you please let me know when this size will be available?`;
     }
   }, [currentProduct, navigate, fetchRelatedProducts]);
 
-  const handleAddToCart = useCallback((): boolean => {
-    if (!selectedSize) {
-      alert('Please select a size');
-      return false;
-    }
-
-    const selectedVariant = currentProduct?.variants.find(v => v.article_id === selectedArticleId);
-    if (!selectedVariant) {
-      alert('Please select a product variant');
-      return false;
-    }
-
-    const productImage =
-      Array.isArray(selectedVariant.images) && selectedVariant.images.length > 0
-        ? selectedVariant.images[0]:
-        selectedVariant.thumbnail_url || '';
-    console.log(productImage);
-    
-    addToCart({
-      product_id: selectedVariant.product_id,
-      article_id: selectedVariant.article_id,
-      name: currentProduct?.name || '',
-      price: Number(selectedVariant.discount_price) || 0,
-      mrp: selectedVariant.mrp,
-      quantity,
-      size: selectedSize,
-      color: String(selectedVariant.color),
-      image: selectedVariant.thumbnail_url || '',
-      thumbnail_url: selectedVariant.thumbnail_url || '',
-      discount_percentage: selectedVariant.discount_percentage || 0
-    });
-    
-    // Show success message and return true to indicate success
-    alert('Product added to cart successfully!');
-    return true;
-  }, [selectedArticleId, currentProduct, selectedSize, addToCart, quantity]);
-
-  const handleBuyNow = useCallback(() => {
-    const added = handleAddToCart();
-    if (added) {
-      navigate('/cart');
-    }
-  }, [handleAddToCart, navigate]);
-
   // Handle wishlist toggle
   // Update wishlist status when selectedVariant changes
   useEffect(() => {
@@ -212,9 +214,12 @@ Could you please let me know when this size will be available?`;
 
   const handleWishlistToggle = useCallback(async () => {
     if (!selectedVariant || !currentProduct) return;
-    
+
+    // Check current wishlist status before making changes
+    const currentlyWishlisted = isInWishlist(selectedVariant.article_id);
+
     try {
-if (isInWishlist(selectedVariant.article_id)) {
+      if (currentlyWishlisted) {
         await removeFromWishlist(selectedVariant.article_id);
       } else {
         const wishlistItem = {
@@ -238,13 +243,14 @@ if (isInWishlist(selectedVariant.article_id)) {
         };
         await addToWishlist(wishlistItem);
       }
-      // Update the local state to reflect the change
-      setIsWishlisted(!isInWishlist(selectedVariant.article_id));
+
+      // Update the local state immediately based on the previous state
+      setIsWishlisted(!currentlyWishlisted);
     } catch (error) {
       console.error('Error updating wishlist:', error);
       // Optionally show an error message to the user
     }
-  }, [selectedVariant, isWishlisted, currentProduct, addToWishlist, removeFromWishlist]);
+  }, [selectedVariant, currentProduct, addToWishlist, removeFromWishlist]);
 
   // Update wishlist status when selected variant changes
   useEffect(() => {
@@ -301,13 +307,22 @@ if (isInWishlist(selectedVariant.article_id)) {
       </div>
     );
   }
-
   if (!currentProduct) {
     return null;
   }
 
   return (
     <div className="bg-white dark:bg-dark1">
+      {/* Success Message */}
+      {showSuccessMessage && (
+        <div className="fixed top-4 right-4 z-50 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-in slide-in-from-top-2 duration-300">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+          </svg>
+          Product added to cart successfully!
+        </div>
+      )}
+
       {/* Main Product Section */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="lg:grid lg:grid-cols-2 lg:gap-12">
@@ -337,6 +352,7 @@ if (isInWishlist(selectedVariant.article_id)) {
                 onBuyNow={handleBuyNow}
                 onWishlistToggle={handleWishlistToggle}
                 onWhatsAppContact={handleWhatsAppContact}
+                isWishlisted={isWishlisted}
               />
             </div>
             

@@ -14,14 +14,16 @@ const ProductForm: React.FC = () => {
     quantityInput,
     isUploading,
     uploadProgress,
+    uploadError,
+    selectedThumbnail,
     handleAddSize,
     handleRemoveSize,
     handleFileChange,
+    handleThumbnailSelect,
     onSubmit,
     setSizeInput,
     setQuantityInput
   } = useProductForm();
-
   const {
     register,
     handleSubmit,
@@ -69,6 +71,13 @@ const ProductForm: React.FC = () => {
       {errors.root && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
           {errors.root.message}
+        </div>
+      )}
+
+      {/* Upload Error */}
+      {uploadError && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+          {uploadError}
         </div>
       )}
 
@@ -272,6 +281,8 @@ const ProductForm: React.FC = () => {
             onChange={handleFileChange}
             error={errors.images?.message}
             disabled={isUploading}
+            selectedThumbnail={selectedThumbnail}
+            onThumbnailSelect={handleThumbnailSelect}
           />
         </div>
       </div>

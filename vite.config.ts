@@ -26,11 +26,9 @@ export default defineConfig({
   },
   server: {
     hmr: {
-      overlay: false
-    },
-    watch: {
-      usePolling: true
+      overlay: true  // Enable HMR overlay for better debugging
     }
+    // Removed usePolling as it can cause issues
   },
   optimizeDeps: {
     include: ['react', 'react-dom', 'react-router-dom'],

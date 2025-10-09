@@ -104,27 +104,75 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({ selectedVaria
   }, [isZoomDisabled]);
   const parseImages = useCallback((images: unknown): string[] => {
     if (!images) return [];
-    if (Array.isArray(images)) return images.filter((i): i is string => !!i && typeof i === 'string');
+
+    // Handle null/undefined
+    if (images === null || images === undefined) return [];
+
+    // Handle arrays
+    if (Array.isArray(images)) {
+      return images
+        .filter((img): img is string => typeof img === 'string' && img.trim().length > 0)
+        .map(img => img.trim());
+    }
+
+    // Handle strings
     if (typeof images === 'string') {
       const trimmed = images.trim();
       if (!trimmed) return [];
-      // comma separated
-      if (trimmed.includes(',')) return trimmed.split(',').map(s => s.trim()).filter(Boolean);
-      // try JSON
-      try {
-        const parsed = JSON.parse(trimmed);
-        if (Array.isArray(parsed)) return parsed.filter((i): i is string => !!i && typeof i === 'string');
-      } catch { /* ignore */ }
+
+      // Check if it's a JSON string
+      if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+        try {
+          const parsed = JSON.parse(trimmed);
+          if (Array.isArray(parsed)) {
+            return parsed
+              .filter((img): img is string => typeof img === 'string' && img.trim().length > 0)
+              .map(img => img.trim());
+          }
+        } catch (e) {
+          console.warn('Failed to parse images as JSON:', e);
+        }
+      }
+
+      // Check if it's comma-separated URLs
+      if (trimmed.includes(',')) {
+        return trimmed
+          .split(',')
+          .map(url => url.trim())
+          .filter(url => url.length > 0);
+      }
+
+      // Single URL
       return [trimmed];
     }
+
     return [];
   }, []);
 
   const finalImages = useMemo(() => {
-    if (!selectedVariant) return [fallbackImage];
+    if (!selectedVariant) {
+      console.log('No selectedVariant available');
+      return [fallbackImage];
+    }
+
+    console.log('Processing images for variant:', selectedVariant.article_id);
+    console.log('Raw images data:', selectedVariant.images);
+
     let imgs = parseImages(selectedVariant.images);
-    if (imgs.length === 0 && selectedVariant.thumbnail_url) imgs = [selectedVariant.thumbnail_url];
-    return imgs.length ? imgs : [fallbackImage];
+
+    console.log('Parsed images:', imgs);
+
+    // If no images from parsing, try thumbnail_url
+    if (imgs.length === 0 && selectedVariant.thumbnail_url) {
+      console.log('Using thumbnail_url as fallback:', selectedVariant.thumbnail_url);
+      imgs = [selectedVariant.thumbnail_url];
+    }
+
+    // Final fallback to default image
+    const result = imgs.length ? imgs : [fallbackImage];
+    console.log('Final images array:', result);
+
+    return result;
   }, [selectedVariant, parseImages]);
 
   const nextImage = useCallback(() => setSelectedImage(p => (p + 1) % finalImages.length), [finalImages.length]);
@@ -234,10 +282,25 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({ selectedVaria
     return () => window.removeEventListener('keydown', onKey);
   }, [isModalOpen, closeImageModal, navigateModalImage, nextImage, prevImage]);
 
-  // image onError fallback
+  // image onError fallback with better error handling
   const handleImageError = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
     const t = e.target as HTMLImageElement;
-    if (t.src !== fallbackImage) t.src = fallbackImage;
+    console.warn('Image failed to load:', t.src);
+
+    // If it's not already the fallback image, try the fallback
+    if (t.src !== fallbackImage) {
+      console.log('Trying fallback image:', fallbackImage);
+      t.src = fallbackImage;
+    } else {
+      // If even fallback fails, hide the image or show a placeholder
+      console.error('Even fallback image failed to load');
+      t.style.display = 'none';
+      // Optionally show a placeholder div
+      const placeholder = t.nextElementSibling as HTMLElement;
+      if (placeholder && placeholder.classList.contains('image-placeholder')) {
+        placeholder.style.display = 'flex';
+      }
+    }
   }, []);
 
   return (
@@ -296,6 +359,18 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({ selectedVaria
             onClick={() => openImageModal(selectedImage)}
             onError={handleImageError}
           />
+
+          {/* Image loading placeholder */}
+          {finalImages[selectedImage] === fallbackImage && (
+            <div className="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-800">
+              <div className="text-center text-gray-500 dark:text-gray-400">
+                <svg className="w-16 h-16 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <p className="text-sm">Image not available</p>
+              </div>
+            </div>
+          )}
 
           {/* Lens circle (desktop only) - Only show when zoom is NOT disabled */}
           {isHovering && showLens && !isZoomDisabled && (
@@ -382,9 +457,7 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({ selectedVaria
             <button
               key={idx}
               onClick={() => setSelectedImage(idx)}
-              className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-transform ${
-                idx === selectedImage ? 'border-accent scale-105 ring-2 ring-accent/50' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
-              }`}
+              className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-transform ${idx === selectedImage ? 'border-accent scale-105 ring-2 ring-accent/50' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'}`}
               aria-label={`Thumbnail ${idx + 1}`}
             >
               <img src={img} alt={`${productName} ${idx + 1}`} className="w-full h-full object-cover" onError={handleImageError} />

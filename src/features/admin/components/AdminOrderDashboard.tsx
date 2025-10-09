@@ -285,12 +285,36 @@ const AdminOrderDashboard: React.FC = () => {
 
   // Filter and search orders
   const filteredOrders = orders.filter(order => {
-    // Filter by status
-    if (statusFilter !== 'all' && order.status !== statusFilter) {
-      return false;
+    // Apply specific filter logic based on statusFilter
+    switch (statusFilter) {
+      case 'cod-pending':
+        // COD orders: payment_method as cod and status as pending
+        return order.payment_method === 'cod' && order.status === 'pending';
+      case 'paid-orders':
+        // Paid orders: payment_method as razorpay and status as paid
+        return order.payment_method === 'razorpay' && order.status === 'paid';
+      case 'cancelled':
+        // Cancelled orders
+        return order.status === 'cancelled';
+      case 'delivered':
+        // Delivered orders
+        return order.status === 'delivered';
+      case 'shipped':
+        // Shipped orders
+        return order.status === 'shipped';
+      case 'pending':
+        // All pending orders (both COD and Razorpay)
+        return order.status === 'pending';
+      case 'paid':
+        // All paid orders (both COD and Razorpay)
+        return order.status === 'paid';
+      case 'all':
+      default:
+        // All orders - no filtering
+        break;
     }
 
-    // Filter by search term
+    // Filter by search term (if provided)
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
       return (
@@ -494,11 +518,13 @@ const AdminOrderDashboard: React.FC = () => {
                   className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-dark2 text-gray-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="all">All Orders</option>
-                  <option value="pending">Pending</option>
-                  <option value="paid">Paid</option>
-                  <option value="shipped">Shipped</option>
-                  <option value="delivered">Delivered</option>
-                  <option value="cancelled">Cancelled</option>
+                  <option value="cod-pending">COD Orders (Pending)</option>
+                  <option value="paid-orders">Paid Orders (Razorpay)</option>
+                  <option value="cancelled">Cancelled Orders</option>
+                  <option value="delivered">Delivered Orders</option>
+                  <option value="shipped">Shipped Orders</option>
+                  <option value="pending">All Pending Orders</option>
+                  <option value="paid">All Paid Orders</option>
                 </select>
               </div>
 

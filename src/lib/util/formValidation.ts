@@ -10,8 +10,15 @@ export const enhancedProductSchema = z.object({
   discount_price: z.string().min(1, 'Discount price is required'),
   gender: z.string().nonempty('Please select a gender'),
   category: z.string().nonempty('Please select a category'),
-  sizes: z.string(),
-  images: z.string(),
+  sizes: z.string().refine((val) => {
+    try {
+      const parsed = JSON.parse(val);
+      return typeof parsed === 'object' && parsed !== null && Object.keys(parsed).length > 0;
+    } catch {
+      return false;
+    }
+  }, 'Please add at least one size with quantity'),
+  images: z.string().optional(), // Optional for form validation, checked manually in onSubmit
   thumbnail_url: z.string().optional()
 });
 
@@ -24,7 +31,14 @@ export const editProductSchema = z.object({
   discount_price: z.string().min(1, 'Discount price is required'),
   gender: z.string().nonempty('Please select a gender'),
   category: z.string().nonempty('Please select a category'),
-  sizes: z.string(),
+  sizes: z.string().refine((val) => {
+    try {
+      const parsed = JSON.parse(val);
+      return typeof parsed === 'object' && parsed !== null && Object.keys(parsed).length > 0;
+    } catch {
+      return false;
+    }
+  }, 'Please add at least one size with quantity'),
   thumbnail_url: z.string().optional()
 });
 

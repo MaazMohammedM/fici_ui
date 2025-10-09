@@ -10,9 +10,10 @@ export type PaymentMethod = {
 interface Props {
   selected: string;
   onSelect: (id: string) => void;
+  prepaidDiscount?: number; // ✅ Add prepaid discount prop
 }
 
-const PaymentMethods: React.FC<Props> = ({ selected, onSelect }) => {
+const PaymentMethods: React.FC<Props> = ({ selected, onSelect, prepaidDiscount = 200 }) => {
   const [local, setLocal] = useState(selected);
 
   // Update local state when selected prop changes
@@ -53,8 +54,12 @@ const PaymentMethods: React.FC<Props> = ({ selected, onSelect }) => {
             </div>
 
             {m.id === 'razorpay' && local === 'razorpay' && (
-              <div className="mt-3 p-3 bg-gray-50 dark:bg-dark2 rounded">
-                <p className="text-xs">Accepted: Cards • UPI • Netbanking • Wallets</p>
+              <div className="mt-3 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded">
+                <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
+                  <span className="text-lg">🎉</span>
+                  <p className="text-sm font-semibold">Get ₹{prepaidDiscount} OFF on prepaid orders!</p>
+                </div>
+                <p className="text-xs text-green-600 dark:text-green-400 mt-1">Accepted: Cards • UPI • Netbanking • Wallets</p>
                 <div className="mt-2 text-xs text-gray-600">Secured by Razorpay</div>
               </div>
             )}

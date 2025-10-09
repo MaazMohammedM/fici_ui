@@ -2,14 +2,13 @@ import React from 'react';
 import { useEditProductForm } from '@lib/hooks/useEditProductForm';
 import SizeManager from './SizeManager';
 import { useAdminStore } from '../store/adminStore';
-
 interface EditProductFormProps {
   product: any;
   onCancel: () => void;
 }
 
 const EditProductForm: React.FC<EditProductFormProps> = ({ product, onCancel }) => {
-  const { error, clearError } = useAdminStore();
+  const { error, success, clearError, clearSuccess } = useAdminStore();
   const {
     form,
     sizesList,
@@ -20,7 +19,7 @@ const EditProductForm: React.FC<EditProductFormProps> = ({ product, onCancel }) 
     onSubmit,
     setSizeInput,
     setQuantityInput
-  } = useEditProductForm(product);
+  } = useEditProductForm(product, onCancel);
 
   const {
     register,
@@ -38,6 +37,20 @@ const EditProductForm: React.FC<EditProductFormProps> = ({ product, onCancel }) 
             type="button"
             onClick={clearError}
             className="text-red-500 hover:text-red-700"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
+      {/* Success Display */}
+      {success && (
+        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded flex justify-between items-center">
+          <span>{success}</span>
+          <button
+            type="button"
+            onClick={clearSuccess}
+            className="text-green-500 hover:text-green-700"
           >
             ×
           </button>

@@ -1,6 +1,6 @@
 // src/pages/CheckoutPage.tsx
 import React, { useCallback, useMemo, useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import AddressCard from './components/AddressForm';
 import GuestAddressForm from './components/GuestAddressForm';
 import PaymentMethods from './components/PaymentMethods';
@@ -8,6 +8,7 @@ import OrderSummary from './components/OrderSummary';
 import PaymentStatusModal from './modal/PaymentStatusModal';
 import GuestCheckoutForm from './components/GuestCheckoutForm';
 import { useCartStore } from '@store/cartStore';
+import { usePaymentStore } from '@store/paymentStore';
 import { useAuthStore } from '@store/authStore';
 import { supabase } from '@lib/supabase';
 import { Shield, ArrowLeft } from 'lucide-react';
@@ -15,18 +16,31 @@ import type { Address } from './components/AddressForm';
 import type { GuestContactInfo } from '../../types/guest';
 
 const getRazorpayKey = () => {
-  if (typeof window !== 'undefined' && (window as any).__RAZORPAY_KEY__) return (window as any).__RAZORPAY_KEY__;
+  if (typeof window !== 'undefined' && (window as any).__RAZORPAY_KEY__) return (window as any).__RAZORPAY_KEY;
   if (typeof process !== 'undefined' && (process as any).env?.REACT_APP_RAZORPAY_KEY_ID) return (process as any).env.REACT_APP_RAZORPAY_KEY_ID;
   if (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_RAZORPAY_KEY_ID) return (import.meta as any).env.VITE_RAZORPAY_KEY_ID;
   return 'rzp_test_R5h4s0BLbxYV33';
 };
 
+const loadRazorpayScript = (): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    if ((window as any).Razorpay) return resolve();
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('Razorpay SDK failed to load'));
+    document.head.appendChild(script);
+  });
+};
 
 const CHECKOUT_DRAFT_KEY = 'checkoutDraft';
 
 const CheckoutPage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { items: cartItems, getCartTotal, getCartSavings, clearCart } = useCartStore();
+  const { savePaymentDetails } = usePaymentStore();
   const user = useAuthStore((state) => state.user);
   const isGuest = useAuthStore((state) => state.isGuest);
   const guestContactInfo = useAuthStore((state) => state.guestContactInfo);
@@ -35,7 +49,7 @@ const CheckoutPage: React.FC = () => {
   const getAuthenticationType = useAuthStore((state) => state.getAuthenticationType);
 
   const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
-  const [selectedPayment, setSelectedPayment] = useState<string>('cod'); // Default to COD
+  const [selectedPayment, setSelectedPayment] = useState<string>('razorpay'); // Default to Razorpay
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<'success' | 'failed' | 'pending' | null>(null);
   const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
@@ -46,18 +60,14 @@ const CheckoutPage: React.FC = () => {
   const savings = useMemo(() => getCartSavings(), [getCartSavings]);
   const deliveryCharge = subtotal > 999 ? 0 : 0;
 
-  // ✅ COD Price Surcharge - Enterprise level pricing strategy
-  const COD_FEE_PERCENTAGE = 0.02; // 2% COD convenience fee
-  const COD_FEE_MINIMUM = 29; // Minimum ₹29 COD fee
-  const codFee = useMemo(() => {
-    if (selectedPayment === 'cod' && subtotal > 0) {
-      const calculatedFee = Math.round(subtotal * COD_FEE_PERCENTAGE);
-      return Math.max(calculatedFee, COD_FEE_MINIMUM);
-    }
-    return 0;
-  }, [selectedPayment, subtotal]);
+  // ✅ Prepaid Discount - Easily changeable promotional discount for online payments
+  const PREPAID_DISCOUNT_AMOUNT = 200; // Change this value to adjust discount amount
 
-  const totalAmount = subtotal + deliveryCharge + codFee; 
+  const prepaidDiscount = useMemo(() => {
+    return selectedPayment === 'razorpay' ? PREPAID_DISCOUNT_AMOUNT : 0;
+  }, [selectedPayment]);
+
+  const totalAmount = subtotal + deliveryCharge - prepaidDiscount; 
 
   useEffect(() => {
     const saved = sessionStorage.getItem(CHECKOUT_DRAFT_KEY);
@@ -108,41 +118,95 @@ const CheckoutPage: React.FC = () => {
     return required.every(k => !!(selectedAddress as any)[k]);
   }, [selectedAddress]);
 
-  const handlePaymentSuccess = async (orderId: string) => {
+  const handlePaymentSuccess = async (response: any, orderId: string, amountRupees: number) => {
     try {
-      // ✅ REMOVED: savePaymentDetails call - webhook will handle payment status updates
-      // The webhook will receive the payment and update the payment record with proper status
+      const authType = getAuthenticationType();
+      const paymentData = {
+        order_id: orderId,
+        user_id: authType === 'user' ? user!.id : null,
+        guest_session_id: authType === 'guest' ? useAuthStore.getState().getCurrentSessionId() : null,
+        provider: "razorpay",
+        payment_status: "pending" as const,
+        payment_method: selectedPayment,
+        amount: amountRupees,
+        currency: "INR",
+        payment_reference: response.razorpay_payment_id,
+      };
+
+      await savePaymentDetails(paymentData);
 
       setCurrentOrderId(orderId);
       setPaymentStatus('success');
     } catch (err) {
-      console.error('Payment success handling error', err);
+      console.error('savePaymentDetails error', err);
       setPaymentStatus('failed');
     }
   };
+
   const handlePaymentFailure = (err: any) => {
     console.error('Payment failed:', err);
     setPaymentStatus('failed');
   };
 
+  const handleGuestInfoSubmit = async (contactInfo: GuestContactInfo) => {
+    try {
+      const guestSession = await createGuestSession(contactInfo);
+      if (guestSession) {
+        setGuestInfo(contactInfo);
+        setShowGuestForm(false);
+        // Store email for potential account creation later
+        sessionStorage.setItem('guestEmail', contactInfo.email);
+      } else {
+        alert('Failed to create guest session. Please try again.');
+      }
+    } catch (error) {
+      console.error('Guest session creation failed:', error);
+      alert('Failed to create guest session. Please try again.');
+    }
+  };
+  const handleSignInRedirect = () => {
+    sessionStorage.setItem("redirectAfterLogin", location.pathname);
+    navigate("/auth/signin");
+  };
+
+  const handleBackToGuestForm = () => {
+    setShowGuestForm(true);
+    setGuestInfo(null);
+  };
+
+  const handleRetryPayment = () => {
+    setPaymentStatus(null);
+    setCurrentOrderId(null);
+    handlePlaceOrder();
+  };
+
+  const closePaymentModal = () => {
+    const wasSuccess = paymentStatus === 'success';
+    setPaymentStatus(null);
+    setCurrentOrderId(null);
+    if (wasSuccess) {
+      clearCart();
+    }
+  };
+
   const handlePlaceOrder = async () => {
     const authType = getAuthenticationType();
-    
+
     if (authType === 'none') {
       alert('Please provide your contact information or sign in');
       return;
     }
-    
+
     if (authType === 'guest' && !guestInfo) {
       alert('Please provide your contact information');
       return;
     }
-    
+
     if (!validateShipping()) {
       alert('Please fill/choose a shipping address');
       return;
     }
-    
+
     if (!cartItems.length) {
       alert('Your cart is empty');
       return;
@@ -150,69 +214,71 @@ const CheckoutPage: React.FC = () => {
 
     setIsProcessing(true);
     try {
-      // Generate a unique order ID
+      // Generate a unique order ID - let the database generate UUID
       const orderId = crypto.randomUUID();
-      const authType = getAuthenticationType();
 
-      console.log('Starting order placement:');
-      console.log('Selected payment method:', selectedPayment);
-      console.log('Total amount:', totalAmount);
-      console.log('Auth type:', authType);
-
-      // Prepare order data with proper user/guest context
-      const orderData: any = {
+      // Use create-order function for both COD and Razorpay
+      const invokeBody = authType === 'user' ? {
         amount: totalAmount,
+        user_id: user.id,
         order_id: orderId,
         payment_method: selectedPayment,
-        items: cartItems.map(item => ({
-          product_id: item.product_id,
-          article_id: item.article_id,
-          name: item.name,
-          color: item.color,
-          size: item.size,
-          quantity: item.quantity,
-          price: item.price,
-          mrp: item.mrp,
-          discount_percentage: item.discount_percentage,
-          thumbnail_url: item.thumbnail_url,
+        items: cartItems.map(i => ({
+          product_id: i.product_id,
+          article_id: i.article_id,
+          name: i.name,
+          color: i.color,
+          size: i.size,
+          quantity: i.quantity,
+          price: i.price,
+          mrp: i.mrp,
+          discount_percentage: i.discount_percentage,
+          thumbnail_url: i.thumbnail_url,
         })),
         subtotal,
         discount: savings,
         delivery_charge: deliveryCharge,
-        cod_fee: codFee, // ✅ Include COD fee in order data
+        shipping_address: selectedAddress
+      } : {
+        amount: totalAmount,
+        guest_session_id: guestSession?.guest_session_id,
+        guest_contact_info: guestInfo,
+        order_id: orderId,
+        payment_method: selectedPayment,
+        items: cartItems.map(i => ({
+          product_id: i.product_id,
+          article_id: i.article_id,
+          name: i.name,
+          color: i.color,
+          size: i.size,
+          quantity: i.quantity,
+          price: i.price,
+          mrp: i.mrp,
+          discount_percentage: i.discount_percentage,
+          thumbnail_url: i.thumbnail_url,
+        })),
+        subtotal,
+        discount: savings,
+        delivery_charge: deliveryCharge,
         shipping_address: selectedAddress
       };
 
-      // Add user or guest specific fields
-      if (authType === 'user') {
-        orderData.user_id = user?.id;
-      } else if (authType === 'guest') {
-        orderData.guest_session_id = useAuthStore.getState().getCurrentSessionId();
-        orderData.guest_contact_info = guestInfo;
-      }
-
       const { data, error } = await supabase.functions.invoke("create-order", {
-        body: orderData,
+        body: invokeBody,
       });
       if (error) throw error;
-
-      // Handle response format from edge function
-      const { razorpay_order_id, order_id: internalOrderId, key: razorpayKey } = data;
+      const paymentOrder = data;
 
       // Handle COD orders - no Razorpay needed
       if (selectedPayment === 'cod') {
-        console.log('Processing COD order, skipping Razorpay');
-        console.log('Selected payment method:', selectedPayment);
-        console.log('Order data sent:', orderData.payment_method);
-        setCurrentOrderId(internalOrderId);
+        setCurrentOrderId(orderId);
         setPaymentStatus('success');
         return;
       }
 
-      console.log('Processing online payment with Razorpay');
-      console.log('Selected payment method:', selectedPayment);
-
-      const key = razorpayKey || getRazorpayKey();
+      // Enhanced Razorpay implementation for online payments
+      await loadRazorpayScript();
+      const key = getRazorpayKey();
 
       const rzp = new (window as any).Razorpay({
         key,
@@ -220,8 +286,8 @@ const CheckoutPage: React.FC = () => {
         currency: 'INR',
         name: 'FICI',
         description: 'Order payment',
-        order_id: razorpay_order_id, // ✅ Use Razorpay order ID from Orders API
-        handler: () => handlePaymentSuccess(internalOrderId),
+        order_id: paymentOrder.id,
+        handler: (response: any) => handlePaymentSuccess(response, orderId, totalAmount),
         prefill: {
           name: authType === 'user'
             ? (selectedAddress as any)?.name
@@ -249,47 +315,6 @@ const CheckoutPage: React.FC = () => {
     }
   };
 
-  const handleRetryPayment = () => {
-    setPaymentStatus(null);
-    setCurrentOrderId(null);
-    handlePlaceOrder();
-  };
-
-  const closePaymentModal = () => {
-    const wasSuccess = paymentStatus === 'success';
-    setPaymentStatus(null);
-    setCurrentOrderId(null);
-    if (wasSuccess) {
-      clearCart();
-    }
-  };
-
-  const handleGuestInfoSubmit = async (contactInfo: GuestContactInfo) => {
-    try {
-      const guestSession = await createGuestSession(contactInfo);
-      if (guestSession) {
-        setGuestInfo(contactInfo);
-        setShowGuestForm(false);
-        // Store email for potential account creation later
-        sessionStorage.setItem('guestEmail', contactInfo.email);
-      } else {
-        alert('Failed to create guest session. Please try again.');
-      }
-    } catch (error) {
-      console.error('Guest session creation failed:', error);
-      alert('Failed to create guest session. Please try again.');
-    }
-  };
-
-  const handleSignInRedirect = () => {
-    sessionStorage.setItem('redirectAfterLogin', '/checkout');
-    navigate('/auth/signin');
-  };
-
-  const handleBackToGuestForm = () => {
-    setShowGuestForm(true);
-    setGuestInfo(null);
-  };
   // Show guest checkout form if not authenticated
   if (showGuestForm) {
     return (
@@ -383,6 +408,7 @@ const CheckoutPage: React.FC = () => {
               <PaymentMethods
                 selected={selectedPayment}
                 onSelect={(id) => setSelectedPayment(id)}
+                prepaidDiscount={prepaidDiscount}
               />
 
               <div className="bg-white dark:bg-dark2 rounded-2xl shadow-lg p-4 sm:p-6">
@@ -416,7 +442,7 @@ const CheckoutPage: React.FC = () => {
                 tax={0}
                 total={totalAmount}
                 savings={savings}
-                codFee={codFee} // ✅ Pass COD fee to OrderSummary
+                prepaidDiscount={prepaidDiscount}
               />
 
               <div className="bg-white dark:bg-dark2 rounded-2xl shadow-lg p-4 sm:p-6 sticky top-4">
@@ -431,7 +457,7 @@ const CheckoutPage: React.FC = () => {
                   disabled={isProcessing}
                   className="w-full bg-primary text-white py-3 sm:py-4 rounded-xl font-bold text-base sm:text-lg shadow-lg hover:bg-primary-active transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isProcessing ? 'Processing...' : `Place Order • ₹${totalAmount.toLocaleString('en-IN')}`}
+                  {isProcessing ? 'Processing...' : `Place Order${prepaidDiscount > 0 ? ` • ₹${totalAmount.toLocaleString('en-IN')} (Saved ₹${prepaidDiscount})` : ` • ₹${totalAmount.toLocaleString('en-IN')}`}`}
                 </button>
               </div>
             </div>
@@ -442,8 +468,10 @@ const CheckoutPage: React.FC = () => {
         <PaymentStatusModal
           status={paymentStatus}
           orderId={currentOrderId || undefined}
-          message={selectedPayment === 'cod' ? 'Your order is successful with Cash on Delivery' : undefined}
+          message={selectedPayment === 'cod' ? 'Your order is successful with Cash on Delivery' : `Your order is successful with Online Payment${prepaidDiscount > 0 ? ` • You saved ₹${prepaidDiscount}!` : ''}`}
           savings={savings}
+          totalAmount={totalAmount}
+          prepaidDiscount={prepaidDiscount}
           onClose={closePaymentModal}
           onRetry={paymentStatus === 'failed' ? handleRetryPayment : undefined}
         />

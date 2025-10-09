@@ -22,6 +22,7 @@ interface ProductDetailsProps {
   onBuyNow: () => void;
   onWishlistToggle: () => void;
   onWhatsAppContact: (size: string) => void;
+  isWishlisted: boolean;
 }
 
 const ProductDetails: React.FC<ProductDetailsProps> = ({
@@ -36,6 +37,8 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
   onAddToCart,
   onBuyNow,
   onWhatsAppContact,
+  onWishlistToggle,
+  isWishlisted,
 }) => {
   const [showSizeGuide, setShowSizeGuide] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
@@ -132,8 +135,34 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
     <div className="space-y-6">
       {/* Brand and Category */}
       <div className="space-y-1">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{selectedVariant?.name}</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{selectedVariant?.name}</h1>
 
+          {/* Wishlist Icon next to Product Name */}
+          <button
+            onClick={onWishlistToggle}
+            className={`p-2 rounded-full transition-all ${
+              isWishlisted
+                ? 'text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20'
+                : 'text-gray-400 hover:text-red-500 hover:bg-gray-50 dark:hover:bg-gray-800'
+            }`}
+            aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+          >
+            <svg
+              className={`w-6 h-6 ${isWishlisted ? 'fill-current text-red-500' : 'text-gray-400'}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              strokeWidth="2"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+              />
+            </svg>
+          </button>
+        </div>
       </div>
 
       {/* Price */}
@@ -197,10 +226,10 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
           onAddToCart={onAddToCart}
           onBuyNow={onBuyNow}
         />
-        
+
         <div className="flex items-center justify-left space-x-2 py-2">
           <svg className="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.02-.382-3.016z" />
           </svg>
           <span className="text-xs text-gray-500 dark:text-gray-400">Secure Checkout with Razorpay</span>
         </div>

@@ -5,14 +5,17 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { enhancedProductSchema, type EnhancedProductFormData } from '@lib/util/formValidation';
 import { useAdminStore } from '@features/admin/store/adminStore';
 
-// Update the useProductForm hook
 export const useProductForm = () => {
-  const { addProduct, uploadImages, uploadProgress, setUploadProgress } = useAdminStore();
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+
+  const { addProduct, uploadImages } = useAdminStore();
   const [files, setFiles] = useState<FileList | null>(null);
   const [sizesList, setSizesList] = useState<Record<string, number>>({});
   const [sizeInput, setSizeInput] = useState<string>('');
   const [quantityInput, setQuantityInput] = useState<string>('');
   const [isUploading, setIsUploading] = useState<boolean>(false);
+  const [selectedThumbnail, setSelectedThumbnail] = useState<number>(0);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const form = useForm<EnhancedProductFormData>({
     resolver: zodResolver(enhancedProductSchema),
@@ -34,40 +37,55 @@ export const useProductForm = () => {
 
   const handleAddSize = (): void => {
     if (sizeInput && quantityInput && parseInt(quantityInput) > 0) {
-      setSizesList(prev => ({
-        ...prev,
+      const newSizesList = {
+        ...sizesList,
         [sizeInput]: parseInt(quantityInput, 10)
-      }));
+      };
+      setSizesList(newSizesList);
+      // Update the form's sizes field with JSON string
+      form.setValue('sizes', JSON.stringify(newSizesList));
       setSizeInput('');
       setQuantityInput('');
     }
   };
 
   const handleRemoveSize = (size: string): void => {
-    setSizesList(prev => {
-      const newSizes = { ...prev };
-      delete newSizes[size];
-      return newSizes;
-    });
+    const newSizes = { ...sizesList };
+    delete newSizes[size];
+    setSizesList(newSizes);
+    // Update the form's sizes field with JSON string
+    form.setValue('sizes', JSON.stringify(newSizes));
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
     const selectedFiles = event.target.files;
     if (selectedFiles && selectedFiles.length > 0) {
+      console.log('Files selected in handleFileChange:', {
+        length: selectedFiles.length,
+        files: Array.from(selectedFiles).map(f => ({
+          name: (f as any).name,
+          type: (f as any).type,
+          size: f.size
+        }))
+      });
+
       setFiles(selectedFiles);
+      console.log('Files state set, new files state:', selectedFiles);
+      // Clear any existing image errors when files are selected
       form.clearErrors('images');
+      // Don't set form value for images to avoid JSON serialization
     }
   };
 
   const validateFiles = (): boolean => {
-    if (!files || files.length === 0) {
+    if (!files || files.length < 1) {
       form.setError('images', {
         type: 'manual',
         message: 'Please upload at least 1 image'
       });
       return false;
     }
-  
+
     if (files.length > 5) {
       form.setError('images', {
         type: 'manual',
@@ -84,7 +102,9 @@ export const useProductForm = () => {
         });
         return false;
       }
+    }
 
+    for (let i = 0; i < files.length; i++) {
       if (files[i].size > 5 * 1024 * 1024) {
         form.setError('images', {
           type: 'manual',
@@ -97,29 +117,56 @@ export const useProductForm = () => {
     return true;
   };
 
-  const onSubmit = async (data: EnhancedProductFormData): Promise<void> => {
+  const handleThumbnailSelect = (index: number) => {
+    setSelectedThumbnail(index);
+  };
+
+  const onSubmit = async (data: EnhancedProductFormData) => {
     try {
-      if (!files || !validateFiles()) {
+      console.log('Form data received:', data);
+
+      if (!validateFiles()) {
+        console.log('File validation failed');
         return;
       }
 
       setIsUploading(true);
       setUploadProgress(0);
-
+      console.log('Starting image upload...');
       const colorSlug = data.color.toLowerCase().replace(/\s+/g, '');
       const articleWithColor = `${data.article_id}_${colorSlug}`;
-      const uploadResult = await uploadImages(articleWithColor, files);
+      const uploadResult = await uploadImages(articleWithColor, files!);
 
       if (!uploadResult) {
+        console.log('Upload failed');
         form.setError('images', {
           type: 'manual',
           message: 'Image upload failed. Please try again.'
         });
         return;
       }
-      
+
       const { imageUrls, thumbnail } = uploadResult;
-      const productData: EnhancedProductFormData = {
+      console.log('Upload successful. Image URLs:', imageUrls);
+      console.log('Thumbnail URL:', thumbnail);
+
+      // Verify the uploaded files in Supabase storage
+      console.log('🔍 SUPABASE STORAGE VERIFICATION:');
+      console.log('   📁 Check this exact folder in Supabase Storage:');
+      console.log(`   📂 Storage > ficishoesimages > ${articleWithColor}`);
+      console.log('   📄 Files should be:');
+      imageUrls.forEach((url, index) => {
+        const fileName = url.split('/').pop();
+        console.log(`      ${index + 1}. ${fileName}`);
+      });
+      console.log('   🏷️  Content type should show: image/jpeg');
+      console.log('   📏 File sizes should match:', imageUrls.map((_, i) => `${i + 1}. ~${Math.round((files![i]?.size || 0) / 1024 / 1024)}MB`));
+      console.log('   🔄 If showing application/json, try:');
+      console.log('      - Hard refresh browser (Ctrl+F5)');
+      console.log('      - Wait 2-3 minutes for Supabase to update');
+      console.log('      - Check the EXACT folder name above');
+
+      const productData = {
         ...data,
         article_id: articleWithColor,
         sizes: JSON.stringify(sizesList),
@@ -127,13 +174,20 @@ export const useProductForm = () => {
         thumbnail_url: thumbnail
       };
 
+      console.log('Adding product to database:', productData);
+
       const success = await addProduct(productData);
+
       if (success) {
+        console.log('Product added successfully');
         form.reset();
         setFiles(null);
         setSizesList({});
         setUploadProgress(0);
+      } else {
+        console.log('Failed to add product to database');
       }
+
     } catch (error) {
       console.error('Error submitting product:', error);
       form.setError('root', {
@@ -153,11 +207,14 @@ export const useProductForm = () => {
     quantityInput,
     isUploading,
     uploadProgress,
+    uploadError,
+    selectedThumbnail,
     setSizeInput: (value: string) => setSizeInput(value),
     setQuantityInput: (value: string) => setQuantityInput(value),
     handleAddSize,
     handleRemoveSize,
     handleFileChange,
+    handleThumbnailSelect,
     onSubmit: form.handleSubmit(onSubmit)
   };
 };
