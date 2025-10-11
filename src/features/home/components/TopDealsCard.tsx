@@ -29,8 +29,8 @@ const TopDealsCard: React.FC<TopDealsCardProps> = ({
               className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
               onError={(e) => {
                 const target = e.target as HTMLImageElement;
-                if (target.src !== '/placeholder.jpg') {
-                  target.src = '/placeholder.jpg';
+                if (target.src !== '/assets/Fici_logo.png') {
+                  target.src = '/assets/Fici_logo.png';
                 }
               }}
             />

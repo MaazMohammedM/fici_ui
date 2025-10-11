@@ -12,6 +12,7 @@ const CartPage: React.FC = () => {
     updateQuantity, 
     getCartTotal, 
     getCartSavings,
+    getTotalMrp,
     clearCart
   } = useCartStore();
 
@@ -34,8 +35,9 @@ const CartPage: React.FC = () => {
 
   // Calculate detailed summary
   const subtotal = getCartTotal();
+  const mrpTotal = getTotalMrp();
   const savings = getCartSavings();
-  const delivery = subtotal > 999 ? 0 : 99; // Delivery charge for orders under ₹999
+  const delivery = subtotal > 999 ? 0 : 99;
   const total = subtotal + delivery;
 
   return (
@@ -116,34 +118,38 @@ const CartPage: React.FC = () => {
             {/* Order Summary */}
             <div className="lg:col-span-1">
               <div className="bg-white dark:bg-dark2 rounded-2xl shadow-xl p-6 border-2 border-blue-200 dark:border-blue-800 sticky top-24">
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-6 flex items-center gap-2">
-                  <ShoppingBag className="w-6 h-6 text-primary" />
+                <h3 className="text-2xl font-bold text-center text-primary dark:text-secondary mb-6">
                   Order Summary
                 </h3>
                 
                 <div className="space-y-4 mb-6">
-                  <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700">
-                    <span className="text-gray-600 dark:text-gray-400">Items ({cartItems.length})</span>
-                    <span className="font-semibold text-gray-900 dark:text-white">
-                      ₹{subtotal.toLocaleString('en-IN')}
-                    </span>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600 dark:text-gray-400">MRP</span>
+                      <span className="text-gray-900 dark:text-white">
+                        ₹{mrpTotal.toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                    {savings > 0 && (
+                      <div className="flex justify-between items-center text-green-600 dark:text-green-400">
+                        <span>You Save</span>
+                        <span>-₹{savings.toLocaleString('en-IN')}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between items-center pt-2 border-t border-gray-200 dark:border-gray-700">
+                      <span className="text-gray-600 dark:text-gray-400">Items ({cartItems.length})</span>
+                      <span className="font-semibold text-gray-900 dark:text-white">
+                        ₹{subtotal.toLocaleString('en-IN')}
+                      </span>
+                    </div>
                   </div>
                   
-                  <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700">
-                    <span className="text-gray-600 dark:text-gray-400">Delivery</span>
+                  <div className="flex justify-between items-center py-2 border-t-2 border-gray-300 dark:border-gray-600">
+                    <span className="text-xl font-bold text-gray-900 dark:text-white">Delivery</span>
                     <span className={`font-semibold ${delivery === 0 ? 'text-green-600' : 'text-gray-900 dark:text-white'}`}>
                       {delivery === 0 ? 'Free' : `₹${delivery}`}
                     </span>
                   </div>
-                  
-                  {savings > 0 && (
-                    <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700">
-                      <span className="text-gray-600 dark:text-gray-400">Total Savings</span>
-                      <span className="font-semibold text-green-600">
-                        -₹{savings.toLocaleString('en-IN')}
-                      </span>
-                    </div>
-                  )}
                   
                   <div className="flex justify-between items-center py-3 border-t-2 border-gray-300 dark:border-gray-600">
                     <span className="text-xl font-bold text-gray-900 dark:text-white">Total</span>

@@ -4,6 +4,17 @@ import { useAuthStore } from '@store/authStore';
 import { Package, Truck, CheckCircle, XCircle, Clock, RefreshCw } from 'lucide-react';
 import ReturnRequest from './ReturnRequest';
 
+interface OrderItem {
+  order_item_id: string;
+  product_name: string;
+  product_id: string;
+  size: string;
+  quantity: number;
+  price_at_purchase: number;
+  mrp: number;
+  thumbnail_url: string;
+}
+
 interface Order {
   order_id: string;
   order_date: string;
@@ -12,7 +23,9 @@ interface Order {
   payment_method: 'cod' | 'razorpay';
   total_amount: number;
   subtotal: number;
+  mrp_total?: number;
   discount: number;
+  prepaid_discount?: number;
   delivery_charge: number;
   cod_fee: number;
   shipping_address: any;
@@ -25,15 +38,7 @@ interface Order {
   shipped_at?: string;
   delivered_at?: string;
   cancelled_at?: string;
-  order_items: Array<{
-    order_item_id: string;
-    product_name: string;
-    product_id: string;
-    size: string;
-    quantity: number;
-    price_at_purchase: number;
-    thumbnail_url: string;
-  }>;
+  order_items: OrderItem[];
 }
 
 const OrderList: React.FC = () => {
@@ -243,21 +248,39 @@ const OrderList: React.FC = () => {
             <div className="mb-4">
               <p className="font-medium mb-2">Items:</p>
               <div className="space-y-2">
-                {order.order_items.slice(0, 2).map((item) => (
-                  <div key={item.order_item_id} className="flex items-center gap-3">
-                    <img
-                      src={item.thumbnail_url}
-                      alt={item.product_name}
-                      className="w-12 h-12 rounded object-cover"
-                    />
-                    <div className="flex-1">
-                      <p className="font-medium text-sm">{item.product_name}</p>
-                      <p className="text-xs text-gray-600">
-                        Size: {item.size} • Qty: {item.quantity} • ₹{item.price_at_purchase}
-                      </p>
+                {order.order_items.slice(0, 2).map((item) => {
+                  const itemMrp = item.mrp || item.price_at_purchase * 1.1; // Fallback if MRP is not available
+                  const itemSavings = itemMrp - item.price_at_purchase;
+                  
+                  return (
+                    <div key={item.order_item_id} className="flex items-start gap-3">
+                      <img
+                        src={item.thumbnail_url}
+                        alt={item.product_name}
+                        className="w-12 h-12 rounded object-cover flex-shrink-0"
+                      />
+                      <div className="flex-1">
+                        <p className="font-medium text-sm">{item.product_name}</p>
+                        <p className="text-xs text-gray-600">
+                          Size: {item.size} • Qty: {item.quantity}
+                        </p>
+                        <div className="mt-1">
+                          <span className="text-sm font-medium">₹{item.price_at_purchase.toFixed(2)}</span>
+                          {itemSavings > 0 && (
+                            <span className="ml-2 text-xs text-gray-500 line-through">
+                              ₹{itemMrp.toFixed(2)}
+                            </span>
+                          )}
+                          {itemSavings > 0 && (
+                            <span className="ml-2 text-xs text-green-600">
+                              Saved ₹{itemSavings.toFixed(2)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
                 {order.order_items.length > 2 && (
                   <p className="text-sm text-gray-600">+{order.order_items.length - 2} more items</p>
                 )}
@@ -266,29 +289,67 @@ const OrderList: React.FC = () => {
 
             {/* Order Summary */}
             <div className="bg-gray-50 dark:bg-dark3 rounded-lg p-4 mb-4">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-sm text-gray-600">Subtotal:</span>
-                <span className="text-sm">₹{order.subtotal.toLocaleString('en-IN')}</span>
-              </div>
-              {order.discount > 0 && (
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm text-green-600">Savings:</span>
-                  <span className="text-sm text-green-600">-₹{order.discount.toLocaleString('en-IN')}</span>
+              {/* MRP and Savings */}
+              <div className="space-y-2 mb-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Total MRP</span>
+                  <span className="text-sm">
+                    ₹{order.mrp_total ? order.mrp_total.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : 
+                      (order.subtotal + (order.discount || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                  </span>
                 </div>
-              )}
-              {order.cod_fee > 0 && (
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm text-orange-600">COD Fee:</span>
-                  <span className="text-sm text-orange-600">₹{order.cod_fee.toLocaleString('en-IN')}</span>
+                
+                {/* Discounts */}
+                {(order.discount > 0 || order.prepaid_discount > 0) && (
+                  <div className="space-y-1">
+                    {order.discount > 0 && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-green-600">Discount</span>
+                        <span className="text-sm text-green-600">
+                          -₹{order.discount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    )}
+                                 <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">Subtotal</span>
+                    <span className="text-sm">₹{order.subtotal.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                  </div>     
+                    {order.prepaid_discount > 0 && (
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-green-600">Prepaid Discount</span>
+                        <span className="text-sm text-green-600">
+                          -₹{order.prepaid_discount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                <div className="border-t border-gray-200 pt-3 space-y-2">
+
+                  
+                  {order.cod_fee > 0 && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-orange-600">COD Fee</span>
+                      <span className="text-sm text-orange-600">
+                        ₹{order.cod_fee.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  )}
+                  
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">Delivery</span>
+                    <span className="text-sm">
+                      {order.delivery_charge > 0 
+                        ? `₹${order.delivery_charge.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` 
+                        : 'Free'}
+                    </span>
+                  </div>
                 </div>
-              )}
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-sm text-gray-600">Delivery:</span>
-                <span className="text-sm">₹{order.delivery_charge.toLocaleString('en-IN')}</span>
-              </div>
-              <div className="flex justify-between items-center font-bold text-lg border-t pt-2">
-                <span>Total:</span>
-                <span>₹{order.total_amount.toLocaleString('en-IN')}</span>
+                <div className="flex justify-between items-center font-bold text-lg border-t border-gray-200 pt-2 mt-2">
+                  <span>Total</span>
+                  <span>₹{order.total_amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+                </div>
               </div>
             </div>
 

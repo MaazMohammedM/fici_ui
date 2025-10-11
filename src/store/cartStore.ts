@@ -30,6 +30,8 @@ interface CartState {
   getCartTotal: () => number;
   getCartCount: () => number;
   getCartSavings: () => number;
+  getTotalMrp: () => number;
+  getTotalItems: () => number;
   
   // Guest session support
   transferCartToUser: (userId: string) => Promise<void>;
@@ -51,7 +53,7 @@ export const useCartStore = create<CartState>()(
             item.product_id === newItem.product_id && 
             item.color === newItem.color && 
             item.size === newItem.size &&
-            item.thumbnail_url===newItem.thumbnail_url
+            item.thumbnail_url === newItem.thumbnail_url
         );
 
         if (existingItemIndex >= 0) {
@@ -96,8 +98,6 @@ export const useCartStore = create<CartState>()(
         if (items.length === 0) return;
         
         try {
-          // In a real implementation, you might want to sync cart to server here
-          // For now, we'll just update the storage key to associate with user
           const newStorageKey = `cart-storage-${userId}`;
           localStorage.setItem(newStorageKey, JSON.stringify({ items }));
           
@@ -112,7 +112,6 @@ export const useCartStore = create<CartState>()(
       },
 
       syncCartWithSession: () => {
-        // This method can be called to ensure cart is synced with current session
         const currentKey = get().getCartStorageKey();
         const stored = localStorage.getItem(currentKey);
         if (stored) {
@@ -132,7 +131,7 @@ export const useCartStore = create<CartState>()(
         if (authType === 'user') {
           return `cart-storage-${authStore.getCurrentUserId()}`;
         } else if (authType === 'guest') {
-          return `cart-storage-guest-${authStore.getCurrentSessionId()}`;
+          // Handle guest cart if needed
         }
         return 'cart-storage'; // fallback for unauthenticated users
       },
@@ -140,19 +139,21 @@ export const useCartStore = create<CartState>()(
       getCartTotal: () => {
         return get().items.reduce((total, item) => total + (item.price * item.quantity), 0);
       },
-
       getCartCount: () => {
         return get().items.reduce((count, item) => count + item.quantity, 0);
       },
-
       getCartSavings: () => {
         return get().items.reduce((savings, item) => {
-          const mrp = item.mrp || item.price || 0;  // ✅ Fallback to price if mrp is missing
-          const mrpTotal = mrp * item.quantity;
-          const discountedTotal = item.price * item.quantity;
-          return savings + (mrpTotal - discountedTotal);
+          const itemSavings = (item.mrp - item.price) * item.quantity;
+          return savings + itemSavings;
         }, 0);
-      }
+      },
+      getTotalMrp: () => {
+        return get().items.reduce((total, item) => total + (item.mrp * item.quantity), 0);
+      },
+      getTotalItems: () => {
+        return get().items.reduce((count, item) => count + item.quantity, 0);
+      },
     }),
     {
       name: 'cart-storage',

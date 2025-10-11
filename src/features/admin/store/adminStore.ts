@@ -12,7 +12,7 @@ interface Product {
   gender: 'men' | 'women' | 'unisex';
   category: 'Footwear' | 'Bags and Accessories';
   sizes: Record<string, number>;
-  images: string[]; // Keep as string array for frontend use
+  images: string[];
   thumbnail_url: string;
   article_id: string;
   created_at: string;
@@ -39,27 +39,51 @@ interface AdminStore {
   setUploadProgress: (progress: number) => void;
 }
 
-// Type guard for Record<string, number>
-const isRecordWithNumbers = (value: unknown): value is Record<string, number> => {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
-  return Object.values(value).every(v => typeof v === 'number');
-};
+// ============================================================
+// PARSING HELPERS - Handle Supabase storage quirks
+// ============================================================
 
-// Helper function to safely parse JSON - only for sizes
+/**
+ * Parse sizes from database - handles multiple formats from Supabase
+ * Database stores as JSONB but can come back stringified
+ */
 const safeParseSizes = (value: unknown): Record<string, number> => {
   if (!value) return {};
 
-  if (isRecordWithNumbers(value)) {
-    return value;
+  // Already parsed as object
+  if (typeof value === 'object' && !Array.isArray(value)) {
+    const obj = value as Record<string, unknown>;
+    if (Object.values(obj).every(v => typeof v === 'number')) {
+      return obj as Record<string, number>;
+    }
   }
 
+  // String that needs parsing
   if (typeof value === 'string') {
     try {
-      const unescaped = value.replace(/\\"/g, '"').replace(/^"|"$/g, '');
-      const parsed = JSON.parse(unescaped);
-      return isRecordWithNumbers(parsed) ? parsed : {};
+      // Remove outer quotes and escape sequences
+      let cleaned = value.trim();
+      if (cleaned.startsWith('"') && cleaned.endsWith('"')) {
+        cleaned = cleaned.slice(1, -1);
+      }
+      
+      // Handle double escaping (\\\" -> \")
+      cleaned = cleaned.replace(/\\"/g, '"');
+      
+      const parsed = JSON.parse(cleaned);
+      
+      if (typeof parsed === 'object' && !Array.isArray(parsed)) {
+        // Convert string keys to numbers if needed
+        const result: Record<string, number> = {};
+        Object.entries(parsed).forEach(([key, val]) => {
+          if (typeof val === 'number') {
+            result[key] = val;
+          }
+        });
+        return result;
+      }
     } catch (error) {
-      console.error('Error parsing sizes JSON:', error);
+      console.error('Error parsing sizes:', error, 'Raw value:', value);
       return {};
     }
   }
@@ -67,42 +91,84 @@ const safeParseSizes = (value: unknown): Record<string, number> => {
   return {};
 };
 
-// Helper function to parse images - handles comma-separated strings and converts to array
+/**
+ * Parse images from database - handles arrays and comma-separated strings
+ * Returns clean array of image URLs
+ */
 const parseImages = (images: unknown): string[] => {
   if (!images) return [];
-  
+
+  // Already an array
   if (Array.isArray(images)) {
-    return images.filter((img): img is string => 
-      img !== null && typeof img === 'string' && img.trim() !== ''
-    );
+    return images
+      .filter((img): img is string => img !== null && typeof img === 'string' && img.trim() !== '')
+      .map(url => url.trim());
   }
-  
+
   if (typeof images === 'string') {
     const trimmed = images.trim();
     if (!trimmed) return [];
-    
-    if (trimmed.startsWith('http')) {
-      return trimmed
+
+    // Remove outer quotes if present
+    let cleaned = trimmed;
+    if (cleaned.startsWith('"') && cleaned.endsWith('"')) {
+      cleaned = cleaned.slice(1, -1);
+    }
+
+    // If it contains URLs, split by comma
+    if (cleaned.includes('http')) {
+      return cleaned
         .split(',')
         .map(url => url.trim())
-        .filter(url => url !== '');
+        .filter(url => url.length > 0);
     }
-    
+
+    // Try JSON parsing
     try {
-      const parsed = JSON.parse(trimmed) as unknown;
+      const parsed = JSON.parse(cleaned);
       if (Array.isArray(parsed)) {
-        return parsed.filter((img): img is string => 
-          img !== null && typeof img === 'string' && img.trim() !== ''
-        );
+        return parsed
+          .filter((img): img is string => img !== null && typeof img === 'string' && img.trim() !== '')
+          .map(url => url.trim());
       }
-      return [];
     } catch {
-      return [trimmed];
+      // Not JSON, return as single URL if it's valid
+      if (cleaned.startsWith('http')) {
+        return [cleaned];
+      }
     }
   }
-  
+
   return [];
 };
+
+/**
+ * Get MIME type from file extension
+ */
+const getMimeType = (fileName: string): string => {
+  const ext = fileName.split('.').pop()?.toLowerCase() || '';
+  const mimeMap: Record<string, string> = {
+    'jpg': 'image/jpeg',
+    'jpeg': 'image/jpeg',
+    'png': 'image/png',
+    'gif': 'image/gif',
+    'webp': 'image/webp'
+  };
+  return mimeMap[ext] || 'image/jpeg';
+};
+
+/**
+ * Extract color from article_id
+ * Format: SHXXX_color (e.g., SH0001_black)
+ */
+const extractColorFromArticleId = (articleId: string): string => {
+  const parts = articleId.split('_');
+  return parts.slice(1).join('_') || 'default';
+};
+
+// ============================================================
+// ZUSTAND STORE
+// ============================================================
 
 export const useAdminStore = create<AdminStore>((set, get) => ({
   products: [],
@@ -141,7 +207,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
         sizes: safeParseSizes(product.sizes),
         images: parseImages(product.images)
       }));
-      
+
       set({ products: parsedProducts });
     } catch (error) {
       console.error('Error fetching products:', error);
@@ -158,25 +224,26 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
     try {
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-
         const fileExtension = file.name.split('.').pop();
         const fileName = `${folderName}_${i + 1}.${fileExtension}`;
         const filePath = `${folderName}/${fileName}`;
+        const mimeType = getMimeType(file.name);
 
-        console.log('File details:', {
-          name: (file as any).name,
-          type: (file as any).type,
-          size: (file as any).size,
-          extension: fileExtension,
-          fileName: fileName,
-          filePath: filePath
+        console.log('Uploading file:', {
+          name: file.name,
+          type: file.type,
+          size: file.size,
+          fileName,
+          filePath,
+          mimeType
         });
 
         const { error: uploadError } = await supabase.storage
           .from('ficishoesimages')
           .upload(filePath, file, {
             cacheControl: '3600',
-            upsert: false
+            upsert: false,
+            contentType: mimeType // CRITICAL: Set correct MIME type
           });
 
         if (uploadError) {
@@ -192,7 +259,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
         const progress = ((i + 1) / totalFiles) * 100;
         set({ uploadProgress: progress });
       }
-      
+
       return {
         imageUrls,
         thumbnail: imageUrls[0]
@@ -242,27 +309,27 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
 
   getFolderNameFromImages: (images: unknown): string | null => {
     if (!images) return null;
-    
-    const imageArray = Array.isArray(images) 
+
+    const imageArray = Array.isArray(images)
       ? images.filter((img): img is string => typeof img === 'string')
       : typeof images === 'string'
         ? [images]
         : [];
 
     if (imageArray.length === 0) return null;
-    
+
     try {
       const firstImageUrl = imageArray[0];
       const urlParts = firstImageUrl.split('/');
       const bucketIndex = urlParts.findIndex(part => part === 'ficishoesimages');
-      
+
       if (bucketIndex !== -1 && urlParts[bucketIndex + 1]) {
         return urlParts[bucketIndex + 1];
       }
     } catch (error) {
       console.error('Error extracting folder name from images:', error);
     }
-    
+
     return null;
   },
 
@@ -270,15 +337,26 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
     set({ loading: true, error: null });
 
     try {
-      const { color, ...dataToSave } = productData;
-
+      // Extract color from article_id if needed
+      const { color, ...dataWithoutColor } = productData;
+      
+      // Format data for storage in Supabase
       const formattedData = {
-        ...dataToSave,
-        sizes: typeof dataToSave.sizes === 'string'
-          ? dataToSave.sizes
-          : JSON.stringify(dataToSave.sizes),
-        images: dataToSave.images // Store as comma-separated string for now
+        ...dataWithoutColor,
+        // Store sizes as clean JSON object (Supabase JSONB will handle it)
+        sizes: typeof productData.sizes === 'string'
+          ? productData.sizes
+          : JSON.stringify(productData.sizes),
+        // Store images as comma-separated string (NOT double-stringified)
+        images: Array.isArray(productData.images)
+          ? productData.images.join(',')
+          : productData.images
       };
+
+      console.log('Adding product with data:', {
+        ...formattedData,
+        images: `[${(formattedData.images as string).split(',').length} images]`
+      });
 
       const { error } = await supabase
         .from('products')
@@ -294,7 +372,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
       return true;
     } catch (error) {
       console.error('Error adding product:', error);
-      set({ error: 'Failed to add product' });
+      set({ error: error instanceof Error ? error.message : 'Failed to add product' });
       return false;
     } finally {
       set({ loading: false });
@@ -306,31 +384,28 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
     try {
       const { sizes, ...rest } = formData;
 
-      console.log('Updating product:', {
-        productId,
+      const updateData = {
         ...rest,
-        sizes: JSON.stringify(sizes),
-      });
+        sizes: JSON.stringify(sizes)
+      };
+
+      console.log('Updating product:', productId, updateData);
 
       const { error } = await supabase
         .from('products')
-        .update({
-          ...rest,
-          sizes: JSON.stringify(sizes),
-        })
+        .update(updateData)
         .eq('product_id', productId);
 
       if (error) {
         console.error('Update error:', error);
         set({ error: `Failed to update product: ${error.message}` });
         return false;
-      } else {
-        console.log('Product updated successfully');
-        await get().fetchProducts();
-        set({ editingProduct: null, success: 'Product updated successfully' });
-        setTimeout(() => set({ success: null }), 3000);
-        return true;
       }
+
+      await get().fetchProducts();
+      set({ editingProduct: null, success: 'Product updated successfully' });
+      setTimeout(() => set({ success: null }), 3000);
+      return true;
     } catch (error) {
       console.error('Update product error:', error);
       set({ error: 'Failed to update product' });
@@ -373,7 +448,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
       if (fetchError) throw fetchError;
 
       const folderName = get().getFolderNameFromImages(product.images);
-      
+
       if (folderName) {
         const imagesDeletionSuccess = await get().deleteProductImages(folderName);
         if (!imagesDeletionSuccess) {

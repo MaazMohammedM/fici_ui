@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
-import { supabase } from '../../lib/supabase';
+import { Truck, CheckCircle, XCircle, Clock, Package, ArrowLeft } from 'lucide-react';
+import { useOrderStore } from '../../store/orderStore';
 import { useAuthStore } from '../../store/authStore';
 
 interface OrderItem {
@@ -12,12 +13,14 @@ interface OrderItem {
   thumbnail_url: string;
   product_name: string;
   product_thumbnail_url: string;
+  mrp?: number;
+  color?: string;
 }
 
 interface OrderDetails {
   order_id: string;
   order_date: string;
-  status: string;
+  status: 'pending' | 'paid' | 'shipped' | 'delivered' | 'cancelled';
   total_amount: number;
   subtotal: number;
   discount: number;
@@ -49,58 +52,56 @@ const OrderDetailsPage = ({ isGuest = false }: { isGuest?: boolean }) => {
   const [order, setOrder] = useState<OrderDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [cancellingOrder, setCancellingOrder] = useState(false);
+  const [showReturnModal, setShowReturnModal] = useState(false);
+  const [selectedOrderForReturn, setSelectedOrderForReturn] = useState<OrderDetails | null>(null);
+
   const { user, isGuest: isGuestUser, guestSession } = useAuthStore();
+  const { fetchOrderById, updateOrderStatus, loading: storeLoading, error: storeError } = useOrderStore();
 
   useEffect(() => {
     const fetchOrder = async () => {
       if (!orderId) return;
 
       try {
-        // First, get the order details
-        let orderQuery = supabase
-          .from('orders')
-          .select('*')
-          .eq('order_id', orderId);
+        setIsLoading(true);
 
+        // Use orderStore API to fetch order
+        let email, phone, tpin;
         if (isGuest) {
-          const email = searchParams.get('email');
-          const tpin = searchParams.get('tpin');
-          if (!email && !tpin) {
-            throw new Error('Email or TPIN verification required');
-          }
-          if (email) orderQuery = orderQuery.eq('guest_email', email);
-          if (tpin) orderQuery = orderQuery.eq('guest_tpin', tpin);
-        } else if (isGuestUser && guestSession?.guest_session_id) {
-          orderQuery = orderQuery.eq('guest_session_id', guestSession.guest_session_id);
-        } else if (user) {
-          orderQuery = orderQuery.eq('user_id', user.id);
-        } else {
-          throw new Error('Authentication required');
+          email = searchParams.get('email') || undefined;
+          tpin = searchParams.get('tpin') || undefined;
         }
 
-        const { data: orderData, error: orderError } = await orderQuery.single();
+        const orderData = await fetchOrderById(orderId, email, phone, tpin);
 
-        if (orderError || !orderData) {
+        if (!orderData) {
           throw new Error('Order not found or access denied');
         }
 
-        // Then, get the order items
-        const { data: itemsData, error: itemsError } = await supabase
-          .from('order_items')
-          .select('*')
-          .eq('order_id', orderId);
-
-        if (itemsError) {
-          console.warn('Error fetching order items:', itemsError);
-        }
-
-        // Combine the data
-        const orderWithItems: OrderDetails = {
-          ...orderData,
-          items: itemsData || []
+        // Transform order data to match our interface
+        const transformedOrder: OrderDetails = {
+          order_id: orderData.id,
+          order_date: orderData.order_date || orderData.created_at || '',
+          status: orderData.status as OrderDetails['status'],
+          total_amount: orderData.total_amount,
+          subtotal: orderData.subtotal,
+          discount: orderData.discount,
+          delivery_charge: orderData.delivery_charge,
+          payment_method: orderData.payment_method || '',
+          payment_status: orderData.payment_status,
+          shipping_address: orderData.shipping_address as OrderDetails['shipping_address'],
+          items: Array.isArray(orderData.items) ? orderData.items as OrderItem[] : [],
+          guest_email: orderData.guest_email,
+          guest_phone: orderData.guest_phone,
+          shipping_partner: orderData.tracking_number, // Map tracking_number to shipping_partner for display
+          tracking_id: orderData.tracking_number,
+          tracking_url: orderData.tracking_url,
+          shipped_at: orderData.shipped_at,
+          delivered_at: orderData.delivered_at,
         };
 
-        setOrder(orderWithItems);
+        setOrder(transformedOrder);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load order');
         console.error('Error fetching order:', err);
@@ -110,9 +111,58 @@ const OrderDetailsPage = ({ isGuest = false }: { isGuest?: boolean }) => {
     };
 
     fetchOrder();
-  }, [orderId, isGuest, isGuestUser, user, guestSession, searchParams]);
+  }, [orderId, isGuest, searchParams, fetchOrderById]);
 
-  if (isLoading) {
+  const cancelOrder = async () => {
+    if (!order || !confirm('Are you sure you want to cancel this order? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      setCancellingOrder(true);
+
+      // Use orderStore API to cancel order
+      await updateOrderStatus(order.order_id, 'cancelled');
+
+      // Update local state
+      setOrder({ ...order, status: 'cancelled' });
+
+      alert('Order cancelled successfully');
+    } catch (err) {
+      alert(`Failed to cancel order: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      console.error('Error cancelling order:', err);
+    } finally {
+      setCancellingOrder(false);
+    }
+  };
+
+  const canCancelOrder = (order: OrderDetails) => {
+    return order.status === 'pending' || order.status === 'paid';
+  };
+
+  const canReturnOrder = (order: OrderDetails) => {
+    return order.status === 'delivered' &&
+           order.delivered_at &&
+           (new Date().getTime() - new Date(order.delivered_at).getTime()) <= (3 * 24 * 60 * 60 * 1000); // 3 days
+  };
+
+  const openReturnModal = (order: OrderDetails) => {
+    setSelectedOrderForReturn(order);
+    setShowReturnModal(true);
+  };
+
+  const closeReturnModal = () => {
+    setShowReturnModal(false);
+    setSelectedOrderForReturn(null);
+  };
+
+  const handleReturnSuccess = () => {
+    closeReturnModal();
+    // Refresh order data
+    window.location.reload();
+  };
+
+  if (isLoading || storeLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
@@ -120,7 +170,7 @@ const OrderDetailsPage = ({ isGuest = false }: { isGuest?: boolean }) => {
     );
   }
 
-  if (error) {
+  if (error || storeError) {
     return (
       <div className="max-w-4xl mx-auto p-4">
         <div className="bg-red-50 border-l-4 border-red-400 p-4">
@@ -131,7 +181,7 @@ const OrderDetailsPage = ({ isGuest = false }: { isGuest?: boolean }) => {
               </svg>
             </div>
             <div className="ml-3">
-              <p className="text-sm text-red-700">{error}</p>
+              <p className="text-sm text-red-700">{error || storeError}</p>
               <div className="mt-4">
                 <Link
                   to={isGuest ? '/guest/orders' : '/orders'}
@@ -172,9 +222,7 @@ const OrderDetailsPage = ({ isGuest = false }: { isGuest?: boolean }) => {
             to={isGuest ? '/guest/orders' : '/orders'}
             className="inline-flex items-center text-blue-600 hover:text-blue-800"
           >
-            <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
+            <ArrowLeft className="w-4 h-4 mr-1" />
             Back to {isGuest ? 'Order Lookup' : 'Order History'}
           </Link>
         </div>
@@ -194,7 +242,7 @@ const OrderDetailsPage = ({ isGuest = false }: { isGuest?: boolean }) => {
                   })}
                 </p>
               </div>
-              <div className="mt-4 sm:mt-0">
+              <div className="mt-4 sm:mt-0 flex items-center gap-3">
                 <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
                   order.status === 'delivered' ? 'bg-green-100 text-green-800' :
                   order.status === 'cancelled' ? 'bg-red-100 text-red-800' :
@@ -203,14 +251,41 @@ const OrderDetailsPage = ({ isGuest = false }: { isGuest?: boolean }) => {
                 }`}>
                   {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
                 </span>
+
+                {/* Action Buttons */}
+                {!isGuest && !isGuestUser && (
+                  <div className="flex gap-2">
+                    {canCancelOrder(order) && (
+                      <button
+                        onClick={cancelOrder}
+                        disabled={cancellingOrder}
+                        className="px-3 py-1 bg-red-600 text-white text-sm rounded-md hover:bg-red-700 disabled:opacity-50"
+                      >
+                        {cancellingOrder ? 'Cancelling...' : 'Cancel Order'}
+                      </button>
+                    )}
+
+                    {canReturnOrder(order) && (
+                      <button
+                        onClick={() => openReturnModal(order)}
+                        className="px-3 py-1 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700"
+                      >
+                        Request Return
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
-          {/* Shipment Tracking Section */}
+          {/* Enhanced Tracking Section */}
           {(order.status === 'shipped' || order.status === 'delivered') && (order.tracking_id || order.shipping_partner) && (
             <div className="px-4 py-5 sm:px-6 border-b border-gray-200 bg-blue-50">
-              <h2 className="text-lg font-medium text-gray-900 mb-4">📦 Shipment Tracking</h2>
+              <h2 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                <Truck className="w-5 h-5 mr-2" />
+                Shipment Tracking
+              </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {order.shipping_partner && (
                   <div>
@@ -221,7 +296,7 @@ const OrderDetailsPage = ({ isGuest = false }: { isGuest?: boolean }) => {
                 {order.tracking_id && (
                   <div>
                     <h3 className="text-sm font-medium text-gray-900">Tracking ID</h3>
-                    <p className="mt-1 text-sm text-gray-600">{order.tracking_id}</p>
+                    <p className="mt-1 text-sm text-gray-600 font-mono">{order.tracking_id}</p>
                   </div>
                 )}
                 {order.tracking_url && (
@@ -232,8 +307,37 @@ const OrderDetailsPage = ({ isGuest = false }: { isGuest?: boolean }) => {
                       rel="noopener noreferrer"
                       className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
                     >
+                      <Truck className="w-4 h-4 mr-1" />
                       Track Package
                     </a>
+                  </div>
+                )}
+                {order.shipped_at && (
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-900">Shipped On</h3>
+                    <p className="mt-1 text-sm text-gray-600">
+                      {new Date(order.shipped_at).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </p>
+                  </div>
+                )}
+                {order.delivered_at && (
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-900">Delivered On</h3>
+                    <p className="mt-1 text-sm text-gray-600">
+                      {new Date(order.delivered_at).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </p>
                   </div>
                 )}
               </div>
@@ -241,7 +345,10 @@ const OrderDetailsPage = ({ isGuest = false }: { isGuest?: boolean }) => {
           )}
 
           <div className="px-4 py-5 sm:px-6 border-b border-gray-200">
-            <h2 className="text-lg font-medium text-gray-900 mb-4">Order Items</h2>
+            <h2 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+              <Package className="w-5 h-5 mr-2" />
+              Order Items
+            </h2>
             <div className="space-y-6">
               {order.items.map((item) => (
                 <div key={item.order_item_id} className="flex items-start border-b border-gray-100 pb-4">
@@ -256,13 +363,28 @@ const OrderDetailsPage = ({ isGuest = false }: { isGuest?: boolean }) => {
                       {item.size && (
                         <p className="text-sm text-gray-500">Size: {item.size}</p>
                       )}
+                      {item.color && (
+                        <p className="text-sm text-gray-500">Color: {item.color}</p>
+                      )}
                       <p className="text-sm text-gray-500">Qty: {item.quantity}</p>
                     </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-medium text-gray-900">₹{(item.price_at_purchase * item.quantity).toFixed(2)}</p>
-                    {item.price_at_purchase > 0 && (
-                      <p className="text-sm text-gray-500">₹{item.price_at_purchase.toFixed(2)} each</p>
+                    <div className="mt-2 flex items-center gap-2">
+                      <span className="font-medium text-gray-900">₹{(item.price_at_purchase * item.quantity).toFixed(2)}</span>
+                      {item.mrp && item.mrp > item.price_at_purchase && (
+                        <span className="text-sm text-gray-500 line-through">
+                          ₹{(item.mrp * item.quantity).toFixed(2)}
+                        </span>
+                      )}
+                      {item.mrp && item.mrp > item.price_at_purchase && (
+                        <span className="text-xs text-green-600">
+                          Saved ₹{((item.mrp - item.price_at_purchase) * item.quantity).toFixed(2)}
+                        </span>
+                      )}
+                    </div>
+                    {item.mrp && item.mrp > item.price_at_purchase && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        ₹{item.price_at_purchase.toFixed(2)} each (was ₹{item.mrp.toFixed(2)})
+                      </p>
                     )}
                   </div>
                 </div>
@@ -296,7 +418,7 @@ const OrderDetailsPage = ({ isGuest = false }: { isGuest?: boolean }) => {
           </div>
 
           <div className="px-4 py-5 sm:px-6 border-b border-gray-200">
-            <h2 className="text-lg font-medium text-gray-900 mb-4">Shipping & Billing</h2>
+            <h2 className="text-lg font-medium text-gray-900 mb-4">Shipping & Payment</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div>
                 <h3 className="text-sm font-medium text-gray-900">Shipping Address</h3>
@@ -336,6 +458,37 @@ const OrderDetailsPage = ({ isGuest = false }: { isGuest?: boolean }) => {
           )}
         </div>
       </div>
+
+      {/* Return Request Modal - Simple implementation for now */}
+      {showReturnModal && selectedOrderForReturn && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full">
+            <h2 className="text-xl font-semibold mb-4">Request Return</h2>
+            <p className="text-gray-600 mb-4">
+              You can request a return within 3 days of delivery. Our customer service team will contact you to arrange the pickup.
+            </p>
+            <div className="space-y-3 mb-6">
+              <p className="text-sm"><strong>Order ID:</strong> {selectedOrderForReturn.order_id}</p>
+              <p className="text-sm"><strong>Items:</strong> {selectedOrderForReturn.items.length} item(s)</p>
+              <p className="text-sm"><strong>Delivered:</strong> {selectedOrderForReturn.delivered_at ? new Date(selectedOrderForReturn.delivered_at).toLocaleDateString() : 'N/A'}</p>
+            </div>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={closeReturnModal}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleReturnSuccess}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+              >
+                Submit Return Request
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
