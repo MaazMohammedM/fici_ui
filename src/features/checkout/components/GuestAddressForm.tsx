@@ -40,7 +40,8 @@ const GuestAddressForm: React.FC<GuestAddressFormProps> = ({
   console.log('GuestAddressForm - Received guestContactInfo:', guestContactInfo);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [savedAddresses, setSavedAddresses] = useState<Address[]>([]);
-  const [showForm, setShowForm] = useState(!selectedAddress);
+  // Always show the form by default for editing
+  const [showForm, setShowForm] = useState(true);
   const { guestSession } = useAuthStore();
   const { updateContactInfo } = useGuestSession();
   // Use the passed guest_session_id prop, then guestSession, then try to get it from the store
@@ -50,6 +51,25 @@ const GuestAddressForm: React.FC<GuestAddressFormProps> = ({
     console.log('GuestAddressForm - Effective guest_session_id:', sessionId);
     return sessionId;
   }, [guest_session_id, guestSession]);
+  
+  // Initialize form with guest contact info if available
+  useEffect(() => {
+    if (guestContactInfo) {
+      reset({
+        name: guestContactInfo.name || '',
+        email: guestContactInfo.email || '',
+        phone: guestContactInfo.phone || '',
+        // Keep existing address fields if they exist
+        ...(selectedAddress ? {
+          address: selectedAddress.address,
+          city: selectedAddress.city,
+          state: selectedAddress.state,
+          pincode: selectedAddress.pincode,
+          landmark: selectedAddress.landmark || ''
+        } : {})
+      });
+    }
+  }, [guestContactInfo]);
   
   // Log session info for debugging
   useEffect(() => {
@@ -88,7 +108,21 @@ const GuestAddressForm: React.FC<GuestAddressFormProps> = ({
     } else {
       console.warn('No valid guest session ID available to load addresses');
     }
-  }, [effectiveGuestSessionId]);
+    
+    // Reset form with selected address if available
+    if (selectedAddress) {
+      reset({
+        name: selectedAddress.name,
+        email: selectedAddress.email,
+        phone: selectedAddress.phone,
+        address: selectedAddress.address,
+        city: selectedAddress.city,
+        state: selectedAddress.state,
+        pincode: selectedAddress.pincode,
+        landmark: selectedAddress.landmark || ''
+      });
+    }
+  }, [effectiveGuestSessionId, selectedAddress]);
 
   const loadGuestAddresses = async () => {
     if (!effectiveGuestSessionId) return;
@@ -224,7 +258,7 @@ const GuestAddressForm: React.FC<GuestAddressFormProps> = ({
       </div>
 
       {/* Saved Addresses */}
-      {savedAddresses.length > 0 && !showForm && (
+      {savedAddresses.length > 0 && (
         <div className="space-y-3 mb-4">
           <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300">
             Previously Used Addresses
@@ -256,7 +290,7 @@ const GuestAddressForm: React.FC<GuestAddressFormProps> = ({
       )}
 
       {/* Address Form */}
-      {showForm && (
+      <div className={showForm ? 'block' : 'hidden'}>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Input
@@ -359,15 +393,26 @@ const GuestAddressForm: React.FC<GuestAddressFormProps> = ({
             )}
           </div>
         </form>
-      )}
+      </div>
 
       {selectedAddress && !showForm && (
         <div className="mt-4 p-4 bg-accent/5 border border-accent rounded-lg">
-          <h4 className="font-semibold text-accent mb-2">Selected Address:</h4>
+          <div className="flex justify-between items-center mb-2">
+            <h4 className="font-semibold text-accent">Selected Address:</h4>
+            <button 
+              onClick={() => setShowForm(true)}
+              className="text-sm text-accent hover:underline"
+            >
+              Edit Address
+            </button>
+          </div>
           <div className="text-sm">
             <p className="font-medium">{selectedAddress.name}</p>
             <p>{selectedAddress.phone} • {selectedAddress.email}</p>
             <p>{selectedAddress.address}, {selectedAddress.city}, {selectedAddress.state} {selectedAddress.pincode}</p>
+            {selectedAddress.landmark && (
+              <p className="mt-1">Landmark: {selectedAddress.landmark}</p>
+            )}
           </div>
         </div>
       )}

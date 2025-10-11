@@ -57,13 +57,13 @@ const HighlightSection: React.FC = () => {
                 >
                   <div className="relative aspect-square overflow-hidden">
                     <img
-                      src={product.thumbnail_url || product.images?.[0] || '/placeholder.jpg'}
+                      src={product.thumbnail_url || product.images?.[0] || '/Fici_logo.png'}
                       alt={product.name}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       onError={(e) => {
                         const target = e.target as HTMLImageElement;
-                        if (target.src !== '/placeholder.jpg') {
-                          target.src = '/placeholder.jpg';
+                        if (target.src !== '/Fici_logo.png') {
+                          target.src = '/Fici_logo.png';
                         }
                       }}
                     />

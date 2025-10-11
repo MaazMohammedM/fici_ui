@@ -30,7 +30,7 @@ export const Image: React.FC<ImageProps> = ({
     };
 
     const handleError = () => {
-      setImageSrc('/assets/placeholder.jpg');
+      setImageSrc('/assets/Fici_logo.png');
       setIsLoading(false);
     };
 
@@ -58,7 +58,7 @@ export const Image: React.FC<ImageProps> = ({
         }`}
         onError={(e) => {
           const target = e.target as HTMLImageElement;
-          target.src = '/assets/placeholder.jpg';
+          target.src = '/assets/Fici_logo.png';
         }}
       />
     </div>

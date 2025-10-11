@@ -9,10 +9,22 @@ interface OrderSummaryProps {
   tax: number;
   total: number;
   savings?: number;
-  prepaidDiscount?: number; // ✅ Add prepaid discount prop
+  prepaidDiscount?: number;
+  mrpTotal?: number;
+  totalItems?: number;
 }
 
-const OrderSummary: React.FC<OrderSummaryProps> = ({ items, subtotal, shipping, tax, total, savings = 0, prepaidDiscount = 0 }) => {
+const OrderSummary: React.FC<OrderSummaryProps> = ({ 
+  items, 
+  subtotal, 
+  shipping, 
+  tax, 
+  total, 
+  savings = 0, 
+  prepaidDiscount = 0,
+  mrpTotal = subtotal + savings, // Default to subtotal + savings if not provided
+  totalItems = items.reduce((sum, item) => sum + item.quantity, 0) // Calculate total items if not provided
+}) => {
   return (
     <div className="bg-[color:var(--color-light1)] dark:bg-[color:var(--color-dark2)] p-8 rounded-2xl shadow-lg h-fit border-2 border-blue-200 dark:border-[color:var(--color-dark1)]">
       <div className="flex items-center gap-2 mb-4">
@@ -21,13 +33,12 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({ items, subtotal, shipping, 
         </h3>
       </div>
 
-      <div className="mb-3 flex justify-between text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)]">
-        <span>Items:</span>
-        <span className="font-semibold">{items.length}</span>
-      </div>
-
         <div className="flex justify-between">
-          <span>Subtotal</span>
+          <span>MRP Price ({totalItems})</span>
+          <span>₹{mrpTotal.toLocaleString("en-IN")}</span>
+        </div>
+        <div className="flex justify-between">
+          <span>Discounted Price</span>
           <span>₹{subtotal.toLocaleString("en-IN")}</span>
         </div>
 
@@ -47,6 +58,12 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({ items, subtotal, shipping, 
           <span>Tax</span>
           <span>₹{tax.toLocaleString("en-IN")}</span>
         </div>
+        {savings > 0 && (
+          <div className="flex justify-between text-green-600 dark:text-green-400">
+            <span>You Save</span>
+            <span>₹{savings.toLocaleString("en-IN")}</span>
+          </div>
+        )}
 
         <div className="flex justify-between items-center text-xl font-bold text-green-800 dark:text-green-300 bg-green-100 dark:bg-green-900 px-4 py-2 rounded-lg mt-2 shadow">
           <span>Total</span>

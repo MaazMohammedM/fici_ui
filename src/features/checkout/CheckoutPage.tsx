@@ -14,6 +14,7 @@ import { supabase } from '@lib/supabase';
 import { Shield, ArrowLeft } from 'lucide-react';
 import type { Address } from './components/AddressForm';
 import type { GuestContactInfo } from '../../types/guest';
+import razorpayPayments from '../../assets/razorpay-with-all-cards-upi-seeklogo.png';
 
 const getRazorpayKey = () => {
   if (typeof window !== 'undefined' && (window as any).__RAZORPAY_KEY__) return (window as any).__RAZORPAY_KEY;
@@ -53,6 +54,7 @@ const CheckoutPage: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<'success' | 'failed' | 'pending' | null>(null);
   const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
+  const [showPaymentStatus, setShowPaymentStatus] = useState(false);
   const [showGuestForm, setShowGuestForm] = useState(false);
   const [guestInfo, setGuestInfo] = useState<GuestContactInfo | null>(null);
 
@@ -120,32 +122,34 @@ const CheckoutPage: React.FC = () => {
 
   const handlePaymentSuccess = async (response: any, orderId: string, amountRupees: number) => {
     try {
-      const authType = getAuthenticationType();
-      const paymentData = {
-        order_id: orderId,
-        user_id: authType === 'user' ? user!.id : null,
-        guest_session_id: authType === 'guest' ? useAuthStore.getState().getCurrentSessionId() : null,
-        provider: "razorpay",
-        payment_status: "pending" as const,
-        payment_method: selectedPayment,
+      console.log('Payment successful, response:', response);
+      
+      // Log payment details - webhook will handle the database update
+      console.log('Payment successful for order:', orderId, {
+        razorpay_order_id: response.razorpay_order_id,
+        razorpay_payment_id: response.razorpay_payment_id,
+        razorpay_signature: response.razorpay_signature,
         amount: amountRupees,
-        currency: "INR",
-        payment_reference: response.razorpay_payment_id,
-      };
+        currency: 'INR'
+      });
 
-      await savePaymentDetails(paymentData);
-
+      // Update UI state
       setCurrentOrderId(orderId);
       setPaymentStatus('success');
+      setShowPaymentStatus(true);
+      
+      // Don't clear cart here, let the modal handle it when it's closed
     } catch (err) {
-      console.error('savePaymentDetails error', err);
+      console.error('Error in handlePaymentSuccess:', err);
       setPaymentStatus('failed');
+      setShowPaymentStatus(true);
     }
   };
 
   const handlePaymentFailure = (err: any) => {
     console.error('Payment failed:', err);
     setPaymentStatus('failed');
+    setShowPaymentStatus(true);
   };
 
   const handleGuestInfoSubmit = async (contactInfo: GuestContactInfo) => {
@@ -154,10 +158,25 @@ const CheckoutPage: React.FC = () => {
       if (guestSession) {
         setGuestInfo(contactInfo);
         setShowGuestForm(false);
+        
+        // Auto-fill the shipping address with guest info
+        const guestAddress = {
+          name: contactInfo.name,
+          email: contactInfo.email,
+          phone: contactInfo.phone,
+          // Set default address fields that might be needed
+          address: '',
+          city: '',
+          state: '',
+          pincode: '',
+          country: 'India',
+          is_default: false,
+          address_type: 'home'
+        };
+        
+        setSelectedAddress(guestAddress);
         // Store email for potential account creation later
         sessionStorage.setItem('guestEmail', contactInfo.email);
-      } else {
-        alert('Failed to create guest session. Please try again.');
       }
     } catch (error) {
       console.error('Guest session creation failed:', error);
@@ -170,13 +189,14 @@ const CheckoutPage: React.FC = () => {
   };
 
   const handleBackToGuestForm = () => {
-    setShowGuestForm(true);
     setGuestInfo(null);
+    setShowGuestForm(true);
   };
 
   const handleRetryPayment = () => {
     setPaymentStatus(null);
-    setCurrentOrderId(null);
+    setShowPaymentStatus(false);
+    // You might want to implement retry logic here
     handlePlaceOrder();
   };
 
@@ -217,10 +237,13 @@ const CheckoutPage: React.FC = () => {
       // Generate a unique order ID - let the database generate UUID
       const orderId = crypto.randomUUID();
 
-      // Use create-order function for both COD and Razorpay
-      const invokeBody = authType === 'user' ? {
+      // Calculate total MRP and total discount
+      const totalMRP = cartItems.reduce((sum, item) => sum + (item.mrp * item.quantity), 0);
+      const totalDiscount = totalMRP - subtotal;
+
+      // Prepare common order data
+      const orderData = {
         amount: totalAmount,
-        user_id: user.id,
         order_id: orderId,
         payment_method: selectedPayment,
         items: cartItems.map(i => ({
@@ -236,77 +259,157 @@ const CheckoutPage: React.FC = () => {
           thumbnail_url: i.thumbnail_url,
         })),
         subtotal,
-        discount: savings,
+        total_mrp: totalMRP,
+        total_discount: totalDiscount,
+        prepaid_discount: prepaidDiscount, // Moved from metadata to main payload
         delivery_charge: deliveryCharge,
-        shipping_address: selectedAddress
-      } : {
-        amount: totalAmount,
-        guest_session_id: guestSession?.guest_session_id,
-        guest_contact_info: guestInfo,
-        order_id: orderId,
-        payment_method: selectedPayment,
-        items: cartItems.map(i => ({
-          product_id: i.product_id,
-          article_id: i.article_id,
-          name: i.name,
-          color: i.color,
-          size: i.size,
-          quantity: i.quantity,
-          price: i.price,
-          mrp: i.mrp,
-          discount_percentage: i.discount_percentage,
-          thumbnail_url: i.thumbnail_url,
-        })),
-        subtotal,
-        discount: savings,
-        delivery_charge: deliveryCharge,
-        shipping_address: selectedAddress
+        shipping_address: selectedAddress,
+        metadata: {
+          payment_method: selectedPayment,
+        }
       };
 
+      // Add user-specific data
+      const invokeBody = authType === 'user' 
+        ? { ...orderData, user_id: user.id }
+        : { 
+            ...orderData, 
+            guest_session_id: guestSession?.guest_session_id,
+            guest_contact_info: guestInfo 
+          };
+
+      console.log('Creating order with data:', JSON.stringify(invokeBody, null, 2));
       const { data, error } = await supabase.functions.invoke("create-order", {
         body: invokeBody,
       });
-      if (error) throw error;
-      const paymentOrder = data;
-
+      
+      if (error) {
+        console.error('Error creating order:', error);
+        throw new Error(error.message || 'Failed to create order');
+      }
+      
+      // Parse the response data if it's a string
+      const paymentOrder = typeof data === 'string' ? JSON.parse(data) : data;
+      console.log('Order created successfully:', paymentOrder);
+      
+      // Debug: Log the full response structure
+      console.log('Response data type:', typeof paymentOrder);
+      console.log('Response keys:', Object.keys(paymentOrder));
+      
       // Handle COD orders - no Razorpay needed
       if (selectedPayment === 'cod') {
-        setCurrentOrderId(orderId);
+        console.log('Processing COD order');
+        setCurrentOrderId(paymentOrder.order_id);
         setPaymentStatus('success');
+        setShowPaymentStatus(true);
+        // Don't clear cart here, let the modal handle it
         return;
       }
+      
+      // For Razorpay payments, we need the razorpay_order_id
+      const razorpayOrderId = paymentOrder.razorpay_order_id || 
+                            (paymentOrder.order && paymentOrder.order.razorpay_order_id) ||
+                            (paymentOrder.data && paymentOrder.data.razorpay_order_id);
+      
+      console.log('Extracted razorpayOrderId:', razorpayOrderId);
+      
+      if (!razorpayOrderId) {
+        console.error('Invalid response from create-order function. Missing razorpay_order_id. Full response:', JSON.stringify(paymentOrder, null, 2));
+        throw new Error('Invalid response from payment gateway. Please try again.');
+      }
+      
+      // Ensure the paymentOrder object has the razorpay_order_id for later use
+      paymentOrder.razorpay_order_id = razorpayOrderId;
 
       // Enhanced Razorpay implementation for online payments
-      await loadRazorpayScript();
-      const key = getRazorpayKey();
-
-      const rzp = new (window as any).Razorpay({
-        key,
-        amount: totalAmount * 100, // Convert to paise for Razorpay
-        currency: 'INR',
-        name: 'FICI',
-        description: 'Order payment',
-        order_id: paymentOrder.id,
-        handler: (response: any) => handlePaymentSuccess(response, orderId, totalAmount),
-        prefill: {
-          name: authType === 'user'
-            ? (selectedAddress as any)?.name
-            : guestInfo?.name,
-          email: authType === 'user'
-            ? (selectedAddress as any)?.email
-            : guestInfo?.email,
-          contact: authType === 'user'
-            ? (selectedAddress as any)?.phone
-            : guestInfo?.phone
-        },
-        theme: { color: '#3B82F6' },
-        modal: {
-          ondismiss: () => handlePaymentFailure({ reason: 'user_cancelled' }),
-          escape: false
+      try {
+        console.log('Loading Razorpay script...');
+        await loadRazorpayScript();
+        const key = getRazorpayKey();
+        
+        if (!key) {
+          throw new Error('Razorpay key not found');
         }
-      });
 
-      rzp.open();
+        const customerName = authType === 'user'
+          ? (selectedAddress as any)?.name || user?.user_metadata?.full_name
+          : guestInfo?.name;
+          
+        const customerEmail = authType === 'user'
+          ? (selectedAddress as any)?.email || user?.email
+          : guestInfo?.email;
+          
+        const customerPhone = authType === 'user'
+          ? (selectedAddress as any)?.phone || user?.phone
+          : guestInfo?.phone;
+
+        console.log('Initializing Razorpay with order ID:', razorpayOrderId);
+        
+        if (!razorpayOrderId) {
+          console.error('Failed to get Razorpay order ID. Available data:', {
+            hasRootId: !!paymentOrder.razorpay_order_id,
+            hasOrderObject: !!paymentOrder.order,
+            hasOrderId: paymentOrder.order ? !!paymentOrder.order.razorpay_order_id : false
+          });
+          throw new Error('Failed to get Razorpay order ID from the server');
+        }
+
+        const options = {
+          key,
+          amount: Math.round(totalAmount * 100), // Convert to paise for Razorpay
+          currency: 'INR',
+          name: 'FICI',
+          description: `Order #${orderId}`,
+          order_id: paymentOrder.razorpay_order_id,
+          handler: (response: any) => {
+            console.log('Razorpay payment successful:', response);
+            handlePaymentSuccess({
+              ...response,
+              order_id: orderId,
+              razorpay_order_id: response.razorpay_order_id || paymentOrder.id
+            }, orderId, totalAmount);
+          },
+          prefill: {
+            name: customerName,
+            email: customerEmail,
+            contact: customerPhone
+          },
+          notes: {
+            order_id: orderId,
+            source: 'FICI Web'
+          },
+          theme: { 
+            color: '#3B82F6',
+            hide_topbar: false
+          },
+          modal: {
+            ondismiss: () => {
+              console.log('Payment modal dismissed by user');
+              handlePaymentFailure({ reason: 'user_cancelled' });
+            },
+            escape: false,
+            backdropclose: false
+          },
+          retry: {
+            enabled: true,
+            max_count: 3
+          }
+        };
+
+        console.log('Razorpay options:', JSON.stringify(options, null, 2));
+        
+        const rzp = new (window as any).Razorpay(options);
+        rzp.on('payment.failed', (response: any) => {
+          console.error('Razorpay payment failed:', response);
+          handlePaymentFailure(response.error || { reason: 'payment_failed' });
+        });
+        
+        rzp.open();
+      } catch (error) {
+        console.error('Error initializing Razorpay:', error);
+        setPaymentStatus('failed');
+        alert('Failed to initialize payment. Please try again.');
+      }
     } catch (err: any) {
       console.error('Place order error', err);
       setPaymentStatus('failed');
@@ -398,7 +501,15 @@ const CheckoutPage: React.FC = () => {
               ) : (
                 <>
                   <GuestAddressForm
-                    selectedAddress={selectedAddress}
+                    selectedAddress={{
+                      ...selectedAddress,
+                      // Auto-fill with guest info if available
+                      ...(guestInfo ? {
+                        name: guestInfo.name,
+                        email: guestInfo.email,
+                        phone: guestInfo.phone
+                      } : {})
+                    }}
                     onAddressSubmit={(addr) => setSelectedAddress(addr)}
                     guest_session_id={useAuthStore.getState().guestSession?.guest_session_id}
                   />
@@ -410,7 +521,9 @@ const CheckoutPage: React.FC = () => {
                 onSelect={(id) => setSelectedPayment(id)}
                 prepaidDiscount={prepaidDiscount}
               />
+            </div>
 
+            <div className="lg:col-span-1 space-y-4 sm:space-y-6">
               <div className="bg-white dark:bg-dark2 rounded-2xl shadow-lg p-4 sm:p-6">
                 <h3 className="font-semibold text-base sm:text-lg mb-3 sm:mb-4">Your Items</h3>
                 <div className="space-y-3 sm:space-y-4 max-h-96 overflow-y-auto">
@@ -432,9 +545,6 @@ const CheckoutPage: React.FC = () => {
                   ))}
                 </div>
               </div>
-            </div>
-
-            <div className="space-y-4 sm:space-y-6">
               <OrderSummary
                 items={cartItems}
                 subtotal={subtotal}
@@ -446,36 +556,56 @@ const CheckoutPage: React.FC = () => {
               />
 
               <div className="bg-white dark:bg-dark2 rounded-2xl shadow-lg p-4 sm:p-6 sticky top-4">
-                <div className="flex items-center gap-3 mb-3 sm:mb-4">
-                  <Shield className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
-                  <h3 className="font-semibold text-sm sm:text-base">Secure Checkout</h3>
+                <div className="flex flex-col items-center text-center space-y-4 mb-4">
+                  <div className="flex items-center justify-center gap-2">
+                    <Shield className="w-5 h-5 sm:w-6 sm:h-6 text-green-600" />
+                    <h3 className="font-semibold text-sm sm:text-base">Secure Checkout</h3>
+                  </div>
+                  <div className="w-full max-w-xs mx-auto">
+                    <img
+                      src={razorpayPayments}
+                      alt="Payment methods: Cards, UPI and Razorpay"
+                      className="h-10 sm:h-12 md:h-14 lg:h-16 w-full object-contain"
+                      loading="lazy"
+                    />
+                  </div>
                 </div>
-                <p className="text-xs sm:text-sm text-gray-600 mb-3 sm:mb-4">Your payment information is encrypted and secure</p>
+                <p className="text-xs sm:text-sm text-gray-600 mb-3 sm:mb-4 text-center">Your payment information is encrypted and secure</p>
 
                 <button
                   onClick={handlePlaceOrder}
                   disabled={isProcessing}
                   className="w-full bg-primary text-white py-3 sm:py-4 rounded-xl font-bold text-base sm:text-lg shadow-lg hover:bg-primary-active transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isProcessing ? 'Processing...' : `Place Order${prepaidDiscount > 0 ? ` • ₹${totalAmount.toLocaleString('en-IN')} (Saved ₹${prepaidDiscount})` : ` • ₹${totalAmount.toLocaleString('en-IN')}`}`}
+                  {isProcessing ? 'Processing...' : `Place Order   ₹${totalAmount.toLocaleString('en-IN')}`}
                 </button>
               </div>
             </div>
           </div>
         </div>
       </div>
-      {paymentStatus && (
+      {showPaymentStatus && paymentStatus && (
         <PaymentStatusModal
           status={paymentStatus}
           orderId={currentOrderId || undefined}
-          message={selectedPayment === 'cod' ? 'Your order is successful with Cash on Delivery' : `Your order is successful with Online Payment${prepaidDiscount > 0 ? ` • You saved ₹${prepaidDiscount}!` : ''}`}
+          message={selectedPayment === 'cod' 
+            ? 'Your order is successful with Cash on Delivery' 
+            : `Your order is successful with Online Payment${prepaidDiscount > 0 ? ` • You saved ₹${prepaidDiscount}!` : ''}`}
           savings={savings}
           totalAmount={totalAmount}
-          prepaidDiscount={prepaidDiscount}
-          onClose={closePaymentModal}
-          onRetry={paymentStatus === 'failed' ? handleRetryPayment : undefined}
+          prepaidDiscount={selectedPayment === 'razorpay' ? prepaidDiscount : 0}
+          onClose={() => {
+            setShowPaymentStatus(false);
+            setPaymentStatus(null);
+            // Clear cart only after the modal is closed
+            clearCart();
+          }}
+          onRetry={() => {
+            setShowPaymentStatus(false);
+            setPaymentStatus(null);
+            handleRetryPayment();
+          }}
         />
-
       )}
     </>
   );

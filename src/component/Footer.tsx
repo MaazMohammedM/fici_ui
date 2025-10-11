@@ -165,7 +165,7 @@ const Footer: React.FC = () => {
                   rel="noopener noreferrer"
                   className="text-gray-300 text-sm sm:text-base hover:text-white transition-colors leading-relaxed"
                 >
-                  No.20, 1st Floor, Broad Bazaar, Flower Bazaar Lane, Ambur - 635802 Tirupattur District Tamilnadu, India.
+                  No.20, 1st Floor, Broad Bazaar, Flower Bazaar Lane, Ambur - 635802 Tirupattur District, Tamilnadu, India.
                 </a>
               </div>
               <div className="flex items-center gap-3">
@@ -180,7 +180,7 @@ const Footer: React.FC = () => {
                   href="mailto:nmfinternational@gmail.com"
                   className="text-gray-300 text-sm sm:text-base hover:text-white transition-colors"
                 >
-                  info@fici.com
+                  nmfinternational@gmail.com
                 </a>
               </div>
             </div>
@@ -221,17 +221,6 @@ const Footer: React.FC = () => {
         {/* Bottom Section */}
         <div className="border-t border-white/10 mt-6 sm:mt-8 pt-4 sm:pt-5 flex flex-col sm:flex-row justify-between items-center gap-3 sm:gap-4">
           <p className="text-gray-400 text-xs sm:text-sm text-center sm:text-left">© {currentYear} FICI. All rights reserved.</p>
-          <div className="flex flex-wrap justify-center sm:justify-end gap-4 sm:gap-6 text-xs sm:text-sm">
-            <Link to="/privacy" className="text-gray-400 hover:text-white transition-colors">
-              Privacy Policy
-            </Link>
-            <Link to="/terms" className="text-gray-400 hover:text-white transition-colors">
-              Terms of Service
-            </Link>
-            <Link to="/shipping" className="text-gray-400 hover:text-white transition-colors">
-              Shipping Info
-            </Link>
-          </div>
         </div>
       </div>
     </footer>

@@ -3,6 +3,7 @@ import { useProductForm } from '@lib/hooks/useProductForm';
 import FileUpload from './FileUpload';
 import SizeManager from './SizeManager';
 import { useAdminStore } from '../store/adminStore';
+import { CATEGORY_CONFIG, GENDER_OPTIONS } from './constants/productConfig'; // Import the constants
 
 const ProductForm: React.FC = () => {
   const { error, clearError } = useAdminStore();
@@ -24,6 +25,7 @@ const ProductForm: React.FC = () => {
     setSizeInput,
     setQuantityInput
   } = useProductForm();
+
   const {
     register,
     handleSubmit,
@@ -32,8 +34,6 @@ const ProductForm: React.FC = () => {
   } = form;
 
   const [successMessage, setSuccessMessage] = useState('');
-
-  // Watch category selection
   const selectedCategory = watch('category');
 
   const wrappedSubmit = async (data: any) => {
@@ -42,19 +42,30 @@ const ProductForm: React.FC = () => {
     setSuccessMessage('Product added successfully!');
   };
 
+  const getSubCategoryOptions = () => {
+    if (!selectedCategory) return [];
+    const category = CATEGORY_CONFIG[selectedCategory as keyof typeof CATEGORY_CONFIG];
+    if (!category?.subCategories) return [];
+    
+    // Handle both string and object subcategories
+    return category.subCategories.map(subCat => {
+      if (typeof subCat === 'string') {
+        return { value: subCat, label: subCat };
+      }
+      return subCat; // Already in {value, label} format
+    });
+  };
+
   return (
     <form
       onSubmit={handleSubmit(wrappedSubmit)}
       className="space-y-6 bg-white dark:bg-dark2 p-6 rounded-2xl shadow-md"
     >
-      {/* Success Message */}
       {successMessage && (
         <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded">
           {successMessage}
         </div>
       )}
-
-      {/* Error Display */}
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded flex justify-between items-center">
           <span>{error}</span>
@@ -74,14 +85,12 @@ const ProductForm: React.FC = () => {
         </div>
       )}
 
-      {/* Upload Error */}
       {uploadError && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
           {uploadError}
         </div>
       )}
 
-      {/* Upload Progress */}
       {isUploading && uploadProgress > 0 && (
         <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded">
           <div className="flex items-center justify-between mb-2">
@@ -98,7 +107,7 @@ const ProductForm: React.FC = () => {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Basic Information */}
+        {/* Article ID */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-white">
             Article ID *
@@ -115,6 +124,7 @@ const ProductForm: React.FC = () => {
           )}
         </div>
 
+        {/* Product Name */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-white">
             Product Name *
@@ -129,6 +139,7 @@ const ProductForm: React.FC = () => {
           )}
         </div>
 
+        {/* Description */}
         <div className="md:col-span-2">
           <label className="block text-sm font-medium text-gray-700 dark:text-white">
             Description
@@ -141,6 +152,7 @@ const ProductForm: React.FC = () => {
           />
         </div>
 
+        {/* Color */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-white">
             Color
@@ -155,7 +167,7 @@ const ProductForm: React.FC = () => {
           )}
         </div>
 
-        {/* Pricing */}
+        {/* MRP Price */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-white">
             MRP Price (₹) *
@@ -173,6 +185,7 @@ const ProductForm: React.FC = () => {
           )}
         </div>
 
+        {/* Discount Price */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-white">
             Discount Price (₹) *
@@ -190,7 +203,7 @@ const ProductForm: React.FC = () => {
           )}
         </div>
 
-        {/* Category and Gender */}
+        {/* Gender */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-white">
             Gender *
@@ -200,15 +213,18 @@ const ProductForm: React.FC = () => {
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white"
           >
             <option value="">Select Gender</option>
-            <option value="men">Men</option>
-            <option value="women">Women</option>
-            <option value="unisex">Unisex</option>
+            {GENDER_OPTIONS.map(option => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
           </select>
           {errors.gender && (
             <p className="text-red-500 text-sm mt-1">{errors.gender.message}</p>
           )}
         </div>
 
+        {/* Category */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-white">
             Category *
@@ -218,8 +234,11 @@ const ProductForm: React.FC = () => {
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white"
           >
             <option value="">Select Category</option>
-            <option value="Footwear">Footwear</option>
-            <option value="Bags and Accessories">Bags and Accessories</option>
+            {Object.entries(CATEGORY_CONFIG).map(([key, config]) => (
+              <option key={key} value={key}>
+                {config.label}
+              </option>
+            ))}
           </select>
           {errors.category && (
             <p className="text-red-500 text-sm mt-1">
@@ -233,35 +252,29 @@ const ProductForm: React.FC = () => {
           <label className="block text-sm font-medium text-gray-700 dark:text-white">
             SubCategory
           </label>
-
-          {selectedCategory === 'Footwear' ? (
+          {selectedCategory && Object.keys(CATEGORY_CONFIG).includes(selectedCategory) ? (
             <select
               {...register('sub_category')}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white"
             >
               <option value="">Select SubCategory</option>
-              <option value="Shoes">Shoes</option>
-              <option value="Sandals">Sandals</option>
+              {getSubCategoryOptions().map(subCat => (
+                <option key={subCat.value} value={subCat.value}>
+                  {subCat.label}
+                </option>
+              ))}
             </select>
-          ) : selectedCategory === 'Bags and Accessories' ? (
-            <select
-            {...register('sub_category')}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white"
-          >
-            <option value="">Select SubCategory</option>
-            <option value="Bags">Bags</option>
-            <option value="Accessories">Accessories</option>
-          </select>
           ) : (
             <input
               {...register('sub_category')}
               placeholder="SubCategory name"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white"
+              disabled={!selectedCategory}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white disabled:bg-gray-100 disabled:cursor-not-allowed"
             />
           )}
         </div>
 
-        {/* Size Manager (Responsive) */}
+        {/* Size Manager */}
         <div className="md:col-span-2">
           <SizeManager
             sizesList={sizesList}
