@@ -16,6 +16,7 @@ const GuestAddressSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
   address: z.string().min(10, 'Address must be at least 10 characters'),
   city: z.string().min(2, 'City is required'),
+  district: z.string().min(2, 'District is required'),
   state: z.string().min(2, 'State is required'),
   pincode: z.string().min(6, 'Pincode must be 6 digits').max(6, 'Pincode must be 6 digits'),
   landmark: z.string().optional()
@@ -65,7 +66,8 @@ const GuestAddressForm: React.FC<GuestAddressFormProps> = ({
           city: selectedAddress.city,
           state: selectedAddress.state,
           pincode: selectedAddress.pincode,
-          landmark: selectedAddress.landmark || ''
+          landmark: selectedAddress.landmark || '',
+          district: selectedAddress.district || ''
         } : {})
       });
     }
@@ -96,6 +98,7 @@ const GuestAddressForm: React.FC<GuestAddressFormProps> = ({
       city: '',
       state: '',
       pincode: '',
+      district: '',
       landmark: ''
     }
   });
@@ -119,6 +122,7 @@ const GuestAddressForm: React.FC<GuestAddressFormProps> = ({
         city: selectedAddress.city,
         state: selectedAddress.state,
         pincode: selectedAddress.pincode,
+        district: selectedAddress.district || '',
         landmark: selectedAddress.landmark || ''
       });
     }
@@ -188,6 +192,7 @@ const GuestAddressForm: React.FC<GuestAddressFormProps> = ({
         city: data.city,
         state: data.state,
         pincode: data.pincode,
+        district: data.district,
         landmark: data.landmark || '',
         is_default: true,
       };
@@ -227,6 +232,7 @@ const GuestAddressForm: React.FC<GuestAddressFormProps> = ({
         city: data.city,
         state: data.state,
         pincode: data.pincode,
+        district: data.district,
         landmark: data.landmark
       };
       onAddressSubmit(newAddress);
@@ -358,6 +364,13 @@ const GuestAddressForm: React.FC<GuestAddressFormProps> = ({
               {...register('city')}
               required
             />
+                        <Input
+              label="District"
+              placeholder="Enter your district"
+              error={errors.district?.message}
+              {...register('district')}
+              required
+            />
             <Input
               label="State"
               placeholder="Enter your state"
@@ -365,14 +378,15 @@ const GuestAddressForm: React.FC<GuestAddressFormProps> = ({
               {...register('state')}
               required
             />
-          </div>
-
-          <Input
+                      <Input
             label="Landmark (Optional)"
             placeholder="Enter nearby landmark"
             error={errors.landmark?.message}
             {...register('landmark')}
           />
+          </div>
+
+
 
           <div className="flex gap-3">
             <Button
@@ -409,7 +423,7 @@ const GuestAddressForm: React.FC<GuestAddressFormProps> = ({
           <div className="text-sm">
             <p className="font-medium">{selectedAddress.name}</p>
             <p>{selectedAddress.phone} • {selectedAddress.email}</p>
-            <p>{selectedAddress.address}, {selectedAddress.city}, {selectedAddress.state} {selectedAddress.pincode}</p>
+            <p>{selectedAddress.address}, {selectedAddress.city}, {selectedAddress.district ? `${selectedAddress.district}, ` : ''}{selectedAddress.state} {selectedAddress.pincode}</p>
             {selectedAddress.landmark && (
               <p className="mt-1">Landmark: {selectedAddress.landmark}</p>
             )}

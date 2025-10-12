@@ -55,6 +55,20 @@ const ProductDetailPage: React.FC = () => {
         selectedVariant.thumbnail_url || '';
     console.log(productImage);
 
+    // Collect all available sizes across all variants for this product
+    const allAvailableSizes = new Set<string>();
+    currentProduct?.variants.forEach(variant => {
+      if (variant.sizes) {
+        Object.keys(variant.sizes).forEach(size => {
+          if ((variant.sizes[size] ?? 0) > 0) {
+            allAvailableSizes.add(size);
+          }
+        });
+      }
+    });
+
+    console.log('All available sizes for cart:', Array.from(allAvailableSizes));
+
     addToCart({
       product_id: selectedVariant.product_id,
       article_id: selectedVariant.article_id,
@@ -66,7 +80,8 @@ const ProductDetailPage: React.FC = () => {
       color: String(selectedVariant.color),
       image: selectedVariant.thumbnail_url || '',
       thumbnail_url: selectedVariant.thumbnail_url || '',
-      discount_percentage: selectedVariant.discount_percentage || 0
+      discount_percentage: selectedVariant.discount_percentage || 0,
+      availableSizes: Array.from(allAvailableSizes).sort() // Add all available sizes for dropdown selection
     });
 
     // Show success message instead of alert
@@ -91,18 +106,49 @@ const ProductDetailPage: React.FC = () => {
 
   const availableSizes = useMemo(() => {
     if (!selectedVariant?.sizes) return [];
+
+    // For bags, check if product is out of stock and handle differently
+    const isBag = currentProduct?.sub_category?.toLowerCase().includes('bag') ||
+                  currentProduct?.category?.toLowerCase().includes('bag');
+
+    if (isBag) {
+      // For bags, get sizes from the sizes object if available
+      const bagSizes = Object.keys(selectedVariant.sizes).filter(s => (selectedVariant.sizes[s] ?? 0) > 0);
+      return bagSizes.length > 0 ? bagSizes : [];
+    }
+
+    // For shoes and sandals, use existing logic
     return Object.keys(selectedVariant.sizes).filter(s => (selectedVariant.sizes[s] ?? 0) > 0);
-  }, [selectedVariant]);
+  }, [selectedVariant, currentProduct]);
+
+  // Check if product is out of stock (no sizes available)
+  const isOutOfStock = useMemo(() => {
+    return availableSizes.length === 0 && selectedVariant?.sizes !== undefined;
+  }, [availableSizes, selectedVariant]);
+
+  // Check if it's a bag product
+  const isBag = useMemo(() => {
+    return currentProduct?.sub_category?.toLowerCase().includes('bag') ||
+           currentProduct?.category?.toLowerCase().includes('bag');
+  }, [currentProduct]);
 
   // Get full size range based on product category/subcategory
   const getFullSizeRange = useMemo(() => {
     const subcategory = currentProduct?.sub_category?.toLowerCase() || '';
     const category = currentProduct?.category?.toLowerCase() || '';
-    
+
+    // Check if it's a bag product
+    const isBag = subcategory.includes('bag') || category.includes('bag');
+
+    // For bags that are out of stock, return empty array to show "out of stock" message
+    if (isBag && isOutOfStock) {
+      return [];
+    }
+
     // Determine if it's men's or women's based on category or subcategory
     const isMens = category.includes('men') || subcategory.includes('men');
     const isWomens = category.includes('women') || subcategory.includes('women');
-    
+
     if (isMens) {
       return Array.from({ length: 9 }, (_, i) => (39 + i).toString()); // 39-47
     } else if (isWomens) {
@@ -111,7 +157,7 @@ const ProductDetailPage: React.FC = () => {
       // Default to men's range if unclear
       return Array.from({ length: 9 }, (_, i) => (39 + i).toString()); // 39-47
     }
-  }, [currentProduct]);
+  }, [currentProduct, isOutOfStock]);
 
   const handleWhatsAppContact = useCallback((size: string) => {
     const productName = currentProduct?.name || '';
@@ -353,6 +399,8 @@ Could you please let me know when this size will be available?`;
                 onWishlistToggle={handleWishlistToggle}
                 onWhatsAppContact={handleWhatsAppContact}
                 isWishlisted={isWishlisted}
+                isBag={isBag}
+                isOutOfStock={isOutOfStock}
               />
             </div>
             

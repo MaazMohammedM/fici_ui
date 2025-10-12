@@ -2,6 +2,7 @@
 import React from "react";
 import { Trash2, Minus, Plus } from "lucide-react";
 import type { CartItem } from "@store/cartStore";
+import { useCartStore } from "@store/cartStore";
 
 interface CartItemCardProps {
   item: CartItem;
@@ -10,6 +11,14 @@ interface CartItemCardProps {
 }
 
 const CartItemCard: React.FC<CartItemCardProps> = ({ item, onQuantityChange, onRemove }) => {
+  const { updateSize } = useCartStore();
+
+  const handleSizeChange = (newSize: string) => {
+    updateSize(item.id, newSize);
+  };
+
+  console.log('CartItem availableSizes:', item.availableSizes, 'length:', item.availableSizes?.length);
+
   return (
     <div className="bg-white dark:bg-dark2 rounded-2xl shadow-lg p-4 sm:p-6 border border-gray-200 dark:border-gray-700">
       {/* Mobile Layout */}
@@ -31,7 +40,22 @@ const CartItemCard: React.FC<CartItemCardProps> = ({ item, onQuantityChange, onR
             </h3>
             <div className="flex flex-col gap-1 text-sm text-gray-600 dark:text-gray-400 mb-2">
               <span>Color: {item.color}</span>
-              <span>Size: {item.size}</span>
+              <div className="flex items-center gap-2">
+                <span>Size:</span>
+                {item.availableSizes && item.availableSizes.length > 1 ? (
+                  <select
+                    value={item.size}
+                    onChange={(e) => handleSizeChange(e.target.value)}
+                    className="bg-white dark:bg-dark2 border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    {item.availableSizes.map(size => (
+                      <option key={size} value={size}>{size}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <span className="text-sm">{item.size}</span>
+                )}
+              </div>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-sm text-gray-500 line-through">₹{item.mrp}</span>
@@ -97,7 +121,22 @@ const CartItemCard: React.FC<CartItemCardProps> = ({ item, onQuantityChange, onR
           </h3>
           <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400 mb-2">
             <span>Color: {item.color}</span>
-            <span>Size: {item.size}</span>
+            <div className="flex items-center gap-2">
+              <span>Size:</span>
+              {item.availableSizes && item.availableSizes.length > 1 ? (
+                <select
+                  value={item.size}
+                  onChange={(e) => handleSizeChange(e.target.value)}
+                  className="bg-white dark:bg-dark2 border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  {item.availableSizes.map(size => (
+                    <option key={size} value={size}>{size}</option>
+                  ))}
+                </select>
+              ) : (
+                <span className="text-sm">{item.size}</span>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-500 line-through">₹{item.mrp}</span>

@@ -63,7 +63,7 @@ const CheckoutPage: React.FC = () => {
   const deliveryCharge = subtotal > 999 ? 0 : 0;
 
   // ✅ Prepaid Discount - Easily changeable promotional discount for online payments
-  const PREPAID_DISCOUNT_AMOUNT = 200; // Change this value to adjust discount amount
+  const PREPAID_DISCOUNT_AMOUNT = 0; // Change this value to adjust discount amount
 
   const prepaidDiscount = useMemo(() => {
     return selectedPayment === 'razorpay' ? PREPAID_DISCOUNT_AMOUNT : 0;

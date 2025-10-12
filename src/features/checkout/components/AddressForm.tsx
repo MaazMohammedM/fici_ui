@@ -13,6 +13,7 @@ export type Address = {
   state?: string;
   pincode?: string;
   landmark?: string;
+  district?: string;
   is_default?: boolean;
 };
 
@@ -95,7 +96,8 @@ const AddressForm: React.FC<Props> = ({ onSelect, selectedId }) => {
         city: '',
         state: '',
         pincode: '',
-        landmark: ''
+        landmark: '',
+        district: ''
       });
     } catch (err) {
       console.error('save address error', err);
@@ -154,7 +156,8 @@ const AddressForm: React.FC<Props> = ({ onSelect, selectedId }) => {
               city: '',
               state: '',
               pincode: '',
-              landmark: ''
+              landmark: '',
+              district: ''
             });
           }}
           className="flex items-center gap-2 text-accent hover:text-accent/80"
@@ -187,7 +190,7 @@ const AddressForm: React.FC<Props> = ({ onSelect, selectedId }) => {
                         {addr.is_default && <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded">Default</span>}
                       </div>
                       <p className="text-sm">{addr.phone} • {addr.email}</p>
-                      <p className="text-sm">{addr.address}, {addr.city}, {addr.state} {addr.pincode}</p>
+                      <p className="text-sm">{addr.address}, {addr.city}, {addr.district ? `${addr.district}, ` : ''}{addr.state} {addr.pincode}</p>
                     </div>
                     <div className="flex gap-2">
                       <button onClick={(e) => { e.stopPropagation(); startEdit(addr); }} className="p-2 text-gray-400 hover:text-accent"><Edit className="w-4 h-4" /></button>
@@ -218,6 +221,7 @@ const AddressForm: React.FC<Props> = ({ onSelect, selectedId }) => {
               <textarea value={form.address || ''} onChange={(e) => setForm(prev => ({ ...prev, address: e.target.value }))} placeholder="Address" rows={2} className="w-full px-3 py-2 border rounded" required />
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <input value={form.city || ''} onChange={(e) => setForm(prev => ({ ...prev, city: e.target.value }))} placeholder="City" className="px-3 py-2 border rounded" required />
+                <input value={form.district || ''} onChange={(e) => setForm(prev => ({ ...prev, district: e.target.value }))} placeholder="District" className="px-3 py-2 border rounded" required />
                 <input value={form.state || ''} onChange={(e) => setForm(prev => ({ ...prev, state: e.target.value }))} placeholder="State" className="px-3 py-2 border rounded" required />
               </div>
               <div className="flex gap-3">

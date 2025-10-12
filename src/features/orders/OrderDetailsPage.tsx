@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
-import { Truck, CheckCircle, XCircle, Clock, Package, ArrowLeft } from 'lucide-react';
+import { Truck, CheckCircle, XCircle, Clock, Package, ArrowLeft, X } from 'lucide-react';
 import { useOrderStore } from '../../store/orderStore';
 import { useAuthStore } from '../../store/authStore';
+import { supabase } from '@lib/supabase';
 
 interface OrderItem {
   order_item_id: string;
@@ -52,10 +53,13 @@ const OrderDetailsPage = ({ isGuest = false }: { isGuest?: boolean }) => {
   const [order, setOrder] = useState<OrderDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelComments, setCancelComments] = useState('');
   const [cancellingOrder, setCancellingOrder] = useState(false);
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
   const [showReturnModal, setShowReturnModal] = useState(false);
   const [selectedOrderForReturn, setSelectedOrderForReturn] = useState<OrderDetails | null>(null);
-
   const { user, isGuest: isGuestUser, guestSession } = useAuthStore();
   const { fetchOrderById, updateOrderStatus, loading: storeLoading, error: storeError } = useOrderStore();
 
@@ -114,26 +118,61 @@ const OrderDetailsPage = ({ isGuest = false }: { isGuest?: boolean }) => {
   }, [orderId, isGuest, searchParams, fetchOrderById]);
 
   const cancelOrder = async () => {
-    if (!order || !confirm('Are you sure you want to cancel this order? This action cannot be undone.')) {
+    if (!order) return;
+
+    setShowCancelModal(true);
+  };
+
+  const handleCancelConfirm = async () => {
+    if (!order || !cancelReason) {
+      alert('Please select a reason for cancellation');
       return;
     }
 
     try {
       setCancellingOrder(true);
 
-      // Use orderStore API to cancel order
-      await updateOrderStatus(order.order_id, 'cancelled');
+      // Prepare all the fields to send in a single API call
+      const updateData = {
+        status: 'cancelled',
+        updated_at: new Date().toISOString(),
+        cancelled_at: new Date().toISOString(),
+        updated_by: user?.id || null,
+        order_status: cancelReason || 'cancelled', // Use selected reason or default to 'cancelled'
+        comments: cancelComments || null
+      };
+
+      // Update all fields in a single API call
+      const { error } = await supabase
+        .from('orders')
+        .update(updateData)
+        .eq('order_id', order.order_id);
+
+      if (error) {
+        console.error('Error updating cancellation details:', error);
+      }
 
       // Update local state
       setOrder({ ...order, status: 'cancelled' });
+      setShowCancelModal(false);
+      setCancelReason('');
+      setCancelComments('');
 
-      alert('Order cancelled successfully');
+      // Show success message instead of alert
+      setShowSuccessMessage(true);
+      setTimeout(() => setShowSuccessMessage(false), 5000); // Auto-hide after 5 seconds
     } catch (err) {
       alert(`Failed to cancel order: ${err instanceof Error ? err.message : 'Unknown error'}`);
       console.error('Error cancelling order:', err);
     } finally {
       setCancellingOrder(false);
     }
+  };
+
+  const closeCancelModal = () => {
+    setShowCancelModal(false);
+    setCancelReason('');
+    setCancelComments('');
   };
 
   const canCancelOrder = (order: OrderDetails) => {
@@ -381,11 +420,6 @@ const OrderDetailsPage = ({ isGuest = false }: { isGuest?: boolean }) => {
                         </span>
                       )}
                     </div>
-                    {item.mrp && item.mrp > item.price_at_purchase && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        ₹{item.price_at_purchase.toFixed(2)} each (was ₹{item.mrp.toFixed(2)})
-                      </p>
-                    )}
                   </div>
                 </div>
               ))}
@@ -393,14 +427,22 @@ const OrderDetailsPage = ({ isGuest = false }: { isGuest?: boolean }) => {
 
             <div className="mt-8 border-t border-gray-200 pt-6">
               <div className="space-y-3">
+                {/* Total MRP */}
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600">Total MRP</span>
+                  <span className="text-sm font-medium text-gray-900">
+                    ₹{order.items.reduce((total, item) => total + ((item.mrp || item.price_at_purchase) * item.quantity), 0).toFixed(2)}
+                  </span>
+                </div>
+
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-600">Subtotal</span>
                   <span className="text-sm font-medium text-gray-900">₹{order.subtotal?.toFixed(2) || '0.00'}</span>
                 </div>
-                {order.discount && order.discount > 0 && (
+                {Number(order.discount) > 0 && (
                   <div className="flex justify-between">
                     <span className="text-sm text-green-600">Discount</span>
-                    <span className="text-sm font-medium text-green-600">-₹{order.discount.toFixed(2)}</span>
+                    <span className="text-sm font-medium text-green-600">-₹{Number(order.discount).toFixed(2)}</span>
                   </div>
                 )}
                 <div className="flex justify-between">
@@ -425,7 +467,7 @@ const OrderDetailsPage = ({ isGuest = false }: { isGuest?: boolean }) => {
                 <address className="mt-2 not-italic text-sm text-gray-600">
                   {order.shipping_address?.name || 'N/A'}<br />
                   {order.shipping_address?.address || 'N/A'}<br />
-                  {order.shipping_address?.city || 'N/A'}, {order.shipping_address?.state || 'N/A'}<br />
+                  {order.shipping_address?.city || 'N/A'}, {(order.shipping_address as any)?.district && `${(order.shipping_address as any).district}, `}{order.shipping_address?.state || 'N/A'}<br />
                   {order.shipping_address?.pincode || 'N/A'}<br />
                   Phone: {order.shipping_address?.phone || 'N/A'}
                 </address>
@@ -457,40 +499,126 @@ const OrderDetailsPage = ({ isGuest = false }: { isGuest?: boolean }) => {
             </div>
           )}
         </div>
-      </div>
 
-      {/* Return Request Modal - Simple implementation for now */}
-      {showReturnModal && selectedOrderForReturn && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full">
-            <h2 className="text-xl font-semibold mb-4">Request Return</h2>
-            <p className="text-gray-600 mb-4">
-              You can request a return within 3 days of delivery. Our customer service team will contact you to arrange the pickup.
-            </p>
-            <div className="space-y-3 mb-6">
-              <p className="text-sm"><strong>Order ID:</strong> {selectedOrderForReturn.order_id}</p>
-              <p className="text-sm"><strong>Items:</strong> {selectedOrderForReturn.items.length} item(s)</p>
-              <p className="text-sm"><strong>Delivered:</strong> {selectedOrderForReturn.delivered_at ? new Date(selectedOrderForReturn.delivered_at).toLocaleDateString() : 'N/A'}</p>
-            </div>
-            <div className="flex gap-3 justify-end">
-              <button
-                onClick={closeReturnModal}
-                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleReturnSuccess}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-              >
-                Submit Return Request
-              </button>
+        {/* Cancel Order Modal */}
+        {showCancelModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold">Cancel Order</h2>
+                <button onClick={closeCancelModal} className="text-gray-500 hover:text-gray-700">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <p className="text-gray-600 mb-4">
+                Please select a reason for cancelling your order. This will help us improve our service.
+              </p>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Reason for cancellation *
+                  </label>
+                  <select
+                    value={cancelReason}
+                    onChange={(e) => setCancelReason(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  >
+                    <option value="">Select a reason</option>
+                    <option value="changed_mind">Changed my mind</option>
+                    <option value="found_better_deal">Found a better deal elsewhere</option>
+                    <option value="wrong_item">Ordered wrong item</option>
+                    <option value="delivery_too_slow">Delivery time too late</option>
+                    <option value="duplicate_order">Duplicate order</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Additional comments (Optional)
+                  </label>
+                  <textarea
+                    value={cancelComments}
+                    onChange={(e) => setCancelComments(e.target.value)}
+                    placeholder="Please provide any additional details..."
+                    rows={3}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={closeCancelModal}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                  disabled={cancellingOrder}
+                >
+                  Keep Order
+                </button>
+                <button
+                  onClick={handleCancelConfirm}
+                  disabled={cancellingOrder || !cancelReason}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                >
+                  {cancellingOrder ? 'Cancelling...' : 'Cancel Order'}
+                </button>
+              </div>
             </div>
           </div>
+        )}
+
+        {/* Return Request Modal - Simple implementation for now */}
+        {showReturnModal && selectedOrderForReturn && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full">
+              <h2 className="text-xl font-semibold mb-4">Request Return</h2>
+              <p className="text-gray-600 mb-4">
+                You can request a return within 3 days of delivery. Our customer service team will contact you to arrange the pickup.
+              </p>
+              <div className="space-y-3 mb-6">
+                <p className="text-sm"><strong>Order ID:</strong> {selectedOrderForReturn.order_id}</p>
+                <p className="text-sm"><strong>Items:</strong> {selectedOrderForReturn.items.length} item(s)</p>
+                <p className="text-sm"><strong>Delivered:</strong> {selectedOrderForReturn.delivered_at ? new Date(selectedOrderForReturn.delivered_at).toLocaleDateString() : 'N/A'}</p>
+              </div>
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={closeReturnModal}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleReturnSuccess}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                >
+                  Submit Return Request
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Success Message */}
+      {showSuccessMessage && (
+        <div className="fixed top-4 right-4 z-50 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-in slide-in-from-top-2 duration-300">
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+          </svg>
+          Order cancelled successfully!
+          <button
+            onClick={() => setShowSuccessMessage(false)}
+            className="ml-2 text-white hover:text-gray-200"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
       )}
     </div>
-  );
+  );      
 };
 
 export default OrderDetailsPage;
