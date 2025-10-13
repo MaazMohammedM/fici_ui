@@ -26,6 +26,8 @@ interface Order {
   cancelled_at?: string;
   user_id?: string;
   guest_session_id?: string;
+  order_status?: string;
+  comments?: string;
   order_items: Array<{
     order_item_id: string;
     product_name: string;
@@ -602,7 +604,7 @@ const AdminOrderDashboard: React.FC = () => {
                           <div className="text-sm">
                             <p>{order.shipping_address?.name || 'N/A'}</p>
                             <p>{order.shipping_address?.address || 'N/A'}</p>
-                            <p>{order.shipping_address?.city || 'N/A'}, {order.shipping_address?.state || 'N/A'} - {order.shipping_address?.pincode || 'N/A'}</p>
+                            <p>{order.shipping_address?.city || 'N/A'}, {(order.shipping_address as any)?.district ? `${(order.shipping_address as any).district}, ` : ''}{order.shipping_address?.state || 'N/A'} - {order.shipping_address?.pincode || 'N/A'}</p>
                             <p>Phone: {order.shipping_address?.phone || 'N/A'}</p>
                           </div>
                         </div>
@@ -648,7 +650,8 @@ const AdminOrderDashboard: React.FC = () => {
                           <span className="inline sm:inline">View</span>
                         </button>
 
-                        {order.status === 'paid' && (
+                        {((order.payment_method === 'cod' && order.status === 'pending') ||
+                          (order.payment_method === 'razorpay' && order.status === 'paid')) && (
                           <button
                             onClick={() => {
                               setSelectedOrder(order);
@@ -908,6 +911,8 @@ const OrderDetailsModal: React.FC<{
                 <p><strong>Payment Method:</strong> {order.payment_method}</p>
                 <p><strong>Status:</strong> {order.status}</p>
                 <p><strong>Payment Status:</strong> {order.payment_status}</p>
+                <p><strong>Order Status:</strong> {order.order_status || 'N/A'}</p>
+                <p><strong>Comments:</strong> {order.order_status === 'delivery_too_slow' ? 'delivery late' : (order.comments || 'N/A')}</p>
               </div>
             </div>
 
@@ -923,6 +928,19 @@ const OrderDetailsModal: React.FC<{
                     <p><strong>Phone:</strong> {order.guest_phone}</p>
                   </>
                 )}
+              </div>
+            </div>
+          </div>
+
+          {/* Shipping Address */}
+          <div className="mb-6">
+            <h4 className="font-semibold mb-3 text-sm sm:text-base">Shipping Address</h4>
+            <div className="bg-gray-50 dark:bg-dark3 p-4 rounded-lg">
+              <div className="text-xs sm:text-sm">
+                <p className="font-medium">{order.shipping_address?.name || 'N/A'}</p>
+                <p>{order.shipping_address?.address || 'N/A'}</p>
+                <p>{order.shipping_address?.city || 'N/A'}, {(order.shipping_address as any)?.district ? `${(order.shipping_address as any).district}, ` : ''}{order.shipping_address?.state || 'N/A'} - {order.shipping_address?.pincode || 'N/A'}</p>
+                <p>Phone: {order.shipping_address?.phone || 'N/A'}</p>
               </div>
             </div>
           </div>

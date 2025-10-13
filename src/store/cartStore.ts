@@ -15,6 +15,7 @@ export interface CartItem {
   quantity: number;
   discount_percentage: number;
   thumbnail_url: string;
+  availableSizes?: string[]; // Add available sizes for dropdown selection
 }
 
 interface CartState {
@@ -26,6 +27,7 @@ interface CartState {
   addToCart: (item: Omit<CartItem, 'id'>) => void;
   removeFromCart: (id: string) => void;
   updateQuantity: (id: string, quantity: number) => void;
+  updateSize: (id: string, newSize: string) => void;
   clearCart: () => void;
   getCartTotal: () => number;
   getCartCount: () => number;
@@ -88,6 +90,14 @@ export const useCartStore = create<CartState>()(
         });
       },
 
+      updateSize: (id, newSize) => {
+        set({
+          items: get().items.map(item =>
+            item.id === id ? { ...item, size: newSize } : item
+          )
+        });
+      },
+
       clearCart: () => {
         set({ items: [] });
       },
@@ -117,7 +127,12 @@ export const useCartStore = create<CartState>()(
         if (stored) {
           try {
             const { items } = JSON.parse(stored);
-            set({ items: items || [] });
+            // Ensure all items have availableSizes field (migration for older cart items)
+            const migratedItems = (items || []).map((item: any) => ({
+              ...item,
+              availableSizes: item.availableSizes || []
+            }));
+            set({ items: migratedItems });
           } catch (error) {
             console.error('Failed to sync cart with session:', error);
           }

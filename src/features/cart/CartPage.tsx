@@ -10,6 +10,7 @@ const CartPage: React.FC = () => {
     items: cartItems, 
     removeFromCart, 
     updateQuantity, 
+    updateSize,
     getCartTotal, 
     getCartSavings,
     getTotalMrp,

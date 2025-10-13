@@ -3,7 +3,7 @@ import type { Product, ProductDetail } from "../../../types/product";
 import ProductColorSelector from "@features/product/sections/ProductColorSelector";
 import ProductSizeSelector from "@features/product/sections/ProductSizeSelector";
 import ProductQuantitySelector from "@features/product/sections/ProductQuantitySelector";
-import ProductActionButtons from "@features/product/sections/ProductActionsButton";
+import ProductActionButtons from "@features/product/sections/ProductActionButtons";
 import SizeGuideModal from "../../../components/ui/SizeGuideModal";
 import ShareModal from "./ShareModal";
 
@@ -23,6 +23,8 @@ interface ProductDetailsProps {
   onWishlistToggle: () => void;
   onWhatsAppContact: (size: string) => void;
   isWishlisted: boolean;
+  isBag?: boolean;
+  isOutOfStock?: boolean;
 }
 
 const ProductDetails: React.FC<ProductDetailsProps> = ({
@@ -39,6 +41,8 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
   onWhatsAppContact,
   onWishlistToggle,
   isWishlisted,
+  isBag = false,
+  isOutOfStock = false,
 }) => {
   const [showSizeGuide, setShowSizeGuide] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
@@ -204,10 +208,9 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
           onSizeChange={onSizeChange}
           onWhatsAppContact={onWhatsAppContact}
           onShowSizeGuide={() => setShowSizeGuide(true)}
+          isBag={isBag}
+          isOutOfStock={isOutOfStock}
         />
-        {!displaySizes.length && (
-          <p className="mt-2 text-sm text-gray-500">Please select a color to see available sizes</p>
-        )}
       </div>
 
       {/* Quantity Selector - Only show if a size is selected */}
@@ -225,6 +228,8 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
         <ProductActionButtons
           onAddToCart={onAddToCart}
           onBuyNow={onBuyNow}
+          isOutOfStock={isOutOfStock}
+          isBag={isBag}
         />
 
         <div className="flex items-center justify-left space-x-2 py-2">
