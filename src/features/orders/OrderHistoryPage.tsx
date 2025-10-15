@@ -90,6 +90,12 @@ const OrderHistoryPage: React.FC = () => {
         return 'Delivered';
       case 'cancelled':
         return 'Cancelled';
+      case 'partially_delivered':
+        return 'Partially Delivered';
+      case 'partially_cancelled':
+        return 'Partially Cancelled';
+      case 'partially_refunded':
+        return 'Partially Refunded';
       default:
         return order.status;
     }
@@ -97,6 +103,22 @@ const OrderHistoryPage: React.FC = () => {
 
   // --- Add descriptive message for clarity ---
   const getUserStatusMessage = (order: Order) => {
+    // Check item-level statuses for aggregate message
+    const items = Array.isArray(order.items) ? order.items : Object.values(order.items || {});
+    if (items.length > 0) {
+      const itemStatuses = items.map((item: any) => item.item_status || 'pending');
+      const allCancelled = itemStatuses.every((s: string) => s === 'cancelled');
+      const allDelivered = itemStatuses.every((s: string) => s === 'delivered');
+      const someCancelled = itemStatuses.some((s: string) => s === 'cancelled' || s === 'refunded');
+      const someDelivered = itemStatuses.some((s: string) => s === 'delivered');
+      const someProcessing = itemStatuses.some((s: string) => s === 'shipped' || s === 'pending');
+      
+      if (allCancelled) return 'This order has been cancelled.';
+      if (allDelivered) return 'All items have been delivered successfully.';
+      if (someCancelled && someProcessing) return 'Some items cancelled. Others are being processed.';
+      if (someCancelled && someDelivered) return 'Partially fulfilled order.';
+    }
+
     if (order.payment_method === 'cod' && order.status === 'pending') {
       return 'Your COD order has been placed successfully and will be shipped soon.';
     }

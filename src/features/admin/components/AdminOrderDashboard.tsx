@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@lib/supabase';
 import { useAuthStore } from '@store/authStore';
-import { CheckCircle, XCircle, Clock, Eye, Ban, Truck as TruckIcon, DollarSign, Package, Filter, RefreshCw, Search } from 'lucide-react';
+import { calculateAggregateOrderStatus } from '@store/orderStore';
+import { CheckCircle, XCircle, Clock, Eye, Ban, Truck as TruckIcon, DollarSign, Package, Filter, RefreshCw, Search, X } from 'lucide-react';
 
 interface Order {
   order_id: string;
   order_date: string;
-  status: 'pending' | 'paid' | 'shipped' | 'delivered' | 'cancelled';
-  payment_status: 'pending' | 'paid' | 'failed' | 'refunded';
+  status: 'pending' | 'paid' | 'shipped' | 'delivered' | 'cancelled' | 'partially_delivered' | 'partially_cancelled' | 'partially_refunded';
+  payment_status: 'pending' | 'paid' | 'failed' | 'refunded' | 'partially_refunded';
   payment_method: 'cod' | 'razorpay';
   total_amount: number;
   subtotal: number;
@@ -28,6 +29,7 @@ interface Order {
   guest_session_id?: string;
   order_status?: string;
   comments?: string;
+  razorpay_payment_id?: string;
   order_items: Array<{
     order_item_id: string;
     product_name: string;
@@ -36,6 +38,11 @@ interface Order {
     quantity: number;
     price_at_purchase: number;
     thumbnail_url: string;
+    item_status?: 'pending' | 'cancelled' | 'shipped' | 'delivered' | 'returned' | 'refunded';
+    cancel_reason?: string;
+    return_reason?: string;
+    refund_amount?: number;
+    refunded_at?: string;
   }>;
 }
 
@@ -86,6 +93,8 @@ const AdminOrderDashboard: React.FC = () => {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showOrderModal, setShowOrderModal] = useState(false);
   const [showShipmentModal, setShowShipmentModal] = useState(false);
+  const [showDeliverModal, setShowDeliverModal] = useState(false);
+  const [showRefundModal, setShowRefundModal] = useState(false);
   const [processingAction, setProcessingAction] = useState<string | null>(null);
 
   // Filter and search state
@@ -98,6 +107,18 @@ const AdminOrderDashboard: React.FC = () => {
     tracking_id: '',
     tracking_url: '',
   });
+
+  // Refund form state
+  const [refundForm, setRefundForm] = useState({
+    amount: 0,
+    reason: '',
+    refund_reference: '',
+    items: [] as string[], // order_item_ids to refund
+  });
+
+  // Selected items for ship/deliver actions
+  const [selectedItemsForShip, setSelectedItemsForShip] = useState<string[]>([]);
+  const [selectedItemsForDeliver, setSelectedItemsForDeliver] = useState<string[]>([]);
 
   const user = useAuthStore((state) => state.user);
   const role = useAuthStore((state) => state.role);
@@ -214,21 +235,11 @@ const AdminOrderDashboard: React.FC = () => {
         setShowOrderModal(false);
         alert('Order shipped successfully');
       }
-      // Handle 'deliver' action with direct Supabase REST API
+      // Handle 'deliver' action - show modal for item selection
       else if (action === 'deliver') {
-        const { error } = await supabase
-          .from('orders')
-          .update({
-            status: 'delivered',
-            delivered_at: new Date().toISOString(),
-          })
-          .eq('order_id', orderId);
-
-        if (error) throw error;
-
-        await fetchOrders();
-        setShowOrderModal(false);
-        alert('Order delivered successfully');
+        // Open deliver modal instead of directly updating
+        setShowDeliverModal(true);
+        return; // Don't close the order modal yet
       }
       // Handle other actions (cancel, etc.) with edge function for now
       else {
@@ -254,34 +265,346 @@ const AdminOrderDashboard: React.FC = () => {
   };
 
   const handleUpdateShipment = async () => {
-    if (!selectedOrder) return;
+    if (!selectedOrder || selectedItemsForShip.length === 0) {
+      alert('Please select at least one item to ship');
+      return;
+    }
+
+    if (!shipmentForm.shipping_partner || !shipmentForm.tracking_id) {
+      alert('Please enter shipping partner and tracking ID');
+      return;
+    }
 
     try {
       setProcessingAction(`shipment-${selectedOrder.order_id}`);
+      console.log('Shipping items:', selectedItemsForShip);
 
-      const { error } = await supabase
+      // Update selected order items to shipped
+      const { data: updatedItems, error: itemsError } = await supabase
+        .from('order_items')
+        .update({ item_status: 'shipped' })
+        .in('order_item_id', selectedItemsForShip)
+        .eq('order_id', selectedOrder.order_id)
+        .select();
+
+      if (itemsError) {
+        console.error('Error updating order_items:', itemsError);
+        throw itemsError;
+      }
+      console.log('Updated items:', updatedItems);
+
+      // Update order with tracking details
+      const { data: updatedOrder, error: orderError } = await supabase
         .from('orders')
         .update({
-          status: 'shipped',
           shipping_partner: shipmentForm.shipping_partner,
           tracking_id: shipmentForm.tracking_id,
           tracking_url: shipmentForm.tracking_url,
           shipped_at: new Date().toISOString(),
         })
-        .eq('order_id', selectedOrder.order_id);
+        .eq('order_id', selectedOrder.order_id)
+        .select();
 
-      if (error) throw error;
+      if (orderError) {
+        console.error('Error updating orders:', orderError);
+        throw orderError;
+      }
+      console.log('Updated order:', updatedOrder);
 
+      // Update aggregate order status
+      await updateAggregateOrderStatus(selectedOrder.order_id);
       await fetchOrders();
+      
       setShowShipmentModal(false);
       setSelectedOrder(null);
       setShipmentForm({ shipping_partner: '', tracking_id: '', tracking_url: '' });
-      alert('Order shipped successfully');
-    } catch (error) {
+      setSelectedItemsForShip([]);
+      alert(`${selectedItemsForShip.length} item(s) shipped successfully`);
+    } catch (error: any) {
       console.error('Error updating shipment:', error);
-      alert('Failed to ship order');
+      alert(`Failed to ship items: ${error.message || 'Unknown error'}`);
     } finally {
       setProcessingAction(null);
+    }
+  };
+
+  const handleShipItem = async (orderItemId: string, orderId: string) => {
+    try {
+      setProcessingAction(`ship-item-${orderItemId}`);
+
+      // Update item status
+      const { error: itemError } = await supabase
+        .from('order_items')
+        .update({ item_status: 'shipped' })
+        .eq('order_item_id', orderItemId)
+        .eq('order_id', orderId);
+
+      if (itemError) throw itemError;
+
+      // Recalculate and update order status
+      await updateAggregateOrderStatus(orderId);
+      await fetchOrders();
+      alert('Item shipped successfully');
+    } catch (error) {
+      console.error('Error shipping item:', error);
+      alert('Failed to ship item');
+    } finally {
+      setProcessingAction(null);
+    }
+  };
+
+  const handleDeliverItem = async (orderItemId: string, orderId: string) => {
+    try {
+      setProcessingAction(`deliver-item-${orderItemId}`);
+
+      const { error: itemError } = await supabase
+        .from('order_items')
+        .update({ item_status: 'delivered' })
+        .eq('order_item_id', orderItemId)
+        .eq('order_id', orderId);
+
+      if (itemError) throw itemError;
+
+      await updateAggregateOrderStatus(orderId);
+      await fetchOrders();
+      alert('Item delivered successfully');
+    } catch (error) {
+      console.error('Error delivering item:', error);
+      alert('Failed to deliver item');
+    } finally {
+      setProcessingAction(null);
+    }
+  };
+
+  const handleCancelItem = async (orderItemId: string, orderId: string, reason: string) => {
+    try {
+      setProcessingAction(`cancel-item-${orderItemId}`);
+
+      const { error: itemError } = await supabase
+        .from('order_items')
+        .update({ 
+          item_status: 'cancelled',
+          cancel_reason: reason
+        })
+        .eq('order_item_id', orderItemId);
+
+      if (itemError) throw itemError;
+
+      await updateAggregateOrderStatus(orderId);
+      await fetchOrders();
+      alert('Item cancelled successfully');
+    } catch (error) {
+      console.error('Error cancelling item:', error);
+      alert('Failed to cancel item');
+    } finally {
+      setProcessingAction(null);
+    }
+  };
+
+  const handleRefundItem = async (orderItemId: string, orderId: string, amount: number, reason: string, refReference: string) => {
+    try {
+      setProcessingAction(`refund-item-${orderItemId}`);
+
+      // Update item status
+      const { error: itemError } = await supabase
+        .from('order_items')
+        .update({ 
+          item_status: 'refunded',
+          refund_amount: amount,
+          refunded_at: new Date().toISOString(),
+          return_reason: reason
+        })
+        .eq('order_item_id', orderItemId);
+
+      if (itemError) throw itemError;
+
+      // Update payment status
+      await updateAggregateOrderStatus(orderId);
+      await updatePaymentStatus(orderId);
+      await fetchOrders();
+      
+      setShowRefundModal(false);
+      setRefundForm({ amount: 0, reason: '', refund_reference: '', items: [] });
+      alert('Item refunded successfully');
+    } catch (error) {
+      console.error('Error refunding item:', error);
+      alert('Failed to refund item');
+    } finally {
+      setProcessingAction(null);
+    }
+  };
+
+  const handleBulkShipItems = async (itemIds: string[], orderId: string) => {
+    try {
+      setProcessingAction(`bulk-ship-${orderId}`);
+
+      const { error } = await supabase
+        .from('order_items')
+        .update({ item_status: 'shipped' })
+        .in('order_item_id', itemIds)
+        .eq('order_id', orderId);
+
+      if (error) throw error;
+
+      await updateAggregateOrderStatus(orderId);
+      await fetchOrders();
+      setSelectedItemsForShip([]);
+      alert(`${itemIds.length} items shipped successfully`);
+    } catch (error) {
+      console.error('Error bulk shipping items:', error);
+      alert('Failed to ship items');
+    } finally {
+      setProcessingAction(null);
+    }
+  };
+
+  const handleBulkRefundItems = async (itemIds: string[], orderId: string, totalAmount: number, reason: string) => {
+    try {
+      setProcessingAction(`bulk-refund-${orderId}`);
+
+      const { error } = await supabase
+        .from('order_items')
+        .update({ 
+          item_status: 'refunded',
+          refunded_at: new Date().toISOString(),
+          return_reason: reason
+        })
+        .in('order_item_id', itemIds)
+        .eq('order_id', orderId);
+
+      if (error) throw error;
+
+      await updateAggregateOrderStatus(orderId);
+      await updatePaymentStatus(orderId);
+      await fetchOrders();
+      setShowRefundModal(false);
+      alert(`${itemIds.length} items refunded successfully`);
+    } catch (error) {
+      console.error('Error bulk refunding items:', error);
+      alert('Failed to refund items');
+    } finally {
+      setProcessingAction(null);
+    }
+  };
+
+  const handleUpdateDeliver = async () => {
+    if (!selectedOrder || selectedItemsForDeliver.length === 0) {
+      alert('Please select at least one item to mark as delivered');
+      return;
+    }
+
+    try {
+      setProcessingAction(`deliver-${selectedOrder.order_id}`);
+      console.log('Delivering items:', selectedItemsForDeliver);
+
+      // Update selected order items to delivered
+      const { data: updatedItems, error: itemsError } = await supabase
+        .from('order_items')
+        .update({ item_status: 'delivered' })
+        .in('order_item_id', selectedItemsForDeliver)
+        .eq('order_id', selectedOrder.order_id)
+        .select();
+
+      if (itemsError) {
+        console.error('Error updating order_items:', itemsError);
+        throw itemsError;
+      }
+      console.log('Updated items:', updatedItems);
+
+      // Update order delivered_at timestamp
+      const { data: updatedOrder, error: orderError } = await supabase
+        .from('orders')
+        .update({
+          delivered_at: new Date().toISOString(),
+        })
+        .eq('order_id', selectedOrder.order_id)
+        .select();
+
+      if (orderError) {
+        console.error('Error updating orders:', orderError);
+        throw orderError;
+      }
+      console.log('Updated order:', updatedOrder);
+
+      // Update aggregate order status
+      await updateAggregateOrderStatus(selectedOrder.order_id);
+      await fetchOrders();
+      
+      setShowDeliverModal(false);
+      setSelectedOrder(null);
+      setSelectedItemsForDeliver([]);
+      alert(`${selectedItemsForDeliver.length} item(s) marked as delivered successfully`);
+    } catch (error: any) {
+      console.error('Error marking items as delivered:', error);
+      alert(`Failed to mark items as delivered: ${error.message || 'Unknown error'}`);
+    } finally {
+      setProcessingAction(null);
+    }
+  };
+
+  const updateAggregateOrderStatus = async (orderId: string) => {
+    try {
+      console.log('Updating aggregate status for order:', orderId);
+      
+      // Fetch current order items
+      const { data: items, error: fetchError } = await supabase
+        .from('order_items')
+        .select('item_status')
+        .eq('order_id', orderId);
+
+      if (fetchError) {
+        console.error('Error fetching order items:', fetchError);
+        throw fetchError;
+      }
+
+      console.log('Order items statuses:', items);
+
+      // Calculate aggregate status
+      const aggregateStatus = calculateAggregateOrderStatus(items as any[]);
+      console.log('Calculated aggregate status:', aggregateStatus);
+
+      // Update order status
+      const { data: updatedOrder, error: updateError } = await supabase
+        .from('orders')
+        .update({ status: aggregateStatus })
+        .eq('order_id', orderId)
+        .select();
+
+      if (updateError) {
+        console.error('Error updating order status:', updateError);
+        throw updateError;
+      }
+
+      console.log('Order status updated:', updatedOrder);
+    } catch (error) {
+      console.error('Error updating aggregate status:', error);
+      throw error; // Re-throw to let caller handle it
+    }
+  };
+
+  const updatePaymentStatus = async (orderId: string) => {
+    try {
+      const { data: items, error } = await supabase
+        .from('order_items')
+        .select('item_status')
+        .eq('order_id', orderId);
+
+      if (error) throw error;
+
+      const statuses = items?.map(i => i.item_status) || [];
+      const allRefunded = statuses.every(s => s === 'refunded');
+      const someRefunded = statuses.some(s => s === 'refunded');
+
+      let paymentStatus = 'paid';
+      if (allRefunded) paymentStatus = 'refunded';
+      else if (someRefunded) paymentStatus = 'partially_refunded';
+
+      await supabase
+        .from('orders')
+        .update({ payment_status: paymentStatus })
+        .eq('order_id', orderId);
+    } catch (error) {
+      console.error('Error updating payment status:', error);
     }
   };
 
@@ -624,7 +947,13 @@ const AdminOrderDashboard: React.FC = () => {
                                 />
                                 <div className="flex-1">
                                   <p className="font-medium">{item.product_name}</p>
-                                  <p className="text-gray-500">Size: {item.size} | Qty: {item.quantity}</p>
+                                  <p className="text-gray-500">
+                                    Size: {item.size} | Qty: {item.quantity} |
+                                    Status:
+                                    <span className={`ml-1 inline-block px-2 py-0.5 rounded-full text-xs font-medium ${item.item_status === 'delivered' ? 'bg-green-100 text-green-800' : item.item_status === 'shipped' ? 'bg-blue-100 text-blue-800' : item.item_status === 'cancelled' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                      {(item.item_status || 'pending').toUpperCase()}
+                                    </span>
+                                  </p>
                                 </div>
                                 <p className="font-medium">₹{(item.price_at_purchase * item.quantity).toLocaleString('en-IN')}</p>
                               </div>
@@ -714,24 +1043,84 @@ const AdminOrderDashboard: React.FC = () => {
         />
       )}
 
-      {/* Shipment Modal */}
+      {/* Shipment Modal with Item Selection */}
       {showShipmentModal && selectedOrder && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4">
-            <h3 className="text-lg font-semibold mb-4">Update Shipment Details</h3>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl mx-4 my-8">
+            <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Ship Order Items</h3>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
               Order #{selectedOrder.order_id.slice(-8)}
             </p>
 
-            <div className="space-y-4">
+            {/* Item Selection */}
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-3">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Select Items to Ship
+                </label>
+                <button
+                  onClick={() => {
+                    const allItemIds = selectedOrder.order_items
+                      .filter(item => item.item_status !== 'shipped' && item.item_status !== 'delivered' && item.item_status !== 'cancelled')
+                      .map(item => item.order_item_id);
+                    setSelectedItemsForShip(allItemIds);
+                  }}
+                  className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400"
+                >
+                  Select All
+                </button>
+              </div>
+              <div className="space-y-2 max-h-60 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg p-3">
+                {selectedOrder.order_items.map((item) => {
+                  const isDisabled = item.item_status === 'shipped' || item.item_status === 'delivered' || item.item_status === 'cancelled';
+                  return (
+                    <label
+                      key={item.order_item_id}
+                      className={`flex items-center gap-3 p-2 rounded ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer'}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedItemsForShip.includes(item.order_item_id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedItemsForShip(prev => [...prev, item.order_item_id]);
+                          } else {
+                            setSelectedItemsForShip(prev => prev.filter(id => id !== item.order_item_id));
+                          }
+                        }}
+                        disabled={isDisabled}
+                        className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                      />
+                      <img
+                        src={item.thumbnail_url}
+                        alt={item.product_name}
+                        className="w-10 h-10 rounded object-cover"
+                      />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">{item.product_name}</p>
+                        <p className="text-xs text-gray-600 dark:text-gray-400">
+                          Size: {item.size} • Qty: {item.quantity} • Status: {item.item_status || 'pending'}
+                        </p>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                {selectedItemsForShip.length} item(s) selected
+              </p>
+            </div>
+
+            {/* Shipping Details */}
+            <div className="space-y-4 mb-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Shipping Partner
+                  Shipping Partner *
                 </label>
                 <select
                   value={shipmentForm.shipping_partner}
                   onChange={(e) => setShipmentForm(prev => ({ ...prev, shipping_partner: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                 >
                   <option value="">Select Partner</option>
                   <option value="delhivery">Delhivery</option>
@@ -744,14 +1133,14 @@ const AdminOrderDashboard: React.FC = () => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Tracking ID
+                  Tracking ID *
                 </label>
                 <input
                   type="text"
                   value={shipmentForm.tracking_id}
                   onChange={(e) => setShipmentForm(prev => ({ ...prev, tracking_id: e.target.value }))}
                   placeholder="Enter tracking ID"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                 />
               </div>
 
@@ -764,15 +1153,18 @@ const AdminOrderDashboard: React.FC = () => {
                   value={shipmentForm.tracking_url}
                   onChange={(e) => setShipmentForm(prev => ({ ...prev, tracking_url: e.target.value }))}
                   placeholder="https://tracking.partner.com/track/..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                 />
               </div>
             </div>
 
-            <div className="flex gap-3 mt-6">
+            <div className="flex gap-3">
               <button
-                onClick={() => setShowShipmentModal(false)}
-                className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                onClick={() => {
+                  setShowShipmentModal(false);
+                  setSelectedItemsForShip([]);
+                }}
+                className="flex-1 px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600"
                 disabled={processingAction?.includes('shipment')}
               >
                 Cancel
@@ -780,9 +1172,100 @@ const AdminOrderDashboard: React.FC = () => {
               <button
                 onClick={handleUpdateShipment}
                 className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                disabled={processingAction?.includes('shipment') || !shipmentForm.shipping_partner || !shipmentForm.tracking_id}
+                disabled={processingAction?.includes('shipment') || selectedItemsForShip.length === 0 || !shipmentForm.shipping_partner || !shipmentForm.tracking_id}
               >
-                {processingAction?.includes('shipment') ? 'Shipping...' : 'Ship Order'}
+                {processingAction?.includes('shipment') ? 'Shipping...' : `Ship ${selectedItemsForShip.length} Item(s)`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Deliver Modal with Item Selection */}
+      {showDeliverModal && selectedOrder && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl mx-4 my-8">
+            <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Mark Items as Delivered</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              Order #{selectedOrder.order_id.slice(-8)}
+            </p>
+
+            {/* Item Selection */}
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-3">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Select Items to Mark as Delivered
+                </label>
+                <button
+                  onClick={() => {
+                    const allItemIds = selectedOrder.order_items
+                      .filter(item => item.item_status === 'shipped')
+                      .map(item => item.order_item_id);
+                    setSelectedItemsForDeliver(allItemIds);
+                  }}
+                  className="text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400"
+                >
+                  Select All Shipped
+                </button>
+              </div>
+              <div className="space-y-2 max-h-96 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg p-3">
+                {selectedOrder.order_items.map((item) => {
+                  const isDisabled = item.item_status !== 'shipped';
+                  return (
+                    <label
+                      key={item.order_item_id}
+                      className={`flex items-center gap-3 p-2 rounded ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer'}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedItemsForDeliver.includes(item.order_item_id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedItemsForDeliver(prev => [...prev, item.order_item_id]);
+                          } else {
+                            setSelectedItemsForDeliver(prev => prev.filter(id => id !== item.order_item_id));
+                          }
+                        }}
+                        disabled={isDisabled}
+                        className="w-4 h-4 text-green-600 rounded focus:ring-green-500"
+                      />
+                      <img
+                        src={item.thumbnail_url}
+                        alt={item.product_name}
+                        className="w-10 h-10 rounded object-cover"
+                      />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">{item.product_name}</p>
+                        <p className="text-xs text-gray-600 dark:text-gray-400">
+                          Size: {item.size} • Qty: {item.quantity} • Status: {item.item_status || 'pending'}
+                        </p>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                {selectedItemsForDeliver.length} item(s) selected
+              </p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowDeliverModal(false);
+                  setSelectedItemsForDeliver([]);
+                }}
+                className="flex-1 px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600"
+                disabled={processingAction?.includes('deliver')}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleUpdateDeliver}
+                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                disabled={processingAction?.includes('deliver') || selectedItemsForDeliver.length === 0}
+              >
+                {processingAction?.includes('deliver') ? 'Processing...' : `Mark ${selectedItemsForDeliver.length} Item(s) as Delivered`}
               </button>
             </div>
           </div>

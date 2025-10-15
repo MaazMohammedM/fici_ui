@@ -1,10 +1,13 @@
 // types/order.ts
 
 export interface OrderItem {
+  order_item_id?: string;
+  order_id?: string;
   product_id: string;
   article_id?: string;
   name?: string;
   product_name?: string;
+  product_thumbnail_url?: string;
   color?: string;
   size?: string;
   quantity: number;
@@ -12,6 +15,16 @@ export interface OrderItem {
   mrp?: number;
   discount_percentage?: number;
   thumbnail_url?: string;
+  price_currency?: string;
+  
+  // Item-level status and tracking
+  item_status?: 'pending' | 'cancelled' | 'shipped' | 'delivered' | 'returned' | 'refunded';
+  cancel_reason?: string;
+  return_reason?: string;
+  refund_amount?: number;
+  refunded_at?: string;
+  return_requested_at?: string;
+  return_approved_at?: string;
 }
 
 export interface ShippingAddress {
@@ -47,7 +60,7 @@ export interface Order {
   discount: number;
   delivery_charge: number;
   total_amount: number;
-  status: 'pending' | 'paid' | 'shipped' | 'delivered' | 'cancelled' | 'returned';
+  status: 'pending' | 'paid' | 'shipped' | 'delivered' | 'cancelled' | 'returned' | 'partially_delivered' | 'partially_cancelled' | 'partially_refunded';
   payment_status: 'pending' | 'paid' | 'failed' | 'refunded' | 'partially_refunded';
   payment_method?: string;
   payment_id?: string;

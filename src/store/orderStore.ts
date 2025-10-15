@@ -1,6 +1,42 @@
 import { create } from 'zustand';
 import { supabase } from '@lib/supabase';
-import type { Order, Review, OrderFilters } from '../types/order';
+import type { Order, Review, OrderFilters, OrderItem } from '../types/order';
+
+// Utility function to calculate aggregate order status based on item statuses
+export const calculateAggregateOrderStatus = (items: OrderItem[]): Order['status'] => {
+  if (!items || items.length === 0) return 'pending';
+  
+  const statuses = items.map(item => item.item_status || 'pending');
+  const allCancelled = statuses.every(s => s === 'cancelled');
+  const allDelivered = statuses.every(s => s === 'delivered');
+  const allShipped = statuses.every(s => s === 'shipped');
+  const allRefunded = statuses.every(s => s === 'refunded');
+  
+  const someCancelled = statuses.some(s => s === 'cancelled');
+  const someDelivered = statuses.some(s => s === 'delivered');
+  const someShipped = statuses.some(s => s === 'shipped');
+  const someRefunded = statuses.some(s => s === 'refunded');
+  
+  if (allCancelled) return 'cancelled';
+  if (allDelivered) return 'delivered';
+  if (allShipped && !someDelivered && !someCancelled) return 'shipped';
+  if (allRefunded) return 'cancelled'; // Treat all refunded as cancelled
+  
+  // Partial statuses
+  if (someCancelled || someRefunded) {
+    if (someDelivered) return 'partially_delivered';
+    if (someShipped) return 'partially_cancelled';
+    return 'partially_cancelled';
+  }
+  
+  if (someDelivered && (someShipped || statuses.some(s => s === 'pending'))) {
+    return 'partially_delivered';
+  }
+  
+  // Default based on majority status
+  if (someShipped) return 'shipped';
+  return 'pending';
+};
 
 interface OrderState {
   orders: Order[];
@@ -31,6 +67,10 @@ interface OrderState {
   setPage: (page: number) => void;
   // Guest order methods
   verifyGuestOrderAccess: (orderId: string, email: string, phone: string) => Promise<boolean>;
+  // Item-level methods
+  cancelOrderItem: (orderItemId: string, reason: string, userId?: string, guestSessionId?: string) => Promise<void>;
+  requestReturnItem: (orderItemId: string, reason: string, userId?: string, guestSessionId?: string, imageFile?: File) => Promise<void>;
+  updateOrderItemStatus: (orderItemId: string, newStatus: string) => void;
 }
 
 export const useOrderStore = create<OrderState>((set, get) => ({
@@ -579,6 +619,109 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       console.error('Error verifying guest order access:', error);
       return false; // Explicit return for error case
     }
+  },
+
+  cancelOrderItem: async (orderItemId: string, reason: string, userId?: string, guestSessionId?: string) => {
+    set({ loading: true, error: null });
+    try {
+      // Update order_items table directly
+      const { error } = await supabase
+        .from('order_items')
+        .update({
+          item_status: 'cancelled',
+          cancel_reason: reason,
+        })
+        .eq('order_item_id', orderItemId);
+
+      if (error) throw error;
+
+      // Update local state
+      get().updateOrderItemStatus(orderItemId, 'cancelled');
+      
+      set({ loading: false });
+    } catch (error: any) {
+      console.error('Error cancelling order item:', error);
+      set({ error: error.message || 'Failed to cancel item', loading: false });
+      throw error;
+    }
+  },
+
+  requestReturnItem: async (orderItemId: string, reason: string, userId?: string, guestSessionId?: string, imageFile?: File) => {
+    set({ loading: true, error: null });
+    try {
+      let imageUrl = null;
+
+      // Upload image if provided
+      if (imageFile) {
+        const fileExt = imageFile.name.split('.').pop();
+        const fileName = `${orderItemId}_${Date.now()}.${fileExt}`;
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('return-images')
+          .upload(fileName, imageFile);
+
+        if (uploadError) {
+          console.error('Error uploading image:', uploadError);
+        } else {
+          const { data: { publicUrl } } = supabase.storage
+            .from('return-images')
+            .getPublicUrl(fileName);
+          imageUrl = publicUrl;
+        }
+      }
+
+      // Update order_items table
+      const { error } = await supabase
+        .from('order_items')
+        .update({
+          item_status: 'returned',
+          return_reason: reason,
+          return_requested_at: new Date().toISOString(),
+        })
+        .eq('order_item_id', orderItemId);
+
+      if (error) throw error;
+
+      // Update local state
+      get().updateOrderItemStatus(orderItemId, 'returned');
+      
+      set({ loading: false });
+    } catch (error: any) {
+      console.error('Error requesting return:', error);
+      set({ error: error.message || 'Failed to request return', loading: false });
+      throw error;
+    }
+  },
+
+  updateOrderItemStatus: (orderItemId: string, newStatus: string) => {
+    const { currentOrder, orders } = get();
+    
+    // Update currentOrder if it contains this item
+    if (currentOrder && Array.isArray(currentOrder.items)) {
+      const updatedItems = currentOrder.items.map((item: any) =>
+        item.order_item_id === orderItemId
+          ? { ...item, item_status: newStatus }
+          : item
+      );
+      set({ currentOrder: { ...currentOrder, items: updatedItems } });
+    }
+
+    // Update orders list
+    const updatedOrders = orders.map(order => {
+      if (Array.isArray(order.items)) {
+        const hasItem = order.items.some((item: any) => item.order_item_id === orderItemId);
+        if (hasItem) {
+          const updatedItems = order.items.map((item: any) =>
+            item.order_item_id === orderItemId
+              ? { ...item, item_status: newStatus }
+              : item
+          );
+          return { ...order, items: updatedItems };
+        }
+      }
+      return order;
+    });
+    
+    set({ orders: updatedOrders });
   },
 
   clearError: () => set({ error: null })
