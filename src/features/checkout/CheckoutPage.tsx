@@ -15,6 +15,7 @@ import { Shield, ArrowLeft } from 'lucide-react';
 import type { Address } from './components/AddressForm';
 import type { GuestContactInfo } from '../../types/guest';
 import razorpayPayments from '../../assets/razorpay-with-all-cards-upi-seeklogo.png';
+import { OtpFlow } from '@/components/otp/OtpFlow';
 
 const getRazorpayKey = () => {
   if (typeof window !== 'undefined' && (window as any).__RAZORPAY_KEY__) return (window as any).__RAZORPAY_KEY;
@@ -55,19 +56,41 @@ const CheckoutPage: React.FC = () => {
   const [paymentStatus, setPaymentStatus] = useState<'success' | 'failed' | 'pending' | null>(null);
   const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
   const [showPaymentStatus, setShowPaymentStatus] = useState(false);
+  const [showOtpVerification, setShowOtpVerification] = useState(false);
+  const [otpValue, setOtpValue] = useState('');
+  const [otpVerified, setOtpVerified] = useState(false);
+  const [otpError, setOtpError] = useState('');
   const [showGuestForm, setShowGuestForm] = useState(false);
+  const [showOtpVerificationPage, setShowOtpVerificationPage] = useState(false);
   const [guestInfo, setGuestInfo] = useState<GuestContactInfo | null>(null);
+  const [codOtpTriggered, setCodOtpTriggered] = useState(false);
 
   const subtotal = useMemo(() => getCartTotal(), [getCartTotal]);
   const savings = useMemo(() => getCartSavings(), [getCartSavings]);
   const deliveryCharge = subtotal > 999 ? 0 : 0;
 
   // ✅ Prepaid Discount - Easily changeable promotional discount for online payments
-  const PREPAID_DISCOUNT_AMOUNT = 200; // Change this value to adjust discount amount
+  const PREPAID_DISCOUNT_AMOUNT = 0; 
 
   const prepaidDiscount = useMemo(() => {
     return selectedPayment === 'razorpay' ? PREPAID_DISCOUNT_AMOUNT : 0;
   }, [selectedPayment]);
+
+  // Get contact info for OTP generation
+  const getContactInfo = () => {
+    if (user) {
+      return {
+        email: user.email || (selectedAddress as any)?.email || '',
+        phone: user.phone || (selectedAddress as any)?.phone || ''
+      };
+    } else if (guestInfo) {
+      return {
+        email: guestInfo.email,
+        phone: guestInfo.phone
+      };
+    }
+    return { email: '', phone: '' };
+  };
 
   const totalAmount = subtotal + deliveryCharge - prepaidDiscount; 
 
@@ -94,15 +117,13 @@ const CheckoutPage: React.FC = () => {
   }, [selectedAddress, selectedPayment]);
 
   useEffect(() => {
-    const authType = getAuthenticationType();
-    console.log('CheckoutPage useEffect - authType:', authType, 'guestSession:', guestSession, 'guestContactInfo:', guestContactInfo, 'guest_session_id:', useAuthStore.getState().guestSession?.guest_session_id);
-    if (authType === 'none') {
-      setShowGuestForm(true);
-    } else if (authType === 'guest' && guestContactInfo) {
-      setGuestInfo(guestContactInfo);
-      setShowGuestForm(false);
+    // Reset OTP verification when payment method changes
+    if (selectedPayment !== 'cod') {
+      setOtpVerified(false);
+      setShowOtpVerification(false);
+      setOtpValue('');
     }
-  }, [user, isGuest, guestContactInfo, guestSession, guestSession?.guest_session_id, getAuthenticationType]);
+  }, [selectedPayment]);
 
   useEffect(() => {
     const redirectPath = sessionStorage.getItem("redirectAfterLogin");
@@ -113,6 +134,14 @@ const CheckoutPage: React.FC = () => {
       sessionStorage.removeItem("redirectAfterLogin");
     }
   }, [user, navigate]);
+
+  // Reset COD OTP state when verification is completed or cancelled
+  useEffect(() => {
+    if (!codOtpTriggered && otpVerified) {
+      // Scroll to top when returning to main checkout after successful OTP verification
+      window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+    }
+  }, [codOtpTriggered, otpVerified]);
 
   const validateShipping = useCallback(() => {
     if (!selectedAddress) return false;
@@ -227,8 +256,9 @@ const CheckoutPage: React.FC = () => {
       return;
     }
 
-    if (!cartItems.length) {
-      alert('Your cart is empty');
+    // For COD orders, check if OTP verification is needed
+    if (selectedPayment === 'cod' && !otpVerified) {
+      // Don't automatically trigger OTP - user must click "Verify Now" button first
       return;
     }
 
@@ -470,6 +500,93 @@ const CheckoutPage: React.FC = () => {
     );
   }
 
+  // Show OTP verification section when COD OTP is explicitly triggered
+  if (codOtpTriggered) {
+    return (
+      <div className="min-h-screen bg-gradient-light dark:bg-gradient-dark">
+        <div className="max-w-2xl mx-auto px-4 py-6 sm:py-8">
+          <div className="mb-4 sm:mb-6">
+            <Link to="/cart">
+              <button className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors">
+                <ArrowLeft className="w-4 h-4" />
+                Back to Cart
+              </button>
+            </Link>
+          </div>
+
+          <div className="bg-white dark:bg-dark2 rounded-2xl shadow-lg p-6">
+            <div className="text-center mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Verify Your Contact Information
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                For Cash on Delivery orders, we need to verify your contact information
+              </p>
+            </div>
+
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
+              <div className="flex items-start gap-3">
+                <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center mt-0.5">
+                  <span className="text-white text-xs">i</span>
+                </div>
+                <div>
+                  <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-1">
+                    Why do we need this?
+                  </h4>
+                  <p className="text-sm text-blue-700 dark:text-blue-300">
+                    We verify your contact information to ensure smooth delivery and communication for your Cash on Delivery order.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {/* OTP Verification Form - Shows directly */}
+              <OtpFlow
+                purpose="cod_verification"
+                onVerified={(codAuthToken) => {
+                  setOtpVerified(true);
+                  setShowOtpVerification(false);
+                  setCodOtpTriggered(false);
+                  // Scroll to top when OTP verification completes successfully
+                  setTimeout(() => {
+                    window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+                  }, 100);
+                  // Continue to main checkout form
+                }}
+                onCancel={() => {
+                  setShowOtpVerification(false);
+                  setOtpValue('');
+                  setOtpError('');
+                  setCodOtpTriggered(false);
+                  // Scroll to top when cancelling OTP verification
+                  window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+                }}
+                prefilledContact={getContactInfo().email || getContactInfo().phone}
+                prefilledMethod="email"
+                userType={user ? 'registered' : 'guest'}
+              />
+
+              <div className="text-center">
+                <button
+                  onClick={() => {
+                    setCodOtpTriggered(false);
+                    setSelectedPayment('razorpay');
+                    // Scroll to top when going back to payment options
+                    window.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+                  }}
+                  className="text-sm text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+                >
+                  ← Back to payment options
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       <div className="min-h-screen bg-gradient-light dark:bg-gradient-dark">
@@ -520,7 +637,13 @@ const CheckoutPage: React.FC = () => {
                 selected={selectedPayment}
                 onSelect={(id) => setSelectedPayment(id)}
                 prepaidDiscount={prepaidDiscount}
+                onCodOtpRequired={() => {
+                  setCodOtpTriggered(true);
+                }}
+                otpVerified={otpVerified}
               />
+
+              {/* Show verification status when COD is selected and verified - REMOVED since now handled in PaymentMethods */}
             </div>
 
             <div className="lg:col-span-1 space-y-4 sm:space-y-6">
@@ -574,10 +697,18 @@ const CheckoutPage: React.FC = () => {
 
                 <button
                   onClick={handlePlaceOrder}
-                  disabled={isProcessing}
-                  className="w-full bg-primary text-white py-3 sm:py-4 rounded-xl font-bold text-base sm:text-lg shadow-lg hover:bg-primary-active transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={isProcessing || (selectedPayment === 'cod' && !otpVerified)}
+                  className={`w-full py-3 sm:py-4 rounded-xl font-bold text-base sm:text-lg shadow-lg transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed ${
+                    selectedPayment === 'cod' && !otpVerified
+                      ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
+                      : 'bg-primary text-white hover:bg-primary-active'
+                  }`}
                 >
-                  {isProcessing ? 'Processing...' : `Place Order   ₹${totalAmount.toLocaleString('en-IN')}`}
+                  {isProcessing
+                    ? 'Processing...'
+                    : selectedPayment === 'cod' && !otpVerified
+                    ? 'Complete OTP Verification to Place Order'
+                    : `Place Order   ₹${totalAmount.toLocaleString('en-IN')}`}
                 </button>
               </div>
             </div>
@@ -605,8 +736,7 @@ const CheckoutPage: React.FC = () => {
             setPaymentStatus(null);
             handleRetryPayment();
           }}
-        />
-      )}
+        />)}
     </>
   );
 };

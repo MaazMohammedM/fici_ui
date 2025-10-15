@@ -2,17 +2,33 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import type { Product } from '../../../types/product';
 import fallbackImage from '../../../assets/Fici_logo.png';
-import { ZoomIn, ZoomOut, X } from 'lucide-react';
+import { ZoomIn, ZoomOut, X, Heart } from 'lucide-react';
 
 interface ProductImageGalleryProps {
   selectedVariant: Product | undefined;
   productName: string;
+  isWishlisted?: boolean;
+  onWishlistToggle?: () => void;
+  onZoomStateChange?: (state: {
+    isHovering: boolean;
+    showLens: boolean;
+    isZoomDisabled: boolean;
+    currentImage: string;
+    zoomLevel: number;
+    zoomPos: { x: number; y: number };
+  }) => void;
 }
 
 const LENS_SIZE = 250;
 const ZOOM_LEVEL = 3.5;
 
-const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({ selectedVariant, productName }: ProductImageGalleryProps) => {
+const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
+  selectedVariant,
+  productName,
+  isWishlisted = false,
+  onWishlistToggle,
+  onZoomStateChange
+}: ProductImageGalleryProps) => {
   const [selectedImage, setSelectedImage] = useState(0);
 
   // Hover / lens state (desktop)
@@ -94,14 +110,6 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({ selectedVaria
     };
   }, []); // Empty dependency array - only run once on mount
 
-  // Reset hover/zoom states when zoom becomes disabled
-  useEffect(() => {
-    if (isZoomDisabled) {
-      console.log('Zoom disabled - resetting states');
-      setIsHovering(false);
-      setShowLens(false);
-    }
-  }, [isZoomDisabled]);
   const parseImages = useCallback((images: unknown): string[] => {
     if (!images) return [];
 
@@ -174,6 +182,20 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({ selectedVaria
 
     return result;
   }, [selectedVariant, parseImages]);
+
+  // Notify parent component of zoom state changes
+  useEffect(() => {
+    if (onZoomStateChange) {
+      onZoomStateChange({
+        isHovering,
+        showLens,
+        isZoomDisabled,
+        currentImage: finalImages[selectedImage] || '',
+        zoomLevel: ZOOM_LEVEL,
+        zoomPos
+      });
+    }
+  }, [isHovering, showLens, isZoomDisabled, selectedImage, zoomPos, onZoomStateChange, finalImages]);
 
   const nextImage = useCallback(() => setSelectedImage(p => (p + 1) % finalImages.length), [finalImages.length]);
   const prevImage = useCallback(() => setSelectedImage(p => (p - 1 + finalImages.length) % finalImages.length), [finalImages.length]);
@@ -305,148 +327,116 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({ selectedVaria
 
   return (
     <div className="space-y-4">
-      {/* Main image area */}
+      {/* Main image area - Simple single column layout for 40% container */}
       <div className="relative group">
-        {/* Prev / Next arrows
-            - Mobile: always visible
-            - Desktop: appear on hover (kept visually subtle via opacity)
-        */}
-        {finalImages.length > 1 && (
-          <>
-            <button
-              onClick={(e) => { e.stopPropagation(); prevImage(); }}
-              aria-label="Previous image"
-              className="absolute left-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/90 dark:bg-gray-800/90 rounded-full flex items-center justify-center shadow-lg z-20
-                         md:opacity-0 md:group-hover:opacity-100 transition-opacity"
-            >
-              ❮
-            </button>
-
-            <button
-              onClick={(e) => { e.stopPropagation(); nextImage(); }}
-              aria-label="Next image"
-              className="absolute right-2 top-1/2 -translate-y-1/2 w-10 h-10 bg-white/90 dark:bg-gray-800/90 rounded-full flex items-center justify-center shadow-lg z-20
-                         md:opacity-0 md:group-hover:opacity-100 transition-opacity"
-            >
-              ❯
-            </button>
-          </>
-        )}
-
-        <div
-          ref={containerRef}
-          className="relative aspect-square bg-gray-100 dark:bg-gray-800 rounded-2xl overflow-hidden"
-          onMouseEnter={handleMouseEnter}
-          onMouseLeave={handleMouseLeave}
-          onMouseMove={handleMouseMove}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-        >
-          {/* Zoom disabled indicator */}
-          {isZoomDisabled && (
-            <div className="absolute top-4 left-4 bg-yellow-100 dark:bg-yellow-900/80 text-yellow-800 dark:text-yellow-200 px-3 py-2 rounded-lg text-sm font-medium shadow-lg z-30">
-              Zoom disabled at {browserZoomLevel}% browser zoom
-            </div>
-          )}
-
-          <img
-            src={finalImages[selectedImage]}
-            alt={productName}
-            className={`w-full h-full object-cover transition-all duration-300 ${
-              isZoomDisabled ? 'cursor-default' : (isHovering ? 'cursor-crosshair' : 'cursor-default')
-            }`}
-            onClick={() => openImageModal(selectedImage)}
-            onError={handleImageError}
-          />
-
-          {/* Image loading placeholder */}
-          {finalImages[selectedImage] === fallbackImage && (
-            <div className="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-800">
-              <div className="text-center text-gray-500 dark:text-gray-400">
-                <svg className="w-16 h-16 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                <p className="text-sm">Image not available</p>
-              </div>
-            </div>
-          )}
-
-          {/* Lens circle (desktop only) - Only show when zoom is NOT disabled */}
-          {isHovering && showLens && !isZoomDisabled && (
-            <div
-              className="absolute rounded-full pointer-events-none z-30"
-              style={{
-                width: `${LENS_SIZE}px`,
-                height: `${LENS_SIZE}px`,
-                left: `${lensPosition.x}px`,
-                top: `${lensPosition.y}px`,
-                boxShadow: '0 0 0 1000px rgba(0,0,0,0.3)',
-                border: '2px solid rgba(255,255,255,0.6)',
-                clipPath: `circle(${LENS_SIZE/2}px at ${LENS_SIZE/2}px ${LENS_SIZE/2}px)`
-              }}
-            />
-          )}
-
-          {/* Zoom preview box (desktop only) - Only show when zoom is NOT disabled */}
-          {isHovering && showLens && !isZoomDisabled && (
-            <div
-              className="hidden md:block fixed z-40 rounded-xl overflow-hidden shadow-2xl"
-              style={{
-                width: 500,
-                height: 500,
-                left: '60%', // approximate placement to the right of content (same approach as your original)
-                top: '50%',
-                transform: 'translateY(-50%)',
-                backgroundImage: `url(${finalImages[selectedImage]})`,
-                backgroundSize: `${100 * ZOOM_LEVEL}%`,
-                backgroundPosition: `${zoomPos.x}% ${zoomPos.y}%`,
-                backgroundRepeat: 'no-repeat',
-                border: '2px solid rgba(255,255,255,0.12)'
-              }}
-            />
-          )}
-        </div>
-
-        {/* Zoom toggle & slideshow button */}
-        <div className="absolute bottom-4 right-4 flex flex-col space-y-2 z-30">
-          <button
-            onClick={toggleZoom}
-            disabled={isZoomDisabled}
-            aria-label={showLens ? 'Disable zoom' : 'Enable zoom'}
-            className={`p-2.5 rounded-full shadow-lg transition-transform ${
-              isZoomDisabled
-                ? 'bg-gray-400/90 dark:bg-gray-600/90 cursor-not-allowed opacity-50'
-                : 'bg-white/90 dark:bg-gray-800/90 hover:scale-105 hover:bg-white dark:hover:bg-gray-700'
-            }`}
-            title={isZoomDisabled ? `Zoom disabled at ${browserZoomLevel}% browser zoom` : (showLens ? 'Disable zoom' : 'Enable zoom')}
-            onMouseDown={(e) => {
-              if (isZoomDisabled) {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('Zoom button click blocked - zoom disabled');
-              }
-            }}
-            onTouchStart={(e) => {
-              if (isZoomDisabled) {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('Zoom button touch blocked - zoom disabled');
-              }
-            }}
-          >
-            {showLens ? <ZoomOut className="w-5 h-5" /> : <ZoomIn className="w-5 h-5" />}
-          </button>
-
+        {/* Desktop & Mobile Layout - Single column within allocated space */}
+        <div className="relative">
+          {/* Prev / Next arrows - Mobile: always visible, Desktop: appear on hover */}
           {finalImages.length > 1 && (
-            <button
-              onClick={(e) => { e.stopPropagation(); openImageModal(selectedImage); }}
-              aria-label="Open slideshow"
-              className="p-2.5 bg-white/90 dark:bg-gray-800/90 rounded-full shadow-lg hover:scale-105 transition-transform"
-            >
-              🖼️
-            </button>
+            <>
+              <button
+                onClick={(e) => { e.stopPropagation(); prevImage(); }}
+                aria-label="Previous image"
+                className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/90 dark:bg-gray-800/90 rounded-full flex items-center justify-center shadow-lg z-20
+                           opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+              >
+                ❮
+              </button>
+
+              <button
+                onClick={(e) => { e.stopPropagation(); nextImage(); }}
+                aria-label="Next image"
+                className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/90 dark:bg-gray-800/90 rounded-full flex items-center justify-center shadow-lg z-20
+                           opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
+              >
+                ❯
+              </button>
+            </>
           )}
+
+          <div
+            ref={containerRef}
+            className="relative aspect-square bg-gray-100 dark:bg-gray-800 rounded-2xl overflow-hidden"
+            onMouseEnter={window.innerWidth >= 768 ? handleMouseEnter : undefined}
+            onMouseLeave={window.innerWidth >= 768 ? handleMouseLeave : undefined}
+            onMouseMove={window.innerWidth >= 768 ? handleMouseMove : undefined}
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+          >
+            {/* Wishlist Icon - Top Right */}
+            {onWishlistToggle && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onWishlistToggle(); }}
+                className={`absolute top-2 right-2 z-30 p-2 rounded-full shadow-lg transition-all duration-200 ${
+                  isWishlisted
+                    ? 'bg-red-500 text-white hover:bg-red-600'
+                    : 'bg-white/90 dark:bg-gray-800/90 text-gray-700 dark:text-gray-200 hover:bg-white dark:hover:bg-gray-700'
+                }`}
+                aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+              >
+                <Heart className={`w-4 h-4 ${isWishlisted ? 'fill-current' : ''}`} />
+              </button>
+            )}
+
+            {/* Zoom disabled indicator */}
+            {isZoomDisabled && (
+              <div className="absolute top-3 left-3 bg-yellow-100 dark:bg-yellow-900/80 text-yellow-800 dark:text-yellow-200 px-2 py-1.5 rounded text-xs font-medium shadow-lg z-30">
+                Zoom disabled at {browserZoomLevel}% browser zoom
+              </div>
+            )}
+
+            <img
+              src={finalImages[selectedImage]}
+              alt={productName}
+              className={`w-full h-full object-cover transition-all duration-300 ${
+                isZoomDisabled || window.innerWidth < 768 ? 'cursor-default' : (isHovering ? 'cursor-crosshair' : 'cursor-default')
+              }`}
+              onClick={() => openImageModal(selectedImage)}
+              onError={handleImageError}
+            />
+
+            {/* Image loading placeholder */}
+            {finalImages[selectedImage] === fallbackImage && (
+              <div className="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-800">
+                <div className="text-center text-gray-500 dark:text-gray-400">
+                  <svg className="w-12 h-12 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <p className="text-xs">Image not available</p>
+                </div>
+              </div>
+            )}
+
+            {/* Lens circle (desktop only) - Only show when zoom is NOT disabled and not on mobile */}
+            {isHovering && showLens && !isZoomDisabled && window.innerWidth >= 768 && (
+              <div
+                className="absolute rounded-full pointer-events-none z-30"
+                style={{
+                  width: `${LENS_SIZE}px`,
+                  height: `${LENS_SIZE}px`,
+                  left: `${lensPosition.x}px`,
+                  top: `${lensPosition.y}px`,
+                  boxShadow: '0 0 0 1000px rgba(0,0,0,0.3)',
+                  border: '2px solid rgba(255,255,255,0.6)',
+                  clipPath: `circle(${LENS_SIZE/2}px at ${LENS_SIZE/2}px ${LENS_SIZE/2}px)`
+                }}
+              />
+            )}
+          </div>
+
+          {/* Slideshow button - Always visible when multiple images
+          {finalImages.length > 1 && (
+            <div className="absolute bottom-3 right-3 z-30">
+              <button
+                onClick={(e) => { e.stopPropagation(); openImageModal(selectedImage); }}
+                aria-label="Open slideshow"
+                className="p-2 bg-white/90 dark:bg-gray-800/90 rounded-full shadow-lg hover:scale-105 transition-transform"
+              >
+                🖼️
+              </button>
+            </div>
+          )} */}
         </div>
       </div>
 
@@ -457,7 +447,7 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({ selectedVaria
             <button
               key={idx}
               onClick={() => setSelectedImage(idx)}
-              className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-transform ${idx === selectedImage ? 'border-accent scale-105 ring-2 ring-accent/50' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'}`}
+              className={`flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden border-2 transition-transform ${idx === selectedImage ? 'border-accent scale-105 ring-2 ring-accent/50' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'}`}
               aria-label={`Thumbnail ${idx + 1}`}
             >
               <img src={img} alt={`${productName} ${idx + 1}`} className="w-full h-full object-cover" onError={handleImageError} />
@@ -507,9 +497,9 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({ selectedVaria
       )}
 
       {/* Color disclaimer */}
-      <div className="mt-4 px-4">
-        <div className="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 p-3 rounded">
-          <p className="text-sm text-yellow-700 dark:text-yellow-300">
+      <div className="mt-4 px-3">
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 p-2 rounded text-sm">
+          <p className="text-yellow-700 dark:text-yellow-300">
             <span className="font-medium">Color Disclaimer:</span> Product colors may appear slightly different due to
             monitor settings. Every effort is made to display colors accurately.
           </p>

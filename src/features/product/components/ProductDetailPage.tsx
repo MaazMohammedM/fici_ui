@@ -37,6 +37,16 @@ const ProductDetailPage: React.FC = () => {
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
 
+  // Zoom state for ProductImageGallery
+  const [zoomState, setZoomState] = useState({
+    isHovering: false,
+    showLens: false,
+    isZoomDisabled: false,
+    currentImage: '',
+    zoomLevel: 3.5,
+    zoomPos: { x: 50, y: 50 }
+  });
+
   const handleAddToCart = useCallback((): boolean => {
     if (!selectedSize) {
       alert('Please select a size');
@@ -371,18 +381,36 @@ Could you please let me know when this size will be available?`;
 
       {/* Main Product Section */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="lg:grid lg:grid-cols-2 lg:gap-12">
-          {/* Left Column - Product Images */}
+        <div className="lg:grid lg:grid-cols-[40%_60%] lg:gap-8 relative">
+          {/* Left Column - Product Images (40%) */}
           <div className="mb-8 lg:mb-0">
             <ProductImageGallery
               selectedVariant={currentVariant}
               productName={currentProduct.name}
+              isWishlisted={isWishlisted}
+              onWishlistToggle={handleWishlistToggle}
+              onZoomStateChange={(state) => setZoomState(state)}
             />
           </div>
 
-          {/* Right Column - Product Details */}
-          <div className="sticky top-4">
-            <div className="bg-white dark:bg-dark2 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700">
+          {/* Right Column - Product Details (60%) */}
+          <div className="sticky top-4 relative">
+            {/* Zoom preview overlay - fills the 60% space */}
+            {zoomState.isHovering && zoomState.showLens && !zoomState.isZoomDisabled && (
+              <div className="absolute inset-0 rounded-xl overflow-hidden shadow-2xl border-2 border-white/20 z-40 pointer-events-none">
+                <div
+                  className="w-full h-full"
+                  style={{
+                    backgroundImage: `url(${zoomState.currentImage})`,
+                    backgroundSize: `${zoomState.zoomLevel * 100}%`,
+                    backgroundPosition: `${zoomState.zoomPos.x}% ${zoomState.zoomPos.y}%`,
+                    backgroundRepeat: 'no-repeat'
+                  }}
+                />
+              </div>
+            )}
+
+            <div className={`bg-white dark:bg-dark2 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 ${zoomState.isHovering ? 'opacity-0' : 'opacity-100'} transition-opacity duration-200`}>
               <ProductDetails
                 currentProduct={currentProduct}
                 selectedVariant={currentVariant}
@@ -403,7 +431,7 @@ Could you please let me know when this size will be available?`;
                 isOutOfStock={isOutOfStock}
               />
             </div>
-            
+
             {/* Trust Badges */}
             <div className="mt-6">
               <img
