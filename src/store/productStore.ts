@@ -319,21 +319,33 @@ export const useProductStore = create<ProductState>((set, get) => ({
       if (productsError) throw productsError;
 
       if (productsData && productsData.length > 0) {
-        // Fetch ratings for the product
-        const { data: ratingsData, error: ratingsError } = await supabase
-          .from('product_ratings')
-          .select('*')
-          .eq('article_id_base', baseArticleId)
-          .single();
+        // Get the product_id from the first variant to fetch reviews
+        const productId = productsData[0].product_id;
+
+        // Fetch average rating from reviews table instead of product_ratings
+        const { data: reviewsData, error: reviewsError } = await supabase
+          .from('reviews')
+          .select('rating')
+          .eq('product_id', productId);
 
         let rating: Rating | undefined;
-        if (!ratingsError && ratingsData) {
+        if (!reviewsError && reviewsData && reviewsData.length > 0) {
+          // Calculate average rating
+          const totalReviews = reviewsData.length;
+          const sumOfRatings = reviewsData.reduce((sum, review) => sum + (review.rating || 0), 0);
+          const averageRating = totalReviews > 0 ? sumOfRatings / totalReviews : 0;
+
+          // Calculate rating distribution
+          const distribution = reviewsData.reduce((dist, review) => {
+            const ratingValue = review.rating || 0;
+            dist[ratingValue] = (dist[ratingValue] || 0) + 1;
+            return dist;
+          }, { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 });
+
           rating = {
-            average: parseFloat(ratingsData.average_rating) || 0,
-            count: parseInt(ratingsData.review_count) || 0,
-            distribution: ratingsData.rating_distribution || {
-              1: 0, 2: 0, 3: 0, 4: 0, 5: 0
-            }
+            average: Math.round(averageRating * 10) / 10, // Round to 1 decimal place
+            count: totalReviews,
+            distribution
           };
         }
 
@@ -412,21 +424,30 @@ export const useProductStore = create<ProductState>((set, get) => ({
           
         if (variantsError) throw variantsError;
         
-        // Fetch ratings
-        const { data: ratingsData, error: ratingsError } = await supabase
-          .from('product_ratings')
-          .select('*')
-          .eq('article_id_base', baseArticleId)
-          .single();
-          
+        // Fetch average rating from reviews table instead of product_ratings
+        const { data: reviewsData, error: reviewsError } = await supabase
+          .from('reviews')
+          .select('rating')
+          .eq('product_id', productData.product_id);
+
         let rating: Rating | undefined;
-        if (!ratingsError && ratingsData) {
+        if (!reviewsError && reviewsData && reviewsData.length > 0) {
+          // Calculate average rating
+          const totalReviews = reviewsData.length;
+          const sumOfRatings = reviewsData.reduce((sum, review) => sum + (review.rating || 0), 0);
+          const averageRating = totalReviews > 0 ? sumOfRatings / totalReviews : 0;
+
+          // Calculate rating distribution
+          const distribution = reviewsData.reduce((dist, review) => {
+            const ratingValue = review.rating || 0;
+            dist[ratingValue] = (dist[ratingValue] || 0) + 1;
+            return dist;
+          }, { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 });
+
           rating = {
-            average: parseFloat(ratingsData.average_rating) || 0,
-            count: parseInt(ratingsData.review_count) || 0,
-            distribution: ratingsData.rating_distribution || {
-              1: 0, 2: 0, 3: 0, 4: 0, 5: 0
-            }
+            average: Math.round(averageRating * 10) / 10, // Round to 1 decimal place
+            count: totalReviews,
+            distribution
           };
         }
         

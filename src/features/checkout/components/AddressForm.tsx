@@ -26,6 +26,7 @@ const AddressForm: React.FC<Props> = ({ onSelect, selectedId }) => {
   const { user } = useAuthStore();
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [editing, setEditing] = useState<Address | null>(null);
+  const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState<Address>({
     name: '',
     phone: '',
@@ -37,6 +38,7 @@ const AddressForm: React.FC<Props> = ({ onSelect, selectedId }) => {
     landmark: ''
   });
   const [loading, setLoading] = useState(false);
+  const [showAllAddresses, setShowAllAddresses] = useState(false);
 
   useEffect(() => {
     if (user?.id) loadAddresses();
@@ -147,6 +149,7 @@ const AddressForm: React.FC<Props> = ({ onSelect, selectedId }) => {
         <h2 className="text-xl font-semibold">Shipping Address</h2>
         <button
           onClick={() => {
+            setShowForm(true);
             setEditing(null);
             setForm({
               name: '',
@@ -173,7 +176,7 @@ const AddressForm: React.FC<Props> = ({ onSelect, selectedId }) => {
         <>
           {addresses.length > 0 && (
             <div className="space-y-3 mb-4">
-              {addresses.map(addr => (
+              {(showAllAddresses ? addresses : addresses.slice(0, 2)).map(addr => (
                 <div
                   key={addr.id}
                   onClick={() => {
@@ -193,7 +196,7 @@ const AddressForm: React.FC<Props> = ({ onSelect, selectedId }) => {
                       <p className="text-sm">{addr.address}, {addr.city}, {addr.district ? `${addr.district}, ` : ''}{addr.state} {addr.pincode}</p>
                     </div>
                     <div className="flex gap-2">
-                      <button onClick={(e) => { e.stopPropagation(); startEdit(addr); }} className="p-2 text-gray-400 hover:text-accent"><Edit className="w-4 h-4" /></button>
+                      <button onClick={(e) => { e.stopPropagation(); startEdit(addr); setShowForm(true); }} className="p-2 text-gray-400 hover:text-accent"><Edit className="w-4 h-4" /></button>
                       <button onClick={(e) => { e.stopPropagation(); handleDelete(addr.id); }} className="p-2 text-gray-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
                     </div>
                   </div>
@@ -203,33 +206,55 @@ const AddressForm: React.FC<Props> = ({ onSelect, selectedId }) => {
                   </div>
                 </div>
               ))}
+
+              {/* View more button */}
+              {!showAllAddresses && addresses.length > 2 && (
+                <button
+                  onClick={() => setShowAllAddresses(true)}
+                  className="w-full p-3 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-400 hover:border-accent hover:text-accent transition-colors"
+                >
+                  View {addresses.length - 2} more addresses
+                </button>
+              )}
+
+              {/* View less button */}
+              {showAllAddresses && addresses.length > 2 && (
+                <button
+                  onClick={() => setShowAllAddresses(false)}
+                  className="w-full p-3 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-400 hover:border-accent hover:text-accent transition-colors"
+                >
+                  View less
+                </button>
+              )}
             </div>
           )}
 
-          {/* Add/Edit form */}
-          <div className="border-t pt-4">
-            <h3 className="text-lg font-semibold mb-3">{editing ? 'Edit Address' : 'Add New Address'}</h3>
-            <form onSubmit={handleSave} className="space-y-3">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <input value={form.name || ''} onChange={(e) => setForm(prev => ({ ...prev, name: e.target.value }))} placeholder="Full name" className="px-3 py-2 border rounded" required />
-                <input value={form.phone || ''} onChange={(e) => setForm(prev => ({ ...prev, phone: e.target.value }))} placeholder="Phone" className="px-3 py-2 border rounded" required />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <input value={form.email || ''} onChange={(e) => setForm(prev => ({ ...prev, email: e.target.value }))} placeholder="Email" className="px-3 py-2 border rounded" required />
-                <input value={form.pincode || ''} onChange={(e) => setForm(prev => ({ ...prev, pincode: e.target.value }))} placeholder="Pincode" className="px-3 py-2 border rounded" required />
-              </div>
-              <textarea value={form.address || ''} onChange={(e) => setForm(prev => ({ ...prev, address: e.target.value }))} placeholder="Address" rows={2} className="w-full px-3 py-2 border rounded" required />
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <input value={form.city || ''} onChange={(e) => setForm(prev => ({ ...prev, city: e.target.value }))} placeholder="City" className="px-3 py-2 border rounded" required />
-                <input value={form.district || ''} onChange={(e) => setForm(prev => ({ ...prev, district: e.target.value }))} placeholder="District" className="px-3 py-2 border rounded" required />
-                <input value={form.state || ''} onChange={(e) => setForm(prev => ({ ...prev, state: e.target.value }))} placeholder="State" className="px-3 py-2 border rounded" required />
-              </div>
-              <div className="flex gap-3">
-                <button type="submit" className="flex-1 bg-accent text-white py-2 rounded">{loading ? 'Saving...' : editing ? 'Update Address' : 'Save Address'}</button>
-                <button type="button" onClick={() => { setEditing(null); setForm({ name: '', phone: '', email: '', address: '', city: '', state: '', pincode: '', landmark: '' }); }} className="px-4 py-2 border rounded">Cancel</button>
-              </div>
-            </form>
-          </div>
+          {/* Add/Edit form - Only show when explicitly requested */}
+          {showForm && (
+            <div className="border-t pt-4">
+              <h3 className="text-lg font-semibold mb-3">{editing ? 'Edit Address' : 'Add New Address'}</h3>
+              <form onSubmit={handleSave} className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <input value={form.name || ''} onChange={(e) => setForm(prev => ({ ...prev, name: e.target.value }))} placeholder="Full name" className="px-3 py-2 border rounded" required />
+                  <input value={form.phone || ''} onChange={(e) => setForm(prev => ({ ...prev, phone: e.target.value }))} placeholder="Phone" className="px-3 py-2 border rounded" required />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <input value={form.email || ''} onChange={(e) => setForm(prev => ({ ...prev, email: e.target.value }))} placeholder="Email" className="px-3 py-2 border rounded" required />
+                  <input value={form.pincode || ''} onChange={(e) => setForm(prev => ({ ...prev, pincode: e.target.value }))} placeholder="Pincode" className="px-3 py-2 border rounded" required />
+                </div>
+                <textarea value={form.address || ''} onChange={(e) => setForm(prev => ({ ...prev, address: e.target.value }))} placeholder="Address" rows={2} className="w-full px-3 py-2 border rounded" required />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <input value={form.city || ''} onChange={(e) => setForm(prev => ({ ...prev, city: e.target.value }))} placeholder="City" className="px-3 py-2 border rounded" required />
+                  <input value={form.district || ''} onChange={(e) => setForm(prev => ({ ...prev, district: e.target.value }))} placeholder="District" className="px-3 py-2 border rounded" required />
+                  <input value={form.state || ''} onChange={(e) => setForm(prev => ({ ...prev, state: e.target.value }))} placeholder="State" className="px-3 py-2 border rounded" required />
+                </div>
+                <div className="flex gap-3">
+                  <button type="submit" className="flex-1 bg-accent text-white py-2 rounded">{loading ? 'Saving...' : editing ? 'Update Address' : 'Save Address'}</button>
+                  <button type="button" onClick={() => { setShowForm(false); setEditing(null); setForm({ name: '', phone: '', email: '', address: '', city: '', state: '', pincode: '', landmark: '' }); }} className="px-4 py-2 border rounded">Cancel</button>
+                </div>
+              </form>
+            </div>
+          )}
         </>
       )}
     </div>

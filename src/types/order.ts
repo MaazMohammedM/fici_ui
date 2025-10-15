@@ -4,6 +4,7 @@ export interface OrderItem {
   product_id: string;
   article_id?: string;
   name?: string;
+  product_name?: string;
   color?: string;
   size?: string;
   quantity: number;
