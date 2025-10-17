@@ -1,8 +1,9 @@
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCartStore } from "@store/cartStore";
 import CartItemCard from "./components/CartItemCard";
 import { ShoppingBag, ArrowLeft, Trash2 } from "lucide-react";
+import AlertModal from "@components/ui/AlertModal";
 
 const CartPage: React.FC = () => {
   const navigate = useNavigate();
@@ -17,6 +18,17 @@ const CartPage: React.FC = () => {
     clearCart
   } = useCartStore();
 
+  // Alert modal state
+  const [alertModal, setAlertModal] = useState<{
+    isOpen: boolean;
+    message: string;
+    type?: 'info' | 'warning' | 'error' | 'success';
+  }>({
+    isOpen: false,
+    message: '',
+    type: 'info'
+  });
+
   const handleRemove = (id: string) => {
     removeFromCart(id);
   };
@@ -29,9 +41,16 @@ const CartPage: React.FC = () => {
   };
 
   const handleClearCart = () => {
-    if (window.confirm('Are you sure you want to clear your cart?')) {
-      clearCart();
-    }
+    setAlertModal({
+      isOpen: true,
+      message: 'Are you sure you want to clear your cart?',
+      type: 'warning'
+    });
+  };
+
+  const confirmClearCart = () => {
+    clearCart();
+    setAlertModal({ isOpen: false, message: '', type: 'info' });
   };
 
   // Calculate detailed summary
@@ -183,6 +202,14 @@ const CartPage: React.FC = () => {
           </div>
         )}
       </div>
+      <AlertModal
+        isOpen={alertModal.isOpen}
+        message={alertModal.message}
+        type={alertModal.type}
+        onClose={() => setAlertModal({ isOpen: false, message: '', type: 'info' })}
+        showCancel={true}
+        onConfirm={confirmClearCart}
+      />
     </div>
   );
 };

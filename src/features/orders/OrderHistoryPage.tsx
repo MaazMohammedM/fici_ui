@@ -46,13 +46,25 @@ const OrderHistoryPage: React.FC = () => {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'delivered':
+      case 'Delivered':
         return <CheckCircle className="w-5 h-5 text-green-600" />;
       case 'shipped':
+      case 'Shipped':
         return <Truck className="w-5 h-5 text-blue-600" />;
       case 'cancelled':
+      case 'Cancelled':
         return <XCircle className="w-5 h-5 text-red-600" />;
       case 'paid':
+      case 'Payment Confirmed':
         return <Package className="w-5 h-5 text-green-600" />;
+      case 'Cash On Delivery Order':
+        return <Clock className="w-5 h-5 text-yellow-600" />;
+      case 'Partially Delivered':
+        return <Truck className="w-5 h-5 text-blue-600" />;
+      case 'Partially Cancelled':
+        return <XCircle className="w-5 h-5 text-orange-600" />;
+      case 'Partially Refunded':
+        return <Package className="w-5 h-5 text-purple-600" />;
       default:
         return <Clock className="w-5 h-5 text-yellow-600" />;
     }
@@ -62,13 +74,25 @@ const OrderHistoryPage: React.FC = () => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'delivered':
+      case 'Delivered':
         return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400';
       case 'shipped':
+      case 'Shipped':
         return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400';
       case 'cancelled':
+      case 'Cancelled':
         return 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400';
       case 'paid':
+      case 'Payment Confirmed':
         return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400';
+      case 'Cash On Delivery Order':
+        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400';
+      case 'Partially Delivered':
+        return 'bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400';
+      case 'Partially Cancelled':
+        return 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400';
+      case 'Partially Refunded':
+        return 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400';
       default:
         return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400';
     }
@@ -79,6 +103,18 @@ const OrderHistoryPage: React.FC = () => {
     if (order.payment_method === 'cod' && order.status === 'pending') {
       return 'Cash On Delivery Order';
     }
+
+    // Check item statuses for more accurate status
+    const items = Array.isArray(order.items) ? order.items : Object.values(order.items || {});
+    if (items.length > 0) {
+      const statuses = items.map((item: any) => item.item_status || 'pending');
+      const allCancelled = statuses.every(s => s === 'cancelled');
+      const allDelivered = statuses.every(s => s === 'delivered');
+
+      if (allCancelled) return 'Cancelled';
+      if (allDelivered) return 'Delivered';
+    }
+
     switch (order.status) {
       case 'pending':
         return 'Awaiting Payment';
@@ -90,6 +126,12 @@ const OrderHistoryPage: React.FC = () => {
         return 'Delivered';
       case 'cancelled':
         return 'Cancelled';
+      case 'partially_delivered':
+        return 'Partially Delivered';
+      case 'partially_cancelled':
+        return 'Partially Cancelled';
+      case 'partially_refunded':
+        return 'Partially Refunded';
       default:
         return order.status;
     }
@@ -97,6 +139,22 @@ const OrderHistoryPage: React.FC = () => {
 
   // --- Add descriptive message for clarity ---
   const getUserStatusMessage = (order: Order) => {
+    // Check item-level statuses for aggregate message
+    const items = Array.isArray(order.items) ? order.items : Object.values(order.items || {});
+    if (items.length > 0) {
+      const itemStatuses = items.map((item: any) => item.item_status || 'pending');
+      const allCancelled = itemStatuses.every((s: string) => s === 'cancelled');
+      const allDelivered = itemStatuses.every((s: string) => s === 'delivered');
+      const someCancelled = itemStatuses.some((s: string) => s === 'cancelled' || s === 'refunded');
+      const someDelivered = itemStatuses.some((s: string) => s === 'delivered');
+      const someProcessing = itemStatuses.some((s: string) => s === 'shipped' || s === 'pending');
+      
+      if (allCancelled) return 'This order has been cancelled.';
+      if (allDelivered) return 'All items have been delivered successfully.';
+      if (someCancelled && someProcessing) return 'Some items cancelled. Others are being processed.';
+      if (someCancelled && someDelivered) return 'Partially fulfilled order.';
+    }
+
     if (order.payment_method === 'cod' && order.status === 'pending') {
       return 'Your COD order has been placed successfully and will be shipped soon.';
     }

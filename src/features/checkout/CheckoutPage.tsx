@@ -1,6 +1,7 @@
 // src/pages/CheckoutPage.tsx
-import React, { useCallback, useMemo, useState, useEffect } from 'react';
+import React, { useCallback, useMemo, useState, useEffect, useRef } from 'react';
 import { useNavigate, Link, useLocation } from 'react-router-dom';
+import { OtpFlow } from '@/components/otp';
 import AddressCard from './components/AddressForm';
 import GuestAddressForm from './components/GuestAddressForm';
 import PaymentMethods from './components/PaymentMethods';
@@ -15,7 +16,7 @@ import { Shield, ArrowLeft } from 'lucide-react';
 import type { Address } from './components/AddressForm';
 import type { GuestContactInfo } from '../../types/guest';
 import razorpayPayments from '../../assets/razorpay-with-all-cards-upi-seeklogo.png';
-import { OtpFlow } from '@/components/otp/OtpFlow';
+import AlertModal from '@components/ui/AlertModal';
 
 const getRazorpayKey = () => {
   if (typeof window !== 'undefined' && (window as any).__RAZORPAY_KEY__) return (window as any).__RAZORPAY_KEY;
@@ -55,6 +56,7 @@ const CheckoutPage: React.FC = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<'success' | 'failed' | 'pending' | null>(null);
   const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
+  const currentOrderIdRef = useRef<string | null>(null);
   const [showPaymentStatus, setShowPaymentStatus] = useState(false);
   const [showOtpVerification, setShowOtpVerification] = useState(false);
   const [otpValue, setOtpValue] = useState('');
@@ -64,6 +66,16 @@ const CheckoutPage: React.FC = () => {
   const [showOtpVerificationPage, setShowOtpVerificationPage] = useState(false);
   const [guestInfo, setGuestInfo] = useState<GuestContactInfo | null>(null);
   const [codOtpTriggered, setCodOtpTriggered] = useState(false);
+
+  const [alertModal, setAlertModal] = useState<{
+    isOpen: boolean;
+    message: string;
+    type?: 'info' | 'warning' | 'error' | 'success';
+  }>({
+    isOpen: false,
+    message: '',
+    type: 'info'
+  });
 
   const subtotal = useMemo(() => getCartTotal(), [getCartTotal]);
   const savings = useMemo(() => getCartSavings(), [getCartSavings]);
@@ -93,6 +105,15 @@ const CheckoutPage: React.FC = () => {
   };
 
   const totalAmount = subtotal + deliveryCharge - prepaidDiscount; 
+
+  // Helper function to show alert modal
+  const showAlert = (message: string, type: 'info' | 'warning' | 'error' | 'success' = 'info') => {
+    setAlertModal({
+      isOpen: true,
+      message,
+      type
+    });
+  };
 
   useEffect(() => {
     const saved = sessionStorage.getItem(CHECKOUT_DRAFT_KEY);
@@ -175,10 +196,79 @@ const CheckoutPage: React.FC = () => {
     }
   };
 
-  const handlePaymentFailure = (err: any) => {
+  const handlePaymentFailure = async (err: any) => {
     console.error('Payment failed:', err);
+    console.log('Current order ID when payment failed (state):', currentOrderId);
+    console.log('Current order ID when payment failed (ref):', currentOrderIdRef.current);
+
+    // Update UI state
     setPaymentStatus('failed');
     setShowPaymentStatus(true);
+
+    // Use ref value for database update since state might not be updated yet
+    const orderIdToUse = currentOrderIdRef.current || currentOrderId;
+
+    // Update database if we have a current order ID
+    if (orderIdToUse) {
+      try {
+        console.log('🔄 Updating database for failed payment, order ID:', orderIdToUse);
+
+        // Update order status to failed
+        const { error: orderError } = await supabase
+          .from('orders')
+          .update({
+            status: 'cancelled',
+            payment_status: 'failed',
+            cancelled_at: new Date().toISOString(),
+            comments: 'Payment cancelled by user'
+          })
+          .eq('order_id', orderIdToUse);
+
+        if (orderError) {
+          console.error('❌ Error updating order status:', orderError);
+        } else {
+          console.log('✅ Order status updated successfully');
+        }
+
+        // Update order items status to cancelled
+        const { error: itemsError } = await supabase
+          .from('order_items')
+          .update({
+            item_status: 'cancelled',
+            cancel_reason: 'Payment cancelled by user'
+          })
+          .eq('order_id', orderIdToUse);
+
+        if (itemsError) {
+          console.error('❌ Error updating order items status:', itemsError);
+        } else {
+          console.log('✅ Order items status updated successfully');
+        }
+
+        // Update payments table if payment record exists
+        const { error: paymentError } = await supabase
+          .from('payments')
+          .update({
+            payment_status: 'failed',
+            updated_at: new Date().toISOString()
+          })
+          .eq('order_id', orderIdToUse);
+
+        if (paymentError) {
+          console.error('❌ Error updating payment status:', paymentError);
+        } else {
+          console.log('✅ Payment status updated successfully');
+        }
+
+        console.log('✅ Database updated for failed payment');
+      } catch (dbError) {
+        console.error('❌ Error updating database for failed payment:', dbError);
+        // Don't show error to user as payment failure is already handled
+      }
+    } else {
+      console.warn('⚠️ No currentOrderId available for database update - this suggests the order was not created yet');
+      console.log('🔍 Debug info - isProcessing:', isProcessing);
+    }
   };
 
   const handleGuestInfoSubmit = async (contactInfo: GuestContactInfo) => {
@@ -209,7 +299,7 @@ const CheckoutPage: React.FC = () => {
       }
     } catch (error) {
       console.error('Guest session creation failed:', error);
-      alert('Failed to create guest session. Please try again.');
+      showAlert('Failed to create guest session. Please try again.');
     }
   };
   const handleSignInRedirect = () => {
@@ -233,6 +323,7 @@ const CheckoutPage: React.FC = () => {
     const wasSuccess = paymentStatus === 'success';
     setPaymentStatus(null);
     setCurrentOrderId(null);
+    currentOrderIdRef.current = null;
     if (wasSuccess) {
       clearCart();
     }
@@ -242,17 +333,17 @@ const CheckoutPage: React.FC = () => {
     const authType = getAuthenticationType();
 
     if (authType === 'none') {
-      alert('Please provide your contact information or sign in');
+      showAlert('Please provide your contact information or sign in');
       return;
     }
 
     if (authType === 'guest' && !guestInfo) {
-      alert('Please provide your contact information');
+      showAlert('Please provide your contact information');
       return;
     }
 
     if (!validateShipping()) {
-      alert('Please fill/choose a shipping address');
+      showAlert('Please fill/choose a shipping address');
       return;
     }
 
@@ -326,10 +417,17 @@ const CheckoutPage: React.FC = () => {
       console.log('Response data type:', typeof paymentOrder);
       console.log('Response keys:', Object.keys(paymentOrder));
       
+      // ✅ SET currentOrderId HERE - before any payment processing
+      const actualOrderId = paymentOrder.order_id || paymentOrder.id;
+      if (actualOrderId) {
+        setCurrentOrderId(actualOrderId);
+        currentOrderIdRef.current = actualOrderId;
+        console.log('Set currentOrderId to:', actualOrderId);
+      }
+
       // Handle COD orders - no Razorpay needed
       if (selectedPayment === 'cod') {
         console.log('Processing COD order');
-        setCurrentOrderId(paymentOrder.order_id);
         setPaymentStatus('success');
         setShowPaymentStatus(true);
         // Don't clear cart here, let the modal handle it
@@ -414,7 +512,10 @@ const CheckoutPage: React.FC = () => {
           },
           modal: {
             ondismiss: () => {
-              console.log('Payment modal dismissed by user');
+              console.log('🔄 Payment modal dismissed by user');
+              console.log('🔍 currentOrderId at dismiss time (state):', currentOrderId);
+              console.log('🔍 currentOrderId at dismiss time (ref):', currentOrderIdRef.current);
+              console.log('🔍 State at dismiss time - isProcessing:', isProcessing);
               handlePaymentFailure({ reason: 'user_cancelled' });
             },
             escape: false,
@@ -438,7 +539,7 @@ const CheckoutPage: React.FC = () => {
       } catch (error) {
         console.error('Error initializing Razorpay:', error);
         setPaymentStatus('failed');
-        alert('Failed to initialize payment. Please try again.');
+        showAlert('Failed to initialize payment. Please try again.');
       }
     } catch (err: any) {
       console.error('Place order error', err);
@@ -448,8 +549,8 @@ const CheckoutPage: React.FC = () => {
     }
   };
 
-  // Show guest checkout form if not authenticated
-  if (showGuestForm) {
+  // Show guest checkout form if not authenticated and no guest info
+  if (!user && !guestInfo) {
     return (
       <div className="min-h-screen bg-gradient-light dark:bg-gradient-dark">
         <div className="max-w-2xl mx-auto px-4 py-6 sm:py-8">
@@ -472,8 +573,8 @@ const CheckoutPage: React.FC = () => {
     );
   }
 
-  // Only show loading if we're not in guest mode and don't have a user
-  if (!user && !isGuest && !guestInfo) {
+  // Show loading only if we have partial guest state but still processing
+  if (!user && isGuest && !guestInfo) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -724,6 +825,7 @@ const CheckoutPage: React.FC = () => {
             : `Your order is successful with Online Payment${prepaidDiscount > 0 ? ` • You saved ₹${prepaidDiscount}!` : ''}`}
           savings={savings}
           totalAmount={totalAmount}
+          totalMrp={cartItems.reduce((sum, item) => sum + (item.mrp * item.quantity), 0)}
           prepaidDiscount={selectedPayment === 'razorpay' ? prepaidDiscount : 0}
           onClose={() => {
             setShowPaymentStatus(false);
@@ -737,6 +839,12 @@ const CheckoutPage: React.FC = () => {
             handleRetryPayment();
           }}
         />)}
+      <AlertModal
+        isOpen={alertModal.isOpen}
+        message={alertModal.message}
+        type={alertModal.type}
+        onClose={() => setAlertModal({ isOpen: false, message: '', type: 'info' })}
+      />
     </>
   );
 };
