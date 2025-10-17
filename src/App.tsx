@@ -2,7 +2,6 @@
 import React, { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
-import { Toaster } from 'sonner';
 import ProtectedRoute from '@auth/ProtectedRoute';
 
 const GuestOrderLookup = lazy(() => import('./features/orders/GuestOrderLookup'));
@@ -84,24 +83,7 @@ const App: React.FC = () => {
                   <Route path="/products" element={<ProductPage />} />
                   <Route path="/products/:article_id" element={<ProductDetailPage />} />
                   <Route path="/shoe-care" element={<ShoeCarePage />} />
-                  <Route path="/wishlist" element={
-                    <ErrorBoundary fallback={
-                      <div className="min-h-screen flex items-center justify-center">
-                        <div className="text-center">
-                          <h2 className="text-xl font-semibold mb-4">Wishlist Unavailable</h2>
-                          <p className="text-gray-600 mb-4">Please try again or contact support.</p>
-                          <button 
-                            onClick={() => window.location.reload()}
-                            className="px-4 py-2 bg-blue-600 text-white rounded-lg"
-                          >
-                            Reload Page
-                          </button>
-                        </div>
-                      </div>
-                    }>
-                      <WishlistPage />
-                    </ErrorBoundary>
-                  } />
+                  <Route path="/wishlist" element={<WishlistPage />} />
                   <Route path="/privacy" element={<PrivacyPolicy />} />
                   <Route path="/terms" element={<TermsOfService />} />
                   <Route path="/shipping" element={<ShippingReturnsPolicy />} />
@@ -114,22 +96,9 @@ const App: React.FC = () => {
                     </Suspense>
                   } />
                   <Route path="/guest/orders" element={
-                    <ErrorBoundary fallback={
-                      <div className="min-h-screen flex items-center justify-center">
-                        <div className="text-center">
-                          <h2 className="text-xl font-semibold mb-4">Order Lookup Unavailable</h2>
-                          <p className="text-gray-600 mb-4">Please try again or contact support.</p>
-                          <button 
-                            onClick={() => window.location.reload()}
-                            className="px-4 py-2 bg-blue-600 text-white rounded-lg"
-                          >
-                            Reload Page
-                          </button>
-                        </div>
-                      </div>
-                    }>
+                    <Suspense fallback={<FiciLoader />}>
                       <GuestOrderLookup />
-                    </ErrorBoundary>
+                    </Suspense>
                   } />
                   <Route path="/guest/orders/:orderId" element={
                     <Suspense fallback={<FiciLoader />}>
@@ -168,7 +137,6 @@ const App: React.FC = () => {
             <Footer />
           <FloatingWhatsApp />
         </div>
-        <Toaster richColors position="top-right" />
       </ErrorBoundary>
     </Router>
     </HelmetProvider>

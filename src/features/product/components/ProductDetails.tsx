@@ -131,7 +131,7 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
 
   const careInstructions = getCareInstructions(currentProduct.sub_category || '');
 
-  //console.log("Care instruction ",careInstructions)
+  console.log("Care instruction ",careInstructions)
 
 
 
@@ -141,6 +141,31 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
       <div className="space-y-1">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{selectedVariant?.name}</h1>
+
+          {/* Wishlist Icon next to Product Name */}
+          <button
+            onClick={onWishlistToggle}
+            className={`p-2 rounded-full transition-all ${
+              isWishlisted
+                ? 'text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20'
+                : 'text-gray-400 hover:text-red-500 hover:bg-gray-50 dark:hover:bg-gray-800'
+            }`}
+            aria-label={isWishlisted ? 'Remove from wishlist' : 'Add to wishlist'}
+          >
+            <svg
+              className={`w-6 h-6 ${isWishlisted ? 'fill-current text-red-500' : 'text-gray-400'}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              strokeWidth="2"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
+              />
+            </svg>
+          </button>
         </div>
       </div>
 
@@ -207,11 +232,11 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
           isBag={isBag}
         />
 
-        <div className="flex items-center justify-center space-x-2 py-2 px-2">
-          <svg className="h-5 w-5 text-green-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <div className="flex items-center justify-center space-x-2 py-2">
+          <svg className="h-5 w-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.02-.382-3.016z" />
           </svg>
-          <span className="text-xs text-gray-500 dark:text-gray-400 text-center">Secure Checkout with Razorpay</span>
+          <span className="text-xs text-gray-500 dark:text-gray-400">Secure Checkout with Razorpay</span>
         </div>
       </div>
 
@@ -243,7 +268,7 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
       {/* Care Instructions */}
       <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
         <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Care Instructions</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           {careInstructions.slice(0, 4).map((instruction, index) => (
             <div key={index} className="flex items-start">
               <svg className="h-4 w-4 text-gray-400 dark:text-gray-500 mt-0.5 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -257,10 +282,10 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
 
       {/* Share & More */}
       <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-        <div className="flex items-center justify-center sm:justify-start">
-          <button
+        <div className="flex items-center justify-between">
+          <button 
             onClick={() => setShowShareModal(true)}
-            className="flex items-center text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-accent transition-colors px-3 py-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
+            className="flex items-center text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-accent transition-colors"
           >
             <svg className="h-5 w-5 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />

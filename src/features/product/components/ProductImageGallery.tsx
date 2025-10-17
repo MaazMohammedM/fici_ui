@@ -183,11 +183,9 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
     return result;
   }, [selectedVariant, parseImages]);
 
-  // Notify parent component of zoom state changes - only when actual state changes
+  // Notify parent component of zoom state changes
   useEffect(() => {
-    // Only call onZoomStateChange if the actual zoom state values have changed
-    // This prevents unnecessary re-renders when only the callback reference changes
-    if (onZoomStateChange && typeof onZoomStateChange === 'function') {
+    if (onZoomStateChange) {
       onZoomStateChange({
         isHovering,
         showLens,
@@ -197,7 +195,7 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
         zoomPos
       });
     }
-  }, [isHovering, showLens, isZoomDisabled, selectedImage, zoomPos, finalImages, onZoomStateChange]);
+  }, [isHovering, showLens, isZoomDisabled, selectedImage, zoomPos, onZoomStateChange, finalImages]);
 
   const nextImage = useCallback(() => setSelectedImage(p => (p + 1) % finalImages.length), [finalImages.length]);
   const prevImage = useCallback(() => setSelectedImage(p => (p - 1 + finalImages.length) % finalImages.length), [finalImages.length]);
@@ -460,7 +458,7 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
 
       {/* Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/90 z-40 flex items-center justify-center p-4" onClick={closeImageModal}>
+        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" onClick={closeImageModal}>
           <div className="relative w-full max-w-4xl max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
             <button onClick={closeImageModal} className="absolute -top-10 right-0 text-white">
               <X className="w-8 h-8" />
