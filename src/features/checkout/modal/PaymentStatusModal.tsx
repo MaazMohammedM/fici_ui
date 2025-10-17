@@ -9,6 +9,7 @@ interface PaymentStatusModalProps {
   message?: string;
   savings?: number;
   totalAmount?: number;
+  totalMrp?: number;
   prepaidDiscount?: number;
   onClose: () => void;
   onRetry?: () => void;
@@ -20,6 +21,7 @@ const PaymentStatusModal: React.FC<PaymentStatusModalProps> = ({
   message,
   savings,
   totalAmount,
+  totalMrp,
   prepaidDiscount,
   onClose,
   onRetry
@@ -114,6 +116,10 @@ const PaymentStatusModal: React.FC<PaymentStatusModalProps> = ({
                 <div className="flex justify-between text-sm sm:text-base">
                   <span className="text-gray-600 dark:text-gray-400">Total Items:</span>
                   <span className="font-medium text-gray-900 dark:text-white">{cartItems.length}</span>
+                </div>
+                <div className="flex justify-between text-sm sm:text-base">
+                  <span className="text-gray-600 dark:text-gray-400">Total MRP:</span>
+                  <span className="font-medium text-gray-900 dark:text-white">₹{totalMrp?.toLocaleString('en-IN') || '0'}</span>
                 </div>
                 <div className="flex justify-between text-sm sm:text-base">
                   <span className="text-gray-600 dark:text-gray-400">Subtotal:</span>

@@ -33,8 +33,9 @@ export const calculateAggregateOrderStatus = (items: OrderItem[]): Order['status
     return 'partially_delivered';
   }
   
-  // Default based on majority status
-  if (someShipped) return 'shipped';
+  // Return 'partially_shipped' when some items are shipped but not all
+  if (someShipped && !allShipped) return 'partially_shipped';
+  
   return 'pending';
 };
 

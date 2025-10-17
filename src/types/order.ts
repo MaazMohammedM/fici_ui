@@ -60,7 +60,7 @@ export interface Order {
   discount: number;
   delivery_charge: number;
   total_amount: number;
-  status: 'pending' | 'paid' | 'shipped' | 'delivered' | 'cancelled' | 'returned' | 'partially_delivered' | 'partially_cancelled' | 'partially_refunded';
+  status: 'pending' | 'paid' | 'shipped' | 'delivered' | 'cancelled' | 'returned' | 'partially_delivered' | 'partially_cancelled' | 'partially_refunded' | 'partially_shipped';
   payment_status: 'pending' | 'paid' | 'failed' | 'refunded' | 'partially_refunded';
   payment_method?: string;
   payment_id?: string;

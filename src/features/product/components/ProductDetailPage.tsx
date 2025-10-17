@@ -1,4 +1,4 @@
-import React, { useState, useEffect,useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import ProductDescription from "./ProductDescription";
 import { useProductStore } from '@store/productStore';
@@ -10,6 +10,7 @@ import ProductImageGallery from './ProductImageGallery';
 import ProductDetails from './ProductDetails';
 import CustomerReviews from './CustomerReviews';
 import RelatedProducts from './RelatedProducts';
+import AlertModal from '@components/ui/AlertModal';
 
 const ProductDetailPage: React.FC = () => {
   const { article_id } = useParams<{ article_id: string }>();
@@ -36,6 +37,15 @@ const ProductDetailPage: React.FC = () => {
   const [quantity, setQuantity] = useState(1);
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [showSuccessMessage, setShowSuccessMessage] = useState(false);
+  const [alertModal, setAlertModal] = useState<{
+    isOpen: boolean;
+    message: string;
+    type?: 'info' | 'warning' | 'error' | 'success';
+  }>({
+    isOpen: false,
+    message: '',
+    type: 'info'
+  });
 
   // Zoom state for ProductImageGallery
   const [zoomState, setZoomState] = useState({
@@ -47,15 +57,32 @@ const ProductDetailPage: React.FC = () => {
     zoomPos: { x: 50, y: 50 }
   });
 
+  // Memoized callback for zoom state changes - must be at top level
+  const handleZoomStateChange = useCallback((state) => {
+    setZoomState(prevState => ({
+      ...prevState,
+      ...state
+    }));
+  }, []);
+
+  // Helper function to show alert modal
+  const showAlert = (message: string, type: 'info' | 'warning' | 'error' | 'success' = 'info') => {
+    setAlertModal({
+      isOpen: true,
+      message,
+      type
+    });
+  };
+
   const handleAddToCart = useCallback((): boolean => {
     if (!selectedSize) {
-      alert('Please select a size');
+      showAlert('Please select a size');
       return false;
     }
 
     const selectedVariant = currentProduct?.variants.find(v => v.article_id === selectedArticleId);
     if (!selectedVariant) {
-      alert('Please select a product variant');
+      showAlert('Please select a product variant');
       return false;
     }
 
@@ -368,136 +395,143 @@ Could you please let me know when this size will be available?`;
   }
 
   return (
-    <div className="bg-white dark:bg-dark1">
-      {/* Success Message */}
-      {showSuccessMessage && (
-        <div className="fixed top-4 right-4 z-50 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-in slide-in-from-top-2 duration-300">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-          </svg>
-          Product added to cart successfully!
-        </div>
-      )}
-
-      {/* Main Product Section */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="lg:grid lg:grid-cols-[40%_60%] lg:gap-8 relative">
-          {/* Left Column - Product Images (40%) */}
-          <div className="mb-8 lg:mb-0">
-            <ProductImageGallery
-              selectedVariant={currentVariant}
-              productName={currentProduct.name}
-              isWishlisted={isWishlisted}
-              onWishlistToggle={handleWishlistToggle}
-              onZoomStateChange={(state) => setZoomState(state)}
-            />
+    <>
+      <div className="bg-white dark:bg-dark1">
+        {/* Success Message */}
+        {showSuccessMessage && (
+          <div className="fixed top-4 left-4 right-4 sm:left-auto sm:right-4 z-40 bg-green-500 text-white px-4 sm:px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-in slide-in-from-top-2 duration-300">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+            </svg>
+            <span className="text-sm sm:text-base">Product added to cart successfully!</span>
           </div>
+        )}
 
-          {/* Right Column - Product Details (60%) */}
-          <div className="sticky top-4 relative">
-            {/* Zoom preview overlay - fills the 60% space */}
-            {zoomState.isHovering && zoomState.showLens && !zoomState.isZoomDisabled && (
-              <div className="absolute inset-0 rounded-xl overflow-hidden shadow-2xl border-2 border-white/20 z-40 pointer-events-none">
-                <div
-                  className="w-full h-full"
-                  style={{
-                    backgroundImage: `url(${zoomState.currentImage})`,
-                    backgroundSize: `${zoomState.zoomLevel * 100}%`,
-                    backgroundPosition: `${zoomState.zoomPos.x}% ${zoomState.zoomPos.y}%`,
-                    backgroundRepeat: 'no-repeat'
-                  }}
+        {/* Main Product Section */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="lg:grid lg:grid-cols-[40%_60%] lg:gap-8 relative">
+            {/* Left Column - Product Images (40%) */}
+            <div className="mb-8 lg:mb-0">
+              <ProductImageGallery
+                selectedVariant={currentVariant}
+                productName={currentProduct.name}
+                isWishlisted={isWishlisted}
+                onWishlistToggle={handleWishlistToggle}
+                onZoomStateChange={handleZoomStateChange}
+              />
+            </div>
+
+            {/* Right Column - Product Details (60%) */}
+            <div className="sticky top-4 relative">
+              {/* Zoom preview overlay - fills the 60% space */}
+              {zoomState.isHovering && zoomState.showLens && !zoomState.isZoomDisabled && (
+                <div className="absolute inset-0 rounded-xl overflow-hidden shadow-2xl border-2 border-white/20 z-30 pointer-events-none">
+                  <div
+                    className="w-full h-full"
+                    style={{
+                      backgroundImage: `url(${zoomState.currentImage})`,
+                      backgroundSize: `${zoomState.zoomLevel * 100}%`,
+                      backgroundPosition: `${zoomState.zoomPos.x}% ${zoomState.zoomPos.y}%`,
+                      backgroundRepeat: 'no-repeat'
+                    }}
+                  />
+                </div>
+              )}
+
+              <div className={`bg-white dark:bg-dark2 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 ${zoomState.isHovering ? 'opacity-0' : 'opacity-100'} transition-opacity duration-200`}>
+                <ProductDetails
+                  currentProduct={currentProduct}
+                  selectedVariant={currentVariant}
+                  selectedArticleId={selectedArticleId}
+                  selectedSize={selectedSize}
+                  quantity={quantity}
+                  availableSizes={availableSizes}
+                  fullSizeRange={getFullSizeRange}
+                  onColorChange={handleColorChange}
+                  onSizeChange={setSelectedSize}
+                  onQuantityChange={setQuantity}
+                  onAddToCart={handleAddToCart}
+                  onBuyNow={handleBuyNow}
+                  onWishlistToggle={handleWishlistToggle}
+                  onWhatsAppContact={handleWhatsAppContact}
+                  isWishlisted={isWishlisted}
+                  isBag={isBag}
+                  isOutOfStock={isOutOfStock}
                 />
               </div>
-            )}
 
-            <div className={`bg-white dark:bg-dark2 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 ${zoomState.isHovering ? 'opacity-0' : 'opacity-100'} transition-opacity duration-200`}>
-              <ProductDetails
-                currentProduct={currentProduct}
-                selectedVariant={currentVariant}
-                selectedArticleId={selectedArticleId}
-                selectedSize={selectedSize}
-                quantity={quantity}
-                availableSizes={availableSizes}
-                fullSizeRange={getFullSizeRange}
-                onColorChange={handleColorChange}
-                onSizeChange={setSelectedSize}
-                onQuantityChange={setQuantity}
-                onAddToCart={handleAddToCart}
-                onBuyNow={handleBuyNow}
-                onWishlistToggle={handleWishlistToggle}
-                onWhatsAppContact={handleWhatsAppContact}
-                isWishlisted={isWishlisted}
-                isBag={isBag}
-                isOutOfStock={isOutOfStock}
-              />
-            </div>
-
-            {/* Trust Badges */}
-            <div className="mt-6">
-              <img
-                src="/src/assets/trust-badges.svg"
-                alt="Trust Badges - 3 Days Exchange Policy, Made in India, Free Delivery 5-7 Days"
-                className="w-full max-w-sm mx-auto rounded-lg shadow-sm"
-                onError={(e) => {
-                  // Fallback to original text badges if image fails to load
-                  const target = e.currentTarget as HTMLImageElement;
-                  const fallbackElement = target.nextElementSibling as HTMLElement;
-                  if (fallbackElement) {
-                    target.style.display = 'none';
-                    fallbackElement.style.display = 'grid';
-                  }
-                }}
-              />
-              {/* Fallback to original text badges if image is not available */}
-              <div className="hidden grid grid-cols-3 gap-3 mt-6 px-4" style={{display: 'none'}}>
-                <div className="p-3 bg-gray-50 dark:bg-dark3 rounded-lg text-center">
-                  <div className="text-gray-600 dark:text-gray-400 text-sm">3 Days Exchange</div>
-                  <div className="text-xs text-gray-500 dark:text-gray-500">Policy</div>
-                </div>
-                <div className="p-3 bg-gray-50 dark:bg-dark3 rounded-lg text-center">
-                  <div className="text-gray-600 dark:text-gray-400 text-sm">Made in India</div>
-                  <div className="text-xs text-gray-500 dark:text-gray-500">Quality assured</div>
-                </div>
-                <div className="p-3 bg-gray-50 dark:bg-dark3 rounded-lg text-center">
-                  <div className="text-gray-600 dark:text-gray-400 text-sm">Free Delivery</div>
-                  <div className="text-xs text-gray-500 dark:text-gray-500">Within 5-7 days</div>
+              {/* Trust Badges */}
+              <div className="mt-6">
+                <img
+                  src="/src/assets/trust-badges.svg"
+                  alt="Trust Badges - 3 Days Exchange Policy, Made in India, Free Delivery 5-7 Days"
+                  className="w-full max-w-sm mx-auto rounded-lg shadow-sm"
+                  onError={(e) => {
+                    // Fallback to original text badges if image fails to load
+                    const target = e.currentTarget as HTMLImageElement;
+                    const fallbackElement = target.nextElementSibling as HTMLElement;
+                    if (fallbackElement) {
+                      target.style.display = 'none';
+                      fallbackElement.style.display = 'grid';
+                    }
+                  }}
+                />
+                {/* Fallback to original text badges if image is not available */}
+                <div className="hidden grid grid-cols-3 gap-3 mt-6 px-4" style={{display: 'none'}}>
+                  <div className="p-3 bg-gray-50 dark:bg-dark3 rounded-lg text-center">
+                    <div className="text-gray-600 dark:text-gray-400 text-sm">3 Days Exchange</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-500">Policy</div>
+                  </div>
+                  <div className="p-3 bg-gray-50 dark:bg-dark3 rounded-lg text-center">
+                    <div className="text-gray-600 dark:text-gray-400 text-sm">Made in India</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-500">Quality assured</div>
+                  </div>
+                  <div className="p-3 bg-gray-50 dark:bg-dark3 rounded-lg text-center">
+                    <div className="text-gray-600 dark:text-gray-400 text-sm">Free Delivery</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-500">Within 5-7 days</div>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-
         </div>
-      </div>
 
-      {/* Minimal description */}
-      {currentProduct.description && (
-        <div className="bg-gray-50 dark:bg-dark3 py-8">
-          <div className="max-w-4xl mx-auto px-4">
-            <ProductDescription
-              description={currentProduct.description}
-            />
+        {/* Minimal description */}
+        {currentProduct.description && (
+          <div className="bg-gray-50 dark:bg-dark3 py-8">
+            <div className="max-w-4xl mx-auto px-4">
+              <ProductDescription
+                description={currentProduct.description}
+              />
+            </div>
           </div>
+        )}
+
+        {/* Customer Reviews */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-8">Customer Reviews</h2>
+          <CustomerReviews productId={selectedVariant?.product_id} />
         </div>
-      )}
 
-      {/* Customer Reviews */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-8">Customer Reviews</h2>
-        <CustomerReviews productId={selectedVariant?.product_id} />
-      </div>
-
-      {/* Related Products */}
-      {relatedProducts.length > 0 && (
-        <div className="bg-gray-50 dark:bg-dark3 py-12">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-8">You May Also Like</h2>
-            <RelatedProducts products={relatedProducts} />
+        {/* Related Products */}
+        {relatedProducts.length > 0 && (
+          <div className="bg-gray-50 dark:bg-dark3 py-12">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-8">You May Also Like</h2>
+              <RelatedProducts products={relatedProducts} />
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Newsletter removed for minimal design */}
-    </div>
+        {/* Newsletter removed for minimal design */}
+      </div>
+      <AlertModal
+        isOpen={alertModal.isOpen}
+        message={alertModal.message}
+        type={alertModal.type}
+        onClose={() => setAlertModal({ isOpen: false, message: '', type: 'info' })}
+      />
+    </>
   );
 };
 

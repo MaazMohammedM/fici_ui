@@ -74,19 +74,19 @@ export const WishlistPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Your Wishlist</h1>
-          <div className="flex space-x-3">
+          <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 w-full sm:w-auto">
             <button
               onClick={clearWishlist}
-              className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="inline-flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
             >
               <X className="-ml-0.5 mr-2 h-4 w-4" />
               Clear All
             </button>
             <Link
               to="/products"
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
             >
               <ArrowLeft className="-ml-1 mr-2 h-5 w-5" />
               Continue Shopping
@@ -148,9 +148,9 @@ export const WishlistPage: React.FC = () => {
                     ₹{product.price?.toLocaleString('en-IN')}
                   </p>
 
-                  <div className="mt-4 flex justify-between">
+                  <div className="mt-4 flex flex-col sm:flex-row gap-2 sm:gap-3">
                     <button
-                      className="flex-1 mr-2 px-3 py-1.5 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 flex items-center justify-center"
+                      className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 flex items-center justify-center transition-colors"
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
@@ -163,7 +163,7 @@ export const WishlistPage: React.FC = () => {
                     </button>
                     <button
                       disabled={isOutOfStock}
-                      className={`flex-1 ml-2 px-3 py-1.5 text-sm font-medium border rounded-md flex items-center justify-center ${
+                      className={`flex-1 px-4 py-2 text-sm font-medium border rounded-md flex items-center justify-center transition-colors whitespace-nowrap ${
                         isOutOfStock
                           ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
                           : 'text-white bg-blue-600 border-transparent hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
@@ -176,7 +176,7 @@ export const WishlistPage: React.FC = () => {
                         }
                       }}
                     >
-                      <ShoppingCart className="h-4 w-4 mr-2" />
+                      <ShoppingCart className="h-4 w-4 mr-2 flex-shrink-0" />
                       <span>{isOutOfStock ? 'Out of Stock' : 'Add to Cart'}</span>
                     </button>
                   </div>

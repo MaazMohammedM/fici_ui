@@ -122,6 +122,24 @@ const OrderDetailsPage = ({ isGuest = false }: { isGuest?: boolean }) => {
           delivered_at: orderData.delivered_at,
         };
 
+        console.log('🔍 DEBUG - Order Data Transformation:');
+        console.log('Raw orderData:', orderData);
+        console.log('Raw orderData.items:', orderData.items);
+        const itemsArray = orderData.items;
+        if (Array.isArray(itemsArray)) {
+          console.log('Raw orderData.items full details:', itemsArray.map((item: any) => ({
+            order_item_id: item.order_item_id,
+            item_status: item.item_status,
+            status: item.status,
+            product_name: item.product_name
+          })));
+        }
+        console.log('Transformed order items:', transformedOrder.items.map(item => ({
+          id: item.order_item_id,
+          status: item.item_status,
+          product: item.product_name
+        })));
+
         setOrder(transformedOrder);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load order');
@@ -285,13 +303,33 @@ const OrderDetailsPage = ({ isGuest = false }: { isGuest?: boolean }) => {
   };
 
   const canCancelOrder = (order: OrderDetails) => {
-    return order.status === 'pending' || order.status === 'paid';
+    // Use dbItems for cancel check since it comes directly from database with accurate statuses
+    // If dbItems is not loaded yet, fall back to order.items
+    const itemsToCheck = dbItems.length > 0 ? dbItems : order.items;
+
+    const cancellableItems = itemsToCheck.filter(item => canCancelItem(item));
+    console.log('🔍 DEBUG - Cancel Order Check:');
+    console.log('Order payment method:', order.payment_method);
+    console.log('Order status:', order.status);
+    console.log('Using items for check:', itemsToCheck.length > 0 ? 'dbItems' : 'order.items');
+    console.log('Items count:', itemsToCheck.length);
+    console.log('Items details:', itemsToCheck.map(item => ({
+      id: item.order_item_id,
+      status: item.item_status || (item as any).status,
+      product: item.product_name
+    })));
+    console.log('Cancellable items count:', cancellableItems.length);
+    console.log('Cancellable items:', cancellableItems.map(item => ({
+      id: item.order_item_id,
+      status: item.item_status || (item as any).status
+    })));
+
+    return cancellableItems.length > 0;
   };
 
   const canReturnOrder = (order: OrderDetails) => {
-    return order.status === 'delivered' &&
-           order.delivered_at &&
-           (new Date().getTime() - new Date(order.delivered_at).getTime()) <= (3 * 24 * 60 * 60 * 1000); // 3 days
+    // Check if there are any items that can be returned
+    return order.items.some(item => canReturnItem(item));
   };
 
   const openReturnModal = (order: OrderDetails) => {
@@ -419,27 +457,34 @@ const OrderDetailsPage = ({ isGuest = false }: { isGuest?: boolean }) => {
   };
 
   const canCancelItem = (item: OrderItem) => {
-    return item.item_status === 'pending';
+    // Get the item status - check both item_status and status fields
+    const itemStatus = item.item_status || (item as any).status || 'pending';
+
+    // Can only cancel items that are pending and not already cancelled/returned/refunded
+    return itemStatus === 'pending' &&
+           !['cancelled', 'returned', 'refunded'].includes(itemStatus);
   };
 
   const canReturnItem = (item: OrderItem) => {
-    return item.item_status === 'shipped' || item.item_status === 'delivered';
+    // Can only return items that are delivered (not shipped or other statuses)
+    return item.item_status === 'delivered' &&
+           !['returned', 'refunded', 'cancelled'].includes(item.item_status || '');
   };
 
   const getAggregateOrderMessage = (items: OrderItem[]) => {
     if (!items || items.length === 0) return '';
-    
+
     const statuses = items.map(item => item.item_status || 'pending');
     const allCancelled = statuses.every(s => s === 'cancelled');
     const allDelivered = statuses.every(s => s === 'delivered');
     const someCancelled = statuses.some(s => s === 'cancelled' || s === 'refunded');
     const someProcessing = statuses.some(s => s === 'shipped' || s === 'pending');
-    
+
     if (allCancelled) return 'This order has been cancelled.';
     if (allDelivered) return 'All items have been delivered.';
     if (someCancelled && someProcessing) return 'Partially fulfilled order.';
     if (someProcessing) return 'Some items are being processed.';
-    
+
     return '';
   };
 
@@ -525,16 +570,31 @@ const OrderDetailsPage = ({ isGuest = false }: { isGuest?: boolean }) => {
               </div>
               <div className="mt-4 sm:mt-0 flex items-center gap-3">
                 <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                  order.status === 'delivered' ? 'bg-green-100 text-green-800' :
-                  order.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                  order.status === 'shipped' ? 'bg-blue-100 text-blue-800' :
-                  'bg-yellow-100 text-yellow-800'
+                  (() => {
+                    const statuses = order.items.map(item => item.item_status || 'pending');
+                    const allCancelled = statuses.every(s => s === 'cancelled');
+                    const allDelivered = statuses.every(s => s === 'delivered');
+
+                    if (allCancelled) return 'bg-red-100 text-red-800';
+                    if (allDelivered) return 'bg-green-100 text-green-800';
+                    if (order.status === 'shipped') return 'bg-blue-100 text-blue-800';
+                    if (order.status === 'cancelled') return 'bg-red-100 text-red-800';
+                    return 'bg-yellow-100 text-yellow-800';
+                  })()
                 }`}>
-                  {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                  {(() => {
+                    const statuses = order.items.map(item => item.item_status || 'pending');
+                    const allCancelled = statuses.every(s => s === 'cancelled');
+                    const allDelivered = statuses.every(s => s === 'delivered');
+
+                    if (allCancelled) return 'Cancelled';
+                    if (allDelivered) return 'Delivered';
+                    return order.status.charAt(0).toUpperCase() + order.status.slice(1);
+                  })()}
                 </span>
 
                 {/* Action Buttons */}
-                {!isGuest && !isGuestUser && (
+                {(!isGuest || order.payment_method === 'cod') && !isGuestUser && (
                   <div className="flex gap-2">
                     {canCancelOrder(order) && (
                       <button
@@ -715,6 +775,7 @@ const OrderDetailsPage = ({ isGuest = false }: { isGuest?: boolean }) => {
                             <button
                               onClick={() => openCancelItemModal(item)}
                               className="px-3 py-1.5 text-xs bg-red-600 text-white rounded-md hover:bg-red-700 font-medium"
+                              title="Cancel this item"
                             >
                               Cancel Item
                             </button>
@@ -723,9 +784,15 @@ const OrderDetailsPage = ({ isGuest = false }: { isGuest?: boolean }) => {
                             <button
                               onClick={() => openReturnItemModal(item)}
                               className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded-md hover:bg-blue-700 font-medium"
+                              title="Request return for this item"
                             >
                               Request Return
                             </button>
+                          )}
+                          {!canCancelItem(item) && !canReturnItem(item) && (
+                            <span className="px-3 py-1.5 text-xs text-gray-500 bg-gray-100 rounded-md">
+                              No actions available
+                            </span>
                           )}
                         </div>
                       )}
@@ -834,18 +901,18 @@ const OrderDetailsPage = ({ isGuest = false }: { isGuest?: boolean }) => {
                   <button
                     onClick={() => {
                       const cancelableItems = dbItems
-                        .filter(item => item.item_status !== 'cancelled' && item.item_status !== 'delivered')
+                        .filter(item => canCancelItem(item))
                         .map(item => item.order_item_id);
                       setSelectedItemsForCancel(cancelableItems);
                     }}
                     className="text-xs text-blue-600 hover:text-blue-700"
                   >
-                    Select All
+                    Select All Cancellable
                   </button>
                 </div>
                 <div className="space-y-2 max-h-60 overflow-y-auto border border-gray-200 rounded-lg p-3">
                   {dbItems.map((item) => {
-                    const isDisabled = item.item_status === 'cancelled' || item.item_status === 'delivered';
+                    const isDisabled = !canCancelItem(item);
                     return (
                       <label
                         key={item.order_item_id}
@@ -855,6 +922,9 @@ const OrderDetailsPage = ({ isGuest = false }: { isGuest?: boolean }) => {
                           type="checkbox"
                           checked={selectedItemsForCancel.includes(item.order_item_id)}
                           onChange={(e) => {
+                            if (e.target.checked && !canCancelItem(item)) {
+                              return; // Prevent checking items that can't be cancelled
+                            }
                             if (e.target.checked) {
                               setSelectedItemsForCancel(prev => [...prev, item.order_item_id]);
                             } else {
