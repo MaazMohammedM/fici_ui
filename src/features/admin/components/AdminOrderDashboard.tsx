@@ -1626,3 +1626,5 @@ const OrderDetailsModal: React.FC<{
     </>
   );
 };
+
+export default AdminOrderDashboard;
