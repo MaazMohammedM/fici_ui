@@ -24,13 +24,25 @@ export const enhancedProductSchema = z.object({
 
 // Update schema for editing (without article_id)
 export const editProductSchema = z.object({
-  name: z.string().min(2, 'Product name must be at least 2 characters'),
+  name: z.string().min(2, 'Product name must be at least 2 characters').trim(),
   description: z.string().optional(),
   sub_category: z.string().optional(),
-  mrp_price: z.string().min(1, 'MRP price is required'),
-  discount_price: z.string().min(1, 'Discount price is required'),
-  gender: z.string().nonempty('Please select a gender'),
-  category: z.string().nonempty('Please select a category'),
+  mrp_price: z.string()
+    .min(1, 'MRP price is required')
+    .refine((val) => {
+      const num = parseFloat(val);
+      return !isNaN(num) && num > 0;
+    }, 'MRP price must be a positive number')
+    .transform((val) => val.trim()),
+  discount_price: z.string()
+    .min(1, 'Discount price is required')
+    .refine((val) => {
+      const num = parseFloat(val);
+      return !isNaN(num) && num > 0;
+    }, 'Discount price must be a positive number')
+    .transform((val) => val.trim()),
+  gender: z.string().min(1, 'Please select a gender').trim(),
+  category: z.string().min(1, 'Please select a category').trim(),
   sizes: z.string().refine((val) => {
     try {
       const parsed = JSON.parse(val);

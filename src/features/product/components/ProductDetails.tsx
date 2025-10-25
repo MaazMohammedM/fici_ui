@@ -6,6 +6,7 @@ import ProductQuantitySelector from "@features/product/sections/ProductQuantityS
 import ProductActionButtons from "@features/product/sections/ProductActionButtons";
 import SizeGuideModal from "../../../components/ui/SizeGuideModal";
 import ShareModal from "./ShareModal";
+import ProductDescription from "./ProductDescription";
 
 interface ProductDetailsProps {
   currentProduct: ProductDetail;
@@ -32,10 +33,12 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
   selectedVariant,
   selectedArticleId,
   selectedSize,
+  quantity,
   availableSizes,
   fullSizeRange,
   onColorChange,
   onSizeChange,
+  onQuantityChange,
   onAddToCart,
   onBuyNow,
   onWhatsAppContact,
@@ -46,29 +49,12 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
 }) => {
   const [showSizeGuide, setShowSizeGuide] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
-  const [quantitys, setQuantity] = useState(1);
 
+  // Memoized care instructions based on product sub_category
+  const careInstructions = useMemo(() => {
+    const category = (currentProduct.sub_category || '').toLowerCase();
 
-  // Generate shoe sizes (39-47) if the product is footwear
-  const shoeSizes = useMemo(() => {
-    return Array.from({ length: 9 }, (_, i) => (39 + i).toString());
-  }, []);
-
-  // Determine which sizes to show based on product category
-  const displaySizes = useMemo(() => {
-    if (currentProduct.category?.toLowerCase().includes('footwear')) {
-      return shoeSizes;
-    }
-    return availableSizes.length > 0 ? availableSizes : fullSizeRange;
-  }, [currentProduct.category, availableSizes, fullSizeRange, shoeSizes]);
-
-  // Get the product name to display (prefer variant name if available)
-
-  // Get care instructions based on product sub_category
-  const getCareInstructions = (subCategory: string) => {
-    const category = subCategory.toLowerCase();
-    
-    const careInstructions: Record<string, string[]> = {
+    const careInstructionsMap: Record<string, string[]> = {
       'shoes': [
         'Clean with a soft, damp cloth',
         'Use leather conditioner monthly',
@@ -112,7 +98,7 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
     };
 
     // Find matching category or return general care instructions
-    for (const [key, instructions] of Object.entries(careInstructions)) {
+    for (const [key, instructions] of Object.entries(careInstructionsMap)) {
       if (category.includes(key)) {
         return instructions;
       }
@@ -127,20 +113,16 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
       'Keep away from sharp objects',
       'Regular maintenance recommended'
     ];
-  };
-
-  const careInstructions = getCareInstructions(currentProduct.sub_category || '');
-
-  //console.log("Care instruction ",careInstructions)
-
-
+  }, [currentProduct.sub_category]);
 
   return (
     <div className="space-y-6">
       {/* Brand and Category */}
       <div className="space-y-1">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{selectedVariant?.name}</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            {selectedVariant?.name || currentProduct.name}
+          </h1>
         </div>
       </div>
 
@@ -165,7 +147,7 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
       </div>
 
       {/* Color Selector */}
-      <div className="pt-4 border-t border-gray-200">
+      <div className="pt-3 border-t border-gray-200">
         <ProductColorSelector
           currentProduct={currentProduct}
           selectedVariant={selectedVariant}
@@ -174,32 +156,35 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
         />
       </div>
 
-      {/* Size Selector */}
-      <div className="pt-4 border-t border-gray-200">
-        <ProductSizeSelector
-          fullSizeRange={displaySizes}
-          availableSizes={availableSizes}
-          selectedSize={selectedSize}
-          onSizeChange={onSizeChange}
-          onWhatsAppContact={onWhatsAppContact}
-          onShowSizeGuide={() => setShowSizeGuide(true)}
-          isBag={isBag}
-          isOutOfStock={isOutOfStock}
-        />
-      </div>
+      {/* Size Selector - Only show if a variant/color is selected */}
+      {selectedVariant && (
+        <div className="pt-3 border-t border-gray-200">
+          <ProductSizeSelector
+            fullSizeRange={fullSizeRange}
+            availableSizes={availableSizes}
+            selectedSize={selectedSize}
+            onSizeChange={onSizeChange}
+            onWhatsAppContact={onWhatsAppContact}
+            onShowSizeGuide={() => setShowSizeGuide(true)}
+            isBag={isBag}
+            isOutOfStock={isOutOfStock}
+          />
+        </div>
+      )}
 
       {/* Quantity Selector - Only show if a size is selected */}
       {selectedSize && (
-        <div className="pt-4 border-t border-gray-200">
-
-<ProductQuantitySelector
-  quantity={quantitys}
-  onQuantityChange={setQuantity}
-  maxQuantity={ 10}
-/>
+        <div className="pt-3 border-t border-gray-200">
+          <ProductQuantitySelector
+            quantity={quantity}
+            onQuantityChange={onQuantityChange}
+            maxQuantity={10}
+          />
         </div>
       )}
-      <div className="pt-4 space-y-3">
+
+      {/* Action Buttons and Trust Badge */}
+      <div className="pt-3 space-y-3">
         <ProductActionButtons
           onAddToCart={onAddToCart}
           onBuyNow={onBuyNow}
@@ -215,8 +200,15 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
         </div>
       </div>
 
+      {/* Product Description */}
+      {currentProduct.description && (
+        <ProductDescription
+          description={currentProduct.description}
+        />
+      )}
+
       {/* Product Highlights */}
-      <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+      <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
         <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Product Highlights</h3>
         <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
           <li className="flex items-start">
@@ -241,7 +233,7 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
       </div>
 
       {/* Care Instructions */}
-      <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+      <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
         <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Care Instructions</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {careInstructions.slice(0, 4).map((instruction, index) => (
@@ -256,7 +248,7 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
       </div>
 
       {/* Share & More */}
-      <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+      <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
         <div className="flex items-center justify-center sm:justify-start">
           <button
             onClick={() => setShowShareModal(true)}
@@ -279,7 +271,7 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
       <ShareModal
         isOpen={showShareModal}
         onClose={() => setShowShareModal(false)}
-        productName={currentProduct.name}
+        productName={selectedVariant?.name || currentProduct.name}
         productUrl={window.location.href}
         productImage={selectedVariant?.thumbnail_url}
         productPrice={String(selectedVariant?.discount_price || '')}

@@ -533,12 +533,6 @@ export const useProductStore = create<ProductState>((set, get) => ({
         if (!randomError && randomData) {
           const allProducts = [...(data || []), ...randomData];
           const processedProducts = allProducts.map(product => {
-            console.log('Processing related product:', {
-              article_id: product.article_id,
-              mrp_price: product.mrp_price,
-              discount_price: product.discount_price,
-              name: product.name
-            });
             return {
               ...product,
               sizes: safeParseSizes(product.sizes),
@@ -558,12 +552,6 @@ export const useProductStore = create<ProductState>((set, get) => ({
       }
 
       const processedProducts = (data || []).map(product => {
-        console.log('Processing related product (final):', {
-          article_id: product.article_id,
-          mrp_price: product.mrp_price,
-          discount_price: product.discount_price,
-          name: product.name
-        });
         return {
           ...product,
           sizes: safeParseSizes(product.sizes),

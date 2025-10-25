@@ -163,23 +163,14 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
       return [fallbackImage];
     }
 
-    console.log('Processing images for variant:', selectedVariant.article_id);
-    console.log('Raw images data:', selectedVariant.images);
-
     let imgs = parseImages(selectedVariant.images);
 
-    console.log('Parsed images:', imgs);
-
-    // If no images from parsing, try thumbnail_url
     if (imgs.length === 0 && selectedVariant.thumbnail_url) {
       console.log('Using thumbnail_url as fallback:', selectedVariant.thumbnail_url);
       imgs = [selectedVariant.thumbnail_url];
     }
 
-    // Final fallback to default image
     const result = imgs.length ? imgs : [fallbackImage];
-    console.log('Final images array:', result);
-
     return result;
   }, [selectedVariant, parseImages]);
 
@@ -329,6 +320,16 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
 
   return (
     <div className="space-y-4">
+      {/* Color disclaimer - Desktop: above image, Mobile: below image */}
+      <div className="hidden md:block px-3">
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 p-3 rounded-lg text-sm">
+          <p className="text-yellow-700 dark:text-yellow-300">
+            <span className="font-medium">Product Color Information :</span>
+            We do our best to show you exactly what each product looks like, but sometimes colors may look slightly different in person due to lighting and screen differences.
+          </p>
+        </div>
+      </div>
+
       {/* Main image area - Simple single column layout for 40% container */}
       <div className="relative group">
         {/* Desktop & Mobile Layout - Single column within allocated space */}
@@ -498,12 +499,12 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
         </div>
       )}
 
-      {/* Color disclaimer */}
-      <div className="mt-4 px-3">
-        <div className="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 p-2 rounded text-sm">
+      {/* Color disclaimer - Mobile: below image */}
+      <div className="md:hidden px-3">
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 p-3 rounded-lg text-sm">
           <p className="text-yellow-700 dark:text-yellow-300">
-            <span className="font-medium">Color Disclaimer:</span> Product colors may appear slightly different due to
-            monitor settings. Every effort is made to display colors accurately.
+            <span className="font-medium">Product Color Information :</span>
+            We do our best to show you exactly what each product looks like, but sometimes colors may look slightly different in person due to lighting and screen differences.
           </p>
         </div>
       </div>

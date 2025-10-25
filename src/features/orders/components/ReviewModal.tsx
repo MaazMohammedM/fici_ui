@@ -13,7 +13,7 @@ interface ReviewModalProps {
 
 const ReviewModal: React.FC<ReviewModalProps> = ({ order, item, existingReview, onClose }) => {
   const { submitReview, updateReview, loading } = useOrderStore();
-  const { user } = useAuthStore();
+  const { user, guestSession } = useAuthStore();
   const [rating, setRating] = useState(existingReview?.rating || 0);
   const [hoveredRating, setHoveredRating] = useState(0);
   const [title, setTitle] = useState(existingReview?.title || '');
@@ -21,6 +21,8 @@ const ReviewModal: React.FC<ReviewModalProps> = ({ order, item, existingReview, 
   const [submitting, setSubmitting] = useState(false);
 
   const isEditing = !!existingReview;
+  const isGuest = !user;
+  const reviewType = isGuest ? 'guest' : 'registered';
 
   useEffect(() => {
     if (existingReview) {
@@ -32,7 +34,7 @@ const ReviewModal: React.FC<ReviewModalProps> = ({ order, item, existingReview, 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || rating === 0) return;
+    if (rating === 0) return;
 
     setSubmitting(true);
     try {
@@ -43,17 +45,27 @@ const ReviewModal: React.FC<ReviewModalProps> = ({ order, item, existingReview, 
           comment: comment.trim(),
         });
       } else {
-        await submitReview({
+        // Handle both registered and guest users
+        const reviewData: any = {
           product_id: item.product_id,
-          user_id: user.id,
           rating,
           title: title.trim(),
           comment: comment.trim(),
-        });
+          is_verified_purchase: true,
+          review_type: reviewType,
+        };
+
+        if (user) {
+          reviewData.user_id = user.id;
+        } else if (guestSession) {
+          reviewData.guest_session_id = guestSession.guest_session_id;
+        }
+
+        await submitReview(reviewData);
       }
       onClose();
     } catch (error) {
-      console.log("Order",order);
+      console.log("Order", order);
       console.error('Error submitting/updating review:', error);
     } finally {
       setSubmitting(false);

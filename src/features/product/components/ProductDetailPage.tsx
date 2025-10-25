@@ -1,9 +1,7 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import ProductDescription from "./ProductDescription";
 import { useProductStore } from '@store/productStore';
-import { useCartStore } from '@store/cartStore';
-import { useWishlistStore } from '@store/wishlistStore';
 import { trackProductVisit } from '../../../services/productAnalytics';
 import FiciLoader from '@components/ui/FiciLoader';
 import ProductImageGallery from './ProductImageGallery';
@@ -11,43 +9,14 @@ import ProductDetails from './ProductDetails';
 import CustomerReviews from './CustomerReviews';
 import RelatedProducts from './RelatedProducts';
 import AlertModal from '@components/ui/AlertModal';
+import { useProductVariant } from '../hooks/useProductVariant';
+import { useProductActions } from '../hooks/useProductActions';
 
 const ProductDetailPage: React.FC = () => {
   const { article_id } = useParams<{ article_id: string }>();
   const navigate = useNavigate();
   const [isTrackingVisit, setIsTrackingVisit] = useState(false);
-
-  const {
-    currentProduct,
-    relatedProducts,
-    loading,
-    error,
-    fetchProductByArticleId,
-    fetchRelatedProducts,
-  } = useProductStore();
-
-  const { addToCart } = useCartStore();
-  const { addToWishlist, removeFromWishlist, isInWishlist } = useWishlistStore();
-
-  // Track selected variant by its article_id (variant.article_id)
-  const [selectedArticleId, setSelectedArticleId] = useState<string>('');
-  // Keep requested article id so we can set selection after fetch completes
-  const [requestedArticleId, setRequestedArticleId] = useState<string | null>(null);
-  const [selectedSize, setSelectedSize] = useState<string>('');
   const [quantity, setQuantity] = useState(1);
-  const [isWishlisted, setIsWishlisted] = useState(false);
-  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
-  const [alertModal, setAlertModal] = useState<{
-    isOpen: boolean;
-    message: string;
-    type?: 'info' | 'warning' | 'error' | 'success';
-  }>({
-    isOpen: false,
-    message: '',
-    type: 'info'
-  });
-
-  // Zoom state for ProductImageGallery
   const [zoomState, setZoomState] = useState({
     isHovering: false,
     showLens: false,
@@ -57,165 +26,40 @@ const ProductDetailPage: React.FC = () => {
     zoomPos: { x: 50, y: 50 }
   });
 
-  // Memoized callback for zoom state changes - must be at top level
-  const handleZoomStateChange = useCallback((state) => {
+  const {
+    currentProduct,
+    relatedProducts,
+    loading,
+    error,
+    fetchProductByArticleId,
+  } = useProductStore();
+
+  // Use custom hooks for complex state management
+  const productVariant = useProductVariant({
+    currentProduct,
+    articleId: article_id,
+  });
+
+  const productActions = useProductActions({
+    currentProduct,
+    selectedVariant: productVariant.selectedVariant,
+    selectedArticleId: productVariant.selectedArticleId,
+    selectedSize: productVariant.selectedSize,
+    quantity,
+  });
+
+  // Zoom state change handler
+  const handleZoomStateChange = useCallback((state: any) => {
     setZoomState(prevState => ({
       ...prevState,
       ...state
     }));
   }, []);
 
-  // Helper function to show alert modal
-  const showAlert = (message: string, type: 'info' | 'warning' | 'error' | 'success' = 'info') => {
-    setAlertModal({
-      isOpen: true,
-      message,
-      type
-    });
-  };
-
-  const handleAddToCart = useCallback((): boolean => {
-    if (!selectedSize) {
-      showAlert('Please select a size');
-      return false;
-    }
-
-    const selectedVariant = currentProduct?.variants.find(v => v.article_id === selectedArticleId);
-    if (!selectedVariant) {
-      showAlert('Please select a product variant');
-      return false;
-    }
-
-    const productImage =
-      Array.isArray(selectedVariant.images) && selectedVariant.images.length > 0
-        ? selectedVariant.images[0]:
-        selectedVariant.thumbnail_url || '';
-    console.log(productImage);
-
-    // Collect all available sizes across all variants for this product
-    const allAvailableSizes = new Set<string>();
-    currentProduct?.variants.forEach(variant => {
-      if (variant.sizes) {
-        Object.keys(variant.sizes).forEach(size => {
-          if ((variant.sizes[size] ?? 0) > 0) {
-            allAvailableSizes.add(size);
-          }
-        });
-      }
-    });
-
-    console.log('All available sizes for cart:', Array.from(allAvailableSizes));
-
-    addToCart({
-      product_id: selectedVariant.product_id,
-      article_id: selectedVariant.article_id,
-      name: currentProduct?.name || '',
-      price: Number(selectedVariant.discount_price) || 0,
-      mrp: selectedVariant.mrp,
-      quantity,
-      size: selectedSize,
-      color: String(selectedVariant.color),
-      image: selectedVariant.thumbnail_url || '',
-      thumbnail_url: selectedVariant.thumbnail_url || '',
-      discount_percentage: selectedVariant.discount_percentage || 0,
-      availableSizes: Array.from(allAvailableSizes).sort() // Add all available sizes for dropdown selection
-    });
-
-    // Show success message instead of alert
-    setShowSuccessMessage(true);
-    setTimeout(() => setShowSuccessMessage(false), 3000);
-    return true;
-  }, [selectedArticleId, currentProduct, selectedSize, addToCart, quantity]);
-
-  const handleBuyNow = useCallback(() => {
-    const added = handleAddToCart();
-    if (added) {
-      navigate('/cart');
-    }
-  }, [handleAddToCart, navigate]);
-
-  // Memoized computed values for better performance
-  const selectedVariant = useMemo(() => 
-    currentProduct?.variants.find(v => v.article_id === selectedArticleId),
-    [currentProduct, selectedArticleId]
-  );
-
-
-  const availableSizes = useMemo(() => {
-    if (!selectedVariant?.sizes) return [];
-
-    // For bags, check if product is out of stock and handle differently
-    const isBag = currentProduct?.sub_category?.toLowerCase().includes('bag') ||
-                  currentProduct?.category?.toLowerCase().includes('bag');
-
-    if (isBag) {
-      // For bags, get sizes from the sizes object if available
-      const bagSizes = Object.keys(selectedVariant.sizes).filter(s => (selectedVariant.sizes[s] ?? 0) > 0);
-      return bagSizes.length > 0 ? bagSizes : [];
-    }
-
-    // For shoes and sandals, use existing logic
-    return Object.keys(selectedVariant.sizes).filter(s => (selectedVariant.sizes[s] ?? 0) > 0);
-  }, [selectedVariant, currentProduct]);
-
-  // Check if product is out of stock (no sizes available)
-  const isOutOfStock = useMemo(() => {
-    return availableSizes.length === 0 && selectedVariant?.sizes !== undefined;
-  }, [availableSizes, selectedVariant]);
-
-  // Check if it's a bag product
-  const isBag = useMemo(() => {
-    return currentProduct?.sub_category?.toLowerCase().includes('bag') ||
-           currentProduct?.category?.toLowerCase().includes('bag');
-  }, [currentProduct]);
-
-  // Get full size range based on product category/subcategory
-  const getFullSizeRange = useMemo(() => {
-    const subcategory = currentProduct?.sub_category?.toLowerCase() || '';
-    const category = currentProduct?.category?.toLowerCase() || '';
-
-    // Check if it's a bag product
-    const isBag = subcategory.includes('bag') || category.includes('bag');
-
-    // For bags that are out of stock, return empty array to show "out of stock" message
-    if (isBag && isOutOfStock) {
-      return [];
-    }
-
-    // Determine if it's men's or women's based on category or subcategory
-    const isMens = category.includes('men') || subcategory.includes('men');
-    const isWomens = category.includes('women') || subcategory.includes('women');
-
-    if (isMens) {
-      return Array.from({ length: 9 }, (_, i) => (39 + i).toString()); // 39-47
-    } else if (isWomens) {
-      return Array.from({ length: 6 }, (_, i) => (39 + i).toString()); // 39-44
-    } else {
-      // Default to men's range if unclear
-      return Array.from({ length: 9 }, (_, i) => (39 + i).toString()); // 39-47
-    }
-  }, [currentProduct, isOutOfStock]);
-
-  const handleWhatsAppContact = useCallback((size: string) => {
-    const productName = currentProduct?.name || '';
-    const productUrl = window.location.href;
-    const color = selectedVariant?.color || '';
-    
-    const message = `Hi! I'm interested in ${productName} in ${color} color, size ${size}. 
-
-Product Link: ${productUrl}
-
-Could you please let me know when this size will be available?`;
-    
-    const whatsappUrl = `https://wa.me/918122003006?text=${encodeURIComponent(message)}`;
-    window.open(whatsappUrl, '_blank');
-  }, [currentProduct, selectedVariant]);
-
   // Track product view when product data is loaded
   useEffect(() => {
     if (currentProduct?.article_id && !isTrackingVisit) {
       setIsTrackingVisit(true);
-      // Use the first variant's image if available, or fallback to empty string
       const thumbnailUrl = currentProduct.variants?.[0]?.images?.[0] || '';
       trackProductVisit({
         product_id: currentProduct.variants?.[0]?.product_id || currentProduct.article_id,
@@ -229,130 +73,15 @@ Could you please let me know when this size will be available?`;
   useEffect(() => {
     if (article_id) {
       fetchProductByArticleId(article_id).catch(console.error);
-      setRequestedArticleId(article_id);
     }
   }, [article_id, fetchProductByArticleId]);
 
-  // When currentProduct updates, determine selection
-  useEffect(() => {
-    if (!currentProduct) return;
-
-    // If we requested a specific article_id (via color click or route), prefer that if it exists in variants
-    if (requestedArticleId) {
-      const found = currentProduct.variants.find(v => v.article_id === requestedArticleId);
-      if (found) {
-        setSelectedArticleId(requestedArticleId);
-        // fetch related products for that variant
-        fetchRelatedProducts(currentProduct.category, found.product_id);
-        setRequestedArticleId(null);
-        return;
-      }
-      // If requested ArticleId not found in this product's variants, fall-through to default
-      setRequestedArticleId(null);
-    }
-
-    // If we don't have a selection or the selectedArticleId is not present in the new currentProduct, set default to first variant
-    const exists = currentProduct.variants.some(v => v.article_id === selectedArticleId);
-    if (!selectedArticleId || !exists) {
-      const first = currentProduct.variants[0];
-      if (first) {
-        setSelectedArticleId(first.article_id);
-        fetchRelatedProducts(currentProduct.category, first.product_id);
-      }
-    } else {
-      // If current selection exists, update related products (defensive)
-      const sel = currentProduct.variants.find(v => v.article_id === selectedArticleId);
-      if (sel) fetchRelatedProducts(currentProduct.category, sel.product_id);
-    }
-    // reset size selection when product changes
-    setSelectedSize('');
-  }, [currentProduct, requestedArticleId]); // intentionally only when product or a pending requested id changes
-
-  // Handler when ProductDetails color button clicked -> receives variant.article_id
-  const handleColorChange = useCallback((articleId: string) => {
-    // Find the variant in the current product's variants
-    const variant = currentProduct?.variants.find(v => v.article_id === articleId);
-    if (!variant) return;
-    
-    // Update the selected article ID
-    setSelectedArticleId(articleId);
-    // Update the URL to reflect the selected variant
-    navigate(`/products/${articleId}`, { replace: true });
-    // Clear size selection when changing colors
-    setSelectedSize('');
-    
-    // Fetch related products for the selected variant
-    if (currentProduct?.category) {
-      fetchRelatedProducts(currentProduct.category, variant.product_id);
-    }
-  }, [currentProduct, navigate, fetchRelatedProducts]);
-
-  // Handle wishlist toggle
-  // Update wishlist status when selectedVariant changes
-  useEffect(() => {
-    if (selectedVariant) {
-      setIsWishlisted(isInWishlist(selectedVariant.article_id));
-    }
-  }, [selectedVariant, isInWishlist]);
-
-  const handleWishlistToggle = useCallback(async () => {
-    if (!selectedVariant || !currentProduct) return;
-
-    // Check current wishlist status before making changes
-    const currentlyWishlisted = isInWishlist(selectedVariant.article_id);
-
-    try {
-      if (currentlyWishlisted) {
-        await removeFromWishlist(selectedVariant.article_id);
-      } else {
-        const wishlistItem = {
-          product_id: selectedVariant.product_id,
-          article_id: selectedVariant.article_id,
-          name: currentProduct.name,
-          price: Number(selectedVariant.discount_price) || 0,
-          mrp_price: String(selectedVariant.mrp),
-          discount_price: String(selectedVariant.discount_price || 0),
-          description: currentProduct.description || '',
-          sub_category: currentProduct.sub_category || '',
-          gender: (currentProduct.gender?.toLowerCase() as 'men' | 'women' | 'unisex') || 'unisex',
-          category: currentProduct.category,
-          sizes: selectedVariant.sizes || {},
-          color: String(selectedVariant.color),
-          discount_percentage: selectedVariant.discount_percentage || 0,
-          thumbnail_url: selectedVariant.thumbnail_url || '',
-          images: Array.isArray(selectedVariant.images) ? selectedVariant.images : [],
-          created_at: new Date().toISOString(),
-          addedAt: new Date().toISOString()
-        };
-        await addToWishlist(wishlistItem);
-      }
-
-      // Update the local state immediately based on the previous state
-      setIsWishlisted(!currentlyWishlisted);
-    } catch (error) {
-      console.error('Error updating wishlist:', error);
-      // Optionally show an error message to the user
-    }
-  }, [selectedVariant, currentProduct, addToWishlist, removeFromWishlist]);
-
-  // Update wishlist status when selected variant changes
-  useEffect(() => {
-    if (selectedVariant) {
-      const wishlisted = isInWishlist(selectedVariant.article_id);
-      setIsWishlisted(wishlisted);
-    } else {
-      setIsWishlisted(false);
-    }
-  }, [selectedVariant, isInWishlist]);
-
-  // Ensure we have the selected variant
-  const currentVariant = selectedVariant || (currentProduct?.variants?.[0]);
   if (loading || !currentProduct) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <FiciLoader 
-          size="xl" 
-          message="Loading product details..." 
+        <FiciLoader
+          size="xl"
+          message="Loading product details..."
           aria-label="Loading product details"
         />
       </div>
@@ -390,20 +119,26 @@ Could you please let me know when this size will be available?`;
       </div>
     );
   }
-  if (!currentProduct) {
-    return null;
-  }
 
   return (
     <>
       <div className="bg-white dark:bg-dark1">
         {/* Success Message */}
-        {showSuccessMessage && (
-          <div className="fixed top-4 left-4 right-4 sm:left-auto sm:right-4 z-40 bg-green-500 text-white px-4 sm:px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-in slide-in-from-top-2 duration-300">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        {productActions.showSuccessMessage && (
+          <div className="fixed top-4 left-4 right-4 sm:left-auto sm:right-4 z-50 bg-green-500 text-white px-4 sm:px-6 py-3 rounded-lg shadow-lg flex items-center gap-3 animate-in slide-in-from-top-2 duration-300 max-w-md sm:max-w-none border border-green-400">
+            <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
             </svg>
-            <span className="text-sm sm:text-base">Product added to cart successfully!</span>
+            <span className="text-sm sm:text-base flex-1 pr-2">Product added to cart successfully!</span>
+            <button
+              onClick={() => productActions.setShowSuccessMessage(false)}
+              className="flex-shrink-0 p-1 hover:bg-green-600 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-green-300"
+              aria-label="Close success message"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
         )}
 
@@ -413,10 +148,10 @@ Could you please let me know when this size will be available?`;
             {/* Left Column - Product Images (40%) */}
             <div className="mb-8 lg:mb-0">
               <ProductImageGallery
-                selectedVariant={currentVariant}
+                selectedVariant={productVariant.selectedVariant}
                 productName={currentProduct.name}
-                isWishlisted={isWishlisted}
-                onWishlistToggle={handleWishlistToggle}
+                isWishlisted={productActions.isWishlisted}
+                onWishlistToggle={productActions.handleWishlistToggle}
                 onZoomStateChange={handleZoomStateChange}
               />
             </div>
@@ -441,33 +176,32 @@ Could you please let me know when this size will be available?`;
               <div className={`bg-white dark:bg-dark2 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 ${zoomState.isHovering ? 'opacity-0' : 'opacity-100'} transition-opacity duration-200`}>
                 <ProductDetails
                   currentProduct={currentProduct}
-                  selectedVariant={currentVariant}
-                  selectedArticleId={selectedArticleId}
-                  selectedSize={selectedSize}
+                  selectedVariant={productVariant.selectedVariant}
+                  selectedArticleId={productVariant.selectedArticleId}
+                  selectedSize={productVariant.selectedSize}
                   quantity={quantity}
-                  availableSizes={availableSizes}
-                  fullSizeRange={getFullSizeRange}
-                  onColorChange={handleColorChange}
-                  onSizeChange={setSelectedSize}
+                  availableSizes={productVariant.availableSizes}
+                  fullSizeRange={productVariant.fullSizeRange}
+                  onColorChange={productVariant.handleColorChange}
+                  onSizeChange={productVariant.setSelectedSize}
                   onQuantityChange={setQuantity}
-                  onAddToCart={handleAddToCart}
-                  onBuyNow={handleBuyNow}
-                  onWishlistToggle={handleWishlistToggle}
-                  onWhatsAppContact={handleWhatsAppContact}
-                  isWishlisted={isWishlisted}
-                  isBag={isBag}
-                  isOutOfStock={isOutOfStock}
+                  onAddToCart={productActions.handleAddToCart}
+                  onBuyNow={productActions.handleBuyNow}
+                  onWishlistToggle={productActions.handleWishlistToggle}
+                  onWhatsAppContact={productActions.handleWhatsAppContact}
+                  isWishlisted={productActions.isWishlisted}
+                  isBag={productVariant.isBag}
+                  isOutOfStock={productVariant.isOutOfStock}
                 />
               </div>
 
               {/* Trust Badges */}
-              <div className="mt-6">
+              <div className="mt-4">
                 <img
                   src="/src/assets/trust-badges.svg"
                   alt="Trust Badges - 3 Days Exchange Policy, Made in India, Free Delivery 5-7 Days"
                   className="w-full max-w-sm mx-auto rounded-lg shadow-sm"
                   onError={(e) => {
-                    // Fallback to original text badges if image fails to load
                     const target = e.currentTarget as HTMLImageElement;
                     const fallbackElement = target.nextElementSibling as HTMLElement;
                     if (fallbackElement) {
@@ -476,8 +210,7 @@ Could you please let me know when this size will be available?`;
                     }
                   }}
                 />
-                {/* Fallback to original text badges if image is not available */}
-                <div className="hidden grid grid-cols-3 gap-3 mt-6 px-4" style={{display: 'none'}}>
+                <div className="hidden grid grid-cols-3 gap-3 mt-4 px-4" style={{display: 'none'}}>
                   <div className="p-3 bg-gray-50 dark:bg-dark3 rounded-lg text-center">
                     <div className="text-gray-600 dark:text-gray-400 text-sm">3 Days Exchange</div>
                     <div className="text-xs text-gray-500 dark:text-gray-500">Policy</div>
@@ -496,40 +229,29 @@ Could you please let me know when this size will be available?`;
           </div>
         </div>
 
-        {/* Minimal description */}
-        {currentProduct.description && (
-          <div className="bg-gray-50 dark:bg-dark3 py-8">
-            <div className="max-w-4xl mx-auto px-4">
-              <ProductDescription
-                description={currentProduct.description}
-              />
-            </div>
-          </div>
-        )}
-
         {/* Customer Reviews */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-8">Customer Reviews</h2>
-          <CustomerReviews productId={selectedVariant?.product_id} />
+          <CustomerReviews productId={productVariant.selectedVariant?.product_id} />
         </div>
 
         {/* Related Products */}
         {relatedProducts.length > 0 && (
-          <div className="bg-gray-50 dark:bg-dark3 py-12">
+          <div className="bg-gray-50 dark:bg-dark3 py-8">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-8">You May Also Like</h2>
               <RelatedProducts products={relatedProducts} />
             </div>
           </div>
         )}
-
-        {/* Newsletter removed for minimal design */}
       </div>
+
       <AlertModal
-        isOpen={alertModal.isOpen}
-        message={alertModal.message}
-        type={alertModal.type}
-        onClose={() => setAlertModal({ isOpen: false, message: '', type: 'info' })}
+        isOpen={productActions.alertModal.isOpen}
+        message={productActions.alertModal.message}
+        type={productActions.alertModal.type}
+        title={productActions.alertModal.title}
+        onClose={productActions.closeAlert}
       />
     </>
   );

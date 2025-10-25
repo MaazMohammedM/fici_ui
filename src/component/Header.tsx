@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { Menu, X, Search, Heart, ShoppingCart, UserRound, ChevronDown, Sun, Moon } from 'lucide-react';
 import { useAuthStore } from '@store/authStore';
 import { useThemeStore } from '../store/themeStore';
@@ -9,6 +9,7 @@ import ficiLogo from '../assets/fici_transparent.png'
 
 const Header: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { getAuthenticationType, signOut, role, user } = useAuthStore();
   const { mode, toggleMode, initializeTheme } = useThemeStore();
   const { getCartCount } = useCartStore();
@@ -22,11 +23,42 @@ const Header: React.FC = () => {
   const [userDropdown, setUserDropdown] = useState(false);
   const [mobileDropdown, setMobileDropdown] = useState<string | null>(null);
 
+  // Navigation warning state
+  const [showNavigationWarning, setShowNavigationWarning] = useState(false);
+  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
+
   const userDropdownRef = useRef<HTMLDivElement>(null);
   const desktopDropdownRef = useRef<HTMLDivElement>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
   // Delay close to avoid flicker when moving cursor from button to panel
   const hoverTimeoutRef = useRef<number | null>(null);
+
+  // Check if user is on checkout page with unsaved changes
+  const isOnCheckoutWithChanges = location.pathname === '/checkout' && cartCount > 0;
+
+  // Handle protected navigation
+  const handleProtectedNavigation = (path: string, e?: React.MouseEvent) => {
+    if (isOnCheckoutWithChanges) {
+      e?.preventDefault();
+      setPendingNavigation(path);
+      setShowNavigationWarning(true);
+    } else {
+      navigate(path);
+    }
+  };
+
+  const confirmNavigation = () => {
+    if (pendingNavigation) {
+      navigate(pendingNavigation);
+      setPendingNavigation(null);
+    }
+    setShowNavigationWarning(false);
+  };
+
+  const cancelNavigation = () => {
+    setPendingNavigation(null);
+    setShowNavigationWarning(false);
+  };
 
   const openDropdown = (label: string) => {
     if (hoverTimeoutRef.current) {
@@ -81,7 +113,7 @@ const Header: React.FC = () => {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (!searchQuery.trim()) return;
-    navigate(`/products?q=${encodeURIComponent(searchQuery.trim())}`);
+    handleProtectedNavigation(`/products?q=${encodeURIComponent(searchQuery.trim())}`);
     setIsSearch(false);
   };
 
@@ -110,10 +142,14 @@ const Header: React.FC = () => {
         </button>
 
         {/* Logo */}
-        <NavLink to="/" className="flex items-center h-12">
-          <img 
-            src={ficiLogo} 
-            alt="FICI Logo" 
+        <NavLink
+          to="/"
+          onClick={(e) => handleProtectedNavigation('/', e)}
+          className="flex items-center h-12"
+        >
+          <img
+            src={ficiLogo}
+            alt="FICI Logo"
             className="h-full w-auto"
           />
         </NavLink>
@@ -146,8 +182,8 @@ const Header: React.FC = () => {
                         <NavLink 
                           key={d.path} 
                           to={d.path} 
-                          className="block px-3 py-1.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors" 
-                          onClick={() => setActiveDropdown(null)}
+                          onClick={(e) => handleProtectedNavigation(d.path, e)}
+                          className="block px-3 py-1.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                         >
                           {d.label}
                         </NavLink>
@@ -158,6 +194,7 @@ const Header: React.FC = () => {
               ) : (
                 <NavLink 
                   to={path!} 
+                  onClick={(e) => handleProtectedNavigation(path!, e)}
                   className="px-2 py-1.5 hover:text-blue-600 transition-colors whitespace-nowrap"
                   onMouseEnter={() => activeDropdown && setActiveDropdown(null)}
                 >
@@ -173,7 +210,11 @@ const Header: React.FC = () => {
             <Search className="w-5 h-5" />
           </button>
 
-          <NavLink to="/wishlist" className="relative p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
+          <NavLink
+            to="/wishlist"
+            onClick={(e) => handleProtectedNavigation('/wishlist', e)}
+            className="relative p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+          >
             <Heart className="w-5 h-5" />
             {wishlistCount > 0 && (
               <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] rounded-full h-4 w-4 flex items-center justify-center">
@@ -182,7 +223,11 @@ const Header: React.FC = () => {
             )}
           </NavLink>
 
-          <NavLink to="/cart" className="relative p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
+          <NavLink
+            to="/cart"
+            onClick={(e) => handleProtectedNavigation('/cart', e)}
+            className="relative p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+          >
             <ShoppingCart className="w-5 h-5" />
             {cartCount > 0 && (
               <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-[10px] rounded-full h-4 w-4 flex items-center justify-center">
@@ -199,12 +244,12 @@ const Header: React.FC = () => {
                 </button>
                 {userDropdown && (
                   <div className="absolute right-0 mt-1 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border dark:border-gray-700 py-2">
-                    <button onClick={() => { navigate('/profile'); setUserDropdown(false); }} className="block w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700">My Profile</button>
-                    <button onClick={() => { navigate('/orders'); setUserDropdown(false); }} className="block w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700">My Orders</button>
+                    <button onClick={() => { handleProtectedNavigation('/profile'); setUserDropdown(false); }} className="block w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700">My Profile</button>
+                    <button onClick={() => { handleProtectedNavigation('/orders'); setUserDropdown(false); }} className="block w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700">My Orders</button>
                     {((role?.toLowerCase() === 'admin') || (user?.user_metadata?.role?.toLowerCase() === 'admin')) && (
                       <button
                         onClick={() => {
-                          navigate('/admin');
+                          handleProtectedNavigation('/admin');
                           setUserDropdown(false);
                         }}
                         className="block w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -218,7 +263,7 @@ const Header: React.FC = () => {
                 )}
               </>
             ) : (
-              <button onClick={() => navigate('/auth/signin')} className="flex items-center gap-1 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
+              <button onClick={() => handleProtectedNavigation('/auth/signin')} className="flex items-center gap-1 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
                 <UserRound className="w-5 h-5" /> <span className="hidden sm:inline">Sign In</span>
               </button>
             )}
@@ -251,11 +296,30 @@ const Header: React.FC = () => {
                       {label}<ChevronDown className={`w-4 h-4 ${mobileDropdown === label ? 'rotate-180' : ''}`} />
                     </button>
                     {mobileDropdown === label && dropdown.map(d => (
-                      <NavLink key={d.path} to={d.path} onClick={() => setIsMobileMenu(false)} className="block pl-6 py-2">{d.label}</NavLink>
+                      <NavLink
+                        key={d.path}
+                        to={d.path}
+                        onClick={(e) => {
+                          handleProtectedNavigation(d.path, e);
+                          setIsMobileMenu(false);
+                        }}
+                        className="block pl-6 py-2"
+                      >
+                        {d.label}
+                      </NavLink>
                     ))}
                   </>
                 ) : (
-                  <NavLink to={path!} onClick={() => setIsMobileMenu(false)} className="block py-2">{label}</NavLink>
+                  <NavLink
+                    to={path!}
+                    onClick={(e) => {
+                      handleProtectedNavigation(path!, e);
+                      setIsMobileMenu(false);
+                    }}
+                    className="block py-2"
+                  >
+                    {label}
+                  </NavLink>
                 )}
               </div>
             ))}
@@ -264,6 +328,48 @@ const Header: React.FC = () => {
                 <button onClick={signOut} className="w-full bg-blue-600 text-white py-2 rounded-lg">Sign Out</button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Navigation Warning Modal */}
+      {showNavigationWarning && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg max-w-lg w-full overflow-hidden animate-scale-in">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 bg-orange-500 text-white">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-bold">Warning</h3>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-6">
+              <p className="text-gray-700 dark:text-gray-300 text-lg leading-relaxed">
+                You have items in your cart and haven't completed your order. Are you sure you want to leave? Your progress will be lost.
+              </p>
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end gap-3 p-6 border-t bg-gray-50 dark:bg-gray-700">
+              <button
+                onClick={cancelNavigation}
+                className="px-6 py-3 text-gray-700 dark:text-gray-300 font-semibold hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-all duration-200"
+              >
+                Stay Here
+              </button>
+              <button
+                onClick={confirmNavigation}
+                className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg transition-all duration-200 hover:scale-105"
+              >
+                Leave Anyway
+              </button>
+            </div>
           </div>
         </div>
       )}
