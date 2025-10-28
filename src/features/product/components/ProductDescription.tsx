@@ -3,9 +3,10 @@ import { ChevronDown, ChevronUp } from 'lucide-react';
 
 interface ProductDescriptionProps {
   description: string;
+  className?: string;
 }
 
-const ProductDescription: React.FC<ProductDescriptionProps> = ({ description }) => {
+const ProductDescription: React.FC<ProductDescriptionProps> = ({ description, className = '' }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [shouldShowToggle, setShouldShowToggle] = useState(false);
   const descriptionRef = useRef<HTMLParagraphElement>(null);
@@ -25,13 +26,12 @@ const ProductDescription: React.FC<ProductDescriptionProps> = ({ description }) 
   }, [description]);
 
   return (
-    <div className="bg-white dark:bg-dark2 rounded-xl shadow-sm p-6">
-      <h2 className="text-xl font-semibold mb-3 text-gray-900 dark:text-white">Description</h2>
-
+    <div className={`pt-3 border-t border-gray-200 dark:border-gray-700 ${className}`}>
+      <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Description</h3>
       <div className="relative">
         <p
           ref={descriptionRef}
-          className={`text-gray-600 dark:text-gray-300 transition-all duration-300 ${
+          className={`text-sm text-gray-600 dark:text-gray-300 leading-relaxed transition-all duration-300 ${
             !isExpanded && shouldShowToggle ? 'line-clamp-3' : ''
           }`}
         >
@@ -39,7 +39,7 @@ const ProductDescription: React.FC<ProductDescriptionProps> = ({ description }) 
         </p>
 
         {shouldShowToggle && (
-          <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2">
+          <div className="mt-2 flex justify-center">
             <button
               onClick={() => setIsExpanded(!isExpanded)}
               className="flex items-center justify-center w-8 h-8 bg-white dark:bg-dark2 border border-gray-200 dark:border-gray-700 rounded-full shadow-sm hover:shadow-md transition-all duration-200 group"
@@ -53,11 +53,6 @@ const ProductDescription: React.FC<ProductDescriptionProps> = ({ description }) 
           </div>
         )}
       </div>
-
-      {/* Gradient overlay for smooth transition */}
-      {!isExpanded && shouldShowToggle && (
-        <div className="absolute bottom-0 left-0 right-0 h-6 bg-gradient-to-t from-white dark:from-dark2 to-transparent pointer-events-none" />
-      )}
     </div>
   );
 };

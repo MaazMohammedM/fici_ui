@@ -5,6 +5,7 @@ export interface OrderActionStates {
   canDeliver: boolean;
   canRefund: boolean;
   canCancel: boolean;
+  canReturn: boolean;
 }
 
 export interface OrderActionStatesForItem extends OrderActionStates {
@@ -16,6 +17,20 @@ export interface OrderActionStatesForItem extends OrderActionStates {
 export type PaymentMethod = 'razorpay' | 'cod';
 export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded' | 'partially_refunded';
 export type ItemStatus = 'pending' | 'cancelled' | 'shipped' | 'delivered' | 'returned' | 'refunded';
+
+export interface OrderItem {
+  order_item_id: string;
+  item_status?: ItemStatus;
+  delivered_at?: string;
+  price_at_purchase?: number;
+}
+
+export interface OrderData {
+  order_id: string;
+  payment_method: PaymentMethod;
+  payment_status: PaymentStatus;
+  status: string;
+}
 
 /**
  * Computes derived order status from item statuses
@@ -36,15 +51,25 @@ export function deriveOrderStatus(items: { item_status?: ItemStatus }[]): string
 }
 
 /**
- * Determines button states for an order based on payment method and item status
+ * Determines button states for an order item based on payment method, payment status, and item status
  */
 export function getOrderActionStates(
   paymentMethod: PaymentMethod,
   paymentStatus: PaymentStatus,
-  itemStatus: ItemStatus
+  itemStatus: ItemStatus,
+  deliveredAt?: string
 ): OrderActionStates {
   const isCOD = paymentMethod === 'cod';
   const isPaid = paymentStatus === 'paid';
+
+  // Helper function to check if return is within 3 days
+  const within3Days = (deliveredAt?: string): boolean => {
+    if (!deliveredAt) return false;
+    const deliveredDate = new Date(deliveredAt);
+    const now = new Date();
+    const diffDays = (now.getTime() - deliveredDate.getTime()) / (1000 * 60 * 60 * 24);
+    return diffDays <= 3;
+  };
 
   return {
     canShip: itemStatus === 'pending',
@@ -53,6 +78,7 @@ export function getOrderActionStates(
       (isPaid && ['cancelled', 'delivered', 'shipped'].includes(itemStatus)) ||
       (isCOD && itemStatus === 'delivered'),
     canCancel: itemStatus === 'pending',
+    canReturn: itemStatus === 'delivered' && within3Days(deliveredAt),
   };
 }
 
@@ -63,7 +89,8 @@ export function getOrderActionStates(
 export function useOrderActionStates(
   paymentMethod: PaymentMethod,
   paymentStatus: PaymentStatus,
-  itemStatus?: ItemStatus
+  itemStatus?: ItemStatus,
+  deliveredAt?: string
 ) {
   return useMemo(() => {
     if (!itemStatus) {
@@ -72,11 +99,24 @@ export function useOrderActionStates(
         canDeliver: false,
         canRefund: false,
         canCancel: false,
+        canReturn: false,
       };
     }
 
-    return getOrderActionStates(paymentMethod, paymentStatus, itemStatus);
-  }, [paymentMethod, paymentStatus, itemStatus]);
+    return getOrderActionStates(paymentMethod, paymentStatus, itemStatus, deliveredAt);
+  }, [paymentMethod, paymentStatus, itemStatus, deliveredAt]);
+}
+
+/**
+ * React hook for single order item with order context
+ */
+export function useOrderItemActionStates(item: OrderItem, order: OrderData): OrderActionStates {
+  return useOrderActionStates(
+    order.payment_method,
+    order.payment_status,
+    item.item_status,
+    item.delivered_at
+  );
 }
 
 /**
@@ -85,24 +125,28 @@ export function useOrderActionStates(
 export function useOrderLevelActionStates(
   paymentMethod: PaymentMethod,
   paymentStatus: PaymentStatus,
-  items: { item_status?: ItemStatus }[]
+  items: { item_status?: ItemStatus; delivered_at?: string }[]
 ) {
   return useMemo(() => {
     // Check if any items can perform each action
     const hasShippableItems = items.some(item =>
-      getOrderActionStates(paymentMethod, paymentStatus, item.item_status || 'pending').canShip
+      getOrderActionStates(paymentMethod, paymentStatus, item.item_status || 'pending', item.delivered_at).canShip
     );
 
     const hasDeliverableItems = items.some(item =>
-      getOrderActionStates(paymentMethod, paymentStatus, item.item_status || 'pending').canDeliver
+      getOrderActionStates(paymentMethod, paymentStatus, item.item_status || 'pending', item.delivered_at).canDeliver
     );
 
     const hasRefundableItems = items.some(item =>
-      getOrderActionStates(paymentMethod, paymentStatus, item.item_status || 'pending').canRefund
+      getOrderActionStates(paymentMethod, paymentStatus, item.item_status || 'pending', item.delivered_at).canRefund
     );
 
     const hasCancellableItems = items.some(item =>
-      getOrderActionStates(paymentMethod, paymentStatus, item.item_status || 'pending').canCancel
+      getOrderActionStates(paymentMethod, paymentStatus, item.item_status || 'pending', item.delivered_at).canCancel
+    );
+
+    const hasReturnableItems = items.some(item =>
+      getOrderActionStates(paymentMethod, paymentStatus, item.item_status || 'pending', item.delivered_at).canReturn
     );
 
     return {
@@ -110,6 +154,7 @@ export function useOrderLevelActionStates(
       canDeliver: hasDeliverableItems,
       canRefund: hasRefundableItems,
       canCancel: hasCancellableItems,
+      canReturn: hasReturnableItems,
     };
   }, [paymentMethod, paymentStatus, items]);
 }
@@ -120,10 +165,10 @@ export function useOrderLevelActionStates(
 export function getOrderItemsActionStates(
   paymentMethod: PaymentMethod,
   paymentStatus: PaymentStatus,
-  items: { item_status?: ItemStatus }[]
+  items: { item_status?: ItemStatus; delivered_at?: string }[]
 ): OrderActionStatesForItem[] {
   return items.map(item => ({
-    ...getOrderActionStates(paymentMethod, paymentStatus, item.item_status || 'pending'),
+    ...getOrderActionStates(paymentMethod, paymentStatus, item.item_status || 'pending', item.delivered_at),
     itemStatus: item.item_status || 'pending',
     paymentMethod,
     paymentStatus,

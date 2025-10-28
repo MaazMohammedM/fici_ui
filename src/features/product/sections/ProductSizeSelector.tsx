@@ -11,10 +11,12 @@ interface Props {
   onShowSizeGuide: () => void;
   isBag?: boolean;
   isOutOfStock?: boolean;
+  gender?: 'men' | 'women';
+  subCategory?: string;
 }
 
 const ProductSizeSelector: React.FC<Props> = ({
-  fullSizeRange,
+  fullSizeRange: originalFullSizeRange,
   availableSizes,
   selectedSize,
   onSizeChange,
@@ -22,7 +24,28 @@ const ProductSizeSelector: React.FC<Props> = ({
   onShowSizeGuide,
   isBag = false,
   isOutOfStock = false,
-}) => (
+  gender,
+  subCategory,
+}) => {
+  // Determine size range based on gender and sub-category
+  const getSizeRange = () => {
+    if (isBag)     return originalFullSizeRange.length > 0 ? originalFullSizeRange : availableSizes;
+    
+    if (gender === 'women' && (subCategory === 'Shoes' || subCategory === 'Sandals')) {
+      return Array.from({ length: 9 }, (_, i) => (i + 35).toString()); // 35-43
+    } 
+    
+    if (gender === 'men' && (subCategory === 'Shoes' || subCategory === 'Sandals')) {
+      return Array.from({ length: 9 }, (_, i) => (i + 39).toString()); // 39-47
+    }
+    
+    return originalFullSizeRange.length > 0 ? originalFullSizeRange : availableSizes;
+  };
+
+  const isFootwear = subCategory === 'Shoes' || subCategory === 'Sandals';
+  const fullSizeRange = getSizeRange();
+
+  return (
   <div className="min-h-[120px]"> {/* Ensure consistent height */}
     <div className="flex items-center justify-between mb-2">
       <h3 className="text-lg font-semibold text-primary dark:text-secondary">
@@ -30,14 +53,39 @@ const ProductSizeSelector: React.FC<Props> = ({
       </h3>
       <button
         onClick={onShowSizeGuide}
-        className="flex items-center space-x-1 text-sm text-accent hover:text-accent/80 transition-colors"
+        disabled={!isFootwear}
+        className={`flex items-center space-x-1 text-sm transition-colors ${
+          isFootwear 
+            ? 'text-accent hover:text-accent/80' 
+            : 'text-gray-400 cursor-not-allowed'
+        }`}
+        title={!isFootwear ? 'Size guide is only available for footwear' : ''}
       >
         <Ruler className="w-4 h-4" />
         <span>Size Guide</span>
       </button>
     </div>
 
-    {fullSizeRange.length > 0 ? (
+    {isOutOfStock ? (
+      /* Show global out-of-stock message when ALL sizes are unavailable */
+      <div className="flex items-center justify-center py-8 text-red-500 dark:text-red-400">
+        <div className="text-center">
+          <svg className="w-12 h-12 mx-auto mb-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M9 9l6-3m0 0l6 3m-6-3v12" />
+          </svg>
+          <h3 className="text-lg font-semibold mb-2">Product Out of Stock</h3>
+          <p className="text-sm mb-4">This product is currently unavailable. Please check back later or contact us for availability.</p>
+          <button
+            onClick={() => onWhatsAppContact('')}
+            className="inline-flex items-center space-x-2 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+          >
+            <FaWhatsapp className="w-4 h-4" />
+            <span>Contact Us</span>
+          </button>
+        </div>
+      </div>
+    ) : fullSizeRange.length > 0 ? (
+      /* Show all sizes with WhatsApp icons on unavailable ones */
       <div className="flex flex-wrap gap-2">
         {fullSizeRange.map((size) => {
           const isAvailable = availableSizes.includes(size);
@@ -110,6 +158,7 @@ const ProductSizeSelector: React.FC<Props> = ({
       </span>
     </div>
   </div>
-);
+  );
+};
 
 export default ProductSizeSelector;

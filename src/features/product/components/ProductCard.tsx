@@ -4,15 +4,16 @@ import { useNavigate } from "react-router-dom";
 
 interface ProductCardProps {
   product: Product;
+  className?: string;
 }
 
-const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
+const ProductCard: React.FC<ProductCardProps> = ({ product, className = '' }) => {
   const navigate = useNavigate();
 
   return (
     <div
       onClick={() => navigate(`/products/${product.article_id}`)}
-      className="cursor-pointer group rounded-xl shadow-sm bg-white dark:bg-dark2 hover:shadow-lg transition overflow-hidden min-h-[280px] flex flex-col"
+      className={`cursor-pointer group rounded-xl shadow-sm bg-white dark:bg-dark2 hover:shadow-lg transition overflow-hidden min-h-[280px] flex flex-col ${className}`}
     >
       {/* Product Image */}
       <div className="relative aspect-square w-full bg-gray-50 dark:bg-gray-800 flex items-center justify-center overflow-hidden flex-shrink-0">

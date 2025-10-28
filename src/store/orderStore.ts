@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '@lib/supabase';
+import { updateOrderItemStatus } from '@/lib/orderActions';
 import type { Order, Review, OrderFilters, OrderItem } from '../types/order';
 
 // Utility function to calculate aggregate order status based on item statuses
@@ -72,6 +73,11 @@ interface OrderState {
   cancelOrderItem: (orderItemId: string, reason: string, userId?: string, guestSessionId?: string) => Promise<void>;
   requestReturnItem: (orderItemId: string, reason: string, userId?: string, guestSessionId?: string, imageFile?: File) => Promise<void>;
   updateOrderItemStatus: (orderItemId: string, newStatus: string) => void;
+  // Admin methods
+  adminCancelOrderItem: (orderItemId: string, reason: string, adminUserId: string) => Promise<void>;
+  adminShipOrderItem: (orderItemId: string, adminUserId: string) => Promise<void>;
+  adminDeliverOrderItem: (orderItemId: string, adminUserId: string) => Promise<void>;
+  adminRefundOrderItem: (orderItemId: string, reason: string, adminUserId: string) => Promise<void>;
 }
 
 export const useOrderStore = create<OrderState>((set, get) => ({
@@ -88,7 +94,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     totalPages: 0
   },
 
-  verifyGuestTPIN: async (tpin: string) => {
+  async verifyGuestTPIN(tpin: string) {
     set({ loading: true, error: null });
     try {
       // Use the existing fetchGuestOrders logic for TPIN verification
@@ -101,12 +107,12 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     }
   },
 
-  fetchOrders: async (userId: string, filters: OrderFilters & { page?: number; limit?: number } = {}) => {
+  async fetchOrders(userId: string, filters: OrderFilters & { page?: number; limit?: number } = {}) {
     set({ loading: true, error: null });
     try {
       const page = filters?.page || 1;
       const limit = filters?.limit || 50;
-  
+
       // Join orders with order_items
       let query = supabase
         .from("orders")
@@ -116,15 +122,15 @@ export const useOrderStore = create<OrderState>((set, get) => ({
         `, { count: "exact" })
         .eq("user_id", userId)
         .order("created_at", { ascending: false });
-  
+
       if (filters?.status && filters.status !== "all") {
         query = query.eq("status", filters.status);
       }
-  
+
       const { data, error, count } = await query.range((page - 1) * limit, page * limit - 1);
-  
+
       if (error) throw error;
-  
+
       // Transform the data to match our Order type
       const transformedOrders: Order[] = (data || []).map((order: any) => ({
         id: order.order_id,
@@ -141,9 +147,9 @@ export const useOrderStore = create<OrderState>((set, get) => ({
         created_at: order.created_at || order.order_date || new Date().toISOString(),
         order_date: order.order_date
       }));
-  
+
       const totalPages = Math.ceil((count || 0) / limit);
-  
+
       set({
         orders: transformedOrders,
         pagination: {
@@ -159,37 +165,63 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       set({ error: error.message || "Failed to fetch orders", loading: false });
     }
   },
-  
 
-  fetchUserReviews: async (userId: string) => {
+  async fetchGuestOrders(email: string, phone: string, tpin?: string) {
     set({ loading: true, error: null });
     try {
-      const { data, error } = await supabase
-        .from('reviews')
-        .select('*')
-        .eq('user_id', userId);
+      let query = supabase
+        .from('orders')
+        .select(`
+          *,
+          order_items (*)
+        `, { count: 'exact' })
+        .or(`guest_email.eq.${email},guest_phone.eq.${phone}${tpin ? `,guest_tpin.eq.${tpin}` : ''}`)
+        .order('created_at', { ascending: false });
+
+      const { data, error, count } = await query;
 
       if (error) throw error;
 
-      const reviews: Review[] = (data || []).map((item: any) => ({
-        review_id: item.review_id,
-        product_id: item.product_id,
-        user_id: item.user_id,
-        rating: item.rating,
-        comment: item.comment,
-        title: item.title || '',
-        is_verified_purchase: item.is_verified_purchase,
-        created_at: item.created_at,
+      const transformedOrders: Order[] = (data || []).map((order: any) => ({
+        id: order.order_id,
+        user_id: order.user_id,
+        guest_session_id: order.guest_session_id,
+        guest_email: order.guest_email,
+        guest_phone: order.guest_phone,
+        guest_name: order.guest_name,
+        guest_tpin: order.guest_tpin,
+        items: order.order_items || [],
+        subtotal: order.subtotal || 0,
+        discount: order.discount || 0,
+        delivery_charge: order.delivery_charge || 0,
+        total_amount: order.total_amount || 0,
+        status: order.status || 'pending',
+        payment_status: order.payment_status || 'pending',
+        payment_method: order.payment_method || 'razorpay',
+        shipping_address: order.shipping_address || {},
+        created_at: order.created_at || order.order_date || new Date().toISOString(),
+        order_date: order.order_date,
+        is_guest_order: true
       }));
 
-      set({ userReviews: reviews, loading: false });
+      set({
+        orders: transformedOrders,
+        pagination: {
+          total: count || 0,
+          page: 1,
+          limit: 50,
+          totalPages: 1
+        },
+        loading: false
+      });
     } catch (error: any) {
-      console.error('Error fetching user reviews:', error);
-      set({ error: error.message || 'Failed to fetch user reviews', loading: false });
+      console.error('Error fetching guest orders:', error);
+      set({ error: error.message || 'Failed to fetch guest orders', loading: false });
+      throw error;
     }
   },
 
-  fetchOrderById: async (orderId: string, email?: string, phone?: string, tpin?: string): Promise<Order | null> => {
+  async fetchOrderById(orderId: string, email?: string, phone?: string, tpin?: string): Promise<Order | null> {
     set({ loading: true, error: null });
     try {
       let query = supabase
@@ -265,7 +297,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     }
   },
 
-  createOrder: async (orderData) => {
+  async createOrder(orderData: Omit<Order, 'id' | 'created_at'>) {
     set({ loading: true, error: null });
     try {
       const { data: orderResult, error: orderError } = await supabase
@@ -297,9 +329,9 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     }
   },
 
-  updateOrderStatus: async (orderId: string, status: Order['status']) => {
+  async updateOrderStatus(orderId: string, status: Order['status']) {
     set({ loading: true, error: null });
-    
+
     try {
       const { error } = await supabase
         .from('orders')
@@ -331,19 +363,21 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     }
   },
 
-  submitReview: async (review) => {
+  async submitReview(review: Omit<Review, 'review_id' | 'created_at'>) {
     set({ loading: true, error: null });
-    
+
     try {
       const { data, error } = await supabase
         .from('reviews')
         .insert({
           product_id: review.product_id,
-          user_id: review.user_id,
+          user_id: review.user_id || null,
+          guest_session_id: review.guest_session_id || null,
           rating: review.rating,
-          comment: review.comment,
-          title: review.title || '',
-          is_verified_purchase: true,
+          comment: review.comment || null,
+          title: review.title || null,
+          is_verified_purchase: review.is_verified_purchase || false,
+          review_type: review.review_type || 'registered',
         })
         .select()
         .single();
@@ -363,20 +397,20 @@ export const useOrderStore = create<OrderState>((set, get) => ({
         created_at: data.created_at,
       };
 
-      set({ 
+      set({
         userReviews: [...userReviews, newReview],
-        loading: false 
+        loading: false
       });
-      
+
     } catch (error: any) {
       console.error('Error submitting review:', error);
       set({ error: error.message || 'Failed to submit review', loading: false });
     }
   },
 
-  updateReview: async (reviewId: string, updates: Partial<Review>) => {
+  async updateReview(reviewId: string, updates: Partial<Review>) {
     set({ loading: true, error: null });
-    
+
     try {
       const { data, error } = await supabase
         .from('reviews')
@@ -394,26 +428,26 @@ export const useOrderStore = create<OrderState>((set, get) => ({
 
       // Update local userReviews state
       const { userReviews } = get();
-      const updatedUserReviews = userReviews.map(review => 
-        review.review_id === reviewId 
+      const updatedUserReviews = userReviews.map(review =>
+        review.review_id === reviewId
           ? { ...review, ...updates, updated_at: data.updated_at }
           : review
       );
 
-      set({ 
+      set({
         userReviews: updatedUserReviews,
-        loading: false 
+        loading: false
       });
-      
+
     } catch (error: any) {
       console.error('Error updating review:', error);
       set({ error: error.message || 'Failed to update review', loading: false });
     }
   },
 
-  fetchReviews: async (productId: string) => {
+  async fetchReviews(productId: string) {
     set({ loading: true, error: null });
-    
+
     try {
       const { data, error } = await supabase
         .from('reviews')
@@ -421,10 +455,12 @@ export const useOrderStore = create<OrderState>((set, get) => ({
           review_id,
           product_id,
           user_id,
+          guest_session_id,
           rating,
           comment,
           title,
           is_verified_purchase,
+          review_type,
           created_at,
           updated_at,
           user_profiles (
@@ -441,10 +477,12 @@ export const useOrderStore = create<OrderState>((set, get) => ({
         review_id: item.review_id,
         product_id: item.product_id,
         user_id: item.user_id,
+        guest_session_id: item.guest_session_id,
         rating: item.rating,
         comment: item.comment,
         title: item.title || '',
         is_verified_purchase: item.is_verified_purchase,
+        review_type: item.review_type,
         created_at: item.created_at,
         updated_at: item.updated_at,
         user_name: item.user_profiles ? `${item.user_profiles.first_name} ${item.user_profiles.last_name}`.trim() : 'Anonymous',
@@ -452,157 +490,53 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       }));
 
       set({ reviews, loading: false });
-      
+
     } catch (error: any) {
       console.error('Error fetching reviews:', error);
       set({ error: error.message || 'Failed to fetch reviews', loading: false });
     }
   },
 
-  setPage: (page: number) => {
+  async fetchUserReviews(userId: string) {
+    set({ loading: true, error: null });
+    try {
+      const { data, error } = await supabase
+        .from('reviews')
+        .select('*')
+        .eq('user_id', userId);
+
+      if (error) throw error;
+
+      const reviews: Review[] = (data || []).map((item: any) => ({
+        review_id: item.review_id,
+        product_id: item.product_id,
+        user_id: item.user_id,
+        guest_session_id: item.guest_session_id,
+        rating: item.rating,
+        comment: item.comment,
+        title: item.title || '',
+        is_verified_purchase: item.is_verified_purchase,
+        review_type: item.review_type,
+        created_at: item.created_at,
+        updated_at: item.updated_at,
+      }));
+
+      set({ userReviews: reviews, loading: false });
+    } catch (error: any) {
+      console.error('Error fetching user reviews:', error);
+      set({ error: error.message || 'Failed to fetch user reviews', loading: false });
+    }
+  },
+
+  clearError() { set({ error: null }); },
+
+  setPage(page: number) {
     set(state => ({
       pagination: { ...state.pagination, page }
     }));
   },
 
-  fetchGuestOrders: async (email: string, phone: string, tpin?: string) => {
-    set({ loading: true, error: null });
-    try {
-      // Build queries that include related order_items
-      const baseSelect = `*, order_items (*)`;
-      const queries: any[] = [];
-
-      // First, try to find orders by guest_email, guest_phone, or guest_tpin
-      if (email || phone || tpin) {
-        const query = supabase
-          .from('orders')
-          .select(baseSelect, { count: 'exact' })
-          .order('created_at', { ascending: false });
-
-        // Build OR conditions for email, phone, and tpin
-        const orConditions = [];
-        if (email) {
-          orConditions.push(`guest_email.eq.${email}`);
-        }
-        if (phone) {
-          orConditions.push(`guest_phone.eq.${phone}`);
-        }
-        if (tpin) {
-          // Check both guest_tpin and guest_pin_hash fields for TPIN
-          orConditions.push(`guest_tpin.eq.${tpin}`);
-          orConditions.push(`guest_pin_hash.eq.${tpin}`);
-        }
-
-        if (orConditions.length > 0) {
-          query.or(orConditions.join(','));
-          queries.push(query);
-        }
-      }
-
-      // If no queries to run, set empty orders
-      if (queries.length === 0) {
-        set({
-          orders: [],
-          loading: false,
-          pagination: {
-            total: 0,
-            page: 1,
-            limit: 10,
-            totalPages: 0
-          }
-        });
-        return;
-      }
-
-      const results = await Promise.all(queries);
-
-      // Check for errors in results
-      for (const r of results) {
-        if (r.error) {
-          console.error('Error in guest order query:', r.error);
-          // Don't throw for individual query errors, continue with successful ones
-          continue;
-        }
-      }
-
-      // Combine and deduplicate by order_id
-      const orderMap = new Map<string, any>();
-      for (const r of results) {
-        if (r.data && Array.isArray(r.data)) {
-          for (const row of r.data) {
-            if (row?.order_id && !orderMap.has(row.order_id)) {
-              orderMap.set(row.order_id, row);
-            }
-          }
-        }
-      }
-
-      const uniqueOrders: any[] = Array.from(orderMap.values());
-      const totalCount = uniqueOrders.length;
-
-      const transformedOrders: Order[] = uniqueOrders.map((order: any) => {
-        const guestEmail = order.guest_email;
-        const guestPhone = order.guest_phone;
-        const guestName = order.guest_name;
-
-        return {
-          id: order.order_id,
-          user_id: order.user_id,
-          guest_session_id: order.guest_session_id,
-          guest_email: guestEmail,
-          guest_phone: guestPhone,
-          guest_name: guestName,
-          items: order.order_items || [],
-          subtotal: order.subtotal || 0,
-          discount: order.discount || 0,
-          delivery_charge: order.delivery_charge || 0,
-          total_amount: order.total_amount || 0,
-          status: order.status || 'pending',
-          payment_status: order.payment_status || 'pending',
-          payment_method: order.payment_method || 'razorpay',
-          payment_id: order.payment_id,
-          shipping_address: order.shipping_address || {},
-          billing_address: order.billing_address || {},
-          tracking_number: order.tracking_number,
-          tracking_url: order.tracking_url,
-          notes: order.notes,
-          created_at: order.created_at || order.order_date || new Date().toISOString(),
-          order_date: order.order_date,
-          updated_at: order.updated_at,
-          paid_at: order.paid_at,
-          shipped_at: order.shipped_at,
-          delivered_at: order.delivered_at,
-          cancelled_at: order.cancelled_at,
-          merged_at: order.merged_at,
-          is_guest_order: true,
-          guest_contact_info: {
-            name: guestName,
-            email: guestEmail,
-            phone: guestPhone,
-          },
-        };
-      });
-
-      set({
-        orders: transformedOrders,
-        loading: false,
-        pagination: {
-          total: totalCount,
-          page: 1,
-          limit: 10,
-          totalPages: Math.ceil(totalCount / 10),
-        },
-      });
-    } catch (error: any) {
-      console.error('Error fetching guest orders:', error);
-      set({
-        error: error.message || 'Failed to fetch guest orders',
-        loading: false,
-      });
-    }
-  },
-
-  verifyGuestOrderAccess: async (orderId: string, email: string, phone: string) => {
+  async verifyGuestOrderAccess(orderId: string, email: string, phone: string) {
     try {
       let query = supabase
         .from('orders')
@@ -613,7 +547,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       if (phone) query = query.eq('guest_phone', phone);
 
       const { data, error } = await query.single();
-      
+
       if (error) throw error;
       return !!data;
     } catch (error) {
@@ -622,23 +556,20 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     }
   },
 
-  cancelOrderItem: async (orderItemId: string, reason: string, userId?: string, guestSessionId?: string) => {
+  async cancelOrderItem(orderItemId: string, reason: string, userId?: string, guestSessionId?: string) {
     set({ loading: true, error: null });
     try {
-      // Update order_items table directly
-      const { error } = await supabase
-        .from('order_items')
-        .update({
-          item_status: 'cancelled',
-          cancel_reason: reason,
-        })
-        .eq('order_item_id', orderItemId);
-
-      if (error) throw error;
+      // Use the new Edge Function for cancelling items
+      await updateOrderItemStatus({
+        action: 'cancel_item',
+        orderItemId,
+        reason,
+        guestSessionId
+      });
 
       // Update local state
       get().updateOrderItemStatus(orderItemId, 'cancelled');
-      
+
       set({ loading: false });
     } catch (error: any) {
       console.error('Error cancelling order item:', error);
@@ -647,44 +578,20 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     }
   },
 
-  requestReturnItem: async (orderItemId: string, reason: string, userId?: string, guestSessionId?: string, imageFile?: File) => {
+  async requestReturnItem(orderItemId: string, reason: string, userId?: string, guestSessionId?: string, imageFile?: File) {
     set({ loading: true, error: null });
     try {
-      let imageUrl = null;
-
-      // Upload image if provided
-      if (imageFile) {
-        const fileExt = imageFile.name.split('.').pop();
-        const fileName = `${orderItemId}_${Date.now()}.${fileExt}`;
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('return-images')
-          .upload(fileName, imageFile);
-
-        if (uploadError) {
-          console.error('Error uploading image:', uploadError);
-        } else {
-          const { data: { publicUrl } } = supabase.storage
-            .from('return-images')
-            .getPublicUrl(fileName);
-          imageUrl = publicUrl;
-        }
-      }
-
-      // Update order_items table
-      const { error } = await supabase
-        .from('order_items')
-        .update({
-          item_status: 'returned',
-          return_reason: reason,
-          return_requested_at: new Date().toISOString(),
-        })
-        .eq('order_item_id', orderItemId);
-
-      if (error) throw error;
+      // Use the new Edge Function for requesting returns
+      await updateOrderItemStatus({
+        action: 'request_return',
+        orderItemId,
+        reason,
+        guestSessionId
+      });
 
       // Update local state
       get().updateOrderItemStatus(orderItemId, 'returned');
-      
+
       set({ loading: false });
     } catch (error: any) {
       console.error('Error requesting return:', error);
@@ -693,9 +600,9 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     }
   },
 
-  updateOrderItemStatus: (orderItemId: string, newStatus: string) => {
+  updateOrderItemStatus(orderItemId: string, newStatus: string) {
     const { currentOrder, orders } = get();
-    
+
     // Update currentOrder if it contains this item
     if (currentOrder && Array.isArray(currentOrder.items)) {
       const updatedItems = currentOrder.items.map((item: any) =>
@@ -721,9 +628,85 @@ export const useOrderStore = create<OrderState>((set, get) => ({
       }
       return order;
     });
-    
+
     set({ orders: updatedOrders });
   },
 
-  clearError: () => set({ error: null })
+  async adminCancelOrderItem(orderItemId: string, reason: string, adminUserId: string) {
+    set({ loading: true, error: null });
+    try {
+      await updateOrderItemStatus({
+        action: 'cancel_item',
+        orderItemId,
+        reason,
+        isAdmin: true,
+        adminUserId
+      });
+
+      get().updateOrderItemStatus(orderItemId, 'cancelled');
+      set({ loading: false });
+    } catch (error: any) {
+      console.error('Error admin cancelling order item:', error);
+      set({ error: error.message || 'Failed to cancel item', loading: false });
+      throw error;
+    }
+  },
+
+  async adminShipOrderItem(orderItemId: string, adminUserId: string) {
+    set({ loading: true, error: null });
+    try {
+      await updateOrderItemStatus({
+        action: 'ship_item',
+        orderItemId,
+        isAdmin: true,
+        adminUserId
+      });
+
+      get().updateOrderItemStatus(orderItemId, 'shipped');
+      set({ loading: false });
+    } catch (error: any) {
+      console.error('Error admin shipping order item:', error);
+      set({ error: error.message || 'Failed to ship item', loading: false });
+      throw error;
+    }
+  },
+
+  async adminDeliverOrderItem(orderItemId: string, adminUserId: string) {
+    set({ loading: true, error: null });
+    try {
+      await updateOrderItemStatus({
+        action: 'deliver_item',
+        orderItemId,
+        isAdmin: true,
+        adminUserId
+      });
+
+      get().updateOrderItemStatus(orderItemId, 'delivered');
+      set({ loading: false });
+    } catch (error: any) {
+      console.error('Error admin delivering order item:', error);
+      set({ error: error.message || 'Failed to deliver item', loading: false });
+      throw error;
+    }
+  },
+
+  async adminRefundOrderItem(orderItemId: string, reason: string, adminUserId: string) {
+    set({ loading: true, error: null });
+    try {
+      await updateOrderItemStatus({
+        action: 'refund_item',
+        orderItemId,
+        reason,
+        isAdmin: true,
+        adminUserId
+      });
+
+      get().updateOrderItemStatus(orderItemId, 'refunded');
+      set({ loading: false });
+    } catch (error: any) {
+      console.error('Error admin refunding order item:', error);
+      set({ error: error.message || 'Failed to refund item', loading: false });
+      throw error;
+    }
+  },
 }));

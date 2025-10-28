@@ -58,6 +58,20 @@ const CheckoutPage: React.FC = () => {
   const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
   const currentOrderIdRef = useRef<string | null>(null);
   const [showPaymentStatus, setShowPaymentStatus] = useState(false);
+  const [showNavigationWarning, setShowNavigationWarning] = useState(false);
+
+  // Navigation warning modal state
+  const [navigationWarning, setNavigationWarning] = useState<{
+    isOpen: boolean;
+    message: string;
+    onConfirm: () => void;
+    onCancel: () => void;
+  }>({
+    isOpen: false,
+    message: '',
+    onConfirm: () => {},
+    onCancel: () => {}
+  });
   const [showOtpVerification, setShowOtpVerification] = useState(false);
   const [otpValue, setOtpValue] = useState('');
   const [otpVerified, setOtpVerified] = useState(false);
@@ -76,6 +90,62 @@ const CheckoutPage: React.FC = () => {
     message: '',
     type: 'info'
   });
+
+  // Check if user has unsaved changes (has items in cart and hasn't completed order)
+  const hasUnsavedChanges = useMemo(() => {
+    return cartItems.length > 0 && !paymentStatus;
+  }, [cartItems.length, paymentStatus]);
+
+  // Handle navigation attempts
+  const handleNavigationAttempt = useCallback((callback: () => void) => {
+    if (hasUnsavedChanges) {
+      setNavigationWarning({
+        isOpen: true,
+        message: 'You have items in your cart and haven\'t completed your order. Are you sure you want to leave? Your progress will be lost.',
+        onConfirm: callback,
+        onCancel: () => setNavigationWarning(prev => ({ ...prev, isOpen: false }))
+      });
+    } else {
+      callback();
+    }
+  }, [hasUnsavedChanges]);
+
+  // Handle browser back button and page unload
+  useEffect(() => {
+    if (!hasUnsavedChanges) return;
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+      return e.returnValue;
+    };
+
+    const handlePopState = (e: PopStateEvent) => {
+      // Prevent back navigation if user has unsaved changes
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        window.history.pushState(null, '', window.location.pathname);
+        setNavigationWarning({
+          isOpen: true,
+          message: 'You have items in your cart and haven\'t completed your order. Are you sure you want to go back? Your progress will be lost.',
+          onConfirm: () => window.history.back(),
+          onCancel: () => setNavigationWarning(prev => ({ ...prev, isOpen: false }))
+        });
+      }
+    };
+
+    // Add event listeners
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('popstate', handlePopState);
+
+    // Push current state to history to enable back button detection
+    window.history.pushState(null, '', window.location.pathname);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [hasUnsavedChanges]);
 
   const subtotal = useMemo(() => getCartTotal(), [getCartTotal]);
   const savings = useMemo(() => getCartSavings(), [getCartSavings]);
@@ -693,7 +763,16 @@ const CheckoutPage: React.FC = () => {
       <div className="min-h-screen bg-gradient-light dark:bg-gradient-dark">
         <div className="max-w-7xl mx-auto px-4 py-4 sm:py-8">
           <div className="flex items-center justify-between mb-6 sm:mb-8">
-            <h1 className="text-2xl sm:text-3xl font-bold">Checkout</h1>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => handleNavigationAttempt(() => navigate('/cart'))}
+                className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+              >
+                <ArrowLeft className="w-4 h-4" />
+                Back to Cart
+              </button>
+              <h1 className="text-2xl sm:text-3xl font-bold">Checkout</h1>
+            </div>
             {isGuest && guestInfo && (
               <div className="flex items-center gap-2 sm:gap-4">
                 <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
@@ -845,6 +924,51 @@ const CheckoutPage: React.FC = () => {
         type={alertModal.type}
         onClose={() => setAlertModal({ isOpen: false, message: '', type: 'info' })}
       />
+
+      {/* Navigation Warning Modal */}
+      {navigationWarning.isOpen && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="card-modern animate-scale-in max-w-lg w-full overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 bg-orange-500 text-white">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-bold">Warning</h3>
+              </div>
+            </div>
+
+            {/* Content */}
+            <div className="p-6">
+              <p className="text-gray-700 dark:text-gray-300 text-lg leading-relaxed">
+                {navigationWarning.message}
+              </p>
+            </div>
+
+            {/* Footer */}
+            <div className="flex justify-end gap-3 p-6 border-t bg-gray-50 dark:bg-dark3">
+              <button
+                onClick={navigationWarning.onCancel}
+                className="btn-secondary px-6 py-3 text-gray-700 dark:text-gray-300 font-semibold hover:bg-gray-200 dark:hover:bg-dark2 transition-all duration-200"
+              >
+                Stay Here
+              </button>
+              <button
+                onClick={() => {
+                  navigationWarning.onConfirm();
+                  setNavigationWarning(prev => ({ ...prev, isOpen: false }));
+                }}
+                className="btn-primary px-6 py-3 font-semibold transition-all duration-200 hover:scale-105 bg-red-600 hover:bg-red-700 text-white"
+              >
+                Leave Anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

@@ -380,6 +380,10 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
   },
 
   updateProduct: async (productId, formData) => {
+    console.log('🔄 AdminStore updateProduct called');
+    console.log('🆔 Product ID:', productId);
+    console.log('📝 Form data:', formData);
+
     set({ loading: true, error: null });
     try {
       const { sizes, ...rest } = formData;
@@ -389,16 +393,25 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
         sizes: JSON.stringify(sizes)
       };
 
-      console.log('Updating product:', productId, updateData);
+      console.log('📦 Update data being sent to Supabase:', updateData);
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('products')
         .update(updateData)
-        .eq('product_id', productId);
+        .eq('product_id', productId)
+        .select();
 
       if (error) {
-        console.error('Update error:', error);
+        console.error('❌ Supabase update error:', error);
         set({ error: `Failed to update product: ${error.message}` });
+        return false;
+      }
+
+      console.log('✅ Supabase update successful, returned data:', data);
+
+      if (!data || data.length === 0) {
+        console.error('❌ No data returned from update');
+        set({ error: 'Product update failed - no data returned' });
         return false;
       }
 
@@ -407,7 +420,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
       setTimeout(() => set({ success: null }), 3000);
       return true;
     } catch (error) {
-      console.error('Update product error:', error);
+      console.error('💥 Update product error:', error);
       set({ error: 'Failed to update product' });
       return false;
     } finally {

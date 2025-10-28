@@ -61,7 +61,7 @@ export interface Order {
   delivery_charge: number;
   total_amount: number;
   status: 'pending' | 'paid' | 'shipped' | 'delivered' | 'cancelled' | 'returned' | 'partially_delivered' | 'partially_cancelled' | 'partially_refunded' | 'partially_shipped';
-  payment_status: 'pending' | 'paid' | 'failed' | 'refunded' | 'partially_refunded';
+  payment_status: 'pending' | 'paid' | 'failed' | 'refunded';
   payment_method?: string;
   payment_id?: string;
   shipping_address?: ShippingAddress | string;
@@ -87,11 +87,13 @@ export interface Order {
 export interface Review {
   review_id: string;
   product_id: string;
-  user_id: string;
+  user_id?: string;
+  guest_session_id?: string;
   rating: number; // 1-5
   comment?: string;
   title?: string;
   is_verified_purchase?: boolean;
+  review_type?: 'registered' | 'guest';
   created_at: string;
   updated_at?: string;
   // Additional fields for display

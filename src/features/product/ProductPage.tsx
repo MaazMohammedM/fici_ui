@@ -32,7 +32,8 @@ const ProductPage: React.FC = () => {
     const params = new URLSearchParams(location.search);
     const category = params.get('category') || undefined;
     const gender = params.get('gender') || undefined;
-    const sub_category = params.get('sub_category') || undefined;
+    const subCategories = params.getAll('sub_category');
+    const sub_category = subCategories.length > 0 ? subCategories : undefined;
     const q = params.get('q') || undefined;
     const pageStr = params.get('page');
     const page = pageStr ? Math.max(1, parseInt(pageStr, 10) || 1) : 1;
@@ -49,7 +50,8 @@ const ProductPage: React.FC = () => {
     // Reflect URL params in UI controls
     setSelectedCategory(category || 'all');
     setSelectedGender(gender || 'all');
-    setSelectedSubCategory(sub_category || 'all');
+    // For UI, we'll only show the first sub-category in the dropdown
+    setSelectedSubCategory(subCategories[0] || 'all');
     setSearchInput(q || '');
   }, [location.search, fetchProducts]);
 

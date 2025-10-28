@@ -4,6 +4,10 @@ import { useAuthStore } from '@store/authStore';
 import { calculateAggregateOrderStatus } from '@store/orderStore';
 import { CheckCircle, XCircle, Clock, Eye, Ban, Truck as TruckIcon, DollarSign, Package, Filter, RefreshCw, Search, X } from 'lucide-react';
 import AlertModal from '@components/ui/AlertModal';
+import { updateOrderItemStatus, type OrderAction } from '@/lib/orderActions';
+import { useOrderItemActionStates, type OrderData, type OrderItem, getOrderActionStates, type PaymentMethod, type PaymentStatus, type ItemStatus } from '@/hooks/useOrderActionStates';
+import { orderToast } from '@/lib/orderToast';
+import OrderItemActions from '@/features/orders/components/OrderItemActions';
 interface Order {
   order_id: string;
   order_date: string;
@@ -43,6 +47,10 @@ interface Order {
     return_reason?: string;
     refund_amount?: number;
     refunded_at?: string;
+    shipped_at?: string;
+    delivered_at?: string;
+    return_requested_at?: string;
+    return_approved_at?: string;
   }>;
 }
 
@@ -258,7 +266,7 @@ const AdminOrderDashboard: React.FC = () => {
 
         await fetchOrders();
         setShowOrderModal(false);
-        alert('Order shipped successfully');
+        showAlert('Order shipped successfully', 'success');
       }
       // Handle 'deliver' action - show modal for item selection
       else if (action === 'deliver') {
@@ -266,24 +274,36 @@ const AdminOrderDashboard: React.FC = () => {
         setShowDeliverModal(true);
         return; // Don't close the order modal yet
       }
-      // Handle other actions (cancel, etc.) with edge function for now
+      // Handle 'update_status' action - recalculate and update order status
+      else if (action === 'update_status') {
+        await updateAggregateOrderStatus(orderId);
+        await fetchOrders();
+        return;
+      }
+      // Handle 'update_payment_status' action
+      else if (action === 'update_payment_status') {
+        await updatePaymentStatus(orderId);
+        await fetchOrders();
+        return;
+      }
+      // Handle other actions (cancel, etc.) with direct database updates
       else {
-        const { error } = await supabase.functions.invoke('admin-order-management', {
-          body: {
-            order_id: orderId,
-            action,
-            ...data
-          }
-        });
+        const { error } = await supabase
+          .from('orders')
+          .update({
+            status: action,
+            updated_at: new Date().toISOString()
+          })
+          .eq('order_id', orderId);
 
         if (error) throw error;
 
         await fetchOrders();
         setShowOrderModal(false);
-        alert(`Order ${action} successful`);
+        showAlert(`Order ${action} successful`, 'success');
       }
     } catch (err: any) {
-      alert(`Failed to ${action} order: ${err.message}`);
+      showAlert(`Failed to ${action} order: ${err.message}`, 'error');
     } finally {
       setProcessingAction(null);
     }
@@ -291,12 +311,12 @@ const AdminOrderDashboard: React.FC = () => {
 
   const handleUpdateShipment = async () => {
     if (!selectedOrder || selectedItemsForShip.length === 0) {
-      alert('Please select at least one item to ship');
+      showAlert('Please select at least one item to ship', 'warning');
       return;
     }
 
     if (!shipmentForm.shipping_partner || !shipmentForm.tracking_id) {
-      alert('Please enter shipping partner and tracking ID');
+      showAlert('Please enter shipping partner and tracking ID', 'warning');
       return;
     }
 
@@ -304,22 +324,18 @@ const AdminOrderDashboard: React.FC = () => {
       setProcessingAction(`shipment-${selectedOrder.order_id}`);
       console.log('Shipping items:', selectedItemsForShip);
 
-      // Update selected order items to shipped
-      const { data: updatedItems, error: itemsError } = await supabase
-        .from('order_items')
-        .update({ item_status: 'shipped' })
-        .in('order_item_id', selectedItemsForShip)
-        .eq('order_id', selectedOrder.order_id)
-        .select();
-
-      if (itemsError) {
-        console.error('Error updating order_items:', itemsError);
-        throw itemsError;
+      // Ship each selected item using the Edge Function
+      for (const itemId of selectedItemsForShip) {
+        await updateOrderItemStatus({
+          action: 'ship_item',
+          orderItemId: itemId,
+          isAdmin: true,
+          adminUserId: user?.id
+        });
       }
-      console.log('Updated items:', updatedItems);
 
       // Update order with tracking details
-      const { data: updatedOrder, error: orderError } = await supabase
+      const { error: orderError } = await supabase
         .from('orders')
         .update({
           shipping_partner: shipmentForm.shipping_partner,
@@ -327,27 +343,25 @@ const AdminOrderDashboard: React.FC = () => {
           tracking_url: shipmentForm.tracking_url,
           shipped_at: new Date().toISOString(),
         })
-        .eq('order_id', selectedOrder.order_id)
-        .select();
+        .eq('order_id', selectedOrder.order_id);
 
       if (orderError) {
         console.error('Error updating orders:', orderError);
         throw orderError;
       }
-      console.log('Updated order:', updatedOrder);
 
-      // Update aggregate order status via edge function
+      // Update aggregate order status
       await updateAggregateOrderStatus(selectedOrder.order_id);
       await fetchOrders();
-      
+
       setShowShipmentModal(false);
       setSelectedOrder(null);
       setShipmentForm({ shipping_partner: '', tracking_id: '', tracking_url: '' });
       setSelectedItemsForShip([]);
-      alert(`${selectedItemsForShip.length} item(s) shipped successfully`);
+      showAlert(`${selectedItemsForShip.length} item(s) shipped successfully`, 'success');
     } catch (error: any) {
       console.error('Error updating shipment:', error);
-      alert(`Failed to ship items: ${error.message || 'Unknown error'}`);
+      showAlert(`Failed to ship items: ${error.message || 'Unknown error'}`, 'error');
     } finally {
       setProcessingAction(null);
     }
@@ -357,22 +371,21 @@ const AdminOrderDashboard: React.FC = () => {
     try {
       setProcessingAction(`ship-item-${orderItemId}`);
 
-      // Update item status
-      const { error: itemError } = await supabase
-        .from('order_items')
-        .update({ item_status: 'shipped' })
-        .eq('order_item_id', orderItemId)
-        .eq('order_id', orderId);
-
-      if (itemError) throw itemError;
+      // Use the Edge Function for shipping items
+      await updateOrderItemStatus({
+        action: 'ship_item',
+        orderItemId,
+        isAdmin: true,
+        adminUserId: user?.id
+      });
 
       // Recalculate and update order status
-      await updateOrderStatus(orderId, 'ship');
+      await updateAggregateOrderStatus(orderId);
       await fetchOrders();
-      alert('Item shipped successfully');
+      orderToast.itemShipped(`Item ${orderItemId}`);
     } catch (error) {
       console.error('Error shipping item:', error);
-      alert('Failed to ship item');
+      showAlert(`Failed to ship item: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
     } finally {
       setProcessingAction(null);
     }
@@ -382,20 +395,20 @@ const AdminOrderDashboard: React.FC = () => {
     try {
       setProcessingAction(`deliver-item-${orderItemId}`);
 
-      const { error: itemError } = await supabase
-        .from('order_items')
-        .update({ item_status: 'delivered' })
-        .eq('order_item_id', orderItemId)
-        .eq('order_id', orderId);
-
-      if (itemError) throw itemError;
+      // Use the Edge Function for delivering items
+      await updateOrderItemStatus({
+        action: 'deliver_item',
+        orderItemId,
+        isAdmin: true,
+        adminUserId: user?.id
+      });
 
       await updateAggregateOrderStatus(orderId);
       await fetchOrders();
-      alert('Item delivered successfully');
+      orderToast.itemDelivered(`Item ${orderItemId}`);
     } catch (error) {
       console.error('Error delivering item:', error);
-      alert('Failed to deliver item');
+      orderToast.deliveryFailed(`Item ${orderItemId}`, error instanceof Error ? error.message : 'Unknown error');
     } finally {
       setProcessingAction(null);
     }
@@ -405,22 +418,21 @@ const AdminOrderDashboard: React.FC = () => {
     try {
       setProcessingAction(`cancel-item-${orderItemId}`);
 
-      const { error: itemError } = await supabase
-        .from('order_items')
-        .update({ 
-          item_status: 'cancelled',
-          cancel_reason: reason
-        })
-        .eq('order_item_id', orderItemId);
-
-      if (itemError) throw itemError;
+      // Use the Edge Function for cancelling items
+      await updateOrderItemStatus({
+        action: 'cancel_item',
+        orderItemId,
+        reason,
+        isAdmin: true,
+        adminUserId: user?.id
+      });
 
       await updateAggregateOrderStatus(orderId);
       await fetchOrders();
-      alert('Item cancelled successfully');
+      orderToast.itemCancelled(`Item ${orderItemId}`);
     } catch (error) {
       console.error('Error cancelling item:', error);
-      alert('Failed to cancel item');
+      orderToast.cancellationFailed(`Item ${orderItemId}`, error instanceof Error ? error.message : 'Unknown error');
     } finally {
       setProcessingAction(null);
     }
@@ -430,30 +442,25 @@ const AdminOrderDashboard: React.FC = () => {
     try {
       setProcessingAction(`refund-item-${orderItemId}`);
 
-      // Update item status
-      const { error: itemError } = await supabase
-        .from('order_items')
-        .update({ 
-          item_status: 'refunded',
-          refund_amount: amount,
-          refunded_at: new Date().toISOString(),
-          return_reason: reason
-        })
-        .eq('order_item_id', orderItemId);
-
-      if (itemError) throw itemError;
+      // Use the Edge Function for refunding items
+      await updateOrderItemStatus({
+        action: 'refund_item',
+        orderItemId,
+        reason,
+        isAdmin: true,
+        adminUserId: user?.id
+      });
 
       // Update payment status
-      await updateAggregateOrderStatus(orderId);
       await updatePaymentStatus(orderId);
       await fetchOrders();
-      
+
       setShowRefundModal(false);
       setRefundForm({ amount: 0, reason: '', refund_reference: '', items: [] });
-      alert('Item refunded successfully');
+      orderToast.itemRefunded(`Item ${orderItemId}`);
     } catch (error) {
       console.error('Error refunding item:', error);
-      alert('Failed to refund item');
+      orderToast.refundFailed(`Item ${orderItemId}`, error instanceof Error ? error.message : 'Unknown error');
     } finally {
       setProcessingAction(null);
     }
@@ -463,21 +470,23 @@ const AdminOrderDashboard: React.FC = () => {
     try {
       setProcessingAction(`bulk-ship-${orderId}`);
 
-      const { error } = await supabase
-        .from('order_items')
-        .update({ item_status: 'shipped' })
-        .in('order_item_id', itemIds)
-        .eq('order_id', orderId);
-
-      if (error) throw error;
+      // Ship each item individually using the Edge Function
+      for (const itemId of itemIds) {
+        await updateOrderItemStatus({
+          action: 'ship_item',
+          orderItemId: itemId,
+          isAdmin: true,
+          adminUserId: user?.id
+        });
+      }
 
       await updateAggregateOrderStatus(orderId);
       await fetchOrders();
       setSelectedItemsForShip([]);
-      alert(`${itemIds.length} items shipped successfully`);
+      orderToast.success(`${itemIds.length} items shipped successfully`);
     } catch (error) {
       console.error('Error bulk shipping items:', error);
-      alert('Failed to ship items');
+      orderToast.error('Failed to ship items');
     } finally {
       setProcessingAction(null);
     }
@@ -487,26 +496,25 @@ const AdminOrderDashboard: React.FC = () => {
     try {
       setProcessingAction(`bulk-refund-${orderId}`);
 
-      const { error } = await supabase
-        .from('order_items')
-        .update({ 
-          item_status: 'refunded',
-          refunded_at: new Date().toISOString(),
-          return_reason: reason
-        })
-        .in('order_item_id', itemIds)
-        .eq('order_id', orderId);
-
-      if (error) throw error;
+      // Refund each item individually using the Edge Function
+      for (const itemId of itemIds) {
+        await updateOrderItemStatus({
+          action: 'refund_item',
+          orderItemId: itemId,
+          reason,
+          isAdmin: true,
+          adminUserId: user?.id
+        });
+      }
 
       await updateAggregateOrderStatus(orderId);
       await updatePaymentStatus(orderId);
       await fetchOrders();
       setShowRefundModal(false);
-      alert(`${itemIds.length} items refunded successfully`);
+      orderToast.success(`${itemIds.length} items refunded successfully`);
     } catch (error) {
       console.error('Error bulk refunding items:', error);
-      alert('Failed to refund items');
+      orderToast.error('Failed to refund items');
     } finally {
       setProcessingAction(null);
     }
@@ -514,7 +522,7 @@ const AdminOrderDashboard: React.FC = () => {
 
   const handleUpdateDeliver = async () => {
     if (!selectedOrder || selectedItemsForDeliver.length === 0) {
-      alert('Please select at least one item to mark as delivered');
+      showAlert('Please select at least one item to mark as delivered', 'warning');
       return;
     }
 
@@ -522,66 +530,115 @@ const AdminOrderDashboard: React.FC = () => {
       setProcessingAction(`deliver-${selectedOrder.order_id}`);
       console.log('Delivering items:', selectedItemsForDeliver);
 
-      // Update selected order items to delivered
-      const { data: updatedItems, error: itemsError } = await supabase
-        .from('order_items')
-        .update({ item_status: 'delivered' })
-        .in('order_item_id', selectedItemsForDeliver)
-        .eq('order_id', selectedOrder.order_id)
-        .select();
-
-      if (itemsError) {
-        console.error('Error updating order_items:', itemsError);
-        throw itemsError;
+      // Deliver each selected item using the Edge Function
+      for (const itemId of selectedItemsForDeliver) {
+        await updateOrderItemStatus({
+          action: 'deliver_item',
+          orderItemId: itemId,
+          isAdmin: true,
+          adminUserId: user?.id
+        });
       }
-      console.log('Updated items:', updatedItems);
 
       // Update order delivered_at timestamp
-      const { data: updatedOrder, error: orderError } = await supabase
+      const { error: orderError } = await supabase
         .from('orders')
         .update({
           delivered_at: new Date().toISOString(),
         })
-        .eq('order_id', selectedOrder.order_id)
-        .select();
+        .eq('order_id', selectedOrder.order_id);
 
       if (orderError) {
         console.error('Error updating orders:', orderError);
         throw orderError;
       }
-      console.log('Updated order:', updatedOrder);
 
-      // Update aggregate order status via edge function
+      // Update aggregate order status
       await updateAggregateOrderStatus(selectedOrder.order_id);
       await fetchOrders();
-      
+
       setShowDeliverModal(false);
       setSelectedOrder(null);
       setSelectedItemsForDeliver([]);
-      alert(`${selectedItemsForDeliver.length} item(s) marked as delivered successfully`);
+      showAlert(`${selectedItemsForDeliver.length} item(s) marked as delivered successfully`, 'success');
     } catch (error: any) {
       console.error('Error marking items as delivered:', error);
-      alert(`Failed to mark items as delivered: ${error.message || 'Unknown error'}`);
+      showAlert(`Failed to mark items as delivered: ${error.message || 'Unknown error'}`, 'error');
     } finally {
       setProcessingAction(null);
     }
   };
 
+
   const updateAggregateOrderStatus = async (orderId: string) => {
     try {
       console.log('Updating aggregate status for order:', orderId);
 
-      // Call edge function to update order status based on items
-      const { error } = await supabase.functions.invoke('update-order-status-based-on-items', {
-        body: { order_id: orderId }
-      });
+      // Get all items for this order to compute aggregate status
+      const { data: items, error: itemsError } = await supabase
+        .from('order_items')
+        .select('item_status')
+        .eq('order_id', orderId);
 
-      if (error) {
-        console.error('Error updating order status via edge function:', error);
-        throw error;
+      if (itemsError) {
+        console.error('Error fetching order items:', itemsError);
+        throw itemsError;
       }
 
-      console.log('Order status updated via edge function');
+      if (!items || items.length === 0) {
+        console.log('No items found for order:', orderId);
+        return;
+      }
+
+      // Calculate aggregate status based on item statuses
+      const statuses = items.map(item => item.item_status || 'pending');
+
+      let newOrderStatus = 'pending';
+      const allDelivered = statuses.every(s => s === 'delivered');
+      const allShipped = statuses.every(s => s === 'shipped');
+      const allCancelled = statuses.every(s => s === 'cancelled');
+      const allRefunded = statuses.every(s => s === 'refunded');
+
+      const someDelivered = statuses.some(s => s === 'delivered');
+      const someShipped = statuses.some(s => s === 'shipped');
+      const someCancelled = statuses.some(s => s === 'cancelled');
+      const someRefunded = statuses.some(s => s === 'refunded');
+
+      if (allCancelled || allRefunded) {
+        newOrderStatus = 'cancelled';
+      } else if (allDelivered) {
+        newOrderStatus = 'delivered';
+      } else if (allShipped && !someDelivered && !someCancelled) {
+        newOrderStatus = 'shipped';
+      } else if (someCancelled || someRefunded) {
+        if (someDelivered) {
+          newOrderStatus = 'partially_delivered';
+        } else if (someShipped) {
+          newOrderStatus = 'partially_cancelled';
+        } else {
+          newOrderStatus = 'partially_cancelled';
+        }
+      } else if (someDelivered && (someShipped || statuses.some(s => s === 'pending'))) {
+        newOrderStatus = 'partially_delivered';
+      } else if (someShipped && !allShipped) {
+        newOrderStatus = 'partially_shipped';
+      }
+
+      // Update the order status directly
+      const { error: updateError } = await supabase
+        .from('orders')
+        .update({
+          status: newOrderStatus,
+          updated_at: new Date().toISOString()
+        })
+        .eq('order_id', orderId);
+
+      if (updateError) {
+        console.error('Error updating order status:', updateError);
+        throw updateError;
+      }
+
+      console.log(`Order status updated to: ${newOrderStatus}`);
     } catch (error) {
       console.error('Error updating aggregate status:', error);
       throw error; // Re-throw to let caller handle it
@@ -674,24 +731,49 @@ const AdminOrderDashboard: React.FC = () => {
 
   const stats = getOrderStats();
 
-  // Call hooks conditionally based on orders length to avoid hook violations
+  // Use utility function directly instead of hook to avoid Rules of Hooks violation
   const orderActionStates = useMemo(() => {
     if (orders.length === 0) return [];
 
-    // For now, use a simplified approach that doesn't call hooks in loops
-    // We'll use the utility function directly in the JSX for now
-    return orders.map(order => ({
-      orderId: order.order_id,
-      actionStates: {
-        canShip: order.order_items?.some(item => item.item_status === 'pending') || false,
-        canDeliver: order.order_items?.some(item => item.item_status === 'shipped') || false,
-        canRefund: (order.payment_method === 'razorpay' && order.payment_status === 'paid' &&
-                   order.order_items?.some(item => ['cancelled', 'delivered', 'shipped'].includes(item.item_status || ''))) ||
-                  (order.payment_method === 'cod' && order.order_items?.some(item => item.item_status === 'delivered')) || false,
-        canCancel: order.order_items?.some(item => item.item_status === 'pending') || false,
-      },
-      orderItems: order.order_items || []
-    }));
+    return orders.map(order => {
+      // Safely handle undefined order_items
+      const orderItems = order.order_items || [];
+
+      // Check if any items can perform each action
+      const hasShippableItems = orderItems.some(item =>
+        getOrderActionStates(order.payment_method, order.payment_status, item.item_status || 'pending', item.delivered_at).canShip
+      );
+
+      const hasDeliverableItems = orderItems.some(item =>
+        getOrderActionStates(order.payment_method, order.payment_status, item.item_status || 'pending', item.delivered_at).canDeliver
+      );
+
+      const hasRefundableItems = orderItems.some(item =>
+        getOrderActionStates(order.payment_method, order.payment_status, item.item_status || 'pending', item.delivered_at).canRefund
+      );
+
+      const hasCancellableItems = orderItems.some(item =>
+        getOrderActionStates(order.payment_method, order.payment_status, item.item_status || 'pending', item.delivered_at).canCancel
+      );
+
+      const hasReturnableItems = orderItems.some(item =>
+        getOrderActionStates(order.payment_method, order.payment_status, item.item_status || 'pending', item.delivered_at).canReturn
+      );
+
+      const actionStates = {
+        canShip: hasShippableItems,
+        canDeliver: hasDeliverableItems,
+        canRefund: hasRefundableItems,
+        canCancel: hasCancellableItems,
+        canReturn: hasReturnableItems,
+      };
+
+      return {
+        orderId: order.order_id,
+        actionStates,
+        orderItems
+      };
+    });
   }, [orders]);
 
   useEffect(() => {

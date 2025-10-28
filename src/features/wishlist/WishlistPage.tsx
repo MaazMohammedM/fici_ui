@@ -50,18 +50,18 @@ export const WishlistPage: React.FC = () => {
 
   if (items.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 px-4 sm:py-12 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center">
-            <HeartIcon className="mx-auto h-16 w-16 text-gray-300 dark:text-gray-600" />
-            <h2 className="mt-4 text-2xl font-bold text-gray-900 dark:text-white">Your wishlist is empty</h2>
-            <p className="mt-2 text-gray-600 dark:text-gray-400">Save items you love to your wishlist</p>
-            <div className="mt-6">
+            <HeartIcon className="mx-auto h-12 w-12 sm:h-16 sm:w-16 text-gray-300 dark:text-gray-600" />
+            <h2 className="mt-3 sm:mt-4 text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Your wishlist is empty</h2>
+            <p className="mt-1 sm:mt-2 text-sm sm:text-base text-gray-600 dark:text-gray-400">Save items you love to your wishlist</p>
+            <div className="mt-4 sm:mt-6">
               <Link
                 to="/products"
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                className="inline-flex items-center px-3 py-2 sm:px-4 sm:py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               >
-                <ArrowLeft className="-ml-1 mr-2 h-5 w-5" />
+                <ArrowLeft className="-ml-1 mr-2 h-4 w-4 sm:h-5 sm:w-5" />
                 Continue Shopping
               </Link>
             </div>
@@ -72,29 +72,29 @@ export const WishlistPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 px-4 sm:py-12 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Your Wishlist</h1>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 sm:mb-8 gap-4">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Your Wishlist</h1>
           <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 w-full sm:w-auto">
             <button
               onClick={clearWishlist}
-              className="inline-flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+              className="inline-flex items-center justify-center px-3 py-2 border border-gray-300 dark:border-gray-600 shadow-sm text-xs sm:text-sm leading-4 font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
             >
               <X className="-ml-0.5 mr-2 h-4 w-4" />
               Clear All
             </button>
             <Link
               to="/products"
-              className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+              className="inline-flex items-center justify-center px-3 py-2 border border-transparent text-xs sm:text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
             >
-              <ArrowLeft className="-ml-1 mr-2 h-5 w-5" />
+              <ArrowLeft className="-ml-1 mr-2 h-4 w-4" />
               Continue Shopping
             </Link>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-y-10 gap-x-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 xl:gap-x-8">
+        <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:gap-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {items.map((product) => {
             // Check if product is out of stock (all sizes have 0 stock)
             const availableSizes = product.sizes
@@ -104,7 +104,7 @@ export const WishlistPage: React.FC = () => {
 
             return (
               <div key={product.article_id} className="group relative bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
-                <div className="aspect-w-1 aspect-h-1 w-full overflow-hidden rounded-t-lg bg-gray-200 dark:bg-gray-700 relative">
+                <div className="aspect-square w-full overflow-hidden rounded-t-lg bg-gray-200 dark:bg-gray-700 relative">
                   <Link to={`/products/${product.article_id}`} className="block h-full w-full">
                     <img
                       src={product.thumbnail_url || product.images?.[0] || '/placeholder-product.jpg'}
@@ -132,14 +132,14 @@ export const WishlistPage: React.FC = () => {
                       removeFromWishlist(product.article_id);
                       toast.success('Removed from wishlist');
                     }}
-                    className="absolute top-2 right-2 p-2 rounded-full bg-white dark:bg-gray-900 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors z-20"
+                    className="absolute top-2 right-2 p-1.5 sm:p-2 rounded-full bg-white dark:bg-gray-900 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors z-20"
                     aria-label="Remove from wishlist"
                   >
-                    <X className="h-5 w-5" />
+                    <X className="h-4 w-4 sm:h-5 sm:w-5" />
                   </button>
                 </div>
-                <div className="p-4">
-                  <h3 className={`text-sm mb-1 ${isOutOfStock ? 'text-gray-500 dark:text-gray-400' : 'text-gray-700 dark:text-gray-200'}`}>
+                <div className="p-3 sm:p-4">
+                  <h3 className={`text-sm mb-1 ${isOutOfStock ? 'text-gray-500 dark:text-gray-400' : 'text-gray-700 dark:text-gray-200'} line-clamp-2`}>
                     <Link to={`/products/${product.article_id}`} className="hover:text-blue-600 dark:hover:text-blue-400">
                       {product.name}
                     </Link>
@@ -148,9 +148,9 @@ export const WishlistPage: React.FC = () => {
                     ₹{product.price?.toLocaleString('en-IN')}
                   </p>
 
-                  <div className="mt-4 flex flex-col sm:flex-row gap-2 sm:gap-3">
+                  <div className="mt-3 flex flex-col gap-2">
                     <button
-                      className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 flex items-center justify-center transition-colors"
+                      className="w-full px-3 py-2 text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 flex items-center justify-center transition-colors"
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
@@ -158,12 +158,12 @@ export const WishlistPage: React.FC = () => {
                         toast.success('Removed from wishlist');
                       }}
                     >
-                      <HeartOff className="h-4 w-4 mr-2" />
+                      <HeartOff className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
                       <span>Remove</span>
                     </button>
                     <button
                       disabled={isOutOfStock}
-                      className={`flex-1 px-4 py-2 text-sm font-medium border rounded-md flex items-center justify-center transition-colors whitespace-nowrap ${
+                      className={`w-full px-3 py-2 text-xs sm:text-sm font-medium border rounded-md flex items-center justify-center transition-colors whitespace-nowrap ${
                         isOutOfStock
                           ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
                           : 'text-white bg-blue-600 border-transparent hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
@@ -176,7 +176,7 @@ export const WishlistPage: React.FC = () => {
                         }
                       }}
                     >
-                      <ShoppingCart className="h-4 w-4 mr-2 flex-shrink-0" />
+                      <ShoppingCart className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2 flex-shrink-0" />
                       <span>{isOutOfStock ? 'Out of Stock' : 'Add to Cart'}</span>
                     </button>
                   </div>

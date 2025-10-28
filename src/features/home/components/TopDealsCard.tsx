@@ -10,6 +10,7 @@ interface TopDealsCardProps {
     image: string;
     link: string;
     discountPercentage?: number;
+    className?: string;
 }
 
 const TopDealsCard: React.FC<TopDealsCardProps> = ({
@@ -18,11 +19,12 @@ const TopDealsCard: React.FC<TopDealsCardProps> = ({
     originalPrice,
     image,
     link,
+    className = '',
     discountPercentage = 0
 }) => {
   return (
-    <Link to={link} className='w-full h-fit p-2 sm:p-3 lg:p-4 flex flex-col gap-2 hover:bg-white hover:rounded-2xl transition-all duration-300'>
-        <div className='relative w-full aspect-[4/3] rounded-xl sm:rounded-2xl overflow-hidden'>
+    <Link to={link} className={`w-full h-fit p-2 sm:p-3 lg:p-4 flex flex-col gap-2 hover:bg-white hover:rounded-2xl transition-all duration-300 ${className}`}>
+        <div className={`relative group bg-white dark:bg-dark2 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300 h-full flex flex-col ${className}`}>
             <img
               src={image}
               alt={title}
