@@ -11,10 +11,12 @@ interface Props {
   onShowSizeGuide: () => void;
   isBag?: boolean;
   isOutOfStock?: boolean;
+  gender?: 'men' | 'women';
+  subCategory?: string;
 }
 
 const ProductSizeSelector: React.FC<Props> = ({
-  fullSizeRange,
+  fullSizeRange: originalFullSizeRange,
   availableSizes,
   selectedSize,
   onSizeChange,
@@ -22,7 +24,28 @@ const ProductSizeSelector: React.FC<Props> = ({
   onShowSizeGuide,
   isBag = false,
   isOutOfStock = false,
-}) => (
+  gender,
+  subCategory,
+}) => {
+  // Determine size range based on gender and sub-category
+  const getSizeRange = () => {
+    if (isBag)     return originalFullSizeRange.length > 0 ? originalFullSizeRange : availableSizes;
+    
+    if (gender === 'women' && (subCategory === 'Shoes' || subCategory === 'Sandals')) {
+      return Array.from({ length: 9 }, (_, i) => (i + 35).toString()); // 35-43
+    } 
+    
+    if (gender === 'men' && (subCategory === 'Shoes' || subCategory === 'Sandals')) {
+      return Array.from({ length: 9 }, (_, i) => (i + 39).toString()); // 39-47
+    }
+    
+    return originalFullSizeRange.length > 0 ? originalFullSizeRange : availableSizes;
+  };
+
+  const isFootwear = subCategory === 'Shoes' || subCategory === 'Sandals';
+  const fullSizeRange = getSizeRange();
+
+  return (
   <div className="min-h-[120px]"> {/* Ensure consistent height */}
     <div className="flex items-center justify-between mb-2">
       <h3 className="text-lg font-semibold text-primary dark:text-secondary">
@@ -30,7 +53,13 @@ const ProductSizeSelector: React.FC<Props> = ({
       </h3>
       <button
         onClick={onShowSizeGuide}
-        className="flex items-center space-x-1 text-sm text-accent hover:text-accent/80 transition-colors"
+        disabled={!isFootwear}
+        className={`flex items-center space-x-1 text-sm transition-colors ${
+          isFootwear 
+            ? 'text-accent hover:text-accent/80' 
+            : 'text-gray-400 cursor-not-allowed'
+        }`}
+        title={!isFootwear ? 'Size guide is only available for footwear' : ''}
       >
         <Ruler className="w-4 h-4" />
         <span>Size Guide</span>
@@ -129,6 +158,7 @@ const ProductSizeSelector: React.FC<Props> = ({
       </span>
     </div>
   </div>
-);
+  );
+};
 
 export default ProductSizeSelector;

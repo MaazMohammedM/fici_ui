@@ -46,16 +46,16 @@ const HighlightSection: React.FC = () => {
             View All →
           </Link>
         </div>
-        {/* One-row horizontally scrollable list (all breakpoints) */}
-        <div className="w-full">
-          <div className="flex items-start gap-3 sm:gap-4 lg:gap-6 xl:gap-8 w-full overflow-x-auto pb-3 -mx-4 px-4 scrollbar-hide">
+        {/* Responsive grid with horizontal scrolling on mobile */}
+        <div className="w-full overflow-x-auto pb-4 scrollbar-hide px-1">
+          <div className="flex items-stretch gap-4 sm:gap-5 w-max mx-auto">
             {highlightProducts.map((product) => (
-              <div key={product.article_id} className="flex-shrink-0 w-56 sm:w-64 lg:w-72 xl:w-80">
+              <div key={product.article_id} className="w-64 sm:w-72 flex-shrink-0">
                 <Link
                   to={`/products/${product.article_id}`}
-                  className="group block bg-white dark:bg-[color:var(--color-dark2)] rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-shadow duration-300 h-full"
+                  className="group block bg-white dark:bg-[color:var(--color-dark2)] rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-all duration-300 h-full hover:scale-[1.02]"
                 >
-                  <div className="relative aspect-square overflow-hidden">
+                  <div className="relative aspect-[3/4] overflow-hidden rounded-t-lg">
                     <img
                       src={product.thumbnail_url || product.images?.[0] || '/Fici_logo.png'}
                       alt={product.name}
@@ -68,15 +68,19 @@ const HighlightSection: React.FC = () => {
                       }}
                     />
                   </div>
-                  <div className="p-3">
-                    <h3 className="font-medium text-sm text-gray-900 dark:text-white line-clamp-2 h-10">
+                  <div className="p-2 sm:p-3 flex flex-col h-20 sm:h-24">
+                    <h3 className="font-medium text-xs sm:text-sm text-gray-900 dark:text-white line-clamp-2 mb-1">
                       {product.name}
                     </h3>
-                    <div className="flex items-center justify-between mt-2">
-                      <span className="text-base font-bold text-[color:var(--color-primary)]">₹{product.discount_price}</span>
-                      {product.discount_price && (
-                        <span className="text-xs text-gray-500 line-through">₹{product.mrp_price}</span>
-                      )}
+                    <div className="mt-auto">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm sm:text-base font-bold text-[color:var(--color-primary)]">
+                          ₹{product.discount_price}
+                        </span>
+                        {product.discount_price && (
+                          <span className="text-xs text-gray-500 line-through">₹{product.mrp_price}</span>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </Link>

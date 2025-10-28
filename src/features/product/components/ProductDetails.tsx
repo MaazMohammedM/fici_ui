@@ -168,6 +168,8 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
             onShowSizeGuide={() => setShowSizeGuide(true)}
             isBag={isBag}
             isOutOfStock={isOutOfStock}
+            gender={currentProduct.gender?.toLowerCase() as 'men' | 'women' | undefined}
+            subCategory={currentProduct.sub_category}
           />
         </div>
       )}
