@@ -1,6 +1,7 @@
 import React from "react";
 import type { Product } from "../../../types/product";
 import { useNavigate } from "react-router-dom";
+import CachedImage from "../../../components/ui/CachedImage";
 
 interface ProductCardProps {
   product: Product;
@@ -17,15 +18,19 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, className = '' }) =>
     >
       {/* Product Image */}
       <div className="relative aspect-square w-full bg-gray-50 dark:bg-gray-800 flex items-center justify-center overflow-hidden flex-shrink-0">
-        {product.images?.[0] ? (
-          <img
-            src={product.images[0]}
-            alt={product.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-          />
-        ) : (
-          <div className="w-full h-full bg-gray-200 dark:bg-gray-700" />
-        )}
+        <CachedImage
+          src={product.images?.[0] || ''}
+          alt={product.name}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          loadingFallback={
+            <div className="w-full h-full bg-gray-200 dark:bg-gray-700 animate-pulse" />
+          }
+          errorFallback={
+            <div className="w-full h-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+              <span className="text-gray-400">No image</span>
+            </div>
+          }
+        />
       </div>
 
       {/* Product Info */}

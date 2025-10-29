@@ -124,7 +124,7 @@ const ReviewModal: React.FC<ReviewModalProps> = ({ order, item, existingReview, 
             />
             <div className="flex-1">
               <h3 className="font-semibold text-primary dark:text-secondary font-primary">
-                {item.name || `Product ID: ${item.product_id}`}
+                {item.name || `Product Name: ${item.product_name}`}
               </h3>
               <div className="text-sm text-gray-600 dark:text-gray-400 font-primary">
                 Size: {item.size || 'N/A'} • Color: {item.color || 'N/A'}

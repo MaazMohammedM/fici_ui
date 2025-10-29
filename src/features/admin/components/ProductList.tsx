@@ -3,6 +3,7 @@ import React from 'react';
 import { useAdminStore } from '../store/adminStore';
 import EditProductForm from './EditProductForm';
 import fallbackImage from '../../../assets/Fici_logo.png';
+import CachedImage from '../../../components/ui/CachedImage';
 
 const ProductList: React.FC = () => {
   const { 
@@ -14,11 +15,6 @@ const ProductList: React.FC = () => {
     clearSuccess 
   } = useAdminStore();
 
-  // Helper function to get image URL
-  const getImageUrl = (url: string) => {
-    if (!url) return fallbackImage;
-    return url.startsWith('http') ? url : fallbackImage;
-  };
 
   if (editingProduct) {
     return (
@@ -68,14 +64,14 @@ const ProductList: React.FC = () => {
             <div key={product.product_id} className='border border-gray-200 dark:border-gray-700 p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow'>
               {/* Product Image */}
               <div className="mb-4">
-                <img 
-                  src={getImageUrl(product.thumbnail_url)}
+                <CachedImage
+                  src={product.thumbnail_url || ''}
+                  fallbackSrc={fallbackImage}
                   alt={product.name}
                   className="w-full h-48 object-cover rounded-lg"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    target.src = fallbackImage;
-                  }}
+                  loadingFallback={
+                    <div className="w-full h-48 bg-gray-200 dark:bg-gray-700 animate-pulse rounded-lg" />
+                  }
                 />
               </div>
               

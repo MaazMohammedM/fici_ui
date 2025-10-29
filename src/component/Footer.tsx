@@ -22,7 +22,7 @@ const Footer: React.FC = () => {
         {/* Brand + Tagline */}
         <div className="flex flex-col items-center text-center gap-1.5 sm:gap-2 mb-3 sm:mb-5">
           <p className="text-gray-300 text-sm sm:text-[15px] leading-snug max-w-lg">
-            Premium leather footwear crafted with passion and precision. Discover the perfect blend
+            Premium leather footwear crafted with passion and precision.<br/> Discover the perfect blend
             of style, comfort, and quality.
           </p>
 
@@ -203,21 +203,20 @@ const Footer: React.FC = () => {
         {/* Payments Row (desktop/tablet only) */}
         <div className="mt-3 sm:mt-5 hidden md:block">
           <hr className="border-white/10 mb-3" />
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
-            <h4 className="text-sm sm:text-base text-gray-300">We accept the following payment methods</h4>
-            <div className="flex items-center justify-start sm:justify-end">
-              <div className="bg-white rounded-md p-2 border border-white/20 shadow-sm">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-6">
+            <h4 className="text-base sm:text-lg text-gray-200 font-medium whitespace-nowrap">We accept the following payment methods</h4>
+            <div className="flex items-center">
+              <div className="bg-white rounded-lg p-3 sm:p-4 border border-white/20 shadow-lg">
                 <img
                   src={razorpayPayments}
                   alt="Payment methods: Cards, UPI and Razorpay"
-                  className="h-8 sm:h-10 w-auto object-contain"
+                  className="h-12 sm:h-14 lg:h-16 w-auto object-contain"
                   loading="lazy"
                 />
               </div>
             </div>
           </div>
         </div>
-
         {/* Bottom Section */}
         <div className="border-t border-white/10 mt-6 sm:mt-8 pt-4 sm:pt-5 flex flex-col sm:flex-row justify-between items-center gap-3 sm:gap-4">
           <p className="text-gray-400 text-xs sm:text-sm text-center sm:text-left">© {currentYear} FICI. All rights reserved.</p>

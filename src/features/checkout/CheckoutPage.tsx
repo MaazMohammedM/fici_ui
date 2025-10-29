@@ -469,7 +469,6 @@ const CheckoutPage: React.FC = () => {
             guest_contact_info: guestInfo 
           };
 
-      console.log('Creating order with data:', JSON.stringify(invokeBody, null, 2));
       const { data, error } = await supabase.functions.invoke("create-order", {
         body: invokeBody,
       });
