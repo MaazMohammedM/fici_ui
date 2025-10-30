@@ -1,7 +1,5 @@
 import React from 'react';
-
-import { useCachedImage } from '../../utils/imageCache';
-
+import { useCachedImage } from '@lib/utils/imageCached';
 interface CachedImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   src: string;
   fallbackSrc?: string;
