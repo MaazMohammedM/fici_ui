@@ -17,7 +17,6 @@ const CartItemCard: React.FC<CartItemCardProps> = ({ item, onQuantityChange, onR
     updateSize(item.id, newSize);
   };
 
-  console.log('CartItem availableSizes:', item.availableSizes, 'length:', item.availableSizes?.length);
 
   return (
     <div className="bg-white dark:bg-dark2 rounded-2xl shadow-lg p-4 sm:p-6 border border-gray-200 dark:border-gray-700">

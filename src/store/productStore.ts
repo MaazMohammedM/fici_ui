@@ -275,12 +275,6 @@ export const useProductStore = create<ProductState>((set, get) => ({
       }
 
       const parsedProducts = (data || []).map(product => {
-        console.log('Processing top deal product:', {
-          article_id: product.article_id,
-          mrp_price: product.mrp_price,
-          discount_price: product.discount_price,
-          name: product.name
-        });
         return {
           ...product,
           sizes: safeParseSizes(product.sizes),
