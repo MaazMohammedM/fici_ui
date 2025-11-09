@@ -1,103 +1,184 @@
 // src/components/CartItemCard.tsx
 import React from "react";
-import type { CartItem } from "../data/cartItems";
+import { Trash2, Minus, Plus } from "lucide-react";
+import type { CartItem } from "@store/cartStore";
+import { useCartStore } from "@store/cartStore";
 
 interface CartItemCardProps {
   item: CartItem;
-  onQuantityChange: (id: number, delta: number) => void;
-  onRemove: (id: number) => void;
+  onQuantityChange: (id: string, delta: number) => void;
+  onRemove: (id: string) => void;
 }
 
-const CartItemCard: React.FC<CartItemCardProps> = ({
-  item,
-  onQuantityChange,
-  onRemove,
-}) => {
-  const discount =
-    item.mrp && item.mrp > item.price
-      ? Math.round(((item.mrp - item.price) / item.mrp) * 100)
-      : 0;
+const CartItemCard: React.FC<CartItemCardProps> = ({ item, onQuantityChange, onRemove }) => {
+  const { updateSize } = useCartStore();
+
+  const handleSizeChange = (newSize: string) => {
+    updateSize(item.id, newSize);
+  };
+
 
   return (
-    <div className="relative bg-[color:var(--color-light1)] dark:bg-[color:var(--color-dark2)] rounded-xl shadow-sm border border-[color:var(--color-secondary)] dark:border-gray-700 p-6 hover:shadow-md transition-shadow duration-200">
-      {/* Product Image */}
-      <div className="flex items-start space-x-6">
-        <div className="flex-shrink-0">
-          <div className="w-24 h-24 md:w-28 md:h-28 rounded-lg overflow-hidden bg-[color:var(--color-secondary)] dark:bg-gray-700 flex items-center justify-center">
+    <div className="bg-white dark:bg-dark2 rounded-2xl shadow-lg p-4 sm:p-6 border border-gray-200 dark:border-gray-700">
+      {/* Mobile Layout */}
+      <div className="block sm:hidden">
+        <div className="flex gap-4 mb-4">
+          {/* Product Image */}
+          <div className="flex-shrink-0">
             <img
               src={item.image}
               alt={item.name}
-              className="w-full h-full object-cover"
+              className="w-20 h-20 object-cover rounded-lg"
             />
           </div>
+          
+          {/* Product Details */}
+          <div className="flex-1 min-w-0">
+            <h3 className="text-base font-semibold text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] mb-1 line-clamp-2">
+              {item.name}
+            </h3>
+            <div className="flex flex-col gap-1 text-sm text-gray-600 dark:text-gray-400 mb-2">
+              <span>Color: {item.color}</span>
+              <div className="flex items-center gap-2">
+                <span>Size:</span>
+                {item.availableSizes && item.availableSizes.length > 1 ? (
+                  <select
+                    value={item.size}
+                    onChange={(e) => handleSizeChange(e.target.value)}
+                    className="bg-white dark:bg-dark2 border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  >
+                    {item.availableSizes.map(size => (
+                      <option key={size} value={size}>{size}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <span className="text-sm">{item.size}</span>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm text-gray-500 line-through">₹{item.mrp}</span>
+              <span className="text-lg font-bold text-primary">₹{item.price}</span>
+              {item.discount_percentage > 0 && (
+                <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded">
+                  {item.discount_percentage}% OFF
+                </span>
+              )}
+            </div>
+          </div>
+          
+          {/* Remove Button */}
+          <button
+            onClick={() => onRemove(item.id)}
+            className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors h-fit"
+          >
+            <Trash2 className="w-5 h-5" />
+          </button>
+        </div>
+        
+        {/* Quantity and Total Row */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center border border-gray-300 dark:border-gray-600 rounded-lg">
+            <button
+              onClick={() => onQuantityChange(item.id, -1)}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            >
+              <Minus className="w-4 h-4" />
+            </button>
+            <span className="px-3 py-2 text-base font-semibold">{item.quantity}</span>
+            <button
+              onClick={() => onQuantityChange(item.id, 1)}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+          </div>
+          
+          <div className="text-right">
+            <div className="text-lg font-bold text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)]">
+              ₹{(item.price * item.quantity).toLocaleString('en-IN')}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Desktop Layout */}
+      <div className="hidden sm:flex items-center gap-6">
+        {/* Product Image */}
+        <div className="flex-shrink-0">
+          <img
+            src={item.image}
+            alt={item.name}
+            className="w-24 h-24 object-cover rounded-lg"
+          />
         </div>
 
         {/* Product Details */}
         <div className="flex-1 min-w-0">
-          <div className="flex justify-between items-start">
-            <div className="flex-1">
-              <h3 className="text-lg font-semibold text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] mb-2">
-                {item.name}
-              </h3>
-              <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400 mb-3">
-                <span>Size: Large</span>
-                <span>Color: {item.color}</span>
-              </div>
-              
-              {/* Price Display */}
-              <div className="flex items-center space-x-3 mb-4">
-                {item.mrp && item.mrp > item.price && (
-                  <span className="text-lg line-through text-gray-400 dark:text-gray-500">
-                    ₹{item.mrp.toLocaleString("en-IN")}
-                  </span>
-                )}
-                <span className="text-xl font-bold text-[color:var(--color-accent)]">
-                  ₹{item.price.toLocaleString("en-IN")}
-                </span>
-                {discount > 0 && (
-                  <span className="text-sm font-medium text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20 px-2 py-1 rounded">
-                    {discount}% OFF
-                  </span>
-                )}
-              </div>
-
-              {/* Quantity Controls */}
-              <div className="flex items-center space-x-3">
-                <div className="flex items-center border border-[color:var(--color-secondary)] dark:border-gray-600 rounded-lg">
-                  <button
-                    onClick={() => onQuantityChange(item.id, -1)}
-                    className="px-3 py-2 text-gray-600 dark:text-gray-400 hover:text-[color:var(--color-text-light)] dark:hover:text-[color:var(--color-text-dark)] transition-colors disabled:opacity-50"
-                    disabled={item.quantity <= 1}
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
-                    </svg>
-                  </button>
-                  <span className="px-4 py-2 font-semibold text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] min-w-[3rem] text-center">
-                    {item.quantity}
-                  </span>
-                  <button
-                    onClick={() => onQuantityChange(item.id, 1)}
-                    className="px-3 py-2 text-gray-600 dark:text-gray-400 hover:text-[color:var(--color-text-light)] dark:hover:text-[color:var(--color-text-dark)] transition-colors"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
+          <h3 className="text-lg font-semibold text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)] mb-2">
+            {item.name}
+          </h3>
+          <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400 mb-2">
+            <span>Color: {item.color}</span>
+            <div className="flex items-center gap-2">
+              <span>Size:</span>
+              {item.availableSizes && item.availableSizes.length > 1 ? (
+                <select
+                  value={item.size}
+                  onChange={(e) => handleSizeChange(e.target.value)}
+                  className="bg-white dark:bg-dark2 border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  {item.availableSizes.map(size => (
+                    <option key={size} value={size}>{size}</option>
+                  ))}
+                </select>
+              ) : (
+                <span className="text-sm">{item.size}</span>
+              )}
             </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-500 line-through">₹{item.mrp}</span>
+            <span className="text-lg font-bold text-primary">₹{item.price}</span>
+            {item.discount_percentage > 0 && (
+              <span className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded">
+                {item.discount_percentage}% OFF
+              </span>
+            )}
+          </div>
+        </div>
 
-            {/* Remove Button */}
+        {/* Quantity Controls */}
+        <div className="flex items-center gap-4">
+          <div className="flex items-center border border-gray-300 dark:border-gray-600 rounded-lg">
             <button
-              onClick={() => onRemove(item.id)}
-              className="flex-shrink-0 p-2 text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400 transition-colors"
-              title="Remove from cart"
+              onClick={() => onQuantityChange(item.id, -1)}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-              </svg>
+              <Minus className="w-4 h-4" />
             </button>
+            <span className="px-4 py-2 text-lg font-semibold">{item.quantity}</span>
+            <button
+              onClick={() => onQuantityChange(item.id, 1)}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Remove Button */}
+          <button
+            onClick={() => onRemove(item.id)}
+            className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+          >
+            <Trash2 className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Total Price */}
+        <div className="text-right">
+          <div className="text-lg font-bold text-[color:var(--color-text-light)] dark:text-[color:var(--color-text-dark)]">
+            ₹{(item.price * item.quantity).toLocaleString('en-IN')}
           </div>
         </div>
       </div>

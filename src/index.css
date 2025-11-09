@@ -1,38 +1,341 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:wght@400;500;600;700;800;900&display=swap');
 
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-    --color-light1: #F9F8F6;
-    --color-light2: #DDD7CF;
-    --color-dark1: #0B0B0B;
-    --color-dark2: #1A1A1A;
-    --color-primary: #1A3C83;
-    --color-secondary: #E6E6E6;
-    --color-accent: #F59C00;
-    --color-primary-active:	#142956;
-    --color-secondary-active: #C2C2C2;
-    --color-text-light: #000000;
-    --color-text-dark: #FFFFFF;
-    --font-primary: 'Lato', sans-serif;
-    --font-secondary: 'Merriweather', serif;
+    /* Enhanced Color Palette - Modern & Professional */
+    --color-light1: #FEFEFE;
+    --color-light2: #F8F9FA;
+    --color-light3: #E9ECEF;
+    --color-dark1: #0A0A0B;
+    --color-dark2: #1C1C1E;
+    --color-dark3: #2C2C2E;
     
+    /* Brand Colors - Inspired by premium footwear brands */
+    --color-primary: #2563EB;
+    --color-primary-hover: #1D4ED8;
+    --color-primary-active: #1E40AF;
+    --color-secondary: #64748B;
+    --color-secondary-hover: #475569;
+    --color-accent: #F59E0B;
+    --color-accent-hover: #D97706;
+    
+    /* Semantic Colors */
+    --color-success: #10B981;
+    --color-warning: #F59E0B;
+    --color-error: #EF4444;
+    --color-info: #3B82F6;
+    
+    /* Text Colors */
+    --color-text-primary: #111827;
+    --color-text-secondary: #6B7280;
+    --color-text-muted: #9CA3AF;
+    --color-text-inverse: #F9FAFB;
+    
+    /* Typography */
+    --font-primary: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-secondary: 'Playfair Display', Georgia, serif;
+    
+    /* Shadows - Modern depth system */
+    --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+    --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+    --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+    --shadow-2xl: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+    
+    /* Border Radius */
+    --radius-xs: 0.25rem;
+    --radius-sm: 0.375rem;
+    --radius-md: 0.5rem;
+    --radius-lg: 0.75rem;
+    --radius-xl: 1rem;
+    --radius-2xl: 1.5rem;
+    --radius-3xl: 2rem;
+    
+    /* Spacing Scale */
+    --space-px: 1px;
+    --space-0: 0;
+    --space-1: 0.25rem;
+    --space-2: 0.5rem;
+    --space-3: 0.75rem;
+    --space-4: 1rem;
+    --space-5: 1.25rem;
+    --space-6: 1.5rem;
+    --space-8: 2rem;
+    --space-10: 2.5rem;
+    --space-12: 3rem;
+    --space-16: 4rem;
+    --space-20: 5rem;
+    --space-24: 6rem;
+    --space-32: 8rem;
 }
 
 
+@layer utilities {
+    /* Modern Gradient Backgrounds */
+    .bg-gradient-light {
+        background: linear-gradient(135deg, var(--color-light1) 0%, var(--color-light2) 100%);
+    }
+    
+    .bg-gradient-dark {
+        background: linear-gradient(135deg, var(--color-dark1) 0%, var(--color-dark2) 100%);
+    }
+    
+    .bg-gradient-primary {
+        background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-active) 100%);
+    }
+    
+    .bg-gradient-accent {
+        background: linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-hover) 100%);
+    }
 
-@layer utilities{
-    .bg-gradient-light{
-        @apply bg-gradient-to-br from-light1 to-light2;
+    /* Modern Card Styles */
+    .card-modern {
+        background: var(--color-light1);
+        border: 1px solid var(--color-light3);
+        border-radius: var(--radius-xl);
+        box-shadow: var(--shadow-md);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
-    .dark\:bg-gradient-dark {
-        @apply dark:bg-gradient-to-br dark:from-dark1 dark:to-dark2 ;
-      }
+    
+    .card-modern:hover {
+        box-shadow: var(--shadow-xl);
+        transform: translateY(-2px);
+    }
+    
+    .dark .card-modern {
+        background: var(--color-dark2);
+        border-color: var(--color-dark3);
+    }
+
+    /* Modern Button Styles */
+    .btn-modern {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.5rem;
+        border-radius: var(--radius-lg);
+        font-weight: 600;
+        font-size: 0.875rem;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        cursor: pointer;
+        border: none;
+        text-decoration: none;
+        font-family: var(--font-primary);
+    }
+    
+    .btn-primary {
+        background: var(--color-primary);
+        color: white;
+        box-shadow: var(--shadow-sm);
+    }
+    
+    .btn-primary:hover {
+        background: var(--color-primary-hover);
+        box-shadow: var(--shadow-md);
+        transform: translateY(-1px);
+    }
+    
+    .btn-secondary {
+        background: var(--color-light2);
+        color: var(--color-text-primary);
+        border: 1px solid var(--color-light3);
+    }
+    
+    .btn-secondary:hover {
+        background: var(--color-light3);
+    }
+
+    /* Modern Product Card */
+    .product-card {
+        position: relative;
+        background: var(--color-light1);
+        border-radius: var(--radius-2xl);
+        overflow: hidden;
+        box-shadow: var(--shadow-sm);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        border: 1px solid var(--color-light3);
+    }
+    
+    .product-card:hover {
+        box-shadow: var(--shadow-2xl);
+        transform: translateY(-4px);
+    }
+    
+    .dark .product-card {
+        background: var(--color-dark2);
+        border-color: var(--color-dark3);
+    }
+
+    /* Modern Typography */
+    .text-gradient {
+        background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-accent) 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+    
+    /* Text Color Utilities with Dark Mode Support */
+    .text-primary {
+        color: var(--color-text-primary);
+    }
+    
+    .text-secondary {
+        color: var(--color-text-secondary);
+    }
+    
+    .text-muted {
+        color: var(--color-text-muted);
+    }
+    
+    .text-inverse {
+        color: var(--color-text-inverse);
+    }
+    
+    .dark .text-primary {
+        color: var(--color-text-inverse);
+    }
+    
+    .dark .text-secondary {
+        color: var(--color-light3);
+    }
+    
+    .dark .text-muted {
+        color: var(--color-text-muted);
+    }
+    
+    .dark .text-inverse {
+        color: var(--color-text-primary);
+    }
+    
+    .heading-hero {
+        font-size: clamp(2rem, 5vw, 4rem);
+        font-weight: 800;
+        line-height: 1.1;
+        letter-spacing: -0.02em;
+        font-family: var(--font-secondary);
+    }
+    
+    .heading-section {
+        font-size: clamp(1.5rem, 3vw, 2.5rem);
+        font-weight: 700;
+        line-height: 1.2;
+        font-family: var(--font-secondary);
+    }
+
+    /* Scrollbar Styles */
     .scrollbar-hide {
-        -ms-overflow-style: none; 
-        scrollbar-width: none; 
+        -ms-overflow-style: none;
+        scrollbar-width: none;
     }
+    
     .scrollbar-hide::-webkit-scrollbar {
-        display: none; 
+        display: none;
     }
+    
+    .scrollbar-modern::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+    
+    .scrollbar-modern::-webkit-scrollbar-track {
+        background: var(--color-light2);
+        border-radius: var(--radius-sm);
+    }
+    
+    .scrollbar-modern::-webkit-scrollbar-thumb {
+        background: var(--color-secondary);
+        border-radius: var(--radius-sm);
+    }
+    
+    .scrollbar-modern::-webkit-scrollbar-thumb:hover {
+        background: var(--color-secondary-hover);
+    }
+
+    /* Hero Background */
+    .bg-hero-image {
+        background-image: url('../src/features/home/assets/Overlay\ Image\ for\ hero.jpg');
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        background-blend-mode: multiply;
+        background-color: rgba(0, 0, 0, 0.5);
+        background-attachment: fixed;
+    }
+
+    /* Modern Animations */
+    .animate-fade-in {
+        animation: fadeIn 0.6s ease-out;
+    }
+    
+    .animate-slide-up {
+        animation: slideUp 0.6s ease-out;
+    }
+    
+    .animate-scale-in {
+        animation: scaleIn 0.4s ease-out;
+    }
+
+    /* Glass Effect */
+    .glass-effect {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    
+    .dark .glass-effect {
+        background: rgba(0, 0, 0, 0.2);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes scaleIn {
+    from {
+        opacity: 0;
+        transform: scale(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+/* Global Styles */
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: var(--font-primary);
+    color: var(--color-text-primary);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+.dark body {
+    color: var(--color-text-inverse);
 }

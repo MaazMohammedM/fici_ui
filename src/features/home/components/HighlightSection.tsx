@@ -1,0 +1,95 @@
+// src/features/home/components/HighlightSection.tsx
+import React, { useEffect } from 'react';
+import { useProductStore } from '@/store/productStore';
+import { Link } from 'react-router-dom';
+
+const HighlightSection: React.FC = () => {
+  const { highlightProducts, fetchHighlightProducts, loading } = useProductStore();
+
+  useEffect(() => {
+    fetchHighlightProducts();
+  }, [fetchHighlightProducts]);
+
+  if (loading && highlightProducts.length === 0) {
+    return (
+      <div className="py-8 sm:py-10 bg-[color:var(--color-light1)] dark:bg-[color:var(--color-dark1)]">
+        <div className="container mx-auto px-4">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-[color:var(--color-dark1)] dark:text-[color:var(--color-light1)]">
+              Today's Highlights
+            </h2>
+            <span className="text-transparent">View All</span>
+          </div>
+          <div className="flex items-center justify-center">
+            <div className="w-12 h-12 border-4 border-[color:var(--color-primary)] border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (highlightProducts.length === 0) {
+    return null; // Or a placeholder if you prefer
+  }
+
+  return (
+    <section className="py-8 sm:py-10 bg-[color:var(--color-light1)] dark:bg-[color:var(--color-dark1)]">
+      <div className="w-full px-4 sm:px-8 lg:px-16">
+        <div className="flex items-center justify-between mb-4 sm:mb-6">
+          <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-[color:var(--color-dark1)] dark:text-[color:var(--color-light1)]">
+            Today's Highlights
+          </h2>
+          <Link 
+            to="/products"
+            className="text-[color:var(--color-accent)] hover:text-[color:var(--color-accent)]/80 font-semibold transition-colors text-sm sm:text-base lg:text-lg"
+          >
+            View All →
+          </Link>
+        </div>
+        {/* Responsive grid with horizontal scrolling on mobile */}
+        <div className="w-full overflow-x-auto pb-4 scrollbar-hide px-1">
+          <div className="flex items-stretch gap-4 sm:gap-5 w-max mx-auto">
+            {highlightProducts.map((product) => (
+              <div key={product.article_id} className="w-64 sm:w-72 flex-shrink-0">
+                <Link
+                  to={`/products/${product.article_id}`}
+                  className="group block bg-white dark:bg-[color:var(--color-dark2)] rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-all duration-300 h-full hover:scale-[1.02]"
+                >
+                  <div className="relative aspect-[3/4] overflow-hidden rounded-t-lg">
+                    <img
+                      src={product.thumbnail_url || product.images?.[0] || '/Fici_logo.png'}
+                      alt={product.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        if (target.src !== '/Fici_logo.png') {
+                          target.src = '/Fici_logo.png';
+                        }
+                      }}
+                    />
+                  </div>
+                  <div className="p-2 sm:p-3 flex flex-col h-20 sm:h-24">
+                    <h3 className="font-medium text-xs sm:text-sm text-gray-900 dark:text-white line-clamp-2 mb-1">
+                      {product.name}
+                    </h3>
+                    <div className="mt-auto">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm sm:text-base font-bold text-[color:var(--color-primary)]">
+                          ₹{product.discount_price}
+                        </span>
+                        {product.discount_price && (
+                          <span className="text-xs text-gray-500 line-through">₹{product.mrp_price}</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
+export default HighlightSection;

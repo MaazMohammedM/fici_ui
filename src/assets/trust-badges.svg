@@ -1,0 +1,52 @@
+<svg width="500" height="120" viewBox="0 0 500 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="500" height="120" fill="white"/>
+
+  <!-- 3 Days Exchange Policy Badge -->
+  <g>
+    <!-- Badge background -->
+    <rect x="15" y="20" width="140" height="80" rx="8" fill="#F9FAFB" stroke="#E5E7EB" stroke-width="1"/>
+
+    <!-- Exchange icon -->
+    <circle cx="85" cy="40" r="12" fill="#059669"/>
+    <path d="M80 40 L85 35 L90 40 L85 45 Z" fill="white"/>
+    <path d="M85 35 L85 45" stroke="white" stroke-width="2" stroke-linecap="round"/>
+
+    <!-- Text -->
+    <text x="85" y="65" text-anchor="middle" fill="#374151" font-family="Arial, sans-serif" font-size="13" font-weight="600">3 Days Exchange</text>
+    <text x="85" y="80" text-anchor="middle" fill="#6B7280" font-family="Arial, sans-serif" font-size="10">Policy</text>
+  </g>
+
+  <!-- Made in India Badge -->
+  <g>
+    <!-- Badge background -->
+    <rect x="175" y="20" width="150" height="80" rx="8" fill="#F9FAFB" stroke="#E5E7EB" stroke-width="1"/>
+
+    <!-- India flag icon -->
+    <rect x="240" y="30" width="20" height="6" fill="#FF9933"/>
+    <rect x="240" y="36" width="20" height="6" fill="white"/>
+    <rect x="240" y="42" width="20" height="6" fill="#138808"/>
+    <circle cx="250" cy="39" r="2" fill="#000080"/>
+
+    <!-- Text -->
+    <text x="250" y="65" text-anchor="middle" fill="#374151" font-family="Arial, sans-serif" font-size="13" font-weight="600">Made in India</text>
+    <text x="250" y="80" text-anchor="middle" fill="#6B7280" font-family="Arial, sans-serif" font-size="10">Quality assured</text>
+  </g>
+
+  <!-- Free Delivery Badge -->
+  <g>
+    <!-- Badge background -->
+    <rect x="345" y="20" width="140" height="80" rx="8" fill="#F9FAFB" stroke="#E5E7EB" stroke-width="1"/>
+
+    <!-- Delivery truck icon -->
+    <rect x="405" y="35" width="25" height="10" rx="2" fill="#059669"/>
+    <circle cx="410" cy="48" r="3" fill="#059669"/>
+    <circle cx="425" cy="48" r="3" fill="#059669"/>
+    <rect x="415" y="30" width="6" height="3" fill="white"/>
+    <path d="M418 30 L418 33 L420 31 Z" fill="#059669"/>
+
+    <!-- Text -->
+    <text x="415" y="65" text-anchor="middle" fill="#374151" font-family="Arial, sans-serif" font-size="13" font-weight="600">Free Delivery</text>
+    <text x="415" y="80" text-anchor="middle" fill="#6B7280" font-family="Arial, sans-serif" font-size="10">Within 5-7 days</text>
+  </g>
+</svg>

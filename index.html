@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/src/assets/Fici Logo.png" />
+    <link rel="icon" type="image/svg+xml" href="/src/assets/fici_128x128.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -12,11 +12,17 @@
     />
 
 
-    <title>FICI Shoes</title>
+    <title>FiCi Shoes</title>
 
     <meta name="description" content="Contact FICI Shoes — premium footwear for businesses and individuals." />
     <meta name="author" content="FICI Shoes" />
     <meta name="theme-color" content="#000000" />
+
+    <!-- Buffer polyfill for Node.js compatibility -->
+    <script>
+      window.global = window.global || window;
+      window.Buffer = window.Buffer || require('buffer').Buffer;
+    </script>
   </head>
   <body>
     <div id="root"></div>
