@@ -309,66 +309,78 @@ const AdminOrderDashboard: React.FC = () => {
     }
   };
 
-  const handleUpdateShipment = async () => {
-    if (!selectedOrder || selectedItemsForShip.length === 0) {
-      showAlert('Please select at least one item to ship', 'warning');
-      return;
+  // In the handleUpdateShipment function, update the order status correctly:
+const handleUpdateShipment = async () => {
+  if (!selectedOrder || selectedItemsForShip.length === 0) {
+    showAlert('Please select at least one item to ship', 'warning');
+    return;
+  }
+
+  if (!shipmentForm.shipping_partner || !shipmentForm.tracking_id) {
+    showAlert('Please enter shipping partner and tracking ID', 'warning');
+    return;
+  }
+
+  try {
+    setProcessingAction(`shipment-${selectedOrder.order_id}`);
+
+    // 1. First update all selected items with shipping info
+    for (const itemId of selectedItemsForShip) {
+      await updateOrderItemStatus({
+        action: 'ship_item',
+        orderItemId: itemId,
+        isAdmin: true,
+        adminUserId: user?.id,
+        shipping_partner: shipmentForm.shipping_partner,
+        tracking_id: shipmentForm.tracking_id,
+        tracking_url: shipmentForm.tracking_url
+      });
     }
 
-    if (!shipmentForm.shipping_partner || !shipmentForm.tracking_id) {
-      showAlert('Please enter shipping partner and tracking ID', 'warning');
-      return;
+    // 2. Then update the order with shipping details
+    const { error: orderError } = await supabase
+      .from('orders')
+      .update({
+        status: 'shipped', // Make sure this is a valid status
+        shipping_partner: shipmentForm.shipping_partner,
+        tracking_id: shipmentForm.tracking_id,
+        tracking_url: shipmentForm.tracking_url,
+        shipped_at: new Date().toISOString(),
+      })
+      .eq('order_id', selectedOrder.order_id)
+      .select('status'); // Add this to see what's being returned
+
+    if (orderError) {
+      console.error('Error updating order:', orderError);
+      throw orderError;
     }
 
-    try {
-      setProcessingAction(`shipment-${selectedOrder.order_id}`);
-      console.log('Shipping items:', selectedItemsForShip);
+    // 3. Refresh the orders list
+    await fetchOrders();
+    setShowShipmentModal(false);
+    setSelectedOrder(null);
+    setShipmentForm({ shipping_partner: '', tracking_id: '', tracking_url: '' });
+    setSelectedItemsForShip([]);
+    showAlert('Items shipped successfully', 'success');
 
-      // Ship each selected item using the Edge Function
-      for (const itemId of selectedItemsForShip) {
-        await updateOrderItemStatus({
-          action: 'ship_item',
-          orderItemId: itemId,
-          isAdmin: true,
-          adminUserId: user?.id
-        });
-      }
-
-      // Update order with tracking details
-      const { error: orderError } = await supabase
-        .from('orders')
-        .update({
-          shipping_partner: shipmentForm.shipping_partner,
-          tracking_id: shipmentForm.tracking_id,
-          tracking_url: shipmentForm.tracking_url,
-          shipped_at: new Date().toISOString(),
-        })
-        .eq('order_id', selectedOrder.order_id);
-
-      if (orderError) {
-        console.error('Error updating orders:', orderError);
-        throw orderError;
-      }
-
-      // Update aggregate order status
-      await updateAggregateOrderStatus(selectedOrder.order_id);
-      await fetchOrders();
-
-      setShowShipmentModal(false);
-      setSelectedOrder(null);
-      setShipmentForm({ shipping_partner: '', tracking_id: '', tracking_url: '' });
-      setSelectedItemsForShip([]);
-      showAlert(`${selectedItemsForShip.length} item(s) shipped successfully`, 'success');
-    } catch (error: any) {
-      console.error('Error updating shipment:', error);
-      showAlert(`Failed to ship items: ${error.message || 'Unknown error'}`, 'error');
-    } finally {
-      setProcessingAction(null);
-    }
-  };
+  } catch (error: any) {
+    console.error('Error in handleUpdateShipment:', {
+      error,
+      message: error.message,
+      details: error.details
+    });
+    showAlert(`Failed to update shipment: ${error.message || 'Unknown error'}`, 'error');
+  } finally {
+    setProcessingAction(null);
+  }
+};
 
   const handleShipItem = async (orderItemId: string, orderId: string) => {
     try {
+      if (!shipmentForm.shipping_partner || !shipmentForm.tracking_id) {
+        showAlert('Please enter shipping partner and tracking ID', 'warning');
+        return;
+      }
       setProcessingAction(`ship-item-${orderItemId}`);
 
       // Use the Edge Function for shipping items
@@ -376,7 +388,10 @@ const AdminOrderDashboard: React.FC = () => {
         action: 'ship_item',
         orderItemId,
         isAdmin: true,
-        adminUserId: user?.id
+        adminUserId: user?.id,
+        shipping_partner: shipmentForm.shipping_partner,
+        tracking_id: shipmentForm.tracking_id,
+        tracking_url: shipmentForm.tracking_url
       });
 
       // Recalculate and update order status
@@ -476,7 +491,10 @@ const AdminOrderDashboard: React.FC = () => {
           action: 'ship_item',
           orderItemId: itemId,
           isAdmin: true,
-          adminUserId: user?.id
+          adminUserId: user?.id,
+          shipping_partner: shipmentForm.shipping_partner,
+          tracking_id: shipmentForm.tracking_id,
+          tracking_url: shipmentForm.tracking_url
         });
       }
 

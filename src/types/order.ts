@@ -1,5 +1,11 @@
 // types/order.ts
 
+export interface ProductInfo {
+  id: string;
+  name: string;
+  thumbnail_url?: string;
+}
+
 export interface OrderItem {
   order_item_id?: string;
   order_id?: string;
@@ -16,6 +22,7 @@ export interface OrderItem {
   discount_percentage?: number;
   thumbnail_url?: string;
   price_currency?: string;
+  product?: ProductInfo;
   
   // Item-level status and tracking
   item_status?: 'pending' | 'cancelled' | 'shipped' | 'delivered' | 'returned' | 'refunded';
