@@ -19,6 +19,11 @@ interface OrderItem {
   refunded_at?: string;
   return_requested_at?: string;
   return_approved_at?: string;
+  shipping_partner?: string;
+  tracking_id?: string;
+  tracking_url?: string;
+  shipped_at?: string;
+  delivered_at?: string;
 }
 
 interface OrderItemCardProps {
@@ -54,6 +59,59 @@ const OrderItemCard: React.FC<OrderItemCardProps> = ({
     return colors[status as keyof typeof colors] || colors.pending;
   };
 
+  // Add this component inside your OrderDetailsPage component, or as a separate component if preferred
+const ShippingDetails = ({ item }: { item: OrderItem }) => {
+  if (item.item_status !== 'shipped') return null;
+
+  return (
+    <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-900/30">
+      <h4 className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
+        Shipping Information
+      </h4>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+        <div>
+          <span className="text-gray-600 dark:text-gray-400">Courier:</span>{' '}
+          <span className="font-medium">{item.shipping_partner}</span>
+        </div>
+        <div>
+          <span className="text-gray-600 dark:text-gray-400">Tracking #:</span>{' '}
+          <span className="font-mono">{item.tracking_id}</span>
+        </div>
+        {item.tracking_url && (
+          <div className="sm:col-span-2">
+            <a
+              href={item.tracking_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center"
+            >
+              Track Package
+              <svg
+                className="w-3.5 h-3.5 ml-1"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                />
+              </svg>
+            </a>
+          </div>
+        )}
+        {item.shipped_at && (
+          <div className="sm:col-span-2 text-sm text-gray-500 dark:text-gray-400">
+            Shipped on: {new Date(item.shipped_at).toLocaleDateString()}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
   const getStatusIcon = (status?: string) => {
     const icons = {
       delivered: <CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-600" />,
@@ -84,7 +142,7 @@ const OrderItemCard: React.FC<OrderItemCardProps> = ({
 
   return (
     <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg sm:rounded-xl p-3 sm:p-4 lg:p-6 hover:shadow-lg transition-shadow">
-      <div className="flex gap-3 sm:gap-4">
+      <div className="flex gap-3 sm:gap-4 overflow-hidden">
         {/* Product Image */}
         <div className="flex-shrink-0">
           <img
@@ -96,11 +154,23 @@ const OrderItemCard: React.FC<OrderItemCardProps> = ({
         </div>
 
         {/* Product Details */}
-        <div className="flex-1 min-w-0 space-y-2 sm:space-y-3">
+        <div className="flex-1 min-w-0 space-y-2 sm:space-y-3 overflow-hidden">
           {/* Title and Status Row */}
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
-              <h3 className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base lg:text-lg leading-tight pr-2">
+              <h3 
+                className="font-semibold text-gray-900 dark:text-white text-xs sm:text-sm md:text-base lg:text-lg leading-snug pr-2 break-words whitespace-normal"
+                title={item.product_name}
+                style={{
+                  display: '-webkit-box',
+                  WebkitBoxOrient: 'vertical',
+                  WebkitLineClamp: 2,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  maxHeight: '2.8em',
+                  lineHeight: '1.4em'
+                }}
+              >
                 {item.product_name}
               </h3>
 
@@ -180,7 +250,11 @@ const OrderItemCard: React.FC<OrderItemCardProps> = ({
               </React.Fragment>
             ))}
           </div>
-
+{/* Inside your order item mapping/render */}
+<div className="space-y-2">
+  {/* Existing item details... */}
+  <ShippingDetails item={item} />
+</div>
           {/* Status Messages */}
           {['cancelled', 'returned', 'refunded'].includes(itemStatus) && (item.cancel_reason || item.return_reason) && (
             <div className="p-2 sm:p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">

@@ -9,9 +9,17 @@ interface ReviewModalProps {
   item: OrderItem;
   existingReview?: Review | null;
   onClose: () => void;
+  onSubmit?: () => void;
 }
 
-const ReviewModal: React.FC<ReviewModalProps> = ({ order, item, existingReview, onClose }) => {
+const ReviewModal: React.FC<ReviewModalProps> = ({ order, item, existingReview, onClose, onSubmit }) => {
+  console.log('ReviewModal rendered with props:', { 
+    orderId: order?.id, 
+    itemId: item?.order_item_id,
+    hasExistingReview: !!existingReview,
+    item
+  });
+  
   const { submitReview, updateReview, loading } = useOrderStore();
   const { user, guestSession } = useAuthStore();
   const [rating, setRating] = useState(existingReview?.rating || 0);
@@ -19,6 +27,21 @@ const ReviewModal: React.FC<ReviewModalProps> = ({ order, item, existingReview, 
   const [title, setTitle] = useState(existingReview?.title || '');
   const [comment, setComment] = useState(existingReview?.comment || '');
   const [submitting, setSubmitting] = useState(false);
+  
+  // Log when the component mounts/updates
+  useEffect(() => {
+    console.log('ReviewModal mounted/updated', { 
+      isVisible: true, 
+      orderId: order?.id,
+      itemId: item?.order_item_id,
+      hasUser: !!user,
+      isGuest: !user
+    });
+    
+    return () => {
+      console.log('ReviewModal unmounting');
+    };
+  }, [order?.id, item?.order_item_id, user]);
 
   const isEditing = !!existingReview;
   const isGuest = !user;
@@ -32,7 +55,7 @@ const ReviewModal: React.FC<ReviewModalProps> = ({ order, item, existingReview, 
     }
   }, [existingReview]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (rating === 0) return;
 
@@ -63,9 +86,15 @@ const ReviewModal: React.FC<ReviewModalProps> = ({ order, item, existingReview, 
 
         await submitReview(reviewData);
       }
-      onClose();
+      
+      // Call the onSubmit callback if provided
+      if (onSubmit) {
+        onSubmit();
+      } else {
+        // Fallback to onClose if onSubmit is not provided
+        onClose();
+      }
     } catch (error) {
-      console.log("Order", order);
       console.error('Error submitting/updating review:', error);
     } finally {
       setSubmitting(false);

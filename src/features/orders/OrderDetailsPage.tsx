@@ -16,6 +16,11 @@ interface OrderItem {
   thumbnail_url: string;
   product_name: string;
   product_thumbnail_url: string;
+  shipping_partner?: string;
+  tracking_id?: string;
+  tracking_url?: string;
+  shipped_at?: string;
+  delivered_at?: string;
   mrp?: number;
   color?: string;
   item_status?: 'pending' | 'cancelled' | 'shipped' | 'delivered' | 'returned' | 'refunded';
@@ -83,6 +88,7 @@ const OrderDetailsPage = ({ isGuest = false }: { isGuest?: boolean }) => {
   const [selectedItemForReview, setSelectedItemForReview] = useState<OrderItem | null>(null);
   const [existingReviews, setExistingReviews] = useState<{ [productId: string]: any }>({});
   const [dbItems, setDbItems] = useState<OrderItem[]>([]);
+  const [reviewSubmitted, setReviewSubmitted] = useState(false);
   const transformOrderData = (orderData: any): OrderDetails => {
     return {
       order_id: orderData.id,
@@ -105,7 +111,59 @@ const OrderDetailsPage = ({ isGuest = false }: { isGuest?: boolean }) => {
       delivered_at: orderData.delivered_at,
     };
   };
+// Add this component inside your OrderDetailsPage component, or as a separate component if preferred
+const ShippingDetails = ({ item }: { item: OrderItem }) => {
+  if (item.item_status !== 'shipped') return null;
 
+  return (
+    <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-900/30">
+      <h4 className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
+        Shipping Information
+      </h4>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+        <div>
+          <span className="text-gray-600 dark:text-gray-400">Courier:</span>{' '}
+          <span className="font-medium">{item.shipping_partner}</span>
+        </div>
+        <div>
+          <span className="text-gray-600 dark:text-gray-400">Tracking #:</span>{' '}
+          <span className="font-mono">{item.tracking_id}</span>
+        </div>
+        {item.tracking_url && (
+          <div className="sm:col-span-2">
+            <a
+              href={item.tracking_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center"
+            >
+              Track Package
+              <svg
+                className="w-3.5 h-3.5 ml-1"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                />
+              </svg>
+            </a>
+          </div>
+        )}
+        {item.shipped_at && (
+          <div className="sm:col-span-2 text-sm text-gray-500 dark:text-gray-400">
+            Shipped on: {new Date(item.shipped_at).toLocaleDateString()}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
   useEffect(() => {
     const fetchOrder = async () => {
       if (!orderId) return;
@@ -311,8 +369,15 @@ const OrderDetailsPage = ({ isGuest = false }: { isGuest?: boolean }) => {
     const itemStatus = item.item_status || (item as any).status || 'pending';
     const isDelivered = itemStatus === 'delivered';
     const hasReview = existingReviews[item.product_id];
-
+    
+    // Only return false if the item is not delivered or already has a review
+    // This ensures the button stays visible until a review is actually submitted
     return isDelivered && !hasReview;
+  };
+  
+  // Check if the review was just submitted for the current item
+  const isJustSubmitted = (item: OrderItem) => {
+    return reviewSubmitted && selectedItemForReview?.product_id === item.product_id;
   };
 
   // Check for existing reviews when order loads
@@ -354,7 +419,13 @@ const OrderDetailsPage = ({ isGuest = false }: { isGuest?: boolean }) => {
 
   const handleAddReview = (item: OrderItem) => {
     setSelectedItemForReview(item);
+    setReviewSubmitted(false);
     setShowReviewModal(true);
+  };
+
+  const handleCloseReviewModal = () => {
+    setShowReviewModal(false);
+    setSelectedItemForReview(null);
   };
 
   const handleReviewSubmitted = async () => {
@@ -364,11 +435,12 @@ const OrderDetailsPage = ({ isGuest = false }: { isGuest?: boolean }) => {
         ...prev,
         [selectedItemForReview.product_id]: { exists: true }
       }));
+      setReviewSubmitted(true);
+      setShowSuccessMessage(true);
+      setTimeout(() => setShowSuccessMessage(false), 5000);
     }
     setShowReviewModal(false);
     setSelectedItemForReview(null);
-    setShowSuccessMessage(true);
-    setTimeout(() => setShowSuccessMessage(false), 5000);
   };
 
   if (isLoading || storeLoading) {
@@ -478,40 +550,92 @@ const OrderDetailsPage = ({ isGuest = false }: { isGuest?: boolean }) => {
             </div>
           </div>
 
-          {/* Tracking Section */}
-          {(order.status === 'shipped' || order.status === 'delivered' || order.status === 'partially_shipped' || order.status === 'partially_delivered') && (order.tracking_id || order.shipping_partner) && (
-            <div className="px-4 sm:px-6 py-4 sm:py-5 border-b border-gray-200 dark:border-gray-700 bg-blue-50 dark:bg-blue-900/10">
-              <h2 className="text-base sm:text-lg font-medium text-gray-900 dark:text-white mb-3 sm:mb-4 flex items-center">
-                <Truck className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
-                Shipment Tracking
-              </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-6">
-                {order.shipping_partner && (
-                  <div>
-                    <h3 className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white">Shipping Partner</h3>
-                    <p className="mt-1 text-xs sm:text-sm text-gray-600 dark:text-gray-300">{order.shipping_partner}</p>
-                  </div>
-                )}
-                {order.tracking_id && (
-                  <div>
-                    <h3 className="text-xs sm:text-sm font-medium text-gray-900 dark:text-white">Tracking ID</h3>
-                    <p className="mt-1 text-xs sm:text-sm text-gray-600 dark:text-gray-300 font-mono break-all">{order.tracking_id}</p>
-                  </div>
-                )}
-                {order.tracking_url && (
-                  <div className="sm:col-span-2">
-                    <a
-                      href={order.tracking_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center px-4 py-2 border border-transparent text-xs sm:text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors"
-                    >
-                      <Truck className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
-                      Track Product
-                    </a>
-                  </div>
+          {/* Enhanced Shipping Details */}
+          {order.shipping_partner && (
+            <div className="bg-blue-50 dark:bg-blue-900/10 border-l-4 border-blue-500 rounded-r-lg p-4 sm:p-6 mb-6">
+              <div className="flex items-start justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center">
+                    <Truck className="w-5 h-5 mr-2 text-blue-600 dark:text-blue-400" />
+                    Your Order is {order.status === 'shipped' ? 'On the Way' : 'Shipped'}
+                  </h2>
+                  <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
+                    {order.status === 'shipped' 
+                      ? 'Your package is on its way to you.'
+                      : 'Your package has been delivered.'}
+                  </p>
+                </div>
+                {order.status === 'shipped' && (
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-200">
+                    In Transit
+                  </span>
                 )}
               </div>
+
+              <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400">Shipping Partner</h3>
+                  <p className="text-sm font-medium text-gray-900 dark:text-white">{order.shipping_partner}</p>
+                </div>
+                
+                <div className="space-y-1">
+                  <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400">Tracking Number</h3>
+                  <p className="text-sm font-mono font-medium text-gray-900 dark:text-white break-all">
+                    {order.tracking_id}
+                  </p>
+                </div>
+
+                {order.shipped_at && (
+                  <div className="space-y-1">
+                    <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400">Shipped On</h3>
+                    <p className="text-sm text-gray-900 dark:text-white">
+                      {new Date(order.shipped_at).toLocaleDateString('en-IN', {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric'
+                      })}
+                    </p>
+                  </div>
+                )}
+
+                <div className="space-y-1">
+                  <h3 className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                    {order.status === 'shipped' ? 'Expected Delivery' : 'Delivered On'}
+                  </h3>
+                  <p className="text-sm text-gray-900 dark:text-white">
+                    {order.status === 'shipped' ? (
+                      <span className="font-medium">
+                        {new Date(new Date(order.shipped_at || new Date()).getTime() + 3 * 24 * 60 * 60 * 1000).toLocaleDateString('en-IN', {
+                          weekday: 'short',
+                          day: 'numeric',
+                          month: 'short'
+                        })}
+                        <span className="text-xs text-gray-500 ml-1">(Estimated)</span>
+                      </span>
+                    ) : order.delivered_at ? (
+                      new Date(order.delivered_at).toLocaleDateString('en-IN', {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric'
+                      })
+                    ) : 'N/A'}
+                  </p>
+                </div>
+              </div>
+
+              {order.tracking_url && (
+                <div className="mt-6">
+                  <a
+                    href={order.tracking_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center w-full sm:w-auto px-4 py-2.5 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+                  >
+                    <Truck className="w-4 h-4 mr-2" />
+                    Track Your Package
+                  </a>
+                </div>
+              )}
             </div>
           )}
 
@@ -901,12 +1025,13 @@ const OrderDetailsPage = ({ isGuest = false }: { isGuest?: boolean }) => {
               discount: order?.discount || 0,
               delivery_charge: order?.delivery_charge || 0,
               total_amount: order?.total_amount || 0,
-              payment_status: ['pending', 'paid', 'failed', 'refunded'].includes(order?.payment_status || '') ? order.payment_status as 'pending' | 'paid' | 'failed' | 'refunded' : 'paid', // Fix payment_status type issue by using correct enum values from database schema
+              payment_status: ['pending', 'paid', 'failed', 'refunded'].includes(order?.payment_status || '') ? order.payment_status as 'pending' | 'paid' | 'failed' | 'refunded' : 'paid',
               payment_method: order?.payment_method || 'razorpay',
               shipping_address: order?.shipping_address || {},
             }}
             item={selectedItemForReview}
-            onClose={handleReviewSubmitted}
+            onClose={handleCloseReviewModal}
+            onSubmit={handleReviewSubmitted}
           />
         )}
 
@@ -915,7 +1040,7 @@ const OrderDetailsPage = ({ isGuest = false }: { isGuest?: boolean }) => {
           <div className="fixed top-4 right-4 z-50 bg-green-500 text-white px-4 sm:px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-slide-in max-w-sm">
             <CheckCircle className="w-5 h-5 flex-shrink-0" />
             <span className="text-sm">
-              {selectedItemForReview ? 'Review submitted successfully!' : 'Order cancelled successfully!'}
+              {reviewSubmitted ? 'Review submitted successfully!' : 'Order cancelled successfully!'}
             </span>
             <button onClick={() => setShowSuccessMessage(false)} className="ml-2">
               <X className="w-4 h-4" />
