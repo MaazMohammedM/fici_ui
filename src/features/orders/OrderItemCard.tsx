@@ -298,13 +298,13 @@ const ShippingDetails = ({ item }: { item: OrderItem }) => {
             </div>
           )}
 
-          {!isGuest && !canCancel && !canReturn && !canReview && (
+          {/* {!isGuest && !canCancel && !canReturn && !canReview && (
             <div className="pt-2 border-t border-gray-100 dark:border-gray-700">
               <span className="px-2 sm:px-3 py-1 sm:py-1.5 text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 rounded-lg inline-block">
                 No actions available
               </span>
             </div>
-          )}
+          )} */}
         </div>
       </div>
     </div>

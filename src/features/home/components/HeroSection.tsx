@@ -94,7 +94,7 @@ const HeroSection: React.FC = () => {
           <img
             src={mobileImages[index]}
             alt={`Slide ${index + 1}`}
-            className="block sm:hidden w-full h-full object-contain bg-black"
+            className="block sm:hidden w-full h-full object-cover"
           />
         </div>
       ))}

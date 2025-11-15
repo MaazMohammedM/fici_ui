@@ -23,12 +23,13 @@ const TopDealsCard: React.FC<TopDealsCardProps> = ({
     discountPercentage = 0
 }) => {
   return (
-    <Link to={link} className={`w-full h-fit p-2 sm:p-3 lg:p-4 flex flex-col gap-2 hover:bg-white hover:rounded-2xl transition-all duration-300 ${className}`}>
-        <div className={`relative group bg-white dark:bg-dark2 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300 h-full flex flex-col ${className}`}>
-            <img
-              src={image}
-              alt={title}
-              className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+    <Link to={link} className={`w-full p-2 sm:p-3 lg:p-4 flex flex-col gap-2 hover:bg-white hover:rounded-2xl transition-all duration-300 ${className}`}>
+        <div className={`relative group bg-white dark:bg-dark2 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300 flex flex-col`}>
+            <div className="relative aspect-[3/4] w-full">
+              <img
+                src={image}
+                alt={title}
+                className="absolute inset-0 w-full h-full object-cover hover:scale-105 transition-transform duration-300"
               onError={(e) => {
                 const target = e.target as HTMLImageElement;
                 if (target.src !== '/assets/Fici_logo.png') {
@@ -36,6 +37,7 @@ const TopDealsCard: React.FC<TopDealsCardProps> = ({
                 }
               }}
             />
+            </div>
             {discountPercentage > 0 && (
               <div className="absolute top-1 sm:top-2 left-1 sm:left-2 bg-[color:var(--color-accent)] text-white px-1 sm:px-2 py-1 rounded text-xs font-medium">
                 {discountPercentage}% OFF

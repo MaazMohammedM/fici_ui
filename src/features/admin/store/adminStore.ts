@@ -227,7 +227,9 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
         const fileExtension = file.name.split('.').pop();
         const fileName = `${folderName}_${i + 1}.${fileExtension}`;
         const filePath = `${folderName}/${fileName}`;
-        const mimeType = getMimeType(file.name);
+        const contentType = file.type && file.type.startsWith('image/')
+          ? file.type
+          : getMimeType(file.name);
 
         console.log('Uploading file:', {
           name: file.name,
@@ -235,7 +237,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
           size: file.size,
           fileName,
           filePath,
-          mimeType
+          contentType
         });
 
         const { error: uploadError } = await supabase.storage
@@ -243,7 +245,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
           .upload(filePath, file, {
             cacheControl: '3600',
             upsert: false,
-            contentType: mimeType // CRITICAL: Set correct MIME type
+            contentType: contentType
           });
 
         if (uploadError) {

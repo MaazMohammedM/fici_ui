@@ -59,34 +59,34 @@ const ContactForm: React.FC = () => {
     }
   };
   return (
-    <main className="h-screen bg-gradient-to-br from-[color:var(--color-light1)] via-[color:var(--color-light2)] to-[color:var(--color-light3)] dark:from-[color:var(--color-dark1)] dark:via-[color:var(--color-dark2)] dark:to-[color:var(--color-dark3)]">
-      <div className="container mx-auto px-4 py-4 h-full">
+    <main className="min-h-screen bg-gradient-to-br from-[color:var(--color-light1)] via-[color:var(--color-light2)] to-[color:var(--color-light3)] dark:from-[color:var(--color-dark1)] dark:via-[color:var(--color-dark2)] dark:to-[color:var(--color-dark3)] py-4 sm:py-8">
+      <div className="container mx-auto px-3 sm:px-4">
         {/* Header Section */}
         <div className="text-center mb-6">
           <h1 className="text-2xl sm:text-3xl font-bold text-[color:var(--color-text-primary)] dark:text-[color:var(--color-text-inverse)] mb-2 bg-gradient-to-r from-[color:var(--color-primary)] to-[color:var(--color-accent)] bg-clip-text text-transparent">
             Contact Us
           </h1>
           <p className="text-sm sm:text-base text-[color:var(--color-text-secondary)] dark:text-[color:var(--color-light3)] max-w-3xl mx-auto leading-relaxed">
-            We'd love to hear from you. Get in touch with us for any inquiries or support.
+            We'd love to hear from you. <br/>
+          Get in touch with us for any inquiries or support.
           </p>
         </div>
 
-        <div className="flex flex-col lg:flex-row gap-4 max-w-6xl mx-auto h-full">
-          {/* Contact Information Card */}
-          <div className="bg-[color:var(--color-light1)] dark:bg-[color:var(--color-dark2)] rounded-2xl shadow-xl p-4 border border-[color:var(--color-light3)] dark:border-[color:var(--color-dark3)] flex-1 overflow-y-auto">
+        <div className="flex flex-col lg:flex-row gap-4 max-w-6xl mx-auto min-h-0 w-full">
+          {/* Left Column - Contact Form */}
+          <div className="flex-1 flex flex-col min-h-0 w-full">
+            <div className="bg-[color:var(--color-light1)] dark:bg-[color:var(--color-dark2)] rounded-2xl shadow-xl p-3 sm:p-4 border border-[color:var(--color-light3)] dark:border-[color:var(--color-dark3)] flex-1 overflow-y-auto">
             <h2 className="text-xl font-bold text-[color:var(--color-text-primary)] dark:text-[color:var(--color-text-inverse)] mb-4 text-center">
               Get In Touch
             </h2>
 
-            {/* Contact Info Grid - Compact Layout */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+            {/* Contact Info Grid - 2x2 on all screens */}
+            <div className="grid grid-cols-2 gap-2 sm:gap-3 mb-4">
               {/* Address */}
-              <div className="group">
-                <div className="flex items-start gap-2 p-3 rounded-lg bg-[color:var(--color-light2)] dark:bg-[color:var(--color-dark3)] hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all duration-300">
-                  <div className="flex-shrink-0">
-                    <MapPin className="w-4 h-4 text-[color:var(--color-primary)] dark:text-[color:var(--color-accent)] group-hover:scale-110 transition-transform duration-300" />
-                  </div>
-                  <div className="min-w-0">
+              <div className="group h-full">
+                <div className="flex flex-row items-start h-full p-3 rounded-lg bg-[color:var(--color-light2)] dark:bg-[color:var(--color-dark3)] hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all duration-300">
+                  <MapPin className="flex-shrink-0 w-4 h-4 mt-0.5 mr-2 text-[color:var(--color-primary)] dark:text-[color:var(--color-accent)] group-hover:scale-110 transition-transform duration-300" />
+                  <div className="min-w-0 flex-1">
                     <p className="font-semibold text-[color:var(--color-text-primary)] dark:text-[color:var(--color-text-inverse)] text-xs mb-1">Address</p>
                     <a
                       href="https://maps.app.goo.gl/zN1S7K3zKaLyTiCo6?g_st=awb"
@@ -94,15 +94,15 @@ const ContactForm: React.FC = () => {
                       rel="noopener noreferrer"
                       className="text-xs text-[color:var(--color-text-secondary)] dark:text-[color:var(--color-light3)] hover:text-[color:var(--color-primary)] dark:hover:text-[color:var(--color-accent)] transition-colors leading-relaxed block"
                     >
-                      No.20, 1st Floor, Broad Bazaar, Flower Bazaar Lane, Ambur - 635802
+                      No.20, 1st Floor, Broad Bazaar, <br/>Flower Bazaar Lane, Ambur - 635802
                     </a>
                   </div>
                 </div>
               </div>
 
               {/* Phone */}
-              <div className="group">
-                <div className="p-3 rounded-lg bg-[color:var(--color-light2)] dark:bg-[color:var(--color-dark3)] hover:bg-green-50 dark:hover:bg-green-900/20 transition-all duration-300">
+              <div className="group h-full">
+                <div className="h-full p-3 rounded-lg bg-[color:var(--color-light2)] dark:bg-[color:var(--color-dark3)] hover:bg-green-50 dark:hover:bg-green-900/20 transition-all duration-300">
                   <p className="font-semibold text-[color:var(--color-text-primary)] dark:text-[color:var(--color-text-inverse)] text-xs mb-1">Phone</p>
                   <a
                     href="tel:+918122003006"
@@ -114,8 +114,8 @@ const ContactForm: React.FC = () => {
               </div>
 
               {/* Email */}
-              <div className="group">
-                <div className="p-3 rounded-lg bg-[color:var(--color-light2)] dark:bg-[color:var(--color-dark3)] hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all duration-300">
+              <div className="group h-full">
+                <div className="h-full p-3 rounded-lg bg-[color:var(--color-light2)] dark:bg-[color:var(--color-dark3)] hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all duration-300">
                   <p className="font-semibold text-[color:var(--color-text-primary)] dark:text-[color:var(--color-text-inverse)] text-xs mb-1">Email</p>
                   <a
                     href="mailto:nmfinternational@gmail.com"
@@ -127,8 +127,8 @@ const ContactForm: React.FC = () => {
               </div>
 
               {/* Social Media */}
-              <div className="group">
-                <div className="p-3 rounded-lg bg-[color:var(--color-light2)] dark:bg-[color:var(--color-dark3)] hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-all duration-300">
+              <div className="group h-full">
+                <div className="h-full p-3 rounded-lg bg-[color:var(--color-light2)] dark:bg-[color:var(--color-dark3)] hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-all duration-300">
                   <p className="font-semibold text-[color:var(--color-text-primary)] dark:text-[color:var(--color-text-inverse)] text-xs mb-2">Follow Us</p>
                   <div className="flex space-x-2">
                     <a
@@ -169,13 +169,13 @@ const ContactForm: React.FC = () => {
             </div>
 
             {/* Contact Form */}
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-3 mt-6 sm:mt-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
                 <div>
                   <input
                     {...register('name')}
                     placeholder="Your Name"
-                    className="w-full px-3 py-2 rounded-lg border border-[color:var(--color-light3)] dark:border-[color:var(--color-dark3)] bg-[color:var(--color-light1)] dark:bg-[color:var(--color-dark2)] text-[color:var(--color-text-primary)] dark:text-[color:var(--color-text-inverse)] placeholder-[color:var(--color-text-muted)] focus:outline-none focus:ring-2 focus:ring-[color:var(--color-primary)] focus:border-transparent transition-all duration-300 text-sm"
+                    className="w-full px-3 py-2 text-sm rounded-lg border border-[color:var(--color-light3)] dark:border-[color:var(--color-dark3)] bg-[color:var(--color-light1)] dark:bg-[color:var(--color-dark2)] text-[color:var(--color-text-primary)] dark:text-[color:var(--color-text-inverse)] placeholder-[color:var(--color-text-muted)] focus:outline-none focus:ring-2 focus:ring-[color:var(--color-primary)] focus:border-transparent transition-all duration-300"
                   />
                   {errors.name && <p className="text-xs text-[color:var(--color-error)] mt-1 italic">{errors.name.message}</p>}
                 </div>
@@ -185,7 +185,7 @@ const ContactForm: React.FC = () => {
                     {...register('email')}
                     placeholder="Your Email"
                     type="email"
-                    className="w-full px-3 py-2 rounded-lg border border-[color:var(--color-light3)] dark:border-[color:var(--color-dark3)] bg-[color:var(--color-light1)] dark:bg-[color:var(--color-dark2)] text-[color:var(--color-text-primary)] dark:text-[color:var(--color-text-inverse)] placeholder-[color:var(--color-text-muted)] focus:outline-none focus:ring-2 focus:ring-[color:var(--color-primary)] focus:border-transparent transition-all duration-300 text-sm"
+                    className="w-full px-3 py-2 text-sm rounded-lg border border-[color:var(--color-light3)] dark:border-[color:var(--color-dark3)] bg-[color:var(--color-light1)] dark:bg-[color:var(--color-dark2)] text-[color:var(--color-text-primary)] dark:text-[color:var(--color-text-inverse)] placeholder-[color:var(--color-text-muted)] focus:outline-none focus:ring-2 focus:ring-[color:var(--color-primary)] focus:border-transparent transition-all duration-300"
                   />
                   {errors.email && <p className="text-xs text-[color:var(--color-error)] mt-1 italic">{errors.email.message}</p>}
                 </div>
@@ -243,28 +243,31 @@ const ContactForm: React.FC = () => {
               )}
             </form>
           </div>
+          </div>
 
-          {/* Additional Info/Branding Card */}
-          <div className="bg-gradient-to-br from-[color:var(--color-primary)] to-[color:var(--color-accent)] rounded-2xl shadow-xl p-4 text-[color:var(--color-text-inverse)] flex-1 overflow-y-auto">
-            <h3 className="text-lg font-bold mb-3">Why Choose FICI?</h3>
-            <div className="space-y-2 text-blue-100">
-              <p className="flex items-center gap-2 text-sm">
-                <span className="w-1.5 h-1.5 bg-[color:var(--color-text-inverse)] rounded-full"></span>
-                Premium quality footwear and accessories
-              </p>
-              <p className="flex items-center gap-2 text-sm">
-                <span className="w-1.5 h-1.5 bg-[color:var(--color-text-inverse)] rounded-full"></span>
-                Fast and reliable delivery
-              </p>
-              <p className="flex items-center gap-2 text-sm">
-                <span className="w-1.5 h-1.5 bg-[color:var(--color-text-inverse)] rounded-full"></span>
-                Excellent customer support
-              </p>
-              <p className="flex items-center gap-2 text-sm">
-                <span className="w-1.5 h-1.5 bg-[color:var(--color-text-inverse)] rounded-full"></span>
-                Secure payment options
-              </p>
+          {/* Right Column - Why Choose FICI */}
+          <div className="w-full lg:flex-1 flex flex-col min-h-0">
+            <div className="bg-gradient-primary rounded-2xl shadow-lg p-4 sm:p-6 text-[color:var(--color-text-inverse)] h-auto">
+            <h3 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4 font-secondary">Why Choose FICI?</h3>
+            <div className="space-y-2.5 sm:space-y-3 text-[color:var(--color-text-inverse)]/90 text-sm sm:text-[0.9375rem] leading-relaxed">
+              <div className="flex items-start">
+                <span className="flex-shrink-0 mt-1.5 w-1.5 h-1.5 bg-[color:var(--color-text-inverse)] rounded-full mr-2"></span>
+                <span className="break-words">Premium quality footwear and accessories</span>
+              </div>
+              <div className="flex items-start">
+                <span className="flex-shrink-0 mt-1.5 w-1.5 h-1.5 bg-[color:var(--color-text-inverse)] rounded-full mr-2"></span>
+                <span className="break-words">Fast and reliable delivery</span>
+              </div>
+              <div className="flex items-start">
+                <span className="flex-shrink-0 mt-1.5 w-1.5 h-1.5 bg-[color:var(--color-text-inverse)] rounded-full mr-2"></span>
+                <span className="break-words">Excellent customer support</span>
+              </div>
+              <div className="flex items-start">
+                <span className="flex-shrink-0 mt-1.5 w-1.5 h-1.5 bg-[color:var(--color-text-inverse)] rounded-full mr-2"></span>
+                <span className="break-words">Secure payment options</span>
+              </div>
             </div>
+          </div>
           </div>
         </div>
       </div>

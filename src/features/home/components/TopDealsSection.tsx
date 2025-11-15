@@ -28,8 +28,8 @@ const TopDealsSection: React.FC = () => {
           <p className="text-gray-600 dark:text-gray-400 text-sm sm:text-base mb-4">
             No deals available at the moment.
           </p>
-          <Link 
-            to="/products" 
+          <Link
+            to="/products"
             className="text-[color:var(--color-accent)] hover:text-[color:var(--color-accent)]/80 font-semibold transition-colors text-sm sm:text-base"
           >
             Browse All Products →
@@ -40,24 +40,34 @@ const TopDealsSection: React.FC = () => {
   }
 
   return (
-    <div className='bg-[color:var(--color-light1)] dark:bg-[color:var(--color-dark1)] w-full max-w-screen-xl mx-auto px-4 sm:px-6 flex flex-col gap-4 sm:gap-5 justify-center py-6 sm:py-8'>
-      <div className='flex flex-row justify-between items-center w-full'>
+    <div className='bg-[color:var(--color-light1)] dark:bg-[color:var(--color-dark1)] w-full max-w-screen-xl mx-auto px-0 sm:px-6 py-6 sm:py-8'>
+      <div className='flex flex-row justify-between items-center px-4 sm:px-0 mb-3 sm:mb-4'>
         <h2 className='text-xl sm:text-2xl lg:text-3xl font-bold text-[color:var(--color-primary)] dark:text-[color:var(--color-secondary)]'>
           Amazing deals for you!
         </h2>
-        <Link 
+        <Link
           to="/products"
           className="text-[color:var(--color-accent)] hover:text-[color:var(--color-accent)]/80 font-semibold transition-colors text-sm sm:text-base"
         >
           View All →
         </Link>
       </div>
-           
-      <div className='w-full overflow-x-auto pb-4 scrollbar-hide px-1'>
-        <div className="flex items-stretch gap-4 sm:gap-5 w-max mx-auto">
+
+      {/* Horizontal list with 2-up on mobile, snap to card */}
+      <div className='w-full overflow-x-auto pb-4 scrollbar-hide'>
+        <div className="flex items-stretch gap-3 sm:gap-5 snap-x snap-mandatory px-4 sm:px-0">
           {topDeals.map((product) => (
-            <div key={product.product_id} className="w-64 sm:w-72 flex-shrink-0 h-full">
-              <TopDealsCard 
+            <div
+              key={product.product_id}
+              className={[
+                // Mobile: 2 per viewport (padding 16px x2, gap 12px)
+                'min-w-[calc((100vw-2rem-0.75rem)/2)] max-w-[calc((100vw-2rem-0.75rem)/2)]',
+                // sm+: fixed widths
+                'sm:w-64 lg:w-72 sm:min-w-0 sm:max-w-none',
+                'flex-shrink-0 h-full snap-start'
+              ].join(' ')}
+            >
+              <TopDealsCard
                 title={product.name}
                 rating={4.5}
                 price={parseFloat(String(product.discount_price))}
@@ -70,6 +80,8 @@ const TopDealsSection: React.FC = () => {
               />
             </div>
           ))}
+          {/* Right spacer so last card isn’t cropped */}
+          <div className="w-4 sm:w-0 flex-shrink-0" />
         </div>
       </div>
     </div>

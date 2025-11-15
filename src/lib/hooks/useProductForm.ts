@@ -148,7 +148,8 @@ export const useProductForm = () => {
 
       const { imageUrls, thumbnail } = uploadResult;
       console.log('Upload successful. Image URLs:', imageUrls);
-      console.log('Thumbnail URL:', thumbnail);
+      const chosenThumbnail = imageUrls[selectedThumbnail] ?? thumbnail;
+      console.log('Thumbnail URL (chosen):', chosenThumbnail);
 
       // Verify the uploaded files in Supabase storage
       console.log('🔍 SUPABASE STORAGE VERIFICATION:');
@@ -171,7 +172,7 @@ export const useProductForm = () => {
         article_id: articleWithColor,
         sizes: JSON.stringify(sizesList),
         images: imageUrls.join(','),
-        thumbnail_url: thumbnail
+        thumbnail_url: chosenThumbnail
       };
 
       console.log('Adding product to database:', productData);
