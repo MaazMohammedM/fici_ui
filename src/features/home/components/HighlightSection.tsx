@@ -28,9 +28,7 @@ const HighlightSection: React.FC = () => {
     );
   }
 
-  if (highlightProducts.length === 0) {
-    return null; // Or a placeholder if you prefer
-  }
+  if (highlightProducts.length === 0) return null;
 
   return (
     <section className="py-8 sm:py-10 bg-[color:var(--color-light1)] dark:bg-[color:var(--color-dark1)]">
@@ -39,18 +37,29 @@ const HighlightSection: React.FC = () => {
           <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-[color:var(--color-dark1)] dark:text-[color:var(--color-light1)]">
             Today's Highlights
           </h2>
-          <Link 
+          <Link
             to="/products"
             className="text-[color:var(--color-accent)] hover:text-[color:var(--color-accent)]/80 font-semibold transition-colors text-sm sm:text-base lg:text-lg"
           >
             View All →
           </Link>
         </div>
-        {/* Responsive grid with horizontal scrolling on mobile */}
-        <div className="w-full overflow-x-auto pb-4 scrollbar-hide px-1">
-          <div className="flex items-stretch gap-4 sm:gap-5 w-max mx-auto">
+
+        {/* Horizontal list with 2-up on mobile, snap to card */}
+        <div className="w-full overflow-x-auto pb-4 scrollbar-hide">
+          <div className="flex items-stretch gap-3 sm:gap-5 snap-x snap-mandatory px-4">
             {highlightProducts.map((product) => (
-              <div key={product.article_id} className="w-64 sm:w-72 flex-shrink-0">
+              <div
+                key={product.article_id}
+                className={[
+                  // Mobile: 2 cards per viewport:
+                  // viewport 100vw - 2*16px container padding - gap(12px) then /2
+                  'min-w-[calc((100vw-2rem-0.75rem)/2)] max-w-[calc((100vw-2rem-0.75rem)/2)]',
+                  // sm+: revert to fixed card widths
+                  'sm:w-64 lg:w-72 sm:min-w-0 sm:max-w-none',
+                  'flex-shrink-0 h-full snap-start'
+                ].join(' ')}
+              >
                 <Link
                   to={`/products/${product.article_id}`}
                   className="group block bg-white dark:bg-[color:var(--color-dark2)] rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-all duration-300 h-full hover:scale-[1.02]"
@@ -61,10 +70,8 @@ const HighlightSection: React.FC = () => {
                       alt={product.name}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        if (target.src !== '/Fici_logo.png') {
-                          target.src = '/Fici_logo.png';
-                        }
+                        const target = e.currentTarget as HTMLImageElement;
+                        if (target.src !== '/Fici_logo.png') target.src = '/Fici_logo.png';
                       }}
                     />
                   </div>
@@ -86,10 +93,13 @@ const HighlightSection: React.FC = () => {
                 </Link>
               </div>
             ))}
+            {/* Right padding spacer so the last snap card isn’t cropped */}
+            <div className="w-4 sm:w-0 flex-shrink-0" />
           </div>
         </div>
       </div>
     </section>
   );
 };
+
 export default HighlightSection;
