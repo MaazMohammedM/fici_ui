@@ -5,6 +5,7 @@ import { BarChart3, List, Plus, Package } from "lucide-react";
 import DashboardStats from "./components/DashboardStats";
 import TopProductsChart from "./components/TopProductsChart";
 import ProductVisitsTable from "./components/ProductVisitsTable";
+import TrafficSourcesWidget from "./components/TrafficSourcesWidget";
 
 // Product Management Components
 import ProductForm from "./components/ProductForm";
@@ -15,6 +16,7 @@ import ProductList from "./components/ProductList";
 import { useAdminStore } from "./store/adminStore";
 import { useAdminDashboard } from "./hooks/useAdminDashboard";
 import AdminOrderDashboard from "./components/AdminOrderDashboard";
+import { supabase } from "@lib/supabase";
 
 const AdminPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<"dashboard" | "list" | "add" | "orders">(
@@ -33,9 +35,27 @@ const AdminPage: React.FC = () => {
     handleSearch,
   } = useAdminDashboard();
 
+  const [trafficVisits, setTrafficVisits] = useState<number>(0);
+
   useEffect(() => {
     fetchProducts();
   }, [fetchProducts]);
+
+  useEffect(() => {
+    const loadTrafficVisits = async () => {
+      const { data, error } = await supabase
+        .from("traffic_sources")
+        .select("visit_count");
+      if (!error && data) {
+        const total = (data as Array<{ visit_count: number | null }>).reduce(
+          (sum, row) => sum + (row.visit_count || 0),
+          0
+        );
+        setTrafficVisits(total);
+      }
+    };
+    loadTrafficVisits();
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -108,11 +128,15 @@ const AdminPage: React.FC = () => {
               conversionRate={stats.conversionRate}
               totalRevenue={stats.totalRevenue}
               pendingOrders={stats.pendingOrders}
+              trafficVisits={trafficVisits}
             />
 
             {/* Charts - Mobile Responsive */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6 lg:gap-8 mb-6 sm:mb-8">
-              <TopProductsChart products={topProducts} loading={loading} />
+            <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:gap-8 mb-6 sm:mb-8">
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6 lg:gap-8">
+                <TopProductsChart products={topProducts} loading={loading} />
+                <TrafficSourcesWidget />
+              </div>
             </div>
 
             {/* Product Visits Table */}

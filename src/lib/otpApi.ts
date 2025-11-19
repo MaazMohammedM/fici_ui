@@ -38,7 +38,7 @@ export async function requestOtp(
   message?: string;
 }> {
   // Development mode: completely bypass API calls
-  if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === 'faizushoes.netlify.app')) {
+  if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === 'faizushoes.netlify.app' || window.location.hostname === 'ficishoes.netlify.app')) {
     console.log(`[DEV MODE] Bypassing OTP request API call for ${contact}`);
 
     // Simulate API delay
@@ -119,7 +119,7 @@ export async function verifyOtp(
   message?: string;
 }> {
   // Development mode: completely bypass API calls
-  if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === 'faizushoes.netlify.app')) {
+  if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === 'faizushoes.netlify.app' || window.location.hostname === 'ficishoes.netlify.app')) {
     console.log(`[DEV MODE] Bypassing OTP verification API call for ${contact} with code ${code}`);
 
     // Simulate API delay
