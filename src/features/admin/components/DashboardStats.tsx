@@ -1,5 +1,13 @@
 import React from 'react';
-import { TrendingUp, Eye, ShoppingBag, Users, DollarSign, Package } from 'lucide-react';
+import { supabase } from '@lib/supabase';
+import {
+  TrendingUp,
+  Eye,
+  ShoppingBag,
+  Users,
+  DollarSign,
+  Package
+} from 'lucide-react';
 
 interface DashboardStatsProps {
   totalVisits: number;
@@ -8,6 +16,7 @@ interface DashboardStatsProps {
   conversionRate: number;
   totalRevenue: number;
   pendingOrders: number;
+  trafficVisits?: number;
 }
 
 const DashboardStats: React.FC<DashboardStatsProps> = ({
@@ -16,9 +25,39 @@ const DashboardStats: React.FC<DashboardStatsProps> = ({
   totalUsers,
   conversionRate,
   totalRevenue,
-  pendingOrders
+  pendingOrders,
+  trafficVisits
 }) => {
-  const stats = [
+  // Fetch total traffic visits if not provided
+  const [totalTrafficVisits, setTotalTrafficVisits] = React.useState<number | null>(null);
+  
+  React.useEffect(() => {
+    if (typeof trafficVisits === 'number') {
+      setTotalTrafficVisits(trafficVisits);
+      return;
+    }
+    
+    // Fetch total traffic visits from database
+    const fetchTrafficVisits = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('traffic_sources')
+          .select('visit_count')
+          .not('visit_count', 'is', null);
+        
+        if (error) throw error;
+        
+        const total = data?.reduce((sum, row) => sum + (row.visit_count || 0), 0) || 0;
+        setTotalTrafficVisits(total);
+      } catch (error) {
+        console.error('Failed to fetch traffic visits:', error);
+        setTotalTrafficVisits(0);
+      }
+    };
+    
+    fetchTrafficVisits();
+  }, [trafficVisits]);
+  const baseStats = [
     {
       title: 'Total Visits',
       value: totalVisits.toLocaleString(),
@@ -63,19 +102,49 @@ const DashboardStats: React.FC<DashboardStatsProps> = ({
     }
   ];
 
+  const stats =
+    totalTrafficVisits !== null
+      ? [
+          {
+            title: 'Traffic Visits',
+            value: totalTrafficVisits.toLocaleString(),
+            icon: Eye,
+            color: 'text-indigo-600',
+            bgColor: 'bg-indigo-50'
+          },
+          ...baseStats
+        ]
+      : baseStats;
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6 mb-8">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-6 gap-3 mb-8">
       {stats.map((stat) => {
         const IconComponent = stat.icon;
         return (
-          <div key={stat.title} className="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-sm border border-gray-200 dark:border-gray-700">
-            <div className="flex items-center">
-              <div className={`p-2 rounded-lg ${stat.bgColor}`}>
-                <IconComponent className={`w-6 h-6 ${stat.color}`} />
+          <div
+            key={stat.title}
+            /* ensure the card can shrink inside grid cells and not force its content out */
+            className="bg-white dark:bg-gray-800 rounded-lg px-3 py-2.5 shadow-sm border border-gray-200 dark:border-gray-700 min-w-0 min-w-0-important"
+          >
+            {/* single-line layout: left (icon + title) and right (value) */}
+            <div className="flex items-center gap-3 min-w-0 flex-nowrap-important">
+              {/* Left: icon + title (title truncates) */}
+              <div className="flex items-center gap-2 min-w-0 flex-1 min-w-0-important">
+                <div className={`${stat.bgColor} rounded-md p-1.5 flex-shrink-0`}>
+                  <IconComponent className={`${stat.color} w-4 h-4`} />
+                </div>
+
+                {/* title: force single line truncation */}
+                <span className="text-sm text-gray-800 dark:text-gray-200 truncate truncate-nowrap">
+                  {stat.title}
+                </span>
               </div>
-              <div className="ml-4 flex-1">
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{stat.title}</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stat.value}</p>
+
+              {/* Right: value - keep it fixed and no-wrap */}
+              <div className="flex-shrink-0 ml-2">
+                <span className="text-sm font-bold text-gray-900 dark:text-white whitespace-nowrap">
+                  {stat.value}
+                </span>
               </div>
             </div>
           </div>

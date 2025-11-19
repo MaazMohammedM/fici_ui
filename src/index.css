@@ -100,6 +100,21 @@
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
     
+    /* add to your @layer utilities { } in your theme file */
+.min-w-0-important {
+  min-width: 0 !important;
+}
+
+.truncate-nowrap {
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.flex-nowrap-important {
+  flex-wrap: nowrap !important;
+}
+
     .card-modern:hover {
         box-shadow: var(--shadow-xl);
         transform: translateY(-2px);

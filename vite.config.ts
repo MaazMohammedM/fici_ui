@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import tsconfigPaths from 'vite-tsconfig-paths';
 import path from 'path';
+import { nodePolyfills } from 'vite-plugin-node-polyfills';
 
 export default defineConfig({
   plugins: [
@@ -10,7 +11,13 @@ export default defineConfig({
     tailwindcss(),
     tsconfigPaths({
       loose: true
-    })
+    }),
+    nodePolyfills({
+      // To add only specific polyfills, add them here. If no option is passed, adds all polyfills
+      include: ['buffer'],
+      // Whether to polyfill `node:` protocol imports.
+      protocolImports: true,
+    }),
   ],
   resolve: {
     alias: [

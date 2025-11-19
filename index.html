@@ -18,11 +18,7 @@
     <meta name="author" content="FICI Shoes" />
     <meta name="theme-color" content="#000000" />
 
-    <!-- Buffer polyfill for Node.js compatibility -->
-    <script>
-      window.global = window.global || window;
-      window.Buffer = window.Buffer || require('buffer').Buffer;
-    </script>
+    <!-- Buffer polyfill is now handled by Vite plugin -->
   </head>
   <body>
     <div id="root"></div>
