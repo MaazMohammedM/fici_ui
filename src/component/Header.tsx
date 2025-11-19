@@ -5,7 +5,8 @@ import { useAuthStore } from '@store/authStore';
 import { useThemeStore } from '../store/themeStore';
 import { useCartStore } from '@store/cartStore';
 import { useWishlistCount } from '@store/wishlistStore';
-import ficiLogo from '../assets/fici_transparent.png'
+import ficiLight from '../assets/fici_light_1920x917.png';
+import ficiDark from '../assets/fici_dark_dehaloed_1920x917.png';
 
 const Header: React.FC = () => {
   const navigate = useNavigate();
@@ -30,13 +31,10 @@ const Header: React.FC = () => {
   const userDropdownRef = useRef<HTMLDivElement>(null);
   const desktopDropdownRef = useRef<HTMLDivElement>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
-  // Delay close to avoid flicker when moving cursor from button to panel
   const hoverTimeoutRef = useRef<number | null>(null);
 
-  // Check if user is on checkout page with unsaved changes
   const isOnCheckoutWithChanges = location.pathname === '/checkout' && cartCount > 0;
 
-  // Handle protected navigation
   const handleProtectedNavigation = (path: string, e?: React.MouseEvent) => {
     if (isOnCheckoutWithChanges) {
       e?.preventDefault();
@@ -87,7 +85,7 @@ const Header: React.FC = () => {
     {
       label: 'Men',
       dropdown: [
-        { label: "All Men's Footwear", path: '/products?gender=men' },
+        { label: "All Men's Footwear", path: '/products?gender=men&category=Footwear' },
         { label: 'Shoes', path: '/products?gender=men&sub_category=Shoes' },
         { label: 'Sandals', path: '/products?gender=men&sub_category=Sandals' },
         { label: 'Bags', path: '/products?gender=men&sub_category=Bags' },
@@ -136,25 +134,21 @@ const Header: React.FC = () => {
   return (
     <header className="bg-white dark:bg-gray-900 sticky top-0 z-50 border-b border-gray-200 dark:border-gray-700">
       <div className="flex items-center justify-between px-4 md:px-8 lg:px-16 py-3 sm:py-4">
-        {/* Mobile left */}
         <button onClick={() => setIsMobileMenu(!isMobileMenu)} className="md:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800" aria-label={isMobileMenu ? 'Close menu' : 'Open menu'}>
           {isMobileMenu ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
         </button>
 
-        {/* Logo */}
         <NavLink
           to="/"
           onClick={(e) => handleProtectedNavigation('/', e)}
           className="flex items-center h-12"
         >
           <img
-            src={ficiLogo}
+            src={mode === 'dark' ? ficiDark : ficiLight}
             alt="FICI Logo"
-            className="h-full w-auto"
+            className="h-10 md:h-12 w-auto"
           />
         </NavLink>
-
-        {/* Desktop Nav */}
         <nav className="hidden md:flex gap-1 lg:gap-2 xl:gap-4 items-center text-sm md:text-[13px] lg:text-sm" ref={desktopDropdownRef}>
           {navItems.map(({ label, path, dropdown }) => (
             <div
@@ -275,7 +269,6 @@ const Header: React.FC = () => {
         </div>
       </div>
 
-      {/* Search overlay */}
       {isSearch && (
         <form onSubmit={handleSearch} className="px-4 md:px-8 lg:px-16 py-4 flex items-center gap-3 bg-white dark:bg-gray-900 border-b">
           <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search products..." className="flex-1 border rounded-lg px-3 py-2" />
@@ -284,7 +277,6 @@ const Header: React.FC = () => {
         </form>
       )}
 
-      {/* Mobile menu */}
       {isMobileMenu && (
         <div className="md:hidden fixed inset-0 bg-black/50 z-40" onClick={() => setIsMobileMenu(false)}>
           <div ref={mobileMenuRef} className="absolute top-0 left-0 w-72 h-full bg-white dark:bg-gray-900 p-6 overflow-y-auto" onClick={e => e.stopPropagation()}>
