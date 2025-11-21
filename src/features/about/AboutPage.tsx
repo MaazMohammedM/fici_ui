@@ -1,4 +1,7 @@
 import React from "react";
+import ficiLogo from "../../assets/Fici_logo.png";
+import collageDesktop from "../../assets/collage_desktop.jpg";
+import collageMobile from "../../assets/collage_mobile.jpg";
 
 const AboutPage: React.FC = () => {
   return (
@@ -6,11 +9,13 @@ const AboutPage: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Hero Section - Mobile Layout */}
         <div className="text-center lg:hidden mb-16">
-          {/* 3D Sphere Visual - Mobile */}
+          {/* Brand Logo - Mobile */}
           <div className="w-32 h-32 mx-auto mb-8 relative">
-            <div className="w-full h-full rounded-full bg-gradient-to-br from-white via-yellow-200 to-blue-200 shadow-lg transform rotate-12">
-              <div className="w-full h-full rounded-full bg-gradient-to-br from-white/80 via-yellow-100/80 to-blue-100/80 backdrop-blur-sm"></div>
-            </div>
+            <img
+              src={ficiLogo}
+              alt="FiCi Logo"
+              className="w-full h-full object-contain"
+            />
           </div>
 
           <h1 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-6 tracking-tight">
@@ -68,21 +73,27 @@ const AboutPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="w-24 h-24 flex-shrink-0">
-            <div className="w-full h-full rounded-full bg-gradient-to-br from-white via-yellow-200 to-blue-200 shadow-lg transform rotate-12">
-              <div className="w-full h-full rounded-full bg-gradient-to-br from-white/80 via-yellow-100/80 to-blue-100/80 backdrop-blur-sm"></div>
-            </div>
+          <div className="w-32 h-32 flex-shrink-0">
+            <img
+              src={ficiLogo}
+              alt="FiCi Logo"
+              className="w-full h-full object-contain drop-shadow-lg"
+            />
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center mb-16">
           <div className="order-2 lg:order-1">
+            {/* Collage image - responsive, no side gaps */}
             <div className="rounded-2xl overflow-hidden shadow-xl">
-              <img
-                src="https://sp-ao.shortpixel.ai/client/to_auto,q_lossless,ret_img,w_851,h_451/https://www.orientbell.com/blog/wp-content/uploads/2024/02/850x450-Pix_2-13.jpg"
-                alt="Team meeting at table"
-                className="w-full h-80 lg:h-96 object-cover"
-              />
+              <picture>
+                <source srcSet={collageDesktop} media="(min-width: 640px)" />
+                <img
+                  src={collageMobile}
+                  alt="FiCi brand collage"
+                  className="w-full h-auto"
+                />
+              </picture>
             </div>
           </div>
 

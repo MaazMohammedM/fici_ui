@@ -17,6 +17,7 @@ import type { Address } from './components/AddressForm';
 import type { GuestContactInfo } from '../../types/guest';
 import razorpayPayments from '../../assets/razorpay-with-all-cards-upi-seeklogo.png';
 import AlertModal from '@components/ui/AlertModal';
+import { getActiveCheckoutRule, calculateCheckoutDiscount, getActiveProductDiscountsForProducts, applyProductDiscountToPrice, type ProductDiscountRule } from '@lib/discounts';
 
 const getRazorpayKey = () => {
   if (typeof window !== 'undefined' && (window as any).__RAZORPAY_KEY__) return (window as any).__RAZORPAY_KEY;
@@ -59,6 +60,8 @@ const CheckoutPage: React.FC = () => {
   const currentOrderIdRef = useRef<string | null>(null);
   const [showPaymentStatus, setShowPaymentStatus] = useState(false);
   const [showNavigationWarning, setShowNavigationWarning] = useState(false);
+  const [codConfirmOpen, setCodConfirmOpen] = useState(false);
+  const [productDiscounts, setProductDiscounts] = useState<Record<string, ProductDiscountRule>>({});
 
   // Navigation warning modal state
   const [navigationWarning, setNavigationWarning] = useState<{
@@ -90,6 +93,7 @@ const CheckoutPage: React.FC = () => {
     message: '',
     type: 'info'
   });
+  const [prepaidDiscountAmount, setPrepaidDiscountAmount] = useState(0);
 
   // Check if user has unsaved changes (has items in cart and hasn't completed order)
   const hasUnsavedChanges = useMemo(() => {
@@ -147,16 +151,22 @@ const CheckoutPage: React.FC = () => {
     };
   }, [hasUnsavedChanges]);
 
-  const subtotal = useMemo(() => getCartTotal(), [getCartTotal]);
+  const subtotal = useMemo(() => {
+    if (!cartItems.length) return 0;
+    if (!productDiscounts || Object.keys(productDiscounts).length === 0) return getCartTotal();
+    return cartItems.reduce((sum, i: any) => {
+      const rule = productDiscounts[i.product_id];
+      const eff = applyProductDiscountToPrice(i.price, i.mrp, rule);
+      return sum + eff * i.quantity;
+    }, 0);
+  }, [getCartTotal, productDiscounts, cartItems]);
   const savings = useMemo(() => getCartSavings(), [getCartSavings]);
   const deliveryCharge = subtotal > 999 ? 0 : 0;
 
-  // ✅ Prepaid Discount - Easily changeable promotional discount for online payments
-  const PREPAID_DISCOUNT_AMOUNT = 0; 
-
+  // ✅ Prepaid discount from admin checkout rule (applies only to prepaid)
   const prepaidDiscount = useMemo(() => {
-    return selectedPayment === 'razorpay' ? PREPAID_DISCOUNT_AMOUNT : 0;
-  }, [selectedPayment]);
+    return selectedPayment === 'razorpay' ? prepaidDiscountAmount : 0;
+  }, [selectedPayment, prepaidDiscountAmount]);
 
   // Get contact info for OTP generation
   const getContactInfo = () => {
@@ -200,6 +210,34 @@ const CheckoutPage: React.FC = () => {
       }
     }
   }, []);
+
+  // Load active product discounts for items in cart
+  useEffect(() => {
+    const ids = Array.from(new Set(cartItems.map((i: any) => i.product_id).filter(Boolean)));
+    if (!ids.length) {
+      setProductDiscounts({});
+      return;
+    }
+    (async () => {
+      const map = await getActiveProductDiscountsForProducts(ids);
+      setProductDiscounts(map);
+    })();
+  }, [cartItems]);
+  
+  // Load active checkout discount rule and compute prepaid discount amount (based on subtotal)
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const rule = await getActiveCheckoutRule();
+        const discount = rule ? calculateCheckoutDiscount(rule as any, subtotal) : 0;
+        if (mounted) setPrepaidDiscountAmount(discount || 0);
+      } catch (e) {
+        if (mounted) setPrepaidDiscountAmount(0);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [subtotal]);
 
   useEffect(() => {
     const draftData = { selectedAddress, selectedPayment };
@@ -437,22 +475,25 @@ const CheckoutPage: React.FC = () => {
         amount: totalAmount,
         order_id: orderId,
         payment_method: selectedPayment,
-        items: cartItems.map(i => ({
-          product_id: i.product_id,
-          article_id: i.article_id,
-          name: i.name,
-          color: i.color,
-          size: i.size,
-          quantity: i.quantity,
-          price: i.price,
-          mrp: i.mrp,
-          discount_percentage: i.discount_percentage,
-          thumbnail_url: i.thumbnail_url,
-        })),
+        items: cartItems.map(i => {
+          const effective = applyProductDiscountToPrice(i.price, i.mrp, productDiscounts[i.product_id]) || i.price;
+          return {
+            product_id: i.product_id,
+            article_id: i.article_id,
+            name: i.name,
+            color: i.color,
+            size: i.size,
+            quantity: i.quantity,
+            price: effective,
+            mrp: i.mrp,
+            discount_percentage: i.discount_percentage,
+            thumbnail_url: i.thumbnail_url,
+          };
+        }),
         subtotal,
         total_mrp: totalMRP,
         total_discount: totalDiscount,
-        prepaid_discount: prepaidDiscount, // Moved from metadata to main payload
+        prepaid_discount: prepaidDiscount, // from admin configured checkout rule
         delivery_charge: deliveryCharge,
         shipping_address: selectedAddress,
         metadata: {
@@ -814,7 +855,13 @@ const CheckoutPage: React.FC = () => {
 
               <PaymentMethods
                 selected={selectedPayment}
-                onSelect={(id) => setSelectedPayment(id)}
+                onSelect={(id) => {
+                  if (id === 'cod' && prepaidDiscountAmount > 0) {
+                    setCodConfirmOpen(true);
+                    return;
+                  }
+                  setSelectedPayment(id);
+                }}
                 prepaidDiscount={prepaidDiscount}
                 onCodOtpRequired={() => {
                   setCodOtpTriggered(true);
@@ -839,10 +886,10 @@ const CheckoutPage: React.FC = () => {
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-sm sm:text-base truncate">{item.name}</p>
                         <p className="text-xs sm:text-sm text-gray-500">
-                          {item.size ? `Size: ${item.size} • ` : ''}Qty: {item.quantity} × ₹{item.price}
+                          {item.size ? `Size: ${item.size} • ` : ''}Qty: {item.quantity} × ₹{(applyProductDiscountToPrice(item.price, item.mrp, productDiscounts[item.product_id]) || item.price).toLocaleString('en-IN')}
                         </p>
                       </div>
-                      <div className="font-semibold text-sm sm:text-base flex-shrink-0">₹{(item.price * item.quantity).toLocaleString('en-IN')}</div>
+                      <div className="font-semibold text-sm sm:text-base flex-shrink-0">₹{((applyProductDiscountToPrice(item.price, item.mrp, productDiscounts[item.product_id]) || item.price) * item.quantity).toLocaleString('en-IN')}</div>
                     </div>
                   ))}
                 </div>
@@ -855,6 +902,7 @@ const CheckoutPage: React.FC = () => {
                 total={totalAmount}
                 savings={savings}
                 prepaidDiscount={prepaidDiscount}
+                checkoutDiscount={0}
               />
 
               <div className="bg-white dark:bg-dark2 rounded-2xl shadow-lg p-4 sm:p-6 sticky top-4">
@@ -917,6 +965,24 @@ const CheckoutPage: React.FC = () => {
             handleRetryPayment();
           }}
         />)}
+      {/* COD selection confirmation */}
+      <AlertModal
+        isOpen={codConfirmOpen}
+        title="Prefer Prepaid and Save"
+        message={`Are you sure you want to select Cash on Delivery? There is a discount of ₹${prepaidDiscountAmount} for prepaid orders.`}
+        type="warning"
+        showCancel
+        cancelText="Yes, keep COD"
+        confirmText="Move to Prepaid"
+        onClose={() => {
+          setCodConfirmOpen(false);
+          setSelectedPayment('cod');
+        }}
+        onConfirm={() => {
+          setCodConfirmOpen(false);
+          setSelectedPayment('razorpay');
+        }}
+      />
       <AlertModal
         isOpen={alertModal.isOpen}
         message={alertModal.message}

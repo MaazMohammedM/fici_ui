@@ -32,7 +32,7 @@ const HighlightSection: React.FC = () => {
 
   return (
     <section className="py-8 sm:py-10 bg-[color:var(--color-light1)] dark:bg-[color:var(--color-dark1)]">
-      <div className="w-full px-4 sm:px-8 lg:px-16">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between mb-4 sm:mb-6">
           <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-[color:var(--color-dark1)] dark:text-[color:var(--color-light1)]">
             Today's Highlights
@@ -47,7 +47,7 @@ const HighlightSection: React.FC = () => {
 
         {/* Horizontal list with 2-up on mobile, snap to card */}
         <div className="w-full overflow-x-auto pb-4 scrollbar-hide">
-          <div className="flex items-stretch gap-3 sm:gap-5 snap-x snap-mandatory px-4">
+          <div className="flex items-stretch gap-3 sm:gap-5 snap-x snap-mandatory px-1 sm:px-0">
             {highlightProducts.map((product) => (
               <div
                 key={product.article_id}
