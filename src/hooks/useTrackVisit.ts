@@ -13,12 +13,10 @@ export const useTrackVisit = () => {
     const userAgent = navigator.userAgent;
     const referrer = document.referrer;
 
-    // Create a unique key for this visit to prevent duplicates
     const key = `ts_tracked:${new Date().toISOString().split('T')[0]}:${btoa(url).slice(0, 10)}`;
     if (sessionStorage.getItem(key)) return;
     sessionStorage.setItem(key, '1');
 
-    // Track the visit with enhanced analysis
     updateTrafficSource(url, userAgent, referrer);
   }, [location.search]);
 };

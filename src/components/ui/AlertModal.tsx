@@ -9,6 +9,8 @@ interface AlertModalProps {
   type?: 'info' | 'warning' | 'error' | 'success';
   showCancel?: boolean;
   onConfirm?: () => void;
+  confirmText?: string;
+  cancelText?: string;
 }
 
 const AlertModal: React.FC<AlertModalProps> = ({
@@ -18,7 +20,9 @@ const AlertModal: React.FC<AlertModalProps> = ({
   title = 'Alert',
   type = 'info',
   showCancel = false,
-  onConfirm
+  onConfirm,
+  confirmText,
+  cancelText
 }) => {
   if (!isOpen) return null;
 
@@ -82,7 +86,7 @@ const AlertModal: React.FC<AlertModalProps> = ({
               onClick={onClose}
               className="btn-secondary px-6 py-3 text-gray-700 dark:text-gray-300 font-semibold hover:bg-gray-200 dark:hover:bg-dark2 transition-all duration-200"
             >
-              Cancel
+              {cancelText || 'Cancel'}
             </button>
           )}
           <button
@@ -91,7 +95,7 @@ const AlertModal: React.FC<AlertModalProps> = ({
               showCancel ? 'ml-3' : ''
             }`}
           >
-            {showCancel ? 'Confirm' : 'OK'}
+            {showCancel ? (confirmText || 'Confirm') : (confirmText || 'OK')}
           </button>
         </div>
       </div>

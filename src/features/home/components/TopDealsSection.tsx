@@ -40,8 +40,9 @@ const TopDealsSection: React.FC = () => {
   }
 
   return (
-    <div className='bg-[color:var(--color-light1)] dark:bg-[color:var(--color-dark1)] w-full max-w-screen-xl mx-auto px-0 sm:px-6 py-6 sm:py-8'>
-      <div className='flex flex-row justify-between items-center px-4 sm:px-0 mb-3 sm:mb-4'>
+    <section className='bg-[color:var(--color-light1)] dark:bg-[color:var(--color-dark1)] py-8 sm:py-10'>
+      <div className='max-w-7xl mx-auto px-4 sm:px-6 lg:px-8'>
+      <div className='flex flex-row justify-between items-center mb-3 sm:mb-4'>
         <h2 className='text-xl sm:text-2xl lg:text-3xl font-bold text-[color:var(--color-primary)] dark:text-[color:var(--color-secondary)]'>
           Amazing deals for you!
         </h2>
@@ -55,7 +56,7 @@ const TopDealsSection: React.FC = () => {
 
       {/* Horizontal list with 2-up on mobile, snap to card */}
       <div className='w-full overflow-x-auto pb-4 scrollbar-hide'>
-        <div className="flex items-stretch gap-3 sm:gap-5 snap-x snap-mandatory px-4 sm:px-0">
+        <div className="flex items-stretch gap-3 sm:gap-5 snap-x snap-mandatory px-1 sm:px-0">
           {topDeals.map((product) => (
             <div
               key={product.product_id}
@@ -84,7 +85,8 @@ const TopDealsSection: React.FC = () => {
           <div className="w-4 sm:w-0 flex-shrink-0" />
         </div>
       </div>
-    </div>
+      </div>
+    </section>
   );
 };
 
