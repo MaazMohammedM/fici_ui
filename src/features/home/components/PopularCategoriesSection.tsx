@@ -26,7 +26,7 @@ const PopularCategoriesSection: React.FC = () => {
 
   return (
     <section className="bg-gradient-light dark:bg-gradient-dark py-8 sm:py-10">
-      <div className="w-full px-4 sm:px-8 lg:px-16">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-6 sm:mb-8">
           <h2 className="text-3xl lg:text-4xl font-bold text-primary dark:text-secondary mb-3">
             Shop by Category
@@ -38,7 +38,7 @@ const PopularCategoriesSection: React.FC = () => {
 
         {/* One-row horizontally scrollable across all breakpoints */}
         <div className="w-full">
-          <div className="flex items-stretch gap-4 sm:gap-5 lg:gap-6 w-full overflow-x-auto pb-5 -mx-4 px-4 scrollbar-hide snap-x snap-mandatory">
+          <div className="flex items-stretch gap-4 sm:gap-5 lg:gap-6 w-full overflow-x-auto pb-5 scrollbar-hide snap-x snap-mandatory px-1 sm:px-0">
             {categoriesWithCount.map((category) => (
               <Link
                 key={category.id}

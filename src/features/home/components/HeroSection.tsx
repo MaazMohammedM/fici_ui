@@ -17,34 +17,16 @@ import mobile4 from "../../../assets/1000806090_mobile.jpg";
 import mobile5 from "../../../assets/1000806094_mobile.jpg";
 import mobile6 from "../../../assets/1000806095_mobile.jpg";
 
-const desktopImages = [pc1, pc2, pc3, pc4, pc5,pc6];
-const mobileImages = [mobile1, mobile2, mobile3, mobile4, mobile5,mobile6];
+const desktopImages = [pc1, pc2, pc3, pc4, pc5, pc6];
+const mobileImages = [mobile1, mobile2, mobile3, mobile4, mobile5, mobile6];
 
 const heroSlides = [
-  {
-    id: "1",
-    ctaLink: "/products",
-  },
-  {
-    id: "2",
-    ctaLink: "/products?gender=men",
-  },
-  {
-    id: "3",
-    ctaLink: "/products?gender=women",
-  },
-  {
-    id: "4",
-    ctaLink: "/products",
-  },
-  {
-    id: "5",
-    ctaLink: "/about",
-  },
-  {
-    id: "6",
-    ctaLink: "/about",
-  }
+  { id: "1", ctaLink: "/products" },
+  { id: "2", ctaLink: "/products?gender=men" },
+  { id: "3", ctaLink: "/products?gender=women" },
+  { id: "4", ctaLink: "/products" },
+  { id: "5", ctaLink: "/about" },
+  { id: "6", ctaLink: "/about" },
 ];
 
 const HeroSection: React.FC = () => {
@@ -61,7 +43,7 @@ const HeroSection: React.FC = () => {
     e.stopPropagation();
     setCurrentSlide((prev) => (prev - 1 + heroSlides.length) % heroSlides.length);
   };
-  
+
   const goToNext = (e: React.MouseEvent) => {
     e.stopPropagation();
     setCurrentSlide((prev) => (prev + 1) % heroSlides.length);
@@ -73,31 +55,40 @@ const HeroSection: React.FC = () => {
 
   return (
     <section
-      className="relative w-full h-[40vh] sm:h-[50vh] md:h-[60vh] lg:h-[70vh] xl:h-[75vh] overflow-hidden mt-0 bg-black"
+      className="relative w-full overflow-hidden mt-0 bg-white dark:bg-black"
       aria-label="Featured banners carousel"
+      style={{ position: "relative", left: 0, right: 0 }}
     >
-      {heroSlides.map((slide, index) => (
-        <div
-          key={slide.id}
-          onClick={() => handleSlideClick(slide.ctaLink)}
-          className={`absolute inset-0 transition-opacity duration-700 ease-in-out cursor-pointer ${
-            index === currentSlide ? 'opacity-100' : 'opacity-0'
-          }`}
-        >
-          {/* Desktop Image - contained on sm/md, cover on lg+ */}
-          <img
-            src={desktopImages[index]}
-            alt={`Slide ${index + 1}`}
-            className="hidden sm:block w-full h-full object-contain sm:object-cover lg:object-cover"
-          />
-          {/* Mobile Image - always contained */}
-          <img
-            src={mobileImages[index]}
-            alt={`Slide ${index + 1}`}
-            className="block sm:hidden w-full h-full object-cover"
-          />
-        </div>
-      ))}
+      {/* Slides container - keep slides absolutely positioned so they overlap */}
+      <div className="relative w-full h-[40vh] sm:h-[50vh] md:h-[60vh] lg:h-[70vh] xl:h-[75vh]">
+        {heroSlides.map((slide, index) => (
+          <div
+            key={slide.id}
+            onClick={() => handleSlideClick(slide.ctaLink)}
+            className={`absolute inset-0 transition-opacity duration-700 ease-in-out cursor-pointer ${
+              index === currentSlide ? "opacity-100 z-10" : "opacity-0 z-0 pointer-events-none"
+            }`}
+            aria-hidden={index !== currentSlide}
+          >
+            {/* Desktop Image - the image fills viewport width (full-bleed) */}
+            <img
+              src={desktopImages[index]}
+              alt={`Slide ${index + 1}`}
+              className="hidden sm:block hero-img-desktop"
+              // ensure keyboard focus / semantics remain minimal (image is just decorative in many cases)
+              role="img"
+            />
+
+            {/* Mobile Image - also full-bleed */}
+            <img
+              src={mobileImages[index]}
+              alt={`Slide ${index + 1}`}
+              className="block sm:hidden hero-img-mobile"
+              role="img"
+            />
+          </div>
+        ))}
+      </div>
 
       {/* Navigation Arrows */}
       <button
@@ -125,7 +116,7 @@ const HeroSection: React.FC = () => {
               setCurrentSlide(index);
             }}
             className={`w-2.5 h-2.5 rounded-full border border-white/70 transition-colors ${
-              index === currentSlide ? 'bg-white' : 'bg-white/50'
+              index === currentSlide ? "bg-white" : "bg-white/50"
             }`}
             aria-label={`Go to slide ${index + 1}`}
           />

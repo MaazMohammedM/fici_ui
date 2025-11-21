@@ -281,6 +281,15 @@
         background-attachment: fixed;
     }
 
+    /* Hero Image Utility
+       - base & sm: object-cover (fill small screens)
+       - md and above: object-contain (show full poster without cropping)
+    */
+    .hero-img {
+        @apply w-full h-full object-cover md:object-contain lg:object-contain xl:object-contain 2xl:object-contain;
+        object-position: center;
+    }
+
     /* Modern Animations */
     .animate-fade-in {
         animation: fadeIn 0.6s ease-out;
@@ -353,4 +362,18 @@ body {
 
 .dark body {
     color: var(--color-text-inverse);
+}
+/* Hero images: sizing only; visibility controlled by Tailwind classes in HeroSection */
+.hero-img-desktop {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.hero-img-mobile {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
 }

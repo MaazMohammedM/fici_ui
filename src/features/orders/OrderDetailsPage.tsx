@@ -228,6 +228,23 @@ const ShippingDetails = ({ item }: { item: OrderItem }) => {
 
       if (itemsError) throw new Error(`Failed to cancel items: ${itemsError.message}`);
 
+      setDbItems(prev => {
+        const map = new Map(prev.map(i => [i.order_item_id, i]));
+        selectedItemsForCancel.forEach(id => {
+          const existing = map.get(id) || order.items.find(i => i.order_item_id === id);
+          if (existing) {
+            map.set(id, { ...existing, item_status: 'cancelled', cancel_reason: cancelReason });
+          }
+        });
+        return Array.from(map.values());
+      });
+      setOrder(prev => prev ? ({
+        ...prev,
+        items: prev.items.map(i => selectedItemsForCancel.includes(i.order_item_id)
+          ? { ...i, item_status: 'cancelled', cancel_reason: cancelReason }
+          : i)
+      }) : prev);
+
       const { data: allItems, error: fetchError } = await supabase
         .from('order_items')
         .select('item_status')
@@ -284,6 +301,18 @@ const ShippingDetails = ({ item }: { item: OrderItem }) => {
     try {
       setProcessingItem(true);
       await cancelOrderItem(selectedItem.order_item_id, itemCancelReason, user?.id, guestSession?.guest_session_id);
+
+      setDbItems(prev => {
+        const map = new Map(prev.map(i => [i.order_item_id, i]));
+        map.set(selectedItem.order_item_id, { ...selectedItem, item_status: 'cancelled', cancel_reason: itemCancelReason });
+        return Array.from(map.values());
+      });
+      setOrder(prev => prev ? ({
+        ...prev,
+        items: prev.items.map(i => i.order_item_id === selectedItem.order_item_id
+          ? { ...i, item_status: 'cancelled', cancel_reason: itemCancelReason }
+          : i)
+      }) : prev);
 
       if (orderId) {
         const email = isGuest ? searchParams.get('email') || undefined : undefined;
@@ -347,7 +376,8 @@ const ShippingDetails = ({ item }: { item: OrderItem }) => {
   };
 
   const canCancelItem = (item: OrderItem) => {
-    const itemStatus = item.item_status || (item as any).status || 'pending';
+    const override = dbItems.find(d => d.order_item_id === item.order_item_id);
+    const itemStatus = (override?.item_status) || item.item_status || (item as any).status || 'pending';
     return itemStatus === 'pending' && !['cancelled', 'returned', 'refunded'].includes(itemStatus);
   };
 
@@ -486,6 +516,11 @@ const ShippingDetails = ({ item }: { item: OrderItem }) => {
                            order.status === 'partially_cancelled' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400' :
                            order.status === 'partially_delivered' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400' :
                            'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400';
+
+  const itemsToRender = (dbItems.length > 0 ? order.items.map(item => {
+    const match = dbItems.find(d => d.order_item_id === item.order_item_id);
+    return match ? { ...item, ...match } : item;
+  }) : order.items);
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-4 sm:py-8 px-4 sm:px-6 lg:px-8">
@@ -646,7 +681,7 @@ const ShippingDetails = ({ item }: { item: OrderItem }) => {
               Order Items ({order.items.length})
             </h2>
             <div className="space-y-3 sm:space-y-4">
-              {order.items.map((item) => (
+              {itemsToRender.map((item) => (
                 <OrderItemCard
                   key={item.order_item_id}
                   item={item}

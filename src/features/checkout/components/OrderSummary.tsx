@@ -10,6 +10,7 @@ interface OrderSummaryProps {
   total: number;
   savings?: number;
   prepaidDiscount?: number;
+  checkoutDiscount?: number;
   mrpTotal?: number;
   totalItems?: number;
 }
@@ -22,6 +23,7 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
   total, 
   savings = 0, 
   prepaidDiscount = 0,
+  checkoutDiscount = 0,
   mrpTotal = subtotal + savings, // Default to subtotal + savings if not provided
   totalItems = items.reduce((sum, item) => sum + item.quantity, 0) // Calculate total items if not provided
 }) => {
@@ -46,6 +48,13 @@ const OrderSummary: React.FC<OrderSummaryProps> = ({
           <div className="flex justify-between text-green-600 dark:text-green-400">
             <span>Prepaid Discount</span>
             <span>-₹{prepaidDiscount.toLocaleString("en-IN")}</span>
+          </div>
+        )}
+
+        {checkoutDiscount > 0 && (
+          <div className="flex justify-between text-green-600 dark:text-green-400">
+            <span>Checkout Discount</span>
+            <span>-₹{checkoutDiscount.toLocaleString("en-IN")}</span>
           </div>
         )}
 
