@@ -131,6 +131,7 @@ const CartPage: React.FC = () => {
                   item={item}
                   onQuantityChange={handleQuantityChange}
                   onRemove={handleRemove}
+                  onOpenProduct={() => navigate(`/products/${item.article_id}`)}
                 />
               ))}
             </div>
