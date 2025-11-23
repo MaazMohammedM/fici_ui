@@ -143,6 +143,12 @@ const AddressForm: React.FC<Props> = ({ onSelect, selectedId }) => {
     }
   };
 
+  // 🔥 Always show default address first in the list
+  const sortedAddresses = [...addresses].sort(
+    (a, b) =>
+      (b.is_default ? 1 : 0) - (a.is_default ? 1 : 0) // true first
+  );
+
   return (
     <div className="bg-white dark:bg-dark2 rounded-2xl shadow-lg p-6">
       <div className="flex items-center justify-between mb-4">
@@ -174,51 +180,96 @@ const AddressForm: React.FC<Props> = ({ onSelect, selectedId }) => {
         <div>Loading...</div>
       ) : (
         <>
-          {addresses.length > 0 && (
+          {sortedAddresses.length > 0 && (
             <div className="space-y-3 mb-4">
-              {(showAllAddresses ? addresses : addresses.slice(0, 2)).map(addr => (
+              {(showAllAddresses
+                ? sortedAddresses
+                : sortedAddresses.slice(0, 2)
+              ).map(addr => (
                 <div
                   key={addr.id}
                   onClick={() => {
                     onSelect(addr);
                   }}
                   className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                    selectedId === addr.id ? 'border-accent bg-accent/5' : 'border-gray-200 dark:border-gray-700'
+                    selectedId === addr.id
+                      ? 'border-accent bg-accent/5'
+                      : 'border-gray-200 dark:border-gray-700'
                   }`}
                 >
                   <div className="flex items-start justify-between">
                     <div>
                       <div className="flex items-center gap-2 mb-1">
                         <h3 className="font-semibold">{addr.name}</h3>
-                        {addr.is_default && <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded">Default</span>}
+                        {addr.is_default && (
+                          <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded">
+                            Default
+                          </span>
+                        )}
                       </div>
-                      <p className="text-sm">{addr.phone} • {addr.email}</p>
-                      <p className="text-sm">{addr.address}, {addr.city}, {addr.district ? `${addr.district}, ` : ''}{addr.state} {addr.pincode}</p>
+                      <p className="text-sm">
+                        {addr.phone} • {addr.email}
+                      </p>
+                      <p className="text-sm">
+                        {addr.address}, {addr.city},{' '}
+                        {addr.district ? `${addr.district}, ` : ''}
+                        {addr.state} {addr.pincode}
+                      </p>
                     </div>
                     <div className="flex gap-2">
-                      <button onClick={(e) => { e.stopPropagation(); startEdit(addr); setShowForm(true); }} className="p-2 text-gray-400 hover:text-accent"><Edit className="w-4 h-4" /></button>
-                      <button onClick={(e) => { e.stopPropagation(); handleDelete(addr.id); }} className="p-2 text-gray-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+                      <button
+                        onClick={e => {
+                          e.stopPropagation();
+                          startEdit(addr);
+                          setShowForm(true);
+                        }}
+                        className="p-2 text-gray-400 hover:text-accent"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={e => {
+                          e.stopPropagation();
+                          handleDelete(addr.id);
+                        }}
+                        className="p-2 text-gray-400 hover:text-red-500"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
                   <div className="mt-3 flex items-center gap-2">
-                    <button onClick={(e) => { e.stopPropagation(); setAsDefault(addr.id); }} className="text-xs text-[color:var(--color-accent)] hover:underline">Set as default</button>
-                    {selectedId === addr.id && <span className="ml-auto text-accent flex items-center gap-2"><Check className="w-4 h-4" />Selected</span>}
+                    <button
+                      onClick={e => {
+                        e.stopPropagation();
+                        setAsDefault(addr.id);
+                      }}
+                      className="text-xs text-[color:var(--color-accent)] hover:underline"
+                    >
+                      Set as default
+                    </button>
+                    {selectedId === addr.id && (
+                      <span className="ml-auto text-accent flex items-center gap-2">
+                        <Check className="w-4 h-4" />
+                        Selected
+                      </span>
+                    )}
                   </div>
                 </div>
               ))}
 
               {/* View more button */}
-              {!showAllAddresses && addresses.length > 2 && (
+              {!showAllAddresses && sortedAddresses.length > 2 && (
                 <button
                   onClick={() => setShowAllAddresses(true)}
                   className="w-full p-3 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-400 hover:border-accent hover:text-accent transition-colors"
                 >
-                  View {addresses.length - 2} more addresses
+                  View {sortedAddresses.length - 2} more addresses
                 </button>
               )}
 
               {/* View less button */}
-              {showAllAddresses && addresses.length > 2 && (
+              {showAllAddresses && sortedAddresses.length > 2 && (
                 <button
                   onClick={() => setShowAllAddresses(false)}
                   className="w-full p-3 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-gray-600 dark:text-gray-400 hover:border-accent hover:text-accent transition-colors"
@@ -232,25 +283,123 @@ const AddressForm: React.FC<Props> = ({ onSelect, selectedId }) => {
           {/* Add/Edit form - Only show when explicitly requested */}
           {showForm && (
             <div className="border-t pt-4">
-              <h3 className="text-lg font-semibold mb-3">{editing ? 'Edit Address' : 'Add New Address'}</h3>
+              <h3 className="text-lg font-semibold mb-3">
+                {editing ? 'Edit Address' : 'Add New Address'}
+              </h3>
               <form onSubmit={handleSave} className="space-y-3">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <input value={form.name || ''} onChange={(e) => setForm(prev => ({ ...prev, name: e.target.value }))} placeholder="Full name" className="px-3 py-2 border rounded" required />
-                  <input value={form.phone || ''} onChange={(e) => setForm(prev => ({ ...prev, phone: e.target.value }))} placeholder="Phone" className="px-3 py-2 border rounded" required />
+                  <input
+                    value={form.name || ''}
+                    onChange={e =>
+                      setForm(prev => ({ ...prev, name: e.target.value }))
+                    }
+                    placeholder="Full name"
+                    className="px-3 py-2 border rounded"
+                    required
+                  />
+                  <input
+                    value={form.phone || ''}
+                    onChange={e =>
+                      setForm(prev => ({ ...prev, phone: e.target.value }))
+                    }
+                    placeholder="Phone"
+                    className="px-3 py-2 border rounded"
+                    required
+                  />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <input value={form.email || ''} onChange={(e) => setForm(prev => ({ ...prev, email: e.target.value }))} placeholder="Email" className="px-3 py-2 border rounded" required />
-                  <input value={form.pincode || ''} onChange={(e) => setForm(prev => ({ ...prev, pincode: e.target.value }))} placeholder="Pincode" className="px-3 py-2 border rounded" required />
+                  <input
+                    value={form.email || ''}
+                    onChange={e =>
+                      setForm(prev => ({ ...prev, email: e.target.value }))
+                    }
+                    placeholder="Email"
+                    className="px-3 py-2 border rounded"
+                    required
+                  />
+                  <input
+                    value={form.pincode || ''}
+                    onChange={e =>
+                      setForm(prev => ({ ...prev, pincode: e.target.value }))
+                    }
+                    placeholder="Pincode"
+                    className="px-3 py-2 border rounded"
+                    required
+                  />
                 </div>
-                <textarea value={form.address || ''} onChange={(e) => setForm(prev => ({ ...prev, address: e.target.value }))} placeholder="Address" rows={2} className="w-full px-3 py-2 border rounded" required />
+                <textarea
+                  value={form.address || ''}
+                  onChange={e =>
+                    setForm(prev => ({ ...prev, address: e.target.value }))
+                  }
+                  placeholder="Address"
+                  rows={2}
+                  className="w-full px-3 py-2 border rounded"
+                  required
+                />
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <input value={form.city || ''} onChange={(e) => setForm(prev => ({ ...prev, city: e.target.value }))} placeholder="City" className="px-3 py-2 border rounded" required />
-                  <input value={form.district || ''} onChange={(e) => setForm(prev => ({ ...prev, district: e.target.value }))} placeholder="District" className="px-3 py-2 border rounded" required />
-                  <input value={form.state || ''} onChange={(e) => setForm(prev => ({ ...prev, state: e.target.value }))} placeholder="State" className="px-3 py-2 border rounded" required />
+                  <input
+                    value={form.city || ''}
+                    onChange={e =>
+                      setForm(prev => ({ ...prev, city: e.target.value }))
+                    }
+                    placeholder="City"
+                    className="px-3 py-2 border rounded"
+                    required
+                  />
+                  <input
+                    value={form.district || ''}
+                    onChange={e =>
+                      setForm(prev => ({
+                        ...prev,
+                        district: e.target.value
+                      }))
+                    }
+                    placeholder="District"
+                    className="px-3 py-2 border rounded"
+                    required
+                  />
+                  <input
+                    value={form.state || ''}
+                    onChange={e =>
+                      setForm(prev => ({ ...prev, state: e.target.value }))
+                    }
+                    placeholder="State"
+                    className="px-3 py-2 border rounded"
+                    required
+                  />
                 </div>
                 <div className="flex gap-3">
-                  <button type="submit" className="flex-1 bg-accent text-white py-2 rounded">{loading ? 'Saving...' : editing ? 'Update Address' : 'Save Address'}</button>
-                  <button type="button" onClick={() => { setShowForm(false); setEditing(null); setForm({ name: '', phone: '', email: '', address: '', city: '', state: '', pincode: '', landmark: '' }); }} className="px-4 py-2 border rounded">Cancel</button>
+                  <button
+                    type="submit"
+                    className="flex-1 bg-accent text-white py-2 rounded"
+                  >
+                    {loading
+                      ? 'Saving...'
+                      : editing
+                      ? 'Update Address'
+                      : 'Save Address'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowForm(false);
+                      setEditing(null);
+                      setForm({
+                        name: '',
+                        phone: '',
+                        email: '',
+                        address: '',
+                        city: '',
+                        state: '',
+                        pincode: '',
+                        landmark: ''
+                      });
+                    }}
+                    className="px-4 py-2 border rounded"
+                  >
+                    Cancel
+                  </button>
                 </div>
               </form>
             </div>
