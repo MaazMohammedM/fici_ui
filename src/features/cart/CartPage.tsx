@@ -61,47 +61,47 @@ const CartPage: React.FC = () => {
   const total = subtotal + delivery;
 
   return (
-    <div className="min-h-screen bg-gradient-light dark:bg-gradient-dark">
-      <div className="max-w-7xl mx-auto px-4 py-8">
+    <main className="min-h-screen bg-white dark:bg-gray-900">
+      <section className="container-responsive py-6 sm:py-8 lg:py-10">
         {/* Header */}
-        <div className="mb-8">
+        <div className="w-full py-8 bg-white dark:bg-gray-900">
           <div className="flex items-center gap-4 mb-4">
             <button
               onClick={() => navigate('/')}
-              className="flex items-center gap-2 text-primary dark:text-secondary hover:text-primary-active transition-colors"
+              className="btn-modern btn-secondary flex items-center gap-2"
             >
               <ArrowLeft className="w-5 h-5" />
               Continue Shopping
             </button>
           </div>
-          <h1 className="text-4xl font-bold text-center text-primary dark:text-secondary mb-2">
+          <h1 className="text-3xl md:text-4xl font-bold text-center text-text-primary dark:text-text-inverse mb-2">
             Your Shopping Cart
           </h1>
-          <p className="text-center text-red-600 dark:text-gray-400">
+          <p className="text-center text-text-secondary dark:text-text-muted">
             {cartItems.length} item{cartItems.length !== 1 ? 's' : ''} in your cart
           </p>
         </div>
 
         {cartItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24">
-            <div className="bg-white dark:bg-dark2 rounded-2xl shadow-xl p-12 max-w-md w-full text-center">
-              <ShoppingBag className="w-24 h-24 text-gray-400 mx-auto mb-6" />
-              <h3 className="text-2xl font-semibold mb-4 text-gray-900 dark:text-white">
+            <div className="card-modern p-12 max-w-md w-full text-center bg-white dark:bg-gray-900">
+              <ShoppingBag className="w-24 h-24 text-muted mx-auto mb-6" />
+              <h3 className="heading-section mb-4 text-primary dark:text-inverse">
                 Your cart is empty!
               </h3>
-              <p className="mb-8 text-gray-600 dark:text-gray-400">
+              <p className="mb-8 text-secondary dark:text-muted">
                 Looks like you haven't added anything yet. Start shopping to fill your cart with amazing products!
               </p>
               <div className="space-y-3">
                 <button
                   onClick={() => navigate('/products')}
-                  className="w-full bg-primary text-white px-6 py-3 rounded-lg shadow-lg hover:bg-primary-active transition-all duration-200 font-semibold text-lg"
+                  className="btn-modern btn-primary w-full text-lg"
                 >
                   Start Shopping
                 </button>
                 <button
                   onClick={() => navigate('/')}
-                  className="w-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 px-6 py-3 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-all duration-200 font-medium"
+                  className="btn-modern btn-secondary w-full text-lg"
                 >
                   Go to Homepage
                 </button>
@@ -131,77 +131,78 @@ const CartPage: React.FC = () => {
                   item={item}
                   onQuantityChange={handleQuantityChange}
                   onRemove={handleRemove}
+                  onOpenProduct={() => navigate(`/products/${item.article_id}`)}
                 />
               ))}
             </div>
 
             {/* Order Summary */}
             <div className="lg:col-span-1">
-              <div className="bg-white dark:bg-dark2 rounded-2xl shadow-xl p-6 border-2 border-blue-200 dark:border-blue-800 sticky top-24">
-                <h3 className="text-2xl font-bold text-center text-primary dark:text-secondary mb-6">
+              <div className="card-modern p-6 border-2 border-blue-200 dark:border-blue-800 sticky top-24 bg-white dark:bg-gray-900">
+                <h3 className="text-2xl font-bold text-center text-text-primary dark:text-text-inverse mb-6">
                   Order Summary
                 </h3>
                 
                 <div className="space-y-4 mb-6">
                   <div className="space-y-2">
                     <div className="flex justify-between items-center">
-                      <span className="text-gray-600 dark:text-gray-400">MRP</span>
-                      <span className="text-gray-900 dark:text-white">
+                      <span className="text-secondary dark:text-muted">MRP</span>
+                      <span className="text-primary dark:text-inverse">
                         ₹{mrpTotal.toLocaleString('en-IN')}
                       </span>
                     </div>
                     {savings > 0 && (
-                      <div className="flex justify-between items-center text-green-600 dark:text-green-400">
+                      <div className="flex justify-between items-center text-success">
                         <span>You Save</span>
                         <span>-₹{savings.toLocaleString('en-IN')}</span>
                       </div>
                     )}
                     <div className="flex justify-between items-center pt-2 border-t border-gray-200 dark:border-gray-700">
-                      <span className="text-gray-600 dark:text-gray-400">Items ({cartItems.length})</span>
-                      <span className="font-semibold text-gray-900 dark:text-white">
+                      <span className="text-secondary dark:text-muted">Items ({cartItems.length})</span>
+                      <span className="font-semibold text-primary dark:text-inverse">
                         ₹{subtotal.toLocaleString('en-IN')}
                       </span>
                     </div>
                   </div>
                   
                   <div className="flex justify-between items-center py-2 border-t-2 border-gray-300 dark:border-gray-600">
-                    <span className="text-xl font-bold text-gray-900 dark:text-white">Delivery</span>
-                    <span className={`font-semibold ${delivery === 0 ? 'text-green-600' : 'text-gray-900 dark:text-white'}`}>
+                    <span className="text-xl font-bold text-primary dark:text-inverse">Delivery</span>
+                    <span className={`font-semibold ${delivery === 0 ? 'text-success' : 'text-primary dark:text-inverse'}`}>
                       {delivery === 0 ? 'Free' : `₹${delivery}`}
                     </span>
                   </div>
                   
                   <div className="flex justify-between items-center py-3 border-t-2 border-gray-300 dark:border-gray-600">
-                    <span className="text-xl font-bold text-gray-900 dark:text-white">Total</span>
-                    <span className="text-2xl font-bold text-primary dark:text-secondary">
+                    <span className="text-xl font-bold text-primary dark:text-inverse">Total</span>
+                    <span className="text-2xl font-bold text-primary dark:text-inverse">
                       ₹{total.toLocaleString('en-IN')}
                     </span>
                   </div>
                 </div>
 
                 {delivery > 0 && (
-                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-6">
+                  <div className="bg-blue-50 dark:bg-gray-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-6">
                     <p className="text-sm text-blue-800 dark:text-blue-200">
-                      �� Add ₹{(1000 - subtotal).toLocaleString('en-IN')} more to your cart for <strong>FREE delivery</strong>!
+                      Add ₹{(1000 - subtotal).toLocaleString('en-IN')} more to your cart for <strong>FREE delivery</strong>!
                     </p>
                   </div>
                 )}
 
                 <button 
                   onClick={() => navigate('/checkout')}
-                  className="w-full bg-primary text-white py-4 rounded-xl font-bold text-lg shadow-lg hover:bg-primary-active transition-all duration-200 transform hover:scale-105"
+                  className="btn-modern btn-primary w-full text-lg"
                 >
                   Proceed to Checkout
                 </button>
                 
-                <p className="text-xs text-gray-500 dark:text-gray-400 text-center mt-3">
+                <p className="text-xs text-muted text-center mt-3">
                   Secure checkout powered by Razorpay
                 </p>
               </div>
             </div>
           </div>
         )}
-      </div>
+      </section>
       <AlertModal
         isOpen={alertModal.isOpen}
         message={alertModal.message}
@@ -210,7 +211,7 @@ const CartPage: React.FC = () => {
         showCancel={true}
         onConfirm={confirmClearCart}
       />
-    </div>
+    </main>
   );
 };
 

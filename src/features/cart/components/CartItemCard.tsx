@@ -8,18 +8,21 @@ interface CartItemCardProps {
   item: CartItem;
   onQuantityChange: (id: string, delta: number) => void;
   onRemove: (id: string) => void;
+  onOpenProduct?: () => void;
 }
 
-const CartItemCard: React.FC<CartItemCardProps> = ({ item, onQuantityChange, onRemove }) => {
+const CartItemCard: React.FC<CartItemCardProps> = ({ item, onQuantityChange, onRemove, onOpenProduct }) => {
   const { updateSize } = useCartStore();
 
   const handleSizeChange = (newSize: string) => {
     updateSize(item.id, newSize);
   };
 
-
   return (
-    <div className="bg-white dark:bg-dark2 rounded-2xl shadow-lg p-4 sm:p-6 border border-gray-200 dark:border-gray-700">
+    <div
+      className="bg-white dark:bg-dark2 rounded-2xl shadow-lg p-4 sm:p-6 border border-gray-200 dark:border-gray-700 cursor-pointer"
+      onClick={() => onOpenProduct && onOpenProduct()}
+    >
       {/* Mobile Layout */}
       <div className="block sm:hidden">
         <div className="flex gap-4 mb-4">
@@ -44,7 +47,11 @@ const CartItemCard: React.FC<CartItemCardProps> = ({ item, onQuantityChange, onR
                 {item.availableSizes && item.availableSizes.length > 1 ? (
                   <select
                     value={item.size}
-                    onChange={(e) => handleSizeChange(e.target.value)}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      handleSizeChange(e.target.value);
+                    }}
                     className="bg-white dark:bg-dark2 border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   >
                     {item.availableSizes.map(size => (
@@ -69,7 +76,10 @@ const CartItemCard: React.FC<CartItemCardProps> = ({ item, onQuantityChange, onR
           
           {/* Remove Button */}
           <button
-            onClick={() => onRemove(item.id)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemove(item.id);
+            }}
             className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors h-fit"
           >
             <Trash2 className="w-5 h-5" />
@@ -80,14 +90,20 @@ const CartItemCard: React.FC<CartItemCardProps> = ({ item, onQuantityChange, onR
         <div className="flex items-center justify-between">
           <div className="flex items-center border border-gray-300 dark:border-gray-600 rounded-lg">
             <button
-              onClick={() => onQuantityChange(item.id, -1)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onQuantityChange(item.id, -1);
+              }}
               className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
             >
               <Minus className="w-4 h-4" />
             </button>
             <span className="px-3 py-2 text-base font-semibold">{item.quantity}</span>
             <button
-              onClick={() => onQuantityChange(item.id, 1)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onQuantityChange(item.id, 1);
+              }}
               className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
             >
               <Plus className="w-4 h-4" />
@@ -125,7 +141,11 @@ const CartItemCard: React.FC<CartItemCardProps> = ({ item, onQuantityChange, onR
               {item.availableSizes && item.availableSizes.length > 1 ? (
                 <select
                   value={item.size}
-                  onChange={(e) => handleSizeChange(e.target.value)}
+                  onClick={(e) => e.stopPropagation()}
+                  onChange={(e) => {
+                    e.stopPropagation();
+                    handleSizeChange(e.target.value);
+                  }}
                   className="bg-white dark:bg-dark2 border border-gray-300 dark:border-gray-600 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                 >
                   {item.availableSizes.map(size => (
@@ -152,14 +172,20 @@ const CartItemCard: React.FC<CartItemCardProps> = ({ item, onQuantityChange, onR
         <div className="flex items-center gap-4">
           <div className="flex items-center border border-gray-300 dark:border-gray-600 rounded-lg">
             <button
-              onClick={() => onQuantityChange(item.id, -1)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onQuantityChange(item.id, -1);
+              }}
               className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
             >
               <Minus className="w-4 h-4" />
             </button>
             <span className="px-4 py-2 text-lg font-semibold">{item.quantity}</span>
             <button
-              onClick={() => onQuantityChange(item.id, 1)}
+              onClick={(e) => {
+                e.stopPropagation();
+                onQuantityChange(item.id, 1);
+              }}
               className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
             >
               <Plus className="w-4 h-4" />
@@ -168,7 +194,10 @@ const CartItemCard: React.FC<CartItemCardProps> = ({ item, onQuantityChange, onR
 
           {/* Remove Button */}
           <button
-            onClick={() => onRemove(item.id)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onRemove(item.id);
+            }}
             className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
           >
             <Trash2 className="w-5 h-5" />

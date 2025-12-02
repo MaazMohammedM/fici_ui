@@ -2,31 +2,33 @@ import React, { useState, useEffect } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 // Import desktop images
-import pc1 from "../../../assets/1000805156_pc.jpg";
-import pc2 from "../../../assets/1000805146_pc.jpg";
-import pc3 from "../../../assets/1000805147_pc.jpg";
-import pc4 from "../../../assets/1000805148_pc.jpg";
-import pc5 from "../../../assets/1000805157_pc.jpg";
-import pc6 from "../../../assets/1000805149_pc.jpg";
+import pc1 from "../../../assets/desktop_slide_2125x914.png"
+import pc2 from "../../../assets/1000805156_pc.jpg";
+// import pc2 from "../../../assets/1000805146_pc.jpg";
+// import pc3 from "../../../assets/1000805147_pc.jpg";
+// import pc4 from "../../../assets/1000805148_pc.jpg";
+// import pc5 from "../../../assets/1000805157_pc.jpg";
+// import pc6 from "../../../assets/1000805149_pc.jpg";
 
 // Import mobile images
-import mobile1 from "../../../assets/1000806046_mobile.jpg";
-import mobile2 from "../../../assets/1000806060_mobile.jpg";
-import mobile3 from "../../../assets/1000806089_mobile.jpg";
-import mobile4 from "../../../assets/1000806090_mobile.jpg";
-import mobile5 from "../../../assets/1000806094_mobile.jpg";
-import mobile6 from "../../../assets/1000806095_mobile.jpg";
+import mobile1 from "../../../assets/mobile_slide.png"
+import mobile2 from "../../../assets/1000806046_mobile.jpg";
+// import mobile2 from "../../../assets/1000806060_mobile.jpg";
+// import mobile3 from "../../../assets/1000806089_mobile.jpg";
+// import mobile4 from "../../../assets/1000806090_mobile.jpg";
+// import mobile5 from "../../../assets/1000806094_mobile.jpg";
+// import mobile6 from "../../../assets/1000806095_mobile.jpg";
 
-const desktopImages = [pc1, pc2, pc3, pc4, pc5, pc6];
-const mobileImages = [mobile1, mobile2, mobile3, mobile4, mobile5, mobile6];
+const desktopImages = [pc1, pc2];
+const mobileImages = [mobile1, mobile2];
 
 const heroSlides = [
   { id: "1", ctaLink: "/products" },
-  { id: "2", ctaLink: "/products?gender=men" },
-  { id: "3", ctaLink: "/products?gender=women" },
-  { id: "4", ctaLink: "/products" },
-  { id: "5", ctaLink: "/about" },
-  { id: "6", ctaLink: "/about" },
+  { id: "2", ctaLink: "/products?gender=men" }
+  // { id: "3", ctaLink: "/products?gender=women" },
+  // { id: "4", ctaLink: "/products" },
+  // { id: "5", ctaLink: "/about" },
+  // { id: "6", ctaLink: "/about" },
 ];
 
 const HeroSection: React.FC = () => {

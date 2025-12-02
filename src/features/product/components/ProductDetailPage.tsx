@@ -196,55 +196,79 @@ const ProductDetailPage: React.FC = () => {
               </div>
 
               {/* Trust Badges */}
-              <div className="mt-4">
+              <div className="mt-6">
                 <img
-                  src="/src/assets/trust-badges.svg"
-                  alt="Trust Badges - 3 Days Exchange Policy, Made in India, Free Delivery 5-7 Days"
-                  className="w-full max-w-sm mx-auto rounded-lg shadow-sm"
+                  src="/src/assets/trust-badges.png"
+                  alt="3 Days Exchange, Made in India, Free Delivery"
+                  className="w-full max-w-md mx-auto rounded-xl shadow-sm object-contain dark:brightness-95"
+                  loading="lazy"
                   onError={(e) => {
                     const target = e.currentTarget as HTMLImageElement;
                     const fallbackElement = target.nextElementSibling as HTMLElement;
+
                     if (fallbackElement) {
                       target.style.display = 'none';
                       fallbackElement.style.display = 'grid';
                     }
                   }}
                 />
-                <div className="hidden grid grid-cols-3 gap-3 mt-4 px-4" style={{display: 'none'}}>
-                  <div className="p-3 bg-gray-50 dark:bg-dark3 rounded-lg text-center">
-                    <div className="text-gray-600 dark:text-gray-400 text-sm">3 Days Exchange</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-500">Policy</div>
+
+                {/* Fallback UI (if image fails) */}
+                <div
+                  className="hidden grid-cols-3 gap-4 mt-6 px-4"
+                  style={{ display: 'none' }}
+                >
+                  <div className="p-4 bg-gray-50 dark:bg-dark2 rounded-xl text-center border border-gray-200 dark:border-gray-700">
+                    <p className="text-sm font-semibold text-gray-800 dark:text-white">
+                      3 Days Exchange
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Policy
+                    </p>
                   </div>
-                  <div className="p-3 bg-gray-50 dark:bg-dark3 rounded-lg text-center">
-                    <div className="text-gray-600 dark:text-gray-400 text-sm">Made in India</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-500">Quality assured</div>
+
+                  <div className="p-4 bg-gray-50 dark:bg-dark2 rounded-xl text-center border border-gray-200 dark:border-gray-700">
+                    <p className="text-sm font-semibold text-gray-800 dark:text-white">
+                      Made in India
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Quality Assured
+                    </p>
                   </div>
-                  <div className="p-3 bg-gray-50 dark:bg-dark3 rounded-lg text-center">
-                    <div className="text-gray-600 dark:text-gray-400 text-sm">Free Delivery</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-500">Within 5-7 days</div>
+
+                  <div className="p-4 bg-gray-50 dark:bg-dark2 rounded-xl text-center border border-gray-200 dark:border-gray-700">
+                    <p className="text-sm font-semibold text-gray-800 dark:text-white">
+                      Free Delivery
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      3–7 Days
+                    </p>
                   </div>
                 </div>
               </div>
+
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Customer Reviews */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Customer Reviews */}
+      <div className="w-full py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-8">Customer Reviews</h2>
           <CustomerReviews productId={productVariant.selectedVariant?.product_id} />
         </div>
-
-        {/* Related Products */}
-        {relatedProducts.length > 0 && (
-          <div className="bg-gray-50 dark:bg-dark3 py-8">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-8">You May Also Like</h2>
-              <RelatedProducts products={relatedProducts} />
-            </div>
-          </div>
-        )}
       </div>
+
+      {/* Related Products */}
+      {relatedProducts.length > 0 && (
+        <div className="w-full bg-gray-50 dark:bg-dark3 py-8">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-8">You May Also Like</h2>
+            <RelatedProducts products={relatedProducts} />
+          </div>
+        </div>
+      )}
 
       <AlertModal
         isOpen={productActions.alertModal.isOpen}

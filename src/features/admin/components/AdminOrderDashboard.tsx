@@ -131,6 +131,9 @@ const AdminOrderDashboard: React.FC = () => {
     tracking_id: '',
     tracking_url: '',
   });
+  
+  // State for custom shipping partner input
+  const [showCustomPartnerInput, setShowCustomPartnerInput] = useState(false);
 
   // Refund form state
   const [refundForm, setRefundForm] = useState({
@@ -193,7 +196,6 @@ const AdminOrderDashboard: React.FC = () => {
 
       if (error) throw error;
       setOrders(data || []);
-      console.log('Fetched orders:', data);
     } catch (err) {
       console.error('Error fetching orders:', err);
     } finally {
@@ -316,7 +318,12 @@ const handleUpdateShipment = async () => {
     return;
   }
 
-  if (!shipmentForm.shipping_partner || !shipmentForm.tracking_id) {
+  // Validate shipping partner
+  const isValidShippingPartner = showCustomPartnerInput 
+    ? shipmentForm.shipping_partner && shipmentForm.shipping_partner !== 'other' && shipmentForm.shipping_partner.trim() !== ''
+    : shipmentForm.shipping_partner && shipmentForm.shipping_partner !== '';
+
+  if (!isValidShippingPartner || !shipmentForm.tracking_id) {
     showAlert('Please enter shipping partner and tracking ID', 'warning');
     return;
   }
@@ -360,6 +367,7 @@ const handleUpdateShipment = async () => {
     setShowShipmentModal(false);
     setSelectedOrder(null);
     setShipmentForm({ shipping_partner: '', tracking_id: '', tracking_url: '' });
+    setShowCustomPartnerInput(false);
     setSelectedItemsForShip([]);
     showAlert('Items shipped successfully', 'success');
 
@@ -377,7 +385,12 @@ const handleUpdateShipment = async () => {
 
   const handleShipItem = async (orderItemId: string, orderId: string) => {
     try {
-      if (!shipmentForm.shipping_partner || !shipmentForm.tracking_id) {
+      // Validate shipping partner
+      const isValidShippingPartner = showCustomPartnerInput 
+        ? shipmentForm.shipping_partner && shipmentForm.shipping_partner !== 'other' && shipmentForm.shipping_partner.trim() !== ''
+        : shipmentForm.shipping_partner && shipmentForm.shipping_partner !== '';
+
+      if (!isValidShippingPartner || !shipmentForm.tracking_id) {
         showAlert('Please enter shipping partner and tracking ID', 'warning');
         return;
       }
@@ -546,7 +559,6 @@ const handleUpdateShipment = async () => {
 
     try {
       setProcessingAction(`deliver-${selectedOrder.order_id}`);
-      console.log('Delivering items:', selectedItemsForDeliver);
 
       // Deliver each selected item using the Edge Function
       for (const itemId of selectedItemsForDeliver) {
@@ -590,8 +602,6 @@ const handleUpdateShipment = async () => {
 
   const updateAggregateOrderStatus = async (orderId: string) => {
     try {
-      console.log('Updating aggregate status for order:', orderId);
-
       // Get all items for this order to compute aggregate status
       const { data: items, error: itemsError } = await supabase
         .from('order_items')
@@ -604,7 +614,6 @@ const handleUpdateShipment = async () => {
       }
 
       if (!items || items.length === 0) {
-        console.log('No items found for order:', orderId);
         return;
       }
 
@@ -656,7 +665,6 @@ const handleUpdateShipment = async () => {
         throw updateError;
       }
 
-      console.log(`Order status updated to: ${newOrderStatus}`);
     } catch (error) {
       console.error('Error updating aggregate status:', error);
       throw error; // Re-throw to let caller handle it
@@ -802,20 +810,6 @@ const handleUpdateShipment = async () => {
       }
     }
   }, [isAdmin, activeTab]);
-
-  // Debug logging
-  console.log('AdminOrderDashboard Debug:', {
-    user: user ? {
-      id: user.id,
-      email: user.email,
-      role: user.role,
-      user_metadata: user.user_metadata
-    } : null,
-    role,
-    isAdmin,
-    authType: useAuthStore((state) => state.authType),
-    isAuthenticated: useAuthStore((state) => state.isAuthenticated)
-  });
 
   if (!isAdmin) {
     return (
@@ -1264,17 +1258,37 @@ const handleUpdateShipment = async () => {
                   </label>
                   <select
                     value={shipmentForm.shipping_partner}
-                    onChange={(e) => setShipmentForm(prev => ({ ...prev, shipping_partner: e.target.value }))}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setShipmentForm(prev => ({ ...prev, shipping_partner: value }));
+                      setShowCustomPartnerInput(value === 'other');
+                    }}
                     className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
                   >
                     <option value="">Select Partner</option>
-                    <option value="delhivery">Delhivery</option>
-                    <option value="bluedart">BlueDart</option>
+                    <option value="stcourier">ST Courier</option>
+                    <option value="professional">Professional</option>
                     <option value="dtdc">DTDC</option>
                     <option value="india_post">India Post</option>
                     <option value="other">Other</option>
                   </select>
                 </div>
+
+                {/* Custom shipping partner input field */}
+                {showCustomPartnerInput && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Custom Shipping Partner Name *
+                    </label>
+                    <input
+                      type="text"
+                      value={shipmentForm.shipping_partner === 'other' ? '' : shipmentForm.shipping_partner}
+                      onChange={(e) => setShipmentForm(prev => ({ ...prev, shipping_partner: e.target.value }))}
+                      placeholder="Enter shipping partner name"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                    />
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -1317,7 +1331,11 @@ const handleUpdateShipment = async () => {
                 <button
                   onClick={handleUpdateShipment}
                   className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                  disabled={processingAction?.includes('shipment') || selectedItemsForShip.length === 0 || !shipmentForm.shipping_partner || !shipmentForm.tracking_id}
+                  disabled={processingAction?.includes('shipment') || selectedItemsForShip.length === 0 || 
+    (showCustomPartnerInput 
+      ? (!shipmentForm.shipping_partner || shipmentForm.shipping_partner === 'other' || shipmentForm.shipping_partner.trim() === '')
+      : !shipmentForm.shipping_partner) 
+    || !shipmentForm.tracking_id}
                 >
                   {processingAction?.includes('shipment') ? 'Shipping...' : `Ship ${selectedItemsForShip.length} Item(s)`}
                 </button>

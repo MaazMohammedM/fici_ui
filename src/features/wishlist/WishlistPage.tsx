@@ -8,6 +8,10 @@ import { toast } from 'sonner';
 export const WishlistPage: React.FC = () => {
   const { items, removeFromWishlist, clearWishlist } = useWishlistStore();
   const { addToCart } = useCartStore();
+  const [banner, setBanner] = React.useState<{
+    type: 'success' | 'error';
+    message: string;
+  } | null>(null);
   
   const handleAddToCart = (product: any) => {
     try {
@@ -18,7 +22,7 @@ export const WishlistPage: React.FC = () => {
 
       // If no sizes available, show error
       if (availableSizes.length === 0) {
-        toast.error('No sizes available for this product');
+        setBanner({ type: 'error', message: 'No sizes available for this product' });
         return;
       }
 
@@ -41,10 +45,10 @@ export const WishlistPage: React.FC = () => {
       };
 
       addToCart(cartItem);
-      toast.success('Added to cart');
+      setBanner({ type: 'success', message: 'Product added to cart successfully!' });
     } catch (error) {
       console.error('Error adding to cart:', error);
-      toast.error('Failed to add to cart');
+      setBanner({ type: 'error', message: 'Failed to add to cart' });
     }
   };
 
@@ -74,6 +78,32 @@ export const WishlistPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 px-4 sm:py-12 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
+        {banner && (
+          <div className={`fixed top-4 left-4 right-4 sm:left-auto sm:right-4 z-50 px-4 sm:px-6 py-3 rounded-lg shadow-lg flex items-center gap-3 max-w-md sm:max-w-none border ${
+            banner.type === 'success'
+              ? 'bg-green-500 text-white border-green-400'
+              : 'bg-red-500 text-white border-red-400'
+          }`}>
+            <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d={banner.type === 'success' ? 'M5 13l4 4L19 7' : 'M6 18L18 6M6 6l12 12'}
+              />
+            </svg>
+            <span className="text-sm sm:text-base flex-1 pr-2">{banner.message}</span>
+            <button
+              onClick={() => setBanner(null)}
+              className="flex-shrink-0 p-1 hover:bg-black/10 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-white/70"
+              aria-label="Close message"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        )}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 sm:mb-8 gap-4">
           <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Your Wishlist</h1>
           <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 w-full sm:w-auto">

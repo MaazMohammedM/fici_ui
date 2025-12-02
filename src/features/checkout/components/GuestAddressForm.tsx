@@ -37,8 +37,6 @@ const GuestAddressForm: React.FC<GuestAddressFormProps> = ({
   guest_session_id,
   guestContactInfo
 }) => {
-  console.log('GuestAddressForm - Received guest_session_id:', guest_session_id);
-  console.log('GuestAddressForm - Received guestContactInfo:', guestContactInfo);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [savedAddresses, setSavedAddresses] = useState<Address[]>([]);
   // Always show the form by default for editing
@@ -49,7 +47,6 @@ const GuestAddressForm: React.FC<GuestAddressFormProps> = ({
   // Get the most up-to-date session ID
   const effectiveGuestSessionId = React.useMemo(() => {
     const sessionId = guest_session_id || guestSession?.guest_session_id || useAuthStore.getState().guestSession?.guest_session_id;
-    console.log('GuestAddressForm - Effective guest_session_id:', sessionId);
     return sessionId;
   }, [guest_session_id, guestSession]);
   
@@ -72,16 +69,6 @@ const GuestAddressForm: React.FC<GuestAddressFormProps> = ({
       });
     }
   }, [guestContactInfo]);
-  
-  // Log session info for debugging
-  useEffect(() => {
-    console.log('GuestAddressForm - Current session state:', {
-      propSessionId: guest_session_id,
-      storeSession: guestSession,
-      effectiveSessionId: effectiveGuestSessionId,
-      guestContactInfo
-    });
-  }, [guest_session_id, guestSession, effectiveGuestSessionId, guestContactInfo]);
 
   const {
     register,
@@ -106,7 +93,6 @@ const GuestAddressForm: React.FC<GuestAddressFormProps> = ({
   // Load addresses when session ID changes
   useEffect(() => {
     if (effectiveGuestSessionId) {
-      console.log('Loading addresses for session:', effectiveGuestSessionId);
       loadGuestAddresses();
     } else {
       console.warn('No valid guest session ID available to load addresses');
@@ -170,12 +156,9 @@ const GuestAddressForm: React.FC<GuestAddressFormProps> = ({
   };
 
   const onSubmit = async (data: GuestAddressFormData) => {
-    console.log('Form submitted with data:', data);
-    console.log('Current effectiveGuestSessionId:', effectiveGuestSessionId);
     setIsSubmitting(true);
     
     try {
-      console.log('Submitting address with guest_session_id:', effectiveGuestSessionId);
       // Update guest contact info in the session
       await updateContactInfo({
         name: data.name,

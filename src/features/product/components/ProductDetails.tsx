@@ -1,5 +1,12 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import type { Product, ProductDetail } from "../../../types/product";
+import {
+  getActiveProductDiscountsForProducts,
+  applyProductDiscountToPrice,
+  getActiveCheckoutRule,
+  type ProductDiscountRule,
+  type CheckoutRule,
+} from "@lib/discounts";
 import ProductColorSelector from "@features/product/sections/ProductColorSelector";
 import ProductSizeSelector from "@features/product/sections/ProductSizeSelector";
 import ProductQuantitySelector from "@features/product/sections/ProductQuantitySelector";
@@ -115,6 +122,163 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
     ];
   }, [currentProduct.sub_category]);
 
+  const [productOfferRule, setProductOfferRule] = useState<ProductDiscountRule | null>(null);
+  const [productOfferLoading, setProductOfferLoading] = useState(false);
+
+  useEffect(() => {
+    const pid = selectedVariant?.product_id;
+    if (!pid) {
+      setProductOfferRule(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        setProductOfferLoading(true);
+        const map = await getActiveProductDiscountsForProducts([pid]);
+        if (!cancelled) {
+          setProductOfferRule(map[pid] || null);
+        }
+      } catch {
+        if (!cancelled) {
+          setProductOfferRule(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setProductOfferLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedVariant?.product_id]);
+
+  const {
+    displayPrice,
+    basePriceForDisplay,
+    savingsAmount,
+    hasOffer,
+    offerLabel,
+  } = useMemo(() => {
+    const numericPrice = Number(selectedVariant?.discount_price || 0);
+    const numericMrp = Number(
+      (selectedVariant as any)?.mrp_price ?? (selectedVariant as any)?.mrp ?? 0
+    );
+
+    if (!productOfferRule) {
+      const showMrp = numericMrp > numericPrice;
+      const basePrice = showMrp ? numericMrp : numericPrice;
+      const savings =
+        showMrp && basePrice > numericPrice ? basePrice - numericPrice : 0;
+      return {
+        displayPrice: numericPrice,
+        basePriceForDisplay: showMrp ? basePrice : 0,
+        savingsAmount: savings,
+        hasOffer: false,
+        offerLabel: "",
+      };
+    }
+
+    const discountedPrice = applyProductDiscountToPrice(
+      numericPrice,
+      numericMrp || undefined,
+      productOfferRule
+    );
+    const baseForSavings =
+      productOfferRule.base === "mrp" && numericMrp
+        ? numericMrp
+        : numericPrice;
+    const savings = Math.max(0, baseForSavings - discountedPrice);
+
+    let label = "";
+    if (productOfferRule.mode === "percent") {
+      label = `Get ${productOfferRule.value}% off`;
+      if (productOfferRule.max_discount_cap != null) {
+        label += ` up to ₹${Number(
+          productOfferRule.max_discount_cap
+        ).toLocaleString("en-IN")}`;
+      }
+      if (productOfferRule.base === "mrp" && numericMrp) {
+        label += " on MRP";
+      }
+    } else {
+      label = `Flat ₹${Number(
+        productOfferRule.value
+      ).toLocaleString("en-IN")} off`;
+    }
+
+    return {
+      displayPrice: discountedPrice,
+      basePriceForDisplay: baseForSavings,
+      savingsAmount: savings,
+      hasOffer: true,
+      offerLabel: label,
+    };
+  }, [selectedVariant, productOfferRule]);
+
+  const [checkoutRule, setCheckoutRule] = useState<CheckoutRule | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const rule = await getActiveCheckoutRule();
+        if (!cancelled) {
+          setCheckoutRule(rule);
+        }
+      } catch {
+        if (!cancelled) {
+          setCheckoutRule(null);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const checkoutOfferLabel = useMemo(() => {
+    if (!checkoutRule) return "";
+
+    const kind = (checkoutRule.rule_type || checkoutRule.type) as
+      | "percent"
+      | "amount"
+      | undefined;
+    if (!kind) return "";
+
+    let baseText = "";
+    if (kind === "percent") {
+      const pct = Number(checkoutRule.percent) || 0;
+      baseText = `Extra ${pct}% off`;
+      if (checkoutRule.max_discount_cap != null) {
+        baseText += ` up to ₹${Number(
+          checkoutRule.max_discount_cap
+        ).toLocaleString("en-IN")}`;
+      }
+    } else {
+      const amt = Number(checkoutRule.amount) || 0;
+      if (!amt) return "";
+      baseText = `Flat ₹${amt.toLocaleString("en-IN")} off`;
+    }
+
+    let suffix = " on prepaid orders";
+    if (checkoutRule.min_order && Number(checkoutRule.min_order) > 0) {
+      suffix += ` on orders above ₹${Number(
+        checkoutRule.min_order
+      ).toLocaleString("en-IN")}`;
+    }
+
+    return `${baseText}${suffix}`;
+  }, [checkoutRule]);
+
+  const hasCheckoutOffer = !!checkoutOfferLabel;
+
   return (
     <div className="space-y-6">
       {/* Brand and Category */}
@@ -126,24 +290,77 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
         </div>
       </div>
 
-      {/* Price */}
-      <div className="mt-4">
+      {/* Price & Offers */}
+      <div className="mt-4 space-y-1">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-3xl font-bold text-gray-900 dark:text-white">
-            ₹{Number(selectedVariant?.discount_price || 0).toLocaleString('en-IN')}
+            ₹{displayPrice.toLocaleString("en-IN")}
           </span>
-          {selectedVariant?.mrp_price && Number(selectedVariant.mrp_price) > Number(selectedVariant.discount_price || 0) && (
+          {basePriceForDisplay > displayPrice && (
             <>
               <span className="text-lg text-gray-500 dark:text-gray-400 line-through">
-                ₹{Number(selectedVariant.mrp_price).toLocaleString('en-IN')}
+                ₹{basePriceForDisplay.toLocaleString("en-IN")}
               </span>
-              <span className="text-sm bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 px-2 py-1 rounded font-medium">
-                Save ₹{(Number(selectedVariant.mrp_price) - Number(selectedVariant.discount_price || 0)).toLocaleString('en-IN')}
-              </span>
+              {savingsAmount > 0 && (
+                <span className="text-sm bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 px-2 py-1 rounded font-medium">
+                  Save ₹{savingsAmount.toLocaleString("en-IN")}
+                </span>
+              )}
             </>
           )}
         </div>
-        <p className="text-sm text-green-600 dark:text-green-400 mt-1">Inclusive of all taxes</p>
+        <p className="text-sm text-green-600 dark:text-green-400">
+          Inclusive of all taxes
+        </p>
+        {productOfferLoading && !hasOffer && !hasCheckoutOffer && (
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            Checking available offers...
+          </p>
+        )}
+        {(hasOffer || hasCheckoutOffer) && (
+          <div className="mt-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg p-3 text-sm text-green-800 dark:text-green-200">
+            <p className="font-semibold mb-1">Available Offers</p>
+            <ul className="space-y-1 text-xs sm:text-sm">
+              {hasOffer && (
+                <li className="flex items-start gap-1.5">
+                  <svg
+                    className="w-3.5 h-3.5 mt-0.5 text-green-500 flex-shrink-0"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M16.707 5.293a1 1 0 00-1.414 0L8 12.586 4.707 9.293A1 1 0 003.293 10.707l4 4a1 1 0 001.414 0l8-8a1 1 0 000-1.414z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  <span>{offerLabel}</span>
+                </li>
+              )}
+              {hasCheckoutOffer && (
+                <li className="flex items-start gap-1.5">
+                  <svg
+                    className="w-3.5 h-3.5 mt-0.5 text-green-500 flex-shrink-0"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M16.707 5.293a1 1 0 00-1.414 0L8 12.586 4.707 9.293A1 1 0 003.293 10.707l4 4a1 1 0 001.414 0l8-8a1 1 0 000-1.414z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  <span>{checkoutOfferLabel}</span>
+                </li>
+              )}
+            </ul>
+          </div>
+        )}
+        {!hasOffer && !hasCheckoutOffer && !productOfferLoading && (
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            No special offers currently available on this product.
+          </p>
+        )}
       </div>
 
       {/* Color Selector */}
