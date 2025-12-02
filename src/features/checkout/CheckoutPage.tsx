@@ -6,7 +6,8 @@ import React, {
   useEffect,
   useRef,
 } from "react";
-import { useNavigate, Link, useLocation } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import { ArrowLeft, AlertCircle, Check, X, Shield, Clock } from "lucide-react";
 import { OtpFlow } from "@/components/otp";
 import AddressCard from "./components/AddressForm";
 import GuestAddressForm from "./components/GuestAddressForm";
@@ -14,15 +15,10 @@ import PaymentMethods from "./components/PaymentMethods";
 import OrderSummary from "./components/OrderSummary";
 import PaymentStatusModal from "./modal/PaymentStatusModal";
 import GuestCheckoutForm from "./components/GuestCheckoutForm";
-import { useCartStore } from "@store/cartStore";
-import { usePaymentStore } from "@store/paymentStore";
-import { useAuthStore } from "@store/authStore";
 import { supabase } from "@lib/supabase";
-import { Shield, ArrowLeft } from "lucide-react";
 import type { Address } from "./components/AddressForm";
 import type { GuestContactInfo } from "../../types/guest";
 import razorpayPayments from "../../assets/razorpay-with-all-cards-upi-seeklogo.png";
-import AlertModal from "@components/ui/AlertModal";
 import {
   getActiveCheckoutRule,
   calculateCheckoutDiscount,
@@ -31,6 +27,12 @@ import {
   type ProductDiscountRule,
   type CheckoutRule,
 } from "@lib/discounts";
+import { usePincodeStore } from "@store/pincodeStore";
+import { getShippingFee, getFreeShippingThreshold, isCODAvailable, getDeliveryTime } from "@lib/utils/pincodeUtils";
+import { useAuthStore } from "@store/authStore";
+import { useCartStore } from "@store/cartStore";
+import { usePaymentStore } from "@store/paymentStore";
+import AlertModal from "@components/ui/AlertModal";
 
 const getRazorpayKey = () => {
   if (
@@ -262,52 +264,188 @@ const CheckoutPage: React.FC = () => {
     };
   }, [hasUnsavedChanges]);
 
-  // Subtotal after product discounts
+  // Calculate subtotal after applying product discounts
   const subtotal = useMemo(() => {
     if (!cartItems.length) return 0;
-    if (
-      !productDiscounts ||
-      Object.keys(productDiscounts).length === 0
-    )
-      return getCartTotal();
-    return cartItems.reduce((sum, i: any) => {
-      const rule = productDiscounts[i.product_id];
-      const eff = applyProductDiscountToPrice(i.price, i.mrp, rule);
-      return sum + eff * i.quantity;
+    
+    return cartItems.reduce((sum, item) => {
+      const rule = productDiscounts[item.product_id];
+      const discountedPrice = applyProductDiscountToPrice(
+        item.price,
+        item.mrp,
+        rule
+      );
+      return sum + discountedPrice * item.quantity;
     }, 0);
-  }, [getCartTotal, productDiscounts, cartItems]);
+  }, [cartItems, productDiscounts]);
 
-  // Total MRP base
+  // Calculate original price total (sum of item.price, not item.mrp)
+  const originalPriceTotal = useMemo(() => {
+    return cartItems.reduce((sum, item) => {
+      return sum + item.price * item.quantity;
+    }, 0);
+  }, [cartItems]);
+
+  // Calculate MRP total (without any discounts - uses item.mrp if available, otherwise item.price)
   const mrpTotal = useMemo(() => {
-    return cartItems.reduce((sum, item: any) => {
-      const base = item.mrp != null ? item.mrp : item.price;
+    return cartItems.reduce((sum, item) => {
+      const base = item.mrp ?? item.price;
       return sum + base * item.quantity;
     }, 0);
   }, [cartItems]);
 
-  const productOffersSavings = useMemo(
-    () => Math.max(0, mrpTotal - subtotal),
-    [mrpTotal, subtotal]
-  );
+  // Calculate product savings by summing individual line savings
+  const productSavings = useMemo(() => {
+    if (!cartItems.length) return 0;
+    
+    const totalSavings = cartItems.reduce((sum, item) => {
+      const rule = productDiscounts[item.product_id];
+      const discountedPrice = applyProductDiscountToPrice(
+        item.price,
+        item.mrp,
+        rule
+      );
+      const baseForSavings =
+        rule &&
+        rule.base === "mrp" &&
+        item.mrp != null
+          ? item.mrp
+          : item.price;
+      const originalLine = baseForSavings * item.quantity;
+      const lineSubtotal = discountedPrice * item.quantity;
+      const lineSavings = Math.max(0, originalLine - lineSubtotal);
+      
+      return sum + lineSavings;
+    }, 0);
+    
+    return totalSavings;
+  }, [cartItems, productDiscounts]);
 
-  const deliveryCharge = subtotal > 999 ? 0 : 0;
+  // Calculate checkout discount (only for online payments)
+  // Note: Calculate on MRP total for fair comparison with product discounts
+  const checkoutDiscount = useMemo(() => {
+    if (selectedPayment !== "razorpay") return 0;
+    // Calculate checkout discount on MRP total, not on discounted subtotal
+    return checkoutRule ? calculateCheckoutDiscount(checkoutRule, mrpTotal) : 0;
+  }, [checkoutRule, mrpTotal, selectedPayment]);
 
-  // Prepaid discount (only when online payment selected)
-  const prepaidDiscount = useMemo(
-    () =>
-      selectedPayment === "razorpay" ? prepaidDiscountAmount : 0,
-    [selectedPayment, prepaidDiscountAmount]
-  );
+  // Determine which discount is better: product discounts OR checkout discount
+  const bestDiscountType = useMemo(() => {
+    if (productSavings > checkoutDiscount) {
+      return 'product';
+    } else if (checkoutDiscount > productSavings) {
+      return 'checkout';
+    }
+    return 'equal'; // When both are equal or zero
+  }, [productSavings, checkoutDiscount]);
 
-  const checkoutDiscountAmount = prepaidDiscount;
-  const savings = useMemo(
-    () => productOffersSavings + checkoutDiscountAmount,
-    [productOffersSavings, checkoutDiscountAmount]
-  );
+  // Calculate the maximum discount amount
+  const maxDiscountAmount = useMemo(() => {
+    return Math.max(productSavings, checkoutDiscount);
+  }, [productSavings, checkoutDiscount]);
 
-  const totalAmount = subtotal + deliveryCharge - prepaidDiscount;
+  // State for delivery charge calculation
+  const [deliveryCharge, setDeliveryCharge] = useState(0);
+  const [deliveryTime, setDeliveryTime] = useState<string | null>(null);
+  const [codAvailable, setCodAvailable] = useState(true);
 
-  // Get contact info for OTP generation (COD)
+  // Zustand store for pincode operations
+  const { fetchDetails } = usePincodeStore();
+
+  // Calculate delivery charge and other pincode-based details
+  useEffect(() => {
+    const calculateDeliveryDetails = async () => {
+      if (!selectedAddress?.pincode) {
+        setDeliveryCharge(0);
+        setDeliveryTime(null);
+        setCodAvailable(true);
+        return;
+      }
+
+      try {
+        // Fetch pincode details using the store (with caching)
+        const details = await fetchDetails(selectedAddress.pincode);
+        
+        if (details) {
+          // Use the details from the store
+          const shippingFee = details.shipping_fee || 0;
+          const freeShippingThreshold = details.free_shipping_threshold || 999;
+          
+          // Free shipping if above threshold
+          const finalDeliveryCharge = subtotal >= freeShippingThreshold ? 0 : shippingFee;
+          setDeliveryCharge(finalDeliveryCharge);
+          setDeliveryTime(details.delivery_time || null);
+          setCodAvailable(details.cod_allowed !== false);
+        } else {
+          // Default values if no details found
+          setDeliveryCharge(0);
+          setDeliveryTime(null);
+          setCodAvailable(true);
+        }
+      } catch (error) {
+        console.error('Error calculating delivery details:', error);
+        // Default values on error
+        setDeliveryCharge(0);
+        setDeliveryTime(null);
+        setCodAvailable(true);
+      }
+    };
+
+    calculateDeliveryDetails();
+  }, [selectedAddress?.pincode, subtotal, fetchDetails]);
+
+  // Validate COD payment method
+  const validateCODPayment = useCallback(() => {
+    if (selectedPayment === "cod" && !codAvailable) {
+      showAlert("COD is not available for this pincode. Please choose online payment.", "error");
+      return false;
+    }
+    return true;
+  }, [selectedPayment, codAvailable]);
+
+  // Calculate final total amount with maximum discount
+  const totalAmount = useMemo(() => {
+    if (bestDiscountType === 'product') {
+      // Apply product discounts (already applied in subtotal)
+      return Math.max(0, subtotal + deliveryCharge);
+    } else if (bestDiscountType === 'checkout') {
+      // Apply checkout discount instead of product discounts
+      const subtotalWithoutProductDiscounts = mrpTotal; // Use MRP as base
+      return Math.max(0, subtotalWithoutProductDiscounts + deliveryCharge - checkoutDiscount);
+    } else {
+      // Equal or zero - use product discounts by default
+      return Math.max(0, subtotal + deliveryCharge);
+    }
+  }, [bestDiscountType, subtotal, mrpTotal, deliveryCharge, checkoutDiscount]);
+
+  // Calculate display values for OrderSummary
+  const displaySubtotal = useMemo(() => {
+    // Always show the discounted price (after product discounts)
+    return subtotal;
+  }, [subtotal]);
+
+  const displayMRPTotal = useMemo(() => {
+    // Always show the MRP total
+    return mrpTotal;
+  }, [mrpTotal]);
+
+  const displaySavings = useMemo(() => {
+    if (bestDiscountType === 'product') {
+      return productSavings;
+    } else if (bestDiscountType === 'checkout') {
+      return checkoutDiscount;
+    }
+    return maxDiscountAmount; // When equal
+  }, [bestDiscountType, productSavings, checkoutDiscount, maxDiscountAmount]);
+
+  // Check if dark mode is active
+  const isDarkMode = useMemo(() => {
+    if (typeof window !== 'undefined') {
+      return window.matchMedia('(prefers-color-scheme: dark)').matches || 
+             document.documentElement.classList.contains('dark');
+    }
+    return false;
+  }, []);
   const getContactInfo = () => {
     if (user) {
       return {
@@ -346,49 +484,58 @@ const CheckoutPage: React.FC = () => {
     }
   }, []);
 
-  // Load active product discounts for items in cart
+  // Load active product discounts when cart items change
   useEffect(() => {
-    const ids = Array.from(
-      new Set(
-        cartItems
-          .map((i: any) => i.product_id)
-          .filter(Boolean)
-      )
-    );
-    if (!ids.length) {
-      setProductDiscounts({});
-      return;
-    }
-    (async () => {
-      const map = await getActiveProductDiscountsForProducts(
-        ids
+    const fetchProductDiscounts = async () => {
+      const productIds = Array.from(
+        new Set(cartItems.map(item => item.product_id).filter(Boolean))
       );
-      setProductDiscounts(map);
-    })();
+      
+      if (productIds.length === 0) {
+        setProductDiscounts({});
+        return;
+      }
+      
+      try {
+        const discounts = await getActiveProductDiscountsForProducts(productIds);
+        setProductDiscounts(discounts);
+      } catch (error) {
+        console.error('Error fetching product discounts:', error);
+        setProductDiscounts({});
+      }
+    };
+
+    fetchProductDiscounts();
   }, [cartItems]);
 
-  // Load active checkout discount rule and compute prepaid discount
+  // Load active checkout rule when subtotal changes
   useEffect(() => {
-    let mounted = true;
-    (async () => {
+    let isMounted = true;
+
+    const fetchCheckoutRule = async () => {
       try {
         const rule = await getActiveCheckoutRule();
-        const discount = rule
-          ? calculateCheckoutDiscount(rule, subtotal)
-          : 0;
-        if (mounted) {
-          setPrepaidDiscountAmount(discount || 0);
-          setCheckoutRule(rule || null);
+        if (isMounted) {
+          setCheckoutRule(rule);
+          if (rule) {
+            const discount = calculateCheckoutDiscount(rule, subtotal);
+            setPrepaidDiscountAmount(discount);
+          } else {
+            setPrepaidDiscountAmount(0);
+          }
         }
-      } catch (e) {
-        if (mounted) {
-          setPrepaidDiscountAmount(0);
+      } catch (error) {
+        console.error('Error fetching checkout rule:', error);
+        if (isMounted) {
           setCheckoutRule(null);
+          setPrepaidDiscountAmount(0);
         }
       }
-    })();
+    };
+
+    fetchCheckoutRule();
     return () => {
-      mounted = false;
+      isMounted = false;
     };
   }, [subtotal]);
 
@@ -657,6 +804,10 @@ const CheckoutPage: React.FC = () => {
       return;
     }
 
+    if (!validateCODPayment()) {
+      return;
+    }
+
     if (selectedPayment === "cod" && !otpVerified) {
       // User must complete OTP verification first
       return;
@@ -699,7 +850,7 @@ const CheckoutPage: React.FC = () => {
         subtotal,
         total_mrp: totalMRP,
         total_discount: totalDiscount,
-        prepaid_discount: prepaidDiscount,
+        prepaid_discount: prepaidDiscountAmount,
         delivery_charge: deliveryCharge,
         shipping_address: selectedAddress,
         metadata: {
@@ -1019,7 +1170,7 @@ const CheckoutPage: React.FC = () => {
                       behavior: "smooth",
                     });
                   }}
-                  className="text-xs sm:text-sm text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+                  className="text-xs sm:text-sm text-gray-600 hover:text-gray-800 dark:text-gray-300 dark:hover:text-white transition-colors"
                 >
                   ← Back to payment options
                 </button>
@@ -1034,7 +1185,7 @@ const CheckoutPage: React.FC = () => {
   // MAIN CHECKOUT PAGE
   return (
     <>
-      <div className="min-h-screen bg-gradient-light dark:bg-gradient-dark text-gray-900 dark:text-gray-100">
+      <div className="min-h-screen bg-white dark:bg-dark1 text-gray-900 dark:text-gray-100 transition-colors duration-200">
         <main className="max-w-7xl mx-auto px-4 py-4 sm:py-8">
           {/* Header */}
           <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-6 sm:mb-8">
@@ -1046,13 +1197,11 @@ const CheckoutPage: React.FC = () => {
                   )
                 }
                 className="flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors text-sm sm:text-base"
+                aria-label="Back to cart"
               >
                 <ArrowLeft className="w-4 h-4" />
                 <span>Back to Cart</span>
               </button>
-              <h1 className="text-2xl sm:text-3xl font-bold">
-                Checkout
-              </h1>
             </div>
             {isGuest && guestInfo && (
               <div className="flex items-center gap-2 sm:gap-4">
@@ -1064,7 +1213,7 @@ const CheckoutPage: React.FC = () => {
                 </span>
                 <button
                   onClick={handleBackToGuestForm}
-                  className="text-xs sm:text-sm text-primary hover:text-primary-active transition-colors"
+                  className="text-xs sm:text-sm text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 transition-colors"
                 >
                   Change Info
                 </button>
@@ -1104,36 +1253,70 @@ const CheckoutPage: React.FC = () => {
                 />
               )}
 
+              {/* Delivery Information */}
+              {selectedAddress?.pincode && (deliveryTime || !codAvailable) && (
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4 sm:p-5 shadow-sm">
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-blue-900 dark:text-blue-100 flex items-center gap-2">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Delivery Information
+                    </h4>
+                    
+                    {deliveryTime && (
+                      <div className="text-sm text-blue-800 dark:text-blue-200">
+                        <span className="font-medium">Estimated Delivery:</span> {deliveryTime}
+                      </div>
+                    )}
+                    
+                    {!codAvailable && (
+                      <div className="text-sm text-red-600 dark:text-red-400 font-medium">
+                        Cash on Delivery (COD) is not available for this pincode
+                      </div>
+                    )}
+                    
+                    {deliveryCharge > 0 ? (
+                      <div className="text-sm text-blue-800 dark:text-blue-200">
+                        <span className="font-medium">Shipping Fee:</span> ₹{deliveryCharge.toLocaleString("en-IN")}
+                      </div>
+                    ) : (
+                      <div className="text-sm text-green-600 dark:text-green-400 font-medium">
+                        Free Shipping for this order
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Checkout offer banner (prepaid rule) */}
               {checkoutRule && checkoutOfferLabel && (
-                <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-xl p-3 sm:p-4 flex items-start gap-3">
-                  <div className="mt-0.5 flex-shrink-0">
+                <div className="bg-green-50 dark:bg-dark3 border border-green-200 dark:border-green-700/50 rounded-xl p-4 sm:p-5 flex items-start gap-3 shadow-sm">
+                  <div className="flex-shrink-0 mt-0.5">
                     <svg
-                      className="w-5 h-5 text-green-600 dark:text-green-300"
+                      className="w-5 h-5 text-green-600 dark:text-green-400"
                       viewBox="0 0 20 20"
                       fill="currentColor"
+                      aria-hidden="true"
                     >
                       <path
                         fillRule="evenodd"
-                        d="M16.707 5.293a1 1 0 00-1.414 0L8 12.586 4.707 9.293A1 1 0 003.293 10.707l4 4a1 1 0 001.414 0l8-8a1 1 0 000-1.414z"
+                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
                         clipRule="evenodd"
                       />
                     </svg>
                   </div>
-                  <div>
+                  <div className="flex-1">
                     <p className="text-sm sm:text-base font-semibold text-green-800 dark:text-green-200">
                       {checkoutOfferLabel}
                     </p>
                     {checkoutRule.min_order &&
-                      subtotal <
-                        Number(checkoutRule.min_order) && (
+                      subtotal < Number(checkoutRule.min_order) && (
                         <p className="mt-1 text-xs sm:text-sm text-green-700 dark:text-green-300">
                           Add ₹
                           {Math.max(
                             0,
-                            Number(
-                              checkoutRule.min_order
-                            ) - subtotal
+                            Number(checkoutRule.min_order) - subtotal
                           ).toLocaleString("en-IN")}{" "}
                           more to unlock {checkoutOfferLabel}.
                         </p>
@@ -1155,7 +1338,7 @@ const CheckoutPage: React.FC = () => {
                   }
                   setSelectedPayment(id);
                 }}
-                prepaidDiscount={prepaidDiscount}
+                prepaidDiscount={prepaidDiscountAmount}
                 onCodOtpRequired={() => {
                   setCodOtpTriggered(true);
                 }}
@@ -1166,11 +1349,11 @@ const CheckoutPage: React.FC = () => {
             {/* Right column: Items + Summary + CTA */}
             <aside className="lg:col-span-1 space-y-4 sm:space-y-6">
               {/* Items list */}
-              <section className="bg-white dark:bg-dark2 rounded-2xl shadow-lg p-4 sm:p-6">
-                <h3 className="font-semibold text-base sm:text-lg mb-3 sm:mb-4">
+              <section className="bg-white dark:bg-dark2 rounded-2xl shadow-lg p-4 sm:p-6 transition-colors duration-200">
+                <h3 className="font-semibold text-base sm:text-lg text-gray-900 dark:text-gray-100 mb-3 sm:mb-4">
                   Your Items
                 </h3>
-                <div className="space-y-3 sm:space-y-4 max-h-96 overflow-y-auto">
+                <div className="space-y-3 sm:space-y-4 max-h-96 overflow-y-auto pr-1">
                   {cartItems.map((item: any) => {
                     const rule =
                       productDiscounts[item.product_id];
@@ -1269,41 +1452,64 @@ const CheckoutPage: React.FC = () => {
               {/* Order summary */}
               <OrderSummary
                 items={cartItems}
-                subtotal={subtotal}
+                subtotal={displaySubtotal}
                 shipping={deliveryCharge}
                 tax={0}
                 total={totalAmount}
-                savings={savings}
-                prepaidDiscount={0}
-                checkoutDiscount={checkoutDiscountAmount}
-                mrpTotal={mrpTotal}
+                savings={displaySavings}
+                prepaidDiscount={bestDiscountType === 'checkout' ? checkoutDiscount : 0}
+                checkoutDiscount={0}
+                productDiscount={bestDiscountType === 'product' ? productSavings : 0}
+                mrpTotal={displayMRPTotal}
+                darkMode={isDarkMode}
               />
 
               {/* Unlock offer hint (when rule exists but not yet eligible) */}
               {checkoutRule &&
                 checkoutOfferLabel &&
                 subtotal > 0 &&
-                prepaidDiscountAmount === 0 &&
+                checkoutDiscount === 0 &&
                 checkoutRule.min_order != null &&
-                subtotal <
-                  Number(checkoutRule.min_order) && (
-                  <div className="text-xs sm:text-sm text-green-700 dark:text-green-300 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg p-3">
-                    Add ₹
-                    {Math.max(
-                      0,
-                      Number(
-                        checkoutRule.min_order
-                      ) - subtotal
-                    ).toLocaleString("en-IN")}{" "}
-                    more to unlock {checkoutOfferLabel}
+                subtotal < Number(checkoutRule.min_order) && (
+                  <div className="text-xs sm:text-sm text-green-700 dark:text-green-300 bg-green-50 dark:bg-dark3 border border-green-200 dark:border-green-700/50 rounded-lg p-3 shadow-sm">
+                    <div className="flex items-start gap-2">
+                      <svg
+                        className="w-4 h-4 mt-0.5 flex-shrink-0 text-green-600 dark:text-green-400"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                      <span>
+                        Add ₹
+                        {Math.max(
+                          0,
+                          Number(checkoutRule.min_order) - subtotal
+                        ).toLocaleString("en-IN")}{" "}
+                        more to unlock {checkoutOfferLabel}
+                        {bestDiscountType === 'product' && productSavings > 0 && (
+                          <span className="block mt-1 text-xs">
+                            Note: Product discounts of ₹{productSavings.toLocaleString("en-IN")} are already applied
+                          </span>
+                        )}
+                      </span>
+                    </div>
                   </div>
                 )}
 
               {/* Sticky CTA card */}
-              <section className="bg-white dark:bg-dark2 rounded-2xl shadow-lg p-4 sm:p-6 sticky top-4 space-y-4">
+              <section className="bg-white dark:bg-dark2 rounded-2xl shadow-lg p-4 sm:p-6 sticky top-4 space-y-4 transition-colors duration-200">
                 <div className="flex flex-col items-center text-center space-y-4">
                   <div className="flex items-center justify-center gap-2">
-                    <Shield className="w-5 h-5 sm:w-6 sm:h-6 text-green-600 dark:text-green-400" />
+                    <div className="p-1.5 rounded-full bg-green-100 dark:bg-green-900/30">
+                      <Shield className="w-5 h-5 sm:w-6 sm:h-6 text-green-600 dark:text-green-400" />
+                    </div>
                     <h3 className="font-semibold text-sm sm:text-base text-gray-900 dark:text-gray-100">
                       Secure Checkout
                     </h3>
@@ -1312,13 +1518,12 @@ const CheckoutPage: React.FC = () => {
                     <img
                       src={razorpayPayments}
                       alt="Payment methods: Cards, UPI and Razorpay"
-                      className="h-10 sm:h-12 md:h-14 lg:h-16 w-full object-contain"
+                      className="h-10 sm:h-12 md:h-14 lg:h-16 w-full object-contain dark:invert dark:brightness-90 dark:contrast-125"
                       loading="lazy"
                     />
                   </div>
-                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                    Your payment information is encrypted and
-                    securely processed.
+                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 px-2">
+                    Your payment information is encrypted and securely processed.
                   </p>
                 </div>
 
@@ -1328,20 +1533,25 @@ const CheckoutPage: React.FC = () => {
                     isProcessing ||
                     (selectedPayment === "cod" && !otpVerified)
                   }
-                  className={`w-full py-3 sm:py-4 rounded-xl font-bold text-base sm:text-lg shadow-lg transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed ${
+                  className={`w-full py-3 sm:py-4 rounded-xl font-bold text-base sm:text-lg shadow-lg transition-all duration-200 transform hover:scale-105 disabled:opacity-60 disabled:cursor-not-allowed ${
                     selectedPayment === "cod" && !otpVerified
-                      ? "bg-gray-400 text-gray-700 dark:text-gray-900 cursor-not-allowed"
-                      : "bg-primary text-white hover:bg-primary-active"
+                      ? "bg-gray-300 text-gray-700 dark:bg-gray-700 dark:text-gray-300 cursor-not-allowed hover:scale-100"
+                      : "bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700"
                   }`}
                 >
-                  {isProcessing
-                    ? "Processing..."
-                    : selectedPayment === "cod" &&
-                      !otpVerified
-                    ? "Complete OTP Verification to Place Order"
-                    : `Place Order  ₹${totalAmount.toLocaleString(
-                        "en-IN"
-                      )}`}
+                  {isProcessing ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Processing...
+                    </span>
+                  ) : selectedPayment === "cod" && !otpVerified ? (
+                    "Complete OTP Verification to Place Order"
+                  ) : (
+                    `Place Order  ₹${totalAmount.toLocaleString("en-IN")}`
+                  )}
                 </button>
               </section>
             </aside>
@@ -1358,25 +1568,17 @@ const CheckoutPage: React.FC = () => {
             selectedPayment === "cod"
               ? "Your order is successful with Cash on Delivery."
               : `Your order is successful with Online Payment${
-                  prepaidDiscount > 0
-                    ? ` • You saved ₹${prepaidDiscount.toLocaleString(
+                  displaySavings > 0
+                    ? ` • You saved ₹${displaySavings.toLocaleString(
                         "en-IN"
                       )}!`
                     : ""
                 }`
           }
-          savings={savings}
+          savings={displaySavings}
           totalAmount={totalAmount}
-          totalMrp={cartItems.reduce(
-            (sum, item) =>
-              sum + item.mrp * item.quantity,
-            0
-          )}
-          prepaidDiscount={
-            selectedPayment === "razorpay"
-              ? prepaidDiscount
-              : 0
-          }
+          totalMrp={mrpTotal}
+          prepaidDiscount={bestDiscountType === 'checkout' ? checkoutDiscount : 0}
           onClose={() => {
             setShowPaymentStatus(false);
             setPaymentStatus(null);
@@ -1395,10 +1597,14 @@ const CheckoutPage: React.FC = () => {
         isOpen={codConfirmOpen}
         title="Save More with Online Payment"
         message={
-          prepaidDiscountAmount > 0
-            ? `You can save an extra ₹${prepaidDiscountAmount.toLocaleString(
+          (bestDiscountType === 'checkout' && checkoutDiscount > 0)
+            ? `You can save an extra ₹${checkoutDiscount.toLocaleString(
                 "en-IN"
-              )} by paying online. Cash on Delivery does not include this prepaid discount.`
+              )} by paying online. Cash on Delivery does not include this checkout discount.`
+            : (bestDiscountType === 'product' && productSavings > 0)
+            ? `Product discounts of ₹${productSavings.toLocaleString(
+                "en-IN"
+              )} are already applied to your cart.`
             : "Online payments may include special offers and faster processing compared to Cash on Delivery."
         }
         type="warning"

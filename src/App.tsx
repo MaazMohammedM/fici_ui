@@ -1,5 +1,5 @@
 // src/App.tsx
-import React, { Suspense } from 'react';
+import React, { Suspense, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
 import { Toaster } from 'sonner';
@@ -12,6 +12,7 @@ import ScrollToTop from './components/ScrollToTop';
 import { useTrackVisit } from './hooks/useTrackVisit';
 import FiciLoader from './components/ui/FiciLoader';
 import FloatingWhatsApp from './components/FloatingWhatsApp';
+import AlertModal from './components/ui/AlertModal';
 
 // Lazy-loaded pages
 const HomePage = React.lazy(() => import('@features/home/HomePage'));
@@ -49,6 +50,27 @@ const LoadingSpinner = () => (
 
 const AppContent = () => {
   useTrackVisit();
+  
+  // State for reload confirmation modal
+  const [showReloadModal, setShowReloadModal] = useState(false);
+  const [reloadModalInfo, setReloadModalInfo] = useState({
+    title: 'Reload Page',
+    message: 'Are you sure you want to reload the page? Any unsaved changes will be lost.',
+    type: 'warning' as const
+  });
+
+  const handleReloadConfirm = () => {
+    window.location.reload();
+  };
+
+  const showReloadConfirmation = (title?: string, message?: string) => {
+    setReloadModalInfo({
+      title: title || 'Reload Page',
+      message: message || 'Are you sure you want to reload the page? Any unsaved changes will be lost.',
+      type: 'warning'
+    });
+    setShowReloadModal(true);
+  };
   
   return (
     <div className="min-h-screen flex flex-col bg-gradient-light dark:bg-gradient-dark">
@@ -95,7 +117,7 @@ const AppContent = () => {
                         <h2 className="text-xl font-semibold mb-4">Wishlist Unavailable</h2>
                         <p className="text-gray-600 mb-4">Please try again or contact support.</p>
                         <button
-                          onClick={() => window.location.reload()}
+                          onClick={() => showReloadConfirmation('Reload Page', 'The wishlist page is currently unavailable. Would you like to reload the page to try again?')}
                           className="px-4 py-2 bg-blue-600 text-white rounded-lg"
                         >
                           Reload Page
@@ -137,7 +159,7 @@ const AppContent = () => {
                         <h2 className="text-xl font-semibold mb-4">Order Lookup Unavailable</h2>
                         <p className="text-gray-600 mb-4">Please try again or contact support.</p>
                         <button
-                          onClick={() => window.location.reload()}
+                          onClick={() => showReloadConfirmation('Reload Page', 'The order lookup page is currently unavailable. Would you like to reload the page to try again?')}
                           className="px-4 py-2 bg-blue-600 text-white rounded-lg"
                         >
                           Reload Page
@@ -187,6 +209,19 @@ const AppContent = () => {
       </main>
       <Footer />
       <FloatingWhatsApp />
+      
+      {/* Reload Confirmation Modal */}
+      <AlertModal
+        isOpen={showReloadModal}
+        title={reloadModalInfo.title}
+        message={reloadModalInfo.message}
+        type={reloadModalInfo.type}
+        showCancel={true}
+        onConfirm={handleReloadConfirm}
+        confirmText="Reload"
+        cancelText="Cancel"
+        onClose={() => setShowReloadModal(false)}
+      />
     </div>
   );
 };

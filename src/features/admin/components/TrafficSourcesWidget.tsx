@@ -129,7 +129,8 @@ const getSourceIcon = (source: string) => {
     case 'tiktok':
       return <Globe className={iconClass} />;
     case 'mobile_app':
-      return <Globe className={iconClass} />;
+    case 'social':
+      return <Instagram className={iconClass} />;
     case 'chrome':
     case 'firefox':
     case 'safari':
