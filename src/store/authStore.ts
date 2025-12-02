@@ -110,7 +110,6 @@ export const useAuthStore = create<AuthState>()(
             if (profileError) {
               if (profileError.code === 'PGRST116') {
                 // Profile doesn't exist, create it
-                console.log('Profile not found in signIn, creating new profile...');
               } else {
                 console.error('Profile query failed in signIn:', profileError);
                 set({ error: profileError.message || 'Profile query failed', loading: false });
@@ -139,10 +138,8 @@ export const useAuthStore = create<AuthState>()(
                   throw insertError;
                 }
               } else {
-                console.log('Profile created successfully in signIn');
               }
             } else {
-              console.log('Profile found in signIn, using existing profile');
             }
 
             set({

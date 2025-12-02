@@ -126,7 +126,6 @@ export const useProductStore = create<ProductState>((set, get) => ({
   abortController: null,
 
   fetchProducts: async (page = 1, filters = {}, retryCount = 0) => {
-    console.log('productStore: fetchProducts called with page:', page, 'filters:', filters, 'retry:', retryCount);
     const maxRetries = 3;
     const timeoutMs = 30000; // Increased to 30 seconds for better reliability
 
@@ -149,16 +148,41 @@ export const useProductStore = create<ProductState>((set, get) => ({
             .from('products')
             .select('*', { count: 'exact' });
 
-          // Apply filters
-          if (filters.category && filters.category !== 'all') {
-            query = query.eq('category', filters.category);
+          // Apply filters with support for multiple values
+          if (filters.category && filters.category.length > 0) {
+            if (Array.isArray(filters.category)) {
+              // Handle multiple categories
+              if (filters.category.length > 0) {
+                query = query.in('category', filters.category);
+              }
+            } else if (filters.category !== 'all') {
+              // Handle single category
+              query = query.eq('category', filters.category);
+            }
           }
 
-          if (filters.sub_category && filters.sub_category !== 'all') {
-            query = query.eq('sub_category', filters.sub_category);
+          if (filters.sub_category && filters.sub_category.length > 0) {
+            if (Array.isArray(filters.sub_category)) {
+              // Handle multiple subcategories
+              if (filters.sub_category.length > 0) {
+                query = query.in('sub_category', filters.sub_category);
+              }
+            } else if (filters.sub_category !== 'all') {
+              // Handle single subcategory
+              query = query.eq('sub_category', filters.sub_category);
+            }
           }
-          if (filters.gender && filters.gender !== 'all') {
-            query = query.eq('gender', filters.gender);
+
+          if (filters.gender && filters.gender.length > 0) {
+            if (Array.isArray(filters.gender)) {
+              // Handle multiple genders
+              if (filters.gender.length > 0) {
+                query = query.in('gender', filters.gender);
+              }
+            } else if (filters.gender !== 'all') {
+              // Handle single gender
+              query = query.eq('gender', filters.gender);
+            }
           }
 
           if (filters.search) {
@@ -227,7 +251,6 @@ export const useProductStore = create<ProductState>((set, get) => ({
 
       // Retry logic with exponential backoff
       if (retryCount < maxRetries) {
-        console.log(`Retrying... Attempt ${retryCount + 1}/${maxRetries}`);
         const delay = Math.min(1000 * Math.pow(2, retryCount), 5000); // Max 5 seconds delay
 
         setTimeout(() => {
@@ -356,12 +379,6 @@ export const useProductStore = create<ProductState>((set, get) => ({
         const baseId = firstProduct.article_id.split('_')[0];
 
         const variantsWithColors = processedProducts.map(product => {
-          console.log('Processing variant:', {
-            article_id: product.article_id,
-            mrp_price: product.mrp_price,
-            discount_price: product.discount_price,
-            name: product.name
-          });
           return {
             ...product,
             color: product.article_id.split('_')[1] || 'default',
@@ -446,12 +463,6 @@ export const useProductStore = create<ProductState>((set, get) => ({
         }
         
         const processedProducts = variantsData.map(product => {
-          console.log('Processing variant in fetchSingleProductByArticleId:', {
-            article_id: product.article_id,
-            mrp_price: product.mrp_price,
-            discount_price: product.discount_price,
-            name: product.name
-          });
           return {
             ...product,
             sizes: safeParseSizes(product.sizes),
@@ -613,12 +624,6 @@ export const useProductStore = create<ProductState>((set, get) => ({
 
       // Process products with proper image parsing and discount calculation
       const processedProducts = shuffledSelection.map(product => {
-        console.log('Processing highlight product:', {
-          article_id: product.article_id,
-          mrp_price: product.mrp_price,
-          discount_price: product.discount_price,
-          name: product.name
-        });
         return {
           ...product,
           sizes: safeParseSizes(product.sizes),
