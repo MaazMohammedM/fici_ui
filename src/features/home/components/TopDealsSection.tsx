@@ -81,7 +81,7 @@ const TopDealsSection: React.FC = () => {
               />
             </div>
           ))}
-          {/* Right spacer so last card isn’t cropped */}
+          {/* Right spacer so last card isn't cropped */}
           <div className="w-4 sm:w-0 flex-shrink-0" />
         </div>
       </div>

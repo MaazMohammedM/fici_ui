@@ -198,13 +198,6 @@ const PincodeInput: React.FC<PincodeInputProps> = ({
       {details && showDeliveryInfo && (
         <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
           <div className="space-y-2">
-            <div className="flex items-center text-sm text-blue-800 dark:text-blue-200">
-              <MapPin className="h-4 w-4 mr-2" />
-              <span className="font-medium">
-                {details.city || 'City not specified'}, {details.state}
-              </span>
-            </div>
-            
             {details.districts && details.districts.length > 0 && (
               <div className="text-sm text-gray-600 dark:text-gray-300">
                 District: {details.districts.join(', ')}

@@ -93,7 +93,7 @@ const HighlightSection: React.FC = () => {
                 </Link>
               </div>
             ))}
-            {/* Right padding spacer so the last snap card isn’t cropped */}
+            {/* Right padding spacer so the last snap card isn't cropped */}
             <div className="w-4 sm:w-0 flex-shrink-0" />
           </div>
         </div>
