@@ -29,7 +29,7 @@ const TopDealsCard: React.FC<TopDealsCardProps> = ({
               <img
                 src={image}
                 alt={title}
-                className="absolute inset-0 w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                className="absolute inset-0 w-full h-full object-contain hover:scale-105 transition-transform duration-300"
               onError={(e) => {
                 const target = e.target as HTMLImageElement;
                 if (target.src !== '/assets/Fici_logo.png') {
