@@ -1,6 +1,7 @@
 import React from "react";
 import { Ruler } from "lucide-react";
 import { FaWhatsapp } from "react-icons/fa";
+import { getSizeRange, isFootwearProduct } from "../../../utils/sizeUtils";
 
 interface Props {
   fullSizeRange: string[];
@@ -13,6 +14,7 @@ interface Props {
   isOutOfStock?: boolean;
   gender?: 'men' | 'women';
   subCategory?: string;
+  category?: string;
 }
 
 const ProductSizeSelector: React.FC<Props> = ({
@@ -26,24 +28,17 @@ const ProductSizeSelector: React.FC<Props> = ({
   isOutOfStock = false,
   gender,
   subCategory,
+  category,
 }) => {
-  // Determine size range based on gender and sub-category
-  const getSizeRange = () => {
-    if (isBag)     return originalFullSizeRange.length > 0 ? originalFullSizeRange : availableSizes;
-    
-    if (gender === 'women' && (subCategory === 'Shoes' || subCategory === 'Sandals')) {
-      return Array.from({ length: 9 }, (_, i) => (i + 35).toString()); // 35-43
-    } 
-    
-    if (gender === 'men' && (subCategory === 'Shoes' || subCategory === 'Sandals')) {
-      return Array.from({ length: 9 }, (_, i) => (i + 39).toString()); // 39-47
-    }
-    
-    return originalFullSizeRange.length > 0 ? originalFullSizeRange : availableSizes;
-  };
-
-  const isFootwear = subCategory === 'Shoes' || subCategory === 'Sandals';
-  const fullSizeRange = getSizeRange();
+  // Use the utility function to determine size range
+  // For footwear, always show the complete range regardless of available sizes
+  const completeSizeRange = getSizeRange(gender, subCategory, category);
+  const isFootwear = isFootwearProduct(category, subCategory);
+  
+  // For footwear, use complete range to show missing sizes with WhatsApp
+  // For other products, use the provided originalFullSizeRange or available sizes
+  const displaySizeRange = isFootwear ? completeSizeRange : 
+    (originalFullSizeRange.length > 0 ? originalFullSizeRange : availableSizes);
 
   return (
   <div className="min-h-[120px]"> {/* Ensure consistent height */}
@@ -84,10 +79,10 @@ const ProductSizeSelector: React.FC<Props> = ({
           </button>
         </div>
       </div>
-    ) : fullSizeRange.length > 0 ? (
+    ) : displaySizeRange.length > 0 ? (
       /* Show all sizes with WhatsApp icons on unavailable ones */
       <div className="flex flex-wrap gap-2">
-        {fullSizeRange.map((size) => {
+        {displaySizeRange.map((size) => {
           const isAvailable = availableSizes.includes(size);
           const isSelected = selectedSize === size;
 
@@ -139,7 +134,7 @@ const ProductSizeSelector: React.FC<Props> = ({
     )}
 
     {/* Prominent message for when no sizes are available */}
-    {fullSizeRange.length === 0 && (
+    {displaySizeRange.length === 0 && (
       <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
         <div className="flex items-center justify-center text-blue-700 dark:text-blue-300">
           <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">

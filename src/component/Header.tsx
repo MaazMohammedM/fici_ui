@@ -6,7 +6,7 @@ import { useThemeStore } from '../store/themeStore';
 import { useCartStore } from '@store/cartStore';
 import { useWishlistCount } from '@store/wishlistStore';
 import ficiLight from '../assets/fici_light_1920x917.png';
-import ficiDark from '../assets/fici_dark_dehaloed_1920x917.png';
+import ficiDark from '../assets/fici_logo_dark.png';
 
 const Header: React.FC = () => {
   const navigate = useNavigate();

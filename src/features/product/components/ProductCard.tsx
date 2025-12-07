@@ -11,6 +11,19 @@ interface ProductCardProps {
 const ProductCard: React.FC<ProductCardProps> = ({ product, className = '' }) => {
   const navigate = useNavigate();
 
+  // Calculate discount percentage
+  const discountPercentage = React.useMemo(() => {
+    if (product.discount_percentage) {
+      return product.discount_percentage;
+    }
+    const mrpPrice = Number(product.mrp_price);
+    const discountPrice = Number(product.discount_price);
+    if (mrpPrice && discountPrice && mrpPrice > discountPrice) {
+      return Math.round(((mrpPrice - discountPrice) / mrpPrice) * 100);
+    }
+    return 0;
+  }, [product.discount_percentage, product.mrp_price, product.discount_price]);
+
   return (
     <div
       onClick={() => navigate(`/products/${product.article_id}`)}
@@ -46,15 +59,22 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, className = '' }) =>
         )}
 
         {/* Price */}
-        <div className="mt-2 flex items-center justify-center gap-2">
-          <span className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">
-            ₹{product.discount_price}
-          </span>
-          {product.mrp_price && (
-            <span className="text-sm text-gray-400 dark:text-gray-500 line-through">
-              ₹{product.mrp_price}
+        <div className="mt-2 flex flex-col items-center gap-1">
+          <div className="flex items-center justify-center gap-1 sm:gap-2">
+            <span className="text-sm sm:text-base sm:text-lg font-medium text-gray-900 dark:text-white">
+              ₹{product.discount_price}
             </span>
-          )}
+            {product.mrp_price && (
+              <span className="text-xs text-gray-400 dark:text-gray-500 line-through">
+                ₹{product.mrp_price}
+              </span>
+            )}
+            {discountPercentage > 0 && (
+              <span className="text-xs bg-green-100 text-green-800 px-1.5 py-0.5 rounded font-medium">
+                {discountPercentage}% OFF
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Sizes - Always maintain consistent space */}

@@ -16,6 +16,7 @@ export interface Product {
   discount_percentage: number;
   created_at: string;
   rating?: Rating;
+  tags?: string[];
 }
 
 export interface Rating {

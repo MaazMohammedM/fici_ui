@@ -164,7 +164,7 @@ const AdminPage: React.FC = () => {
         )}
 
         {activeTab === "list" && <ProductList />}
-        {activeTab === "add" && <ProductForm />}
+        {activeTab === "add" && <ProductForm onCancel={() => setActiveTab("list")} onSuccess={() => setActiveTab("list")} />}
         {activeTab === "orders" && <AdminOrderDashboard />}
         {activeTab === "discounts" && (
           <DiscountFormSection allProducts={allProducts} />

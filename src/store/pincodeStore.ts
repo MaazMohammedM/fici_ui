@@ -46,7 +46,23 @@ interface PincodeState {
   deletePincode: (pincode: string) => Promise<boolean>;
   setSearchQuery: (query: string) => void;
   setCurrentPage: (page: number) => void;
+  
+  // New bulk update method
+  bulkUpdatePincodes: (request: BulkPincodeUpdateRequest) => Promise<{ updatedCount: number; error?: string }>;
+  
+  // New method to get count for preview
+  getBulkUpdateCount: (request: Omit<BulkPincodeUpdateRequest, 'field' | 'value'>) => Promise<number>;
 }
+
+export type BulkPincodeUpdateRequest = {
+  field: 'is_serviceable' | 'cod_allowed' | 'delivery_time' | 'min_order_amount' | 'shipping_fee' | 'cod_fee' | 'free_shipping_threshold';
+  value: boolean | string | number;
+  scope: 'all' | 'state' | 'city' | 'single_pincode' | 'multiple_pincodes';
+  state?: string;
+  city?: string;
+  pincode?: string;
+  pincodes?: string[];
+};
 
 export const usePincodeStore = create<PincodeState>((set, get) => ({
   // Existing state
@@ -277,6 +293,188 @@ export const usePincodeStore = create<PincodeState>((set, get) => ({
         loading: false,
       });
       return false;
+    }
+  },
+  
+  // Bulk update pincodes
+  bulkUpdatePincodes: async (request) => {
+    set({ loading: true, error: null });
+    
+    try {
+      // Build the update data first
+      const updateData: any = {};
+      updateData[request.field] = request.value;
+      updateData.updated_at = new Date().toISOString();
+      
+      // Build the update query based on scope
+      let query: any;
+      
+      switch (request.scope) {
+        case 'all':
+          // No additional filter - update all pincodes
+          query = supabase.from('pincodes').update(updateData);
+          break;
+          
+        case 'state':
+          if (!request.state) {
+            throw new Error('State is required for state scope');
+          }
+          query = supabase
+            .from('pincodes')
+            .update(updateData)
+            .eq('state', request.state);
+          break;
+          
+        case 'city':
+          if (!request.city) {
+            throw new Error('City is required for city scope');
+          }
+          query = supabase
+            .from('pincodes')
+            .update(updateData)
+            .eq('city', request.city);
+          break;
+          
+        case 'single_pincode':
+          if (!request.pincode) {
+            throw new Error('Pincode is required for single pincode scope');
+          }
+          query = supabase
+            .from('pincodes')
+            .update(updateData)
+            .eq('pincode', request.pincode);
+          break;
+          
+        case 'multiple_pincodes':
+          if (!request.pincodes || request.pincodes.length === 0) {
+            throw new Error('Pincodes are required for multiple pincodes scope');
+          }
+          // Use single query with .in() for multiple pincodes
+          query = supabase
+            .from('pincodes')
+            .update(updateData)
+            .in('pincode', request.pincodes);
+          break;
+          
+        default:
+          throw new Error('Invalid scope specified');
+      }
+      
+      // Execute the update and get count
+      const { data, error, count } = await (query as any)
+        .select('pincode')
+        .throwOnError();
+      
+      if (error) throw error;
+      
+      // For update operations, count might not be returned, so use data length
+      const updatedCount = count || (data ? data.length : 0);
+      
+      // Update cache for affected pincodes
+      const { detailsCache } = get();
+      const updatedCache = { ...detailsCache };
+      
+      if (data) {
+        data.forEach((pincode: any) => {
+          if (updatedCache[pincode.pincode]) {
+            updatedCache[pincode.pincode] = {
+              ...updatedCache[pincode.pincode],
+              ...updateData
+            };
+          }
+        });
+      }
+      
+      set({
+        detailsCache: updatedCache,
+        loading: false,
+      });
+      
+      return {
+        updatedCount: updatedCount
+      };
+      
+    } catch (error) {
+      console.error('Error in bulk update:', error);
+      set({
+        error: error instanceof Error ? error.message : 'Failed to update pincodes',
+        loading: false,
+      });
+      
+      return {
+        updatedCount: 0,
+        error: error instanceof Error ? error.message : 'Failed to update pincodes'
+      };
+    }
+  },
+  
+  // Get count for bulk update preview (efficient count-only query)
+  getBulkUpdateCount: async (request) => {
+    try {
+      let query: any;
+      
+      switch (request.scope) {
+        case 'all':
+          // No additional filter - count all pincodes
+          query = supabase
+            .from('pincodes')
+            .select('*', { count: 'exact', head: true });
+          break;
+          
+        case 'state':
+          if (!request.state) {
+            throw new Error('State is required for state scope');
+          }
+          query = supabase
+            .from('pincodes')
+            .select('*', { count: 'exact', head: true })
+            .eq('state', request.state);
+          break;
+          
+        case 'city':
+          if (!request.city) {
+            throw new Error('City is required for city scope');
+          }
+          query = supabase
+            .from('pincodes')
+            .select('*', { count: 'exact', head: true })
+            .eq('city', request.city);
+          break;
+          
+        case 'single_pincode':
+          if (!request.pincode) {
+            throw new Error('Pincode is required for single pincode scope');
+          }
+          query = supabase
+            .from('pincodes')
+            .select('*', { count: 'exact', head: true })
+            .eq('pincode', request.pincode);
+          break;
+          
+        case 'multiple_pincodes':
+          if (!request.pincodes || request.pincodes.length === 0) {
+            throw new Error('Pincodes are required for multiple pincodes scope');
+          }
+          query = supabase
+            .from('pincodes')
+            .select('*', { count: 'exact', head: true })
+            .in('pincode', request.pincodes);
+          break;
+          
+        default:
+          throw new Error('Invalid scope specified');
+      }
+      
+      // Execute the count query
+      const { count, error } = await query;
+      
+      if (error) throw error;
+      
+      return count || 0;
+      
+    } catch (error) {
+      console.error('Error getting bulk update count:', error);
+      throw error;
     }
   },
   

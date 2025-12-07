@@ -7,7 +7,7 @@ import React, {
   useRef,
 } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { ArrowLeft, AlertCircle, Check, X, Shield, Clock } from "lucide-react";
+import { ArrowLeft, Shield } from "lucide-react";
 import { OtpFlow } from "@/components/otp";
 import AddressCard from "./components/AddressForm";
 import GuestAddressForm from "./components/GuestAddressForm";
@@ -32,6 +32,7 @@ import { getShippingFee, getFreeShippingThreshold, isCODAvailable, getDeliveryTi
 import { useAuthStore } from "@store/authStore";
 import { useCartStore } from "@store/cartStore";
 import { usePaymentStore } from "@store/paymentStore";
+import { useThemeStore } from "@store/themeStore";
 import AlertModal from "@components/ui/AlertModal";
 
 const getRazorpayKey = () => {
@@ -73,6 +74,7 @@ const CheckoutPage: React.FC = () => {
   const location = useLocation();
   const { items: cartItems, getCartTotal, clearCart } = useCartStore();
   const { savePaymentDetails } = usePaymentStore(); // currently unused but kept for behavior
+  const { mode } = useThemeStore(); // Add theme store to respond to theme changes
   const user = useAuthStore((state) => state.user);
   const isGuest = useAuthStore((state) => state.isGuest);
   const guestContactInfo = useAuthStore((state) => state.guestContactInfo);
@@ -759,6 +761,14 @@ const CheckoutPage: React.FC = () => {
     navigate("/auth/signin");
   };
 
+    const handleSignUpRedirect = () => {
+    sessionStorage.setItem(
+      "redirectAfterLogin",
+      location.pathname
+    );
+    navigate("/auth/signup");
+  };
+
   const handleBackToGuestForm = () => {
     setGuestInfo(null);
     setShowGuestForm(true);
@@ -1040,6 +1050,7 @@ const CheckoutPage: React.FC = () => {
           <GuestCheckoutForm
             onGuestInfoSubmit={handleGuestInfoSubmit}
             onSignInClick={handleSignInRedirect}
+            onSignUpClick={handleSignUpRedirect}
             loading={isProcessing}
           />
         </main>

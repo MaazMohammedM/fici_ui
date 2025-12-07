@@ -82,22 +82,30 @@ const AboutPage: React.FC = () => {
           </div>
         </div>
 
+        {/* Desktop Image Screen Above Our Story - Desktop Only */}
+        <div className="hidden lg:block mb-12">
+          <div className="rounded-2xl overflow-hidden shadow-xl">
+            <img
+              src={collageDesktop}
+              alt="FiCi brand showcase"
+              className="w-full h-auto object-cover"
+            />
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center mb-16">
           <div className="order-2 lg:order-1">
-            {/* Collage image - responsive, no side gaps */}
-            <div className="rounded-2xl overflow-hidden shadow-xl">
-              <picture>
-                <source srcSet={collageDesktop} media="(min-width: 640px)" />
-                <img
-                  src={collageMobile}
-                  alt="FiCi brand collage"
-                  className="w-full h-auto"
-                />
-              </picture>
+            {/* Collage image - mobile only, no side gaps */}
+            <div className="lg:hidden rounded-2xl overflow-hidden shadow-xl">
+              <img
+                src={collageMobile}
+                alt="FiCi brand collage"
+                className="w-full h-auto"
+              />
             </div>
           </div>
 
-          <div className="order-1 lg:order-2">
+          <div className="order-1 lg:order-2 lg:col-span-2">
             <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 dark:text-white mb-6 tracking-tight">
               Our Story
             </h2>

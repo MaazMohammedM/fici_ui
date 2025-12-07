@@ -1,145 +1,186 @@
-import React from 'react';
+import { Helmet } from 'react-helmet-async';
+import { useLocation } from 'react-router-dom';
+import ficiImage from '@/assets/fici_light_1920x917.png';
+import ficiLogo from '@/assets/fici_128x128.png';
 
 interface SEOHeadProps {
   title?: string;
   description?: string;
-  keywords?: string[];
   image?: string;
-  url?: string;
-  type?: 'website' | 'product' | 'article';
-  siteName?: string;
-  author?: string;
+  type?: 'website' | 'article' | 'product';
+  twitterCard?: 'summary' | 'summary_large_image';
+  twitterSite?: string;
   publishedTime?: string;
   modifiedTime?: string;
-  price?: {
-    amount: string;
-    currency: string;
-  };
-  availability?: 'in stock' | 'out of stock' | 'preorder';
-  brand?: string;
-  category?: string;
-  noIndex?: boolean;
-  noFollow?: boolean;
+  author?: string;
+  keywords?: string[];
 }
 
-const SEOHead: React.FC<SEOHeadProps> = ({
-  title = 'FICI - Premium Footwear Collection',
-  description = 'Discover premium quality footwear at FICI. Shop the latest collection of shoes, sneakers, and boots with fast delivery and easy returns.',
-  keywords = ['shoes', 'footwear', 'sneakers', 'boots', 'fashion', 'premium', 'FICI'],
-  image = '/og-image.jpg',
-  url,
+const DEFAULT_TITLE = 'FICI Shoes by NMF International | Handcrafted Leather Formal Shoes Ambur | Mohammed Faisal';
+const DEFAULT_DESCRIPTION = 'FICI Shoes by NMF International - Premium handcrafted leather formal shoes for men in Ambur. Traditional lace-ups, slip-ons, Chelsea boots, chappals. Milled leather, customization options. Shop online via Facebook, Instagram. GST: 33BMAPM8509H1Z4.';
+const DEFAULT_IMAGE = ficiImage;
+const SITE_URL = 'https://www.ficishoes.com';
+
+const SEOHead = ({
+  title = '',
+  description = DEFAULT_DESCRIPTION,
+  image = DEFAULT_IMAGE,
   type = 'website',
-  siteName = 'FICI',
-  author = 'FICI Team',
+  twitterCard = 'summary_large_image',
+  twitterSite = '@FiciShoes',
   publishedTime,
   modifiedTime,
-  price,
-  availability,
-  brand,
-  category,
-  noIndex = false,
-  noFollow = false
-}) => {
-  const currentUrl = url || (typeof window !== 'undefined' ? window.location.href : '');
-  const fullImageUrl = image.startsWith('http') ? image : `${typeof window !== 'undefined' ? window.location.origin : ''}${image}`;
-
-  const structuredData = {
-    "@context": "https://schema.org",
-    "@type": type === 'product' ? 'Product' : 'WebSite',
-    "name": title,
-    "description": description,
-    "url": currentUrl,
-    "image": fullImageUrl,
-    ...(type === 'product' && {
-      "brand": {
-        "@type": "Brand",
-        "name": brand || siteName
-      },
-      "category": category,
-      ...(price && {
-        "offers": {
-          "@type": "Offer",
-          "price": price.amount,
-          "priceCurrency": price.currency,
-          "availability": `https://schema.org/${availability === 'in stock' ? 'InStock' : availability === 'out of stock' ? 'OutOfStock' : 'PreOrder'}`
-        }
-      })
-    }),
-    ...(type === 'website' && {
-      "potentialAction": {
-        "@type": "SearchAction",
-        "target": `${currentUrl}/products?search={search_term_string}`,
-        "query-input": "required name=search_term_string"
-      }
-    })
-  };
-
-  const robotsContent = [
-    noIndex ? 'noindex' : 'index',
-    noFollow ? 'nofollow' : 'follow'
-  ].join(', ');
+  author = 'Mohammed Faisal - FICI Shoes by NMF International',
+  keywords = ['FICI shoes Ambur', 'NMF International Ambur', 'handcrafted leather shoes', 'men formal shoes', 'leather lace-ups', 'Chelsea boots', 'slip-on shoes', 'leather chappals', 'milled leather', 'Mohammed Faisal shoes', 'Khaderpet Ambur shoes', 'GST 33BMAPM8509H1Z4', 'Celby height increasing shoes', 'tassel shoes', 'office footwear', 'professional shoes', 'genuine leather shoes', 'traditional footwear Ambur', 'Justdial FICI shoes', 'IndiaMART FICI shoes'],
+}: SEOHeadProps) => {
+  const { pathname } = useLocation();
+  const currentUrl = `${SITE_URL}${pathname}`;
+  const pageTitle = title ? `${title} | Fici Shoes` : DEFAULT_TITLE;
 
   return (
-    <>
-      {/* Basic Meta Tags */}
-      <title>{title}</title>
+    <Helmet>
+      {/* Core SEO Tags */}
+      <title>{pageTitle}</title>
       <meta name="description" content={description} />
+      <link rel="canonical" href={currentUrl} />
       <meta name="keywords" content={keywords.join(', ')} />
       <meta name="author" content={author} />
-      <meta name="robots" content={robotsContent} />
-      <link rel="canonical" href={currentUrl} />
+      <meta name="robots" content="index, follow" />
 
-      {/* Open Graph Meta Tags */}
-      <meta property="og:title" content={title} />
-      <meta property="og:description" content={description} />
-      <meta property="og:image" content={fullImageUrl} />
-      <meta property="og:url" content={currentUrl} />
+      {/* Open Graph / Facebook */}
       <meta property="og:type" content={type} />
-      <meta property="og:site_name" content={siteName} />
+      <meta property="og:url" content={currentUrl} />
+      <meta property="og:title" content={pageTitle} />
+      <meta property="og:description" content={description} />
+      <meta property="og:image" content={image} />
+      <meta property="og:site_name" content="Fici Shoes" />
+
+      {/* Twitter */}
+      <meta name="twitter:card" content={twitterCard} />
+      <meta name="twitter:site" content={twitterSite} />
+      <meta name="twitter:title" content={pageTitle} />
+      <meta name="twitter:description" content={description} />
+      <meta name="twitter:image" content={image} />
+
+      {/* Additional Meta Tags */}
       {publishedTime && <meta property="article:published_time" content={publishedTime} />}
       {modifiedTime && <meta property="article:modified_time" content={modifiedTime} />}
+      {type === 'article' && author && <meta property="article:author" content={author} />}
 
-      {/* Twitter Card Meta Tags */}
-      <meta name="twitter:card" content="summary_large_image" />
-      <meta name="twitter:title" content={title} />
-      <meta name="twitter:description" content={description} />
-      <meta name="twitter:image" content={fullImageUrl} />
+      {/* Local SEO Meta Tags */}
+      <meta name="geo.region" content="IN-TN" />
+      <meta name="geo.placename" content="Ambur" />
+      <meta name="geo.position" content="12.7895;78.7269" />
+      <meta name="ICBM" content="12.7895,78.7269" />
 
-      {/* Product-specific Meta Tags */}
-      {type === 'product' && price && (
-        <>
-          <meta property="product:price:amount" content={price.amount} />
-          <meta property="product:price:currency" content={price.currency} />
-        </>
-      )}
-      {availability && <meta property="product:availability" content={availability} />}
-      {brand && <meta property="product:brand" content={brand} />}
-      {category && <meta property="product:category" content={category} />}
+      {/* Mobile Specific */}
+      <meta name="viewport" content="width=device-width, initial-scale=1" />
+      <meta name="theme-color" content="#ffffff" />
 
-      {/* Structured Data */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify(structuredData)
-        }}
-      />
-
-      {/* Additional SEO Meta Tags */}
-      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      <meta httpEquiv="Content-Type" content="text/html; charset=utf-8" />
-      <meta name="language" content="English" />
-      <meta name="revisit-after" content="7 days" />
-      <meta name="distribution" content="global" />
-      <meta name="rating" content="general" />
-
-      {/* Favicon and Icons */}
-      <link rel="icon" type="image/x-icon" href="/favicon.ico" />
-      <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
-      <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
-      <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-      <link rel="manifest" href="/site.webmanifest" />
-      <meta name="theme-color" content="#000000" />
-    </>
+      {/* Local Business Structured Data */}
+      <script type="application/ld+json">
+        {JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "LocalBusiness",
+          "name": "FICI Shoes by NMF International",
+          "alternateName": "FICI Shoes",
+          "url": SITE_URL,
+          "logo": ficiLogo,
+          "description": "Premium handcrafted leather formal shoes for men in Ambur by Mohammed Faisal. Traditional lace-ups, slip-ons, Chelsea boots, chappals with milled leather and customization options.",
+          "image": ficiImage,
+          "telephone": "+91-8122003006",
+          "address": {
+            "@type": "PostalAddress",
+            "streetAddress": "No.20, 1st Floor, Broad Bazaar, Flower Bazaar Lane",
+            "addressLocality": "Ambur",
+            "addressRegion": "Tamil Nadu",
+            "addressCountry": "IN",
+            "postalCode": "635802"
+          },
+          "geo": {
+            "@type": "GeoCoordinates",
+            "latitude": "12.7895",
+            "longitude": "78.7269"
+          },
+          "hasMap": "https://share.google/5m1q1FRfsJlHXKmo5",
+          "areaServed": "Ambur",
+          "paymentAccepted": ["Cash", "Credit Card", "Debit Card", "COD", "Online Transfer"],
+          "priceRange": "$$$",
+          "founder": "Mohammed Faisal",
+          "legalName": "NMF International",
+          "taxID": "33BMAPM8509H1Z4",
+          "hasOfferCatalog": {
+            "@type": "OfferCatalog",
+            "name": "Handcrafted Leather Footwear",
+            "itemListElement": [
+              {
+                "@type": "Offer",
+                "itemOffered": {
+                  "@type": "Product",
+                  "name": "Handcrafted Leather Formal Shoes",
+                  "category": "Formal Footwear",
+                  "material": "Genuine Leather"
+                }
+              },
+              {
+                "@type": "Offer", 
+                "itemOffered": {
+                  "@type": "Product",
+                  "name": "Leather Lace-Up Shoes",
+                  "category": "Formal Shoes"
+                }
+              },
+              {
+                "@type": "Offer",
+                "itemOffered": {
+                  "@type": "Product", 
+                  "name": "Chelsea Boots",
+                  "category": "Boots"
+                }
+              },
+              {
+                "@type": "Offer",
+                "itemOffered": {
+                  "@type": "Product",
+                  "name": "Slip-On Shoes",
+                  "category": "Formal Shoes"
+                }
+              },
+              {
+                "@type": "Offer",
+                "itemOffered": {
+                  "@type": "Product",
+                  "name": "Leather Chappals",
+                  "category": "Traditional Footwear"
+                }
+              },
+              {
+                "@type": "Offer",
+                "itemOffered": {
+                  "@type": "Product",
+                  "name": "Celby Height Increasing Shoes",
+                  "category": "Specialty Shoes"
+                }
+              },
+              {
+                "@type": "Offer",
+                "itemOffered": {
+                  "@type": "Product",
+                  "name": "Tassel Shoes",
+                  "category": "Formal Shoes"
+                }
+              }
+            ]
+          },
+          "sameAs": [
+            "https://www.facebook.com/FICIshoes",
+            "https://www.instagram.com/FICIshoes",
+            "https://www.justdial.com/Ambur/FICI-Shoes-by-NMF-International",
+            "https://www.indiamart.com/nmf-international"
+          ]
+        })}
+      </script>
+    </Helmet>
   );
 };
 

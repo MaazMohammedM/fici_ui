@@ -761,7 +761,7 @@ const ShippingDetails = ({ item }: { item: OrderItem }) => {
                 If you have any questions about your order, please contact our customer service.
               </p>
               <a
-                href="mailto:support@fici.com"
+                href="mailto:support@ficishoes.com"
                 className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               >
                 Contact Support

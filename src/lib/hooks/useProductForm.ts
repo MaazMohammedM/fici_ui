@@ -13,6 +13,7 @@ export const useProductForm = () => {
   const [sizesList, setSizesList] = useState<Record<string, number>>({});
   const [sizeInput, setSizeInput] = useState<string>('');
   const [quantityInput, setQuantityInput] = useState<string>('');
+  const [sizePrices, setSizePrices] = useState<Record<string, number>>({});
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [selectedThumbnail, setSelectedThumbnail] = useState<number>(0);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -31,7 +32,8 @@ export const useProductForm = () => {
       category: undefined,
       sizes: '{}',
       images: '',
-      thumbnail_url: ''
+      thumbnail_url: '',
+      size_prices: '{}'
     }
   });
 
@@ -55,6 +57,19 @@ export const useProductForm = () => {
     setSizesList(newSizes);
     // Update the form's sizes field with JSON string
     form.setValue('sizes', JSON.stringify(newSizes));
+    
+    // Also remove the price for this size
+    const newSizePrices = { ...sizePrices };
+    delete newSizePrices[size];
+    setSizePrices(newSizePrices);
+    form.setValue('size_prices', JSON.stringify(newSizePrices));
+  };
+
+  const handleSizePriceChange = (size: string, price: number): void => {
+    const newSizePrices = { ...sizePrices, [size]: price };
+    setSizePrices(newSizePrices);
+    // Update the form's size_prices field with JSON string
+    form.setValue('size_prices', JSON.stringify(newSizePrices));
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
@@ -206,6 +221,7 @@ export const useProductForm = () => {
     sizesList,
     sizeInput,
     quantityInput,
+    sizePrices,
     isUploading,
     uploadProgress,
     uploadError,
@@ -214,6 +230,7 @@ export const useProductForm = () => {
     setQuantityInput: (value: string) => setQuantityInput(value),
     handleAddSize,
     handleRemoveSize,
+    handleSizePriceChange,
     handleFileChange,
     handleThumbnailSelect,
     onSubmit: form.handleSubmit(onSubmit)

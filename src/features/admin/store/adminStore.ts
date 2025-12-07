@@ -1,30 +1,22 @@
 import { create } from 'zustand';
 import { supabase } from '@lib/supabase';
 import type { EnhancedProductFormData, EditProductFormData } from '@lib/util/formValidation';
+import type { Product } from '../../../types/product';
 
-interface Product {
-  product_id: string;
-  name: string;
-  description?: string;
-  sub_category?: string;
-  mrp_price: string;
-  discount_price: string;
-  gender: 'men' | 'women' | 'unisex';
-  category: 'Footwear' | 'Bags and Accessories';
-  sizes: Record<string, number>;
-  images: string[];
-  thumbnail_url: string;
-  article_id: string;
-  created_at: string;
+// Extended Product type for admin functionality
+export interface AdminProduct extends Product {
+  is_active?: boolean;
+  size_prices?: Record<string, number>; // Per-size pricing
+  tags?: string[]; // Product tags
 }
 
 interface AdminStore {
-  products: Product[];
+  products: AdminProduct[];
   loading: boolean;
   error: string | null;
   success: string | null;
   uploadProgress: number;
-  editingProduct: Product | null;
+  editingProduct: AdminProduct | null;
   fetchProducts: () => Promise<void>;
   addProduct: (data: EnhancedProductFormData) => Promise<boolean>;
   updateProduct: (productId: string, data: EditProductFormData) => Promise<boolean>;
@@ -33,7 +25,7 @@ interface AdminStore {
   deleteProduct: (productId: string) => Promise<boolean>;
   deleteProductImages: (folderName: string) => Promise<boolean>;
   getFolderNameFromImages: (images: unknown) => string | null;
-  setEditingProduct: (product: Product | null) => void;
+  setEditingProduct: (product: AdminProduct | null) => void;
   clearError: () => void;
   clearSuccess: () => void;
   setUploadProgress: (progress: number) => void;
@@ -89,6 +81,61 @@ const safeParseSizes = (value: unknown): Record<string, number> => {
   }
 
   return {};
+};
+
+/**
+ * Parse size_prices from database - similar to sizes parsing
+ */
+const safeParseSizePrices = (value: unknown): Record<string, number> => {
+  return safeParseSizes(value); // Same logic as sizes
+};
+
+/**
+ * Parse tags from database - handles arrays and comma-separated strings
+ */
+const safeParseTags = (value: unknown): string[] => {
+  if (!value) return [];
+
+  // Already an array
+  if (Array.isArray(value)) {
+    return value
+      .filter((tag): tag is string => tag !== null && typeof tag === 'string' && tag.trim() !== '')
+      .map(tag => tag.trim());
+  }
+
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (!trimmed) return [];
+
+    // Remove outer quotes if present
+    let cleaned = trimmed;
+    if (cleaned.startsWith('"') && cleaned.endsWith('"')) {
+      cleaned = cleaned.slice(1, -1);
+    }
+
+    // If it contains commas, split by comma
+    if (cleaned.includes(',')) {
+      return cleaned
+        .split(',')
+        .map(tag => tag.trim())
+        .filter(tag => tag.length > 0);
+    }
+
+    // Try JSON parsing
+    try {
+      const parsed = JSON.parse(cleaned);
+      if (Array.isArray(parsed)) {
+        return parsed
+          .filter((tag): tag is string => tag !== null && typeof tag === 'string' && tag.trim() !== '')
+          .map(tag => tag.trim());
+      }
+    } catch {
+      // Not JSON, return as single tag if it's valid
+      return [cleaned];
+    }
+  }
+
+  return [];
 };
 
 /**
@@ -196,7 +243,10 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
           images,
           thumbnail_url,
           article_id,
-          created_at
+          created_at,
+          is_active,
+          size_prices,
+          tags
         `)
         .order('created_at', { ascending: false });
 
@@ -205,7 +255,14 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
       const parsedProducts = (data || []).map(product => ({
         ...product,
         sizes: safeParseSizes(product.sizes),
-        images: parseImages(product.images)
+        size_prices: safeParseSizePrices(product.size_prices),
+        tags: safeParseTags(product.tags),
+        images: parseImages(product.images),
+        // Add missing fields with defaults to satisfy AdminProduct interface
+        mrp: parseFloat(product.mrp_price) || 0,
+        color: (product as any).color || '',
+        discount_percentage: product.discount_price ? 
+          Math.round(((parseFloat(product.mrp_price) - parseFloat(product.discount_price)) / parseFloat(product.mrp_price)) * 100) : 0
       }));
 
       set({ products: parsedProducts });
@@ -230,15 +287,6 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
         const contentType = file.type && file.type.startsWith('image/')
           ? file.type
           : getMimeType(file.name);
-
-        console.log('Uploading file:', {
-          name: file.name,
-          type: file.type,
-          size: file.size,
-          fileName,
-          filePath,
-          contentType
-        });
 
         const { error: uploadError } = await supabase.storage
           .from('ficishoesimages')
@@ -287,7 +335,6 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
       }
 
       if (!fileList || fileList.length === 0) {
-        console.log('No files found to delete');
         return true;
       }
 
@@ -355,11 +402,6 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
           : productData.images
       };
 
-      console.log('Adding product with data:', {
-        ...formattedData,
-        images: `[${(formattedData.images as string).split(',').length} images]`
-      });
-
       const { error } = await supabase
         .from('products')
         .insert([formattedData])
@@ -388,12 +430,21 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
 
     set({ loading: true, error: null });
     try {
-      const { sizes, ...rest } = formData;
+      const { sizes, size_prices, ...rest } = formData;
 
-      const updateData = {
-        ...rest,
-        sizes: JSON.stringify(sizes)
+      const updateData: any = {
+        ...rest
       };
+
+      // Only include sizes if they exist
+      if (sizes !== undefined) {
+        updateData.sizes = sizes; // Send object directly for JSONB
+      }
+
+      // Only include size_prices if they exist
+      if (size_prices !== undefined) {
+        updateData.size_prices = size_prices; // Send object directly for JSONB
+      }
 
       console.log('📦 Update data being sent to Supabase:', updateData);
 

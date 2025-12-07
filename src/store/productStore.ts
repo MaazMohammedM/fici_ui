@@ -19,6 +19,7 @@ interface ProductState {
   totalPages: number;
   itemsPerPage: number;
   abortController: AbortController | null;
+  sortBy: 'price_low_to_high' | 'price_high_to_low' | null;
 
   // Actions
   fetchProducts: (page?: number, filters?: any, retryCount?: number) => Promise<void>;
@@ -33,6 +34,7 @@ interface ProductState {
   fetchSingleProductByArticleId: (articleId: string) => Promise<void>;
   highlightProducts: Product[];
   fetchHighlightProducts: () => Promise<void>;
+  setSortBy: (sortBy: 'price_low_to_high' | 'price_high_to_low' | null) => void;
 }
 
 // Helper function to safely parse JSON - only for sizes
@@ -124,6 +126,7 @@ export const useProductStore = create<ProductState>((set, get) => ({
   totalPages: 1,
   itemsPerPage: 12,
   abortController: null,
+  sortBy: null,
 
   fetchProducts: async (page = 1, filters = {}, retryCount = 0) => {
     const maxRetries = 3;
@@ -186,17 +189,46 @@ export const useProductStore = create<ProductState>((set, get) => ({
           }
 
           if (filters.search) {
-            query = query.or(`name.ilike.%${filters.search}%,description.ilike.%${filters.search}%,sub_category.ilike.%${filters.search}%`);
+            // Enhanced search across multiple fields with better matching
+            const searchTerm = filters.search.trim();
+            if (searchTerm) {
+              const searchConditions = [
+                // Name search (highest priority)
+                `name.ilike.%${searchTerm}%`,
+                // Description search
+                `description.ilike.%${searchTerm}%`,
+                // Category search
+                `category.ilike.%${searchTerm}%`,
+                // Subcategory search
+                `sub_category.ilike.%${searchTerm}%`,
+                // Gender search
+                `gender.ilike.%${searchTerm}%`,
+                // Tags search (if tags field exists)
+                `tags.cs.{${searchTerm}}`,
+                // Article ID search
+                `article_id.ilike.%${searchTerm}%`
+              ];
+              query = query.or(searchConditions.join(','));
+            }
           }
 
-          // Apply pagination
-          const offset = (page - 1) * get().itemsPerPage;
-          query = query.range(offset, offset + get().itemsPerPage - 1);
+          // Apply pagination (only if no sorting - for sorting we need all data)
+          let finalQuery = query;
+          if (!filters.sortBy) {
+            const offset = (page - 1) * get().itemsPerPage;
+            finalQuery = query.range(offset, offset + get().itemsPerPage - 1);
+          }
 
-          // Order by creation date
-          query = query.order('created_at', { ascending: false });
+          // Order by creation date or price (client-side sorting will handle numeric conversion)
+          if (filters.sortBy === 'price_low_to_high') {
+            finalQuery = finalQuery.order('discount_price', { ascending: true });
+          } else if (filters.sortBy === 'price_high_to_low') {
+            finalQuery = finalQuery.order('discount_price', { ascending: false });
+          } else {
+            finalQuery = finalQuery.order('created_at', { ascending: false });
+          }
 
-          const { data, error, count } = await query;
+          const { data, error, count } = await finalQuery;
 
           clearTimeout(timeoutId);
 
@@ -217,7 +249,6 @@ export const useProductStore = create<ProductState>((set, get) => ({
     try {
       const { data, count } = await fetchWithTimeout();
 
-      // Process products with proper image parsing and discount calculation
       const processedProducts: Product[] = (data || []).map((product: any) => {
         return {
           ...product,
@@ -229,15 +260,30 @@ export const useProductStore = create<ProductState>((set, get) => ({
         };
       });
 
+      // Apply client-side sorting if needed (for filteredProducts)
+      let finalProducts = processedProducts;
+      if (filters.sortBy) {
+        finalProducts = [...processedProducts].sort((a, b) => {
+          const priceA = parseFloat(String(a.discount_price)) || 0;
+          const priceB = parseFloat(String(b.discount_price)) || 0;
+          return filters.sortBy === 'price_low_to_high' ? priceA - priceB : priceB - priceA;
+        });
+
+        // Apply pagination after sorting
+        const offset = (page - 1) * get().itemsPerPage;
+        finalProducts = finalProducts.slice(offset, offset + get().itemsPerPage);
+      }
+
       const totalPages = Math.ceil((count || 0) / get().itemsPerPage);
 
       set({
-        products: processedProducts,
-        filteredProducts: processedProducts,
+        products: finalProducts,
+        filteredProducts: finalProducts,
         currentPage: page,
         totalPages,
         loading: false,
-        abortController: null // Clear abort controller on success
+        abortController: null, // Clear abort controller on success
+        sortBy: filters.sortBy || null
       });
 
     } catch (error) {
@@ -277,7 +323,8 @@ export const useProductStore = create<ProductState>((set, get) => ({
       selectedGender: null,
       selectedSubCategory: null,
       selectedPriceRange: null,
-      searchQuery: ''
+      searchQuery: '',
+      sortBy: null
     });
   },
 
@@ -669,12 +716,22 @@ export const useProductStore = create<ProductState>((set, get) => ({
     }
 
     if (filters.search) {
-      const searchLower = filters.search.toLowerCase();
-      filtered = filtered.filter(product =>
-        product.name.toLowerCase().includes(searchLower) ||
-        product.description?.toLowerCase().includes(searchLower) ||
-        product.sub_category?.toLowerCase().includes(searchLower)
-      );
+      const searchLower = filters.search.toLowerCase().trim();
+      if (searchLower) {
+        filtered = filtered.filter(product => {
+          // Enhanced search across multiple fields
+          return (
+            product.name?.toLowerCase().includes(searchLower) ||
+            product.description?.toLowerCase().includes(searchLower) ||
+            product.category?.toLowerCase().includes(searchLower) ||
+            product.sub_category?.toLowerCase().includes(searchLower) ||
+            product.gender?.toLowerCase().includes(searchLower) ||
+            product.article_id?.toLowerCase().includes(searchLower) ||
+            // Search in tags if they exist
+            (product.tags && product.tags.some((tag: string) => tag.toLowerCase().includes(searchLower)))
+          );
+        });
+      }
     }
 
     set({
@@ -710,5 +767,9 @@ export const useProductStore = create<ProductState>((set, get) => ({
     });
   },
 
-  clearError: () => set({ error: null })
+  clearError: () => set({ error: null }),
+
+  setSortBy: (sortBy: 'price_low_to_high' | 'price_high_to_low' | null) => {
+    set({ sortBy });
+  }
 }));

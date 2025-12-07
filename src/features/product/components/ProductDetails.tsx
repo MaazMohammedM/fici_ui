@@ -14,6 +14,7 @@ import ProductActionButtons from "@features/product/sections/ProductActionButton
 import SizeGuideModal from "../../../components/ui/SizeGuideModal";
 import ShareModal from "./ShareModal";
 import ProductDescription from "./ProductDescription";
+import PincodeSearch from "./PincodeSearch";
 
 interface ProductDetailsProps {
   currentProduct: ProductDetail;
@@ -387,6 +388,7 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
             isOutOfStock={isOutOfStock}
             gender={currentProduct.gender?.toLowerCase() as 'men' | 'women' | undefined}
             subCategory={currentProduct.sub_category}
+            category={currentProduct.category}
           />
         </div>
       )}
@@ -410,6 +412,9 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
           isOutOfStock={isOutOfStock}
           isBag={isBag}
         />
+
+        {/* Pincode Search */}
+        <PincodeSearch />
 
         <div className="flex items-center justify-center space-x-2 py-2 px-2">
           <svg className="h-5 w-5 text-green-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -446,7 +451,7 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
             <svg className="h-5 w-5 text-green-500 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
-            <span>Easy 3-days returns</span>
+            <span>Easy 3-days replacement</span>
           </li>
         </ul>
       </div>

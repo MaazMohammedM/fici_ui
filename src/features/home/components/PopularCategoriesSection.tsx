@@ -6,7 +6,7 @@ import type { Category } from "../../../types/product";
 // Import category images
 import shoesImage from "@/assets/1000876119.jpg";
 import sandalsImage from "@/assets/1000876133.jpg";
-import bagsImage from "@/assets/1000876107.jpg";
+import bagsImage from "@/assets/1000250076.jpg";
 import accessoriesImage from "@/assets/1000876149.png";
 
 const categories: Category[] = [
@@ -76,23 +76,6 @@ const PopularCategoriesSection: React.FC = () => {
                   {category.count} items
                 </div>
               )}
-                
-              {/* Tech-premium text overlay
-              <div className="absolute inset-0 flex items-end p-4 sm:p-6">
-                <div className="space-y-3">
-                  <h3 className="text-2xl sm:text-3xl font-black text-white drop-shadow-[0_4px_16px_rgba(0,0,0,0.8)] transform transition-transform duration-300 group-hover:scale-105">
-                    <span className="bg-gradient-to-r from-white via-purple-100 to-pink-100 bg-clip-text text-transparent">
-                      {category.name}
-                    </span>
-                  </h3>
-                  <div className="flex items-center gap-2 text-white/90 text-sm font-medium transform translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300 delay-150">
-                    <span>Explore Collection</span>
-                    <svg className="w-4 h-4 transform group-hover:translate-x-1 transition-transform duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                    </svg>
-                  </div>
-                </div>
-              </div> */}
                 
               {/* Tech-premium shimmer effect */}
               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-out pointer-events-none"></div>

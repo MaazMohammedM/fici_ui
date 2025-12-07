@@ -94,7 +94,8 @@ const ContactForm: React.FC = () => {
                       rel="noopener noreferrer"
                       className="text-xs text-[color:var(--color-text-secondary)] dark:text-[color:var(--color-light3)] hover:text-[color:var(--color-primary)] dark:hover:text-[color:var(--color-accent)] transition-colors leading-relaxed block"
                     >
-                      No.20, 1st Floor, Broad Bazaar, <br/>Flower Bazaar Lane, Ambur - 635802
+                      No.20, 1st Floor, Broad Bazaar, <br/>Flower Bazaar Lane, Ambur - 635802<br/>
+                      Tirupattur District, Tamilnadu, India.
                     </a>
                   </div>
                 </div>
@@ -118,10 +119,10 @@ const ContactForm: React.FC = () => {
                 <div className="h-full p-3 rounded-lg bg-[color:var(--color-light2)] dark:bg-[color:var(--color-dark3)] hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all duration-300">
                   <p className="font-semibold text-[color:var(--color-text-primary)] dark:text-[color:var(--color-text-inverse)] text-xs mb-1">Email</p>
                   <a
-                    href="mailto:nmfinternational@gmail.com"
+                    href="mailto:support@ficishoes.com"
                     className="text-xs text-[color:var(--color-text-secondary)] dark:text-[color:var(--color-light3)] group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors"
                   >
-                    nmfinternational@gmail.com
+                    suppport@ficishoes.com
                   </a>
                 </div>
               </div>
