@@ -721,12 +721,6 @@ const ProductPage: React.FC = () => {
                     Clear all
                   </button>
                 )}
-                <button
-                  onClick={() => setIsMobileFiltersOpen(false)}
-                  className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
-                >
-                  Apply filters
-                </button>
               </div>
             </div>
           </div>

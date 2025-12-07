@@ -56,7 +56,7 @@ const TopDealsSection: React.FC = () => {
 
       {/* Horizontal list with 2-up on mobile, snap to card */}
       <div className='w-full overflow-x-auto pb-4 scrollbar-hide'>
-        <div className="flex items-stretch gap-3 sm:gap-5 snap-x snap-mandatory px-1 sm:px-0">
+        <div className="flex items-stretch gap-3 sm:gap-5 snap-x snap-center px-1 sm:px-0">
           {topDeals.map((product) => (
             <div
               key={product.product_id}
@@ -82,7 +82,7 @@ const TopDealsSection: React.FC = () => {
             </div>
           ))}
           {/* Right spacer so last card isn't cropped */}
-          <div className="w-4 sm:w-0 flex-shrink-0" />
+          <div className="w-8 sm:w-4 lg:w-8 flex-shrink-0" />
         </div>
       </div>
       </div>

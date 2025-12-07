@@ -10,9 +10,10 @@ export type PaymentMethod = {
 interface Props {
   selected: string;
   onSelect: (id: string) => void;
-  prepaidDiscount?: number;      // ✅ Prepaid discount amount (if any)
-  onCodOtpRequired?: () => void; // COD OTP callback
-  otpVerified?: boolean;         // Whether COD OTP is done
+  prepaidDiscount?: number;
+  onCodOtpRequired?: () => void;
+  otpVerified?: boolean;
+  codAvailable?: boolean; // Add this prop
 }
 
 const PaymentMethods: React.FC<Props> = ({
@@ -21,6 +22,7 @@ const PaymentMethods: React.FC<Props> = ({
   prepaidDiscount = 0,
   onCodOtpRequired,
   otpVerified = false,
+  codAvailable = true,
 }) => {
   const [local, setLocal] = useState(selected);
 
@@ -45,6 +47,10 @@ const PaymentMethods: React.FC<Props> = ({
   ];
 
   const handleMethodSelect = (methodId: string) => {
+    // Prevent selecting COD if not available
+    if (methodId === 'cod' && !codAvailable) {
+      return;
+    }
     setLocal(methodId);
     onSelect(methodId);
   };
@@ -67,15 +73,18 @@ const PaymentMethods: React.FC<Props> = ({
           const isSelected = local === m.id;
           const isOnline = m.id === 'razorpay';
           const isCOD = m.id === 'cod';
+          const isDisabled = isCOD && !codAvailable;
 
           return (
             <div
               key={m.id}
               onClick={() => handleMethodSelect(m.id)}
-              className={`relative p-4 border rounded-xl cursor-pointer transition-all duration-150 ${
-                isSelected
-                  ? 'border-accent bg-accent/5 shadow-sm'
-                  : 'border-gray-200 dark:border-gray-700 hover:border-accent/70 hover:bg-accent/5'
+              className={`relative p-4 border rounded-xl transition-all duration-150 ${
+                isDisabled
+                  ? 'opacity-50 cursor-not-allowed border-gray-300 bg-gray-100'
+                  : isSelected
+                    ? 'border-accent bg-accent/5 shadow-sm cursor-pointer'
+                    : 'border-gray-200 dark:border-gray-700 hover:border-accent/70 hover:bg-accent/5 cursor-pointer'
               }`}
             >
               {/* Top ribbon for best value */}
@@ -96,6 +105,7 @@ const PaymentMethods: React.FC<Props> = ({
                         checked={isSelected}
                         onChange={() => handleMethodSelect(m.id)}
                         className="w-4 h-4 accent-accent"
+                        disabled={isDisabled}
                       />
                     </div>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -110,8 +120,15 @@ const PaymentMethods: React.FC<Props> = ({
                       </p>
                     )}
 
+                    {/* Message when COD is not available */}
+                    {isCOD && isDisabled && (
+                      <p className="mt-2 text-xs text-red-600 dark:text-red-400 font-medium">
+                        Cash on Delivery is not available for this pincode. Please choose online payment.
+                      </p>
+                    )}
+
                     {/* Gentle note for COD when prepaid offer exists */}
-                    {isCOD && hasPrepaidOffer && (
+                    {isCOD && !isDisabled && hasPrepaidOffer && (
                       <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">
                         Note: Prepaid orders get an extra discount of ₹
                         {prepaidDiscount.toLocaleString(

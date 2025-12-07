@@ -11,6 +11,7 @@ interface SizeManagerProps {
   onRemoveSize: (size: string) => void;
   sizePrices: Record<string, number>;
   onSizePriceChange: (size: string, price: number) => void;
+  onSizeQuantityChange: (size: string, quantity: number) => void;
 }
 
 const SizeManager: React.FC<SizeManagerProps> = ({
@@ -22,11 +23,14 @@ const SizeManager: React.FC<SizeManagerProps> = ({
   onAddSize,
   onRemoveSize,
   sizePrices,
-  onSizePriceChange
+  onSizePriceChange,
+  onSizeQuantityChange
 }) => {
   const [priceInput, setPriceInput] = useState('');
   const [editingPrice, setEditingPrice] = useState<string | null>(null);
   const [tempPrice, setTempPrice] = useState('');
+  const [editingQuantity, setEditingQuantity] = useState<string | null>(null);
+  const [tempQuantity, setTempQuantity] = useState('');
 
   const handleAddSize = () => {
     if (sizeInput.trim() && quantityInput.trim() && parseInt(quantityInput) > 0) {
@@ -56,6 +60,25 @@ const SizeManager: React.FC<SizeManagerProps> = ({
   const cancelEditPrice = () => {
     setEditingPrice(null);
     setTempPrice('');
+  };
+
+  const startEditingQuantity = (size: string, currentQuantity: number) => {
+    setEditingQuantity(size);
+    setTempQuantity(currentQuantity.toString());
+  };
+
+  const saveQuantity = (size: string) => {
+    const newQuantity = parseInt(tempQuantity);
+    if (!isNaN(newQuantity) && newQuantity >= 0) {
+      onSizeQuantityChange(size, newQuantity);
+    }
+    setEditingQuantity(null);
+    setTempQuantity('');
+  };
+
+  const cancelEditQuantity = () => {
+    setEditingQuantity(null);
+    setTempQuantity('');
   };
   return (
     <div className="space-y-3">
@@ -114,7 +137,47 @@ const SizeManager: React.FC<SizeManagerProps> = ({
             {Object.entries(sizesList).map(([size, qty]) => (
               <div key={size} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded border">
                 <div className="flex-1">
-                  <div className="text-sm font-medium">Size {size}: {qty} pcs</div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">Size {size}:</span>
+                    {editingQuantity === size ? (
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          value={tempQuantity}
+                          onChange={(e) => setTempQuantity(e.target.value)}
+                          min="0"
+                          className="w-16 px-2 py-1 text-xs border rounded focus:outline-none focus:ring-1 focus:ring-primary"
+                          onKeyPress={(e) => e.key === 'Enter' && saveQuantity(size)}
+                        />
+                        <span className="text-xs text-gray-600">pcs</span>
+                        <button
+                          type="button"
+                          onClick={() => saveQuantity(size)}
+                          className="text-green-600 hover:text-green-700"
+                        >
+                          <Check size={14} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={cancelEditQuantity}
+                          className="text-red-600 hover:text-red-700"
+                        >
+                          <XIcon size={14} />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">{qty} pcs</span>
+                        <button
+                          type="button"
+                          onClick={() => startEditingQuantity(size, qty)}
+                          className="text-blue-600 hover:text-blue-700"
+                        >
+                          <Edit2 size={12} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
                   <div className="flex items-center gap-2 mt-1">
                     <span className="text-xs text-gray-600 dark:text-gray-400">Price:</span>
                     {editingPrice === size ? (

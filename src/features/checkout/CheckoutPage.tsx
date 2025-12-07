@@ -396,6 +396,14 @@ const CheckoutPage: React.FC = () => {
     calculateDeliveryDetails();
   }, [selectedAddress?.pincode, subtotal, fetchDetails]);
 
+  // Auto-switch to online payment if COD becomes unavailable
+  useEffect(() => {
+    if (selectedPayment === "cod" && !codAvailable) {
+      setSelectedPayment("razorpay");
+      showAlert("COD is not available for this pincode. Switched to online payment.", "info");
+    }
+  }, [codAvailable, selectedPayment]);
+
   // Validate COD payment method
   const validateCODPayment = useCallback(() => {
     if (selectedPayment === "cod" && !codAvailable) {
@@ -1277,7 +1285,7 @@ const CheckoutPage: React.FC = () => {
                     
                     {deliveryTime && (
                       <div className="text-sm text-blue-800 dark:text-blue-200">
-                        <span className="font-medium">Estimated Delivery:</span> {deliveryTime}
+                        <span className="font-medium">Estimated Delivery:</span> {deliveryTime} from the date of dispatch
                       </div>
                     )}
                     
@@ -1354,6 +1362,7 @@ const CheckoutPage: React.FC = () => {
                   setCodOtpTriggered(true);
                 }}
                 otpVerified={otpVerified}
+                codAvailable={codAvailable}
               />
             </section>
 

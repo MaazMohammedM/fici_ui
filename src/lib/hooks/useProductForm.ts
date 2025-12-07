@@ -33,7 +33,8 @@ export const useProductForm = () => {
       sizes: '{}',
       images: '',
       thumbnail_url: '',
-      size_prices: '{}'
+      size_prices: '{}',
+      is_active: true
     }
   });
 
@@ -70,6 +71,13 @@ export const useProductForm = () => {
     setSizePrices(newSizePrices);
     // Update the form's size_prices field with JSON string
     form.setValue('size_prices', JSON.stringify(newSizePrices));
+  };
+
+  const handleSizeQuantityChange = (size: string, quantity: number): void => {
+    const newSizesList = { ...sizesList, [size]: quantity };
+    setSizesList(newSizesList);
+    // Update the form's sizes field with JSON string
+    form.setValue('sizes', JSON.stringify(newSizesList));
   };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
@@ -231,6 +239,7 @@ export const useProductForm = () => {
     handleAddSize,
     handleRemoveSize,
     handleSizePriceChange,
+    handleSizeQuantityChange,
     handleFileChange,
     handleThumbnailSelect,
     onSubmit: form.handleSubmit(onSubmit)

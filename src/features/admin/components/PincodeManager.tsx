@@ -80,6 +80,18 @@ export const PincodeManager = () => {
   const [fieldValue, setFieldValue] = useState<boolean | string | number>(true);
   const [scopeValue, setScopeValue] = useState('');
   const [multiplePincodes, setMultiplePincodes] = useState('');
+  const [isNullCondition, setIsNullCondition] = useState<boolean>(false);
+  
+  // Reset field value when field type changes
+  useEffect(() => {
+    if (selectedField === 'is_serviceable' || selectedField === 'cod_allowed' || selectedField === 'active') {
+      setFieldValue(true); // Default boolean fields to true
+    } else if (selectedField === 'delivery_time') {
+      setFieldValue(''); // Default text fields to empty string
+    } else {
+      setFieldValue(0); // Default numeric fields to 0
+    }
+  }, [selectedField]);
   
   // Separate state for new bulk update preview
   const [bulkPreviewCount, setBulkPreviewCount] = useState<number | null>(null);
@@ -184,30 +196,50 @@ export const PincodeManager = () => {
       let sample: string[] = [];
       
       // Build request based on scope
-      const request: any = { scope: selectedScope };
+      const request: any = { 
+        scope: selectedScope,
+        field: selectedField,
+        isNullCondition: isNullCondition
+      };
       
       if (selectedScope === 'state' && scopeValue) {
         request.state = scopeValue;
         count = await getBulkUpdateCount(request);
         
-        // Get sample pincodes for display
-        const { data } = await supabase
+        // Get sample pincodes for display with field condition
+        let sampleQuery = supabase
           .from('pincodes')
           .select('pincode')
-          .eq('state', scopeValue)
-          .limit(50);
+          .eq('state', scopeValue);
+        
+        // Apply field condition
+        if (isNullCondition) {
+          sampleQuery = sampleQuery.is(selectedField, null);
+        } else {
+          sampleQuery = sampleQuery.not(selectedField, 'is', null);
+        }
+        
+        const { data } = await sampleQuery.limit(50);
         sample = data?.map(p => p.pincode) || [];
         
       } else if (selectedScope === 'city' && scopeValue) {
         request.city = scopeValue;
         count = await getBulkUpdateCount(request);
         
-        // Get sample pincodes for display
-        const { data } = await supabase
+        // Get sample pincodes for display with field condition
+        let sampleQuery = supabase
           .from('pincodes')
           .select('pincode')
-          .eq('city', scopeValue)
-          .limit(50);
+          .eq('city', scopeValue);
+        
+        // Apply field condition
+        if (isNullCondition) {
+          sampleQuery = sampleQuery.is(selectedField, null);
+        } else {
+          sampleQuery = sampleQuery.not(selectedField, 'is', null);
+        }
+        
+        const { data } = await sampleQuery.limit(50);
         sample = data?.map(p => p.pincode) || [];
         
       } else if (selectedScope === 'single_pincode' && scopeValue) {
@@ -224,13 +256,25 @@ export const PincodeManager = () => {
         }
         
       } else if (selectedScope === 'all') {
-        count = await getBulkUpdateCount({ scope: 'all' });
+        count = await getBulkUpdateCount({ 
+          scope: 'all',
+          field: selectedField,
+          isNullCondition: isNullCondition
+        });
         
-        // Get sample pincodes for display
-        const { data } = await supabase
+        // Get sample pincodes for display with field condition
+        let sampleQuery = supabase
           .from('pincodes')
-          .select('pincode')
-          .limit(50);
+          .select('pincode');
+        
+        // Apply field condition
+        if (isNullCondition) {
+          sampleQuery = sampleQuery.is(selectedField, null);
+        } else {
+          sampleQuery = sampleQuery.not(selectedField, 'is', null);
+        }
+        
+        const { data } = await sampleQuery.limit(50);
         sample = data?.map(p => p.pincode) || [];
       }
       
@@ -458,6 +502,7 @@ export const PincodeManager = () => {
           field: selectedField,
           value: fieldValue,
           scope: selectedScope,
+          isNullCondition: isNullCondition,
           ...(selectedScope === 'state' && { state: scopeValue }),
           ...(selectedScope === 'city' && { city: scopeValue }),
           ...(selectedScope === 'single_pincode' && { pincode: scopeValue.trim() }),
@@ -566,11 +611,11 @@ export const PincodeManager = () => {
         <div className="flex gap-2 w-full sm:w-auto">
           <Button 
             onClick={() => setShowBulkUpdate(true)}
-            className="bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100 dark:bg-purple-900/20 dark:border-purple-800 dark:text-purple-400 dark:hover:bg-purple-900/30 flex-1 sm:flex-none text-xs sm:text-sm"
+            className="bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 dark:bg-purple-900/20 dark:border-purple-800 dark:text-blue-400 dark:hover:bg-blue-900/30 flex-1 sm:flex-none text-xs sm:text-sm"
           >
             <Play className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
             <span className="hidden xs:inline">Bulk Update</span>
-            <span className="xs:hidden">Bulk</span>
+            <span className="xs:hidden">Bulk Update</span>
           </Button>
           <Button 
             onClick={() => setShowBulkEdit(true)}
@@ -849,6 +894,19 @@ export const PincodeManager = () => {
                 </select>
               </div>
 
+              {/* Field Condition Selection */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Field Condition</Label>
+                <select
+                  value={isNullCondition ? 'null' : 'not_null'}
+                  onChange={(e) => setIsNullCondition(e.target.value === 'null')}
+                  className="w-full border rounded-lg p-2 bg-white dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-gray-100"
+                >
+                  <option value="not_null">Update fields that are NOT null</option>
+                  <option value="null">Update fields that ARE null</option>
+                </select>
+              </div>
+
               <div className="space-y-2">
                 <Label className="text-sm font-medium">Scope</Label>
                 <select
@@ -929,7 +987,7 @@ export const PincodeManager = () => {
               {/* Value Input */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium">New Value</Label>
-                {(selectedField === 'is_serviceable' || selectedField === 'cod_allowed') ? (
+                {(selectedField === 'is_serviceable' || selectedField === 'cod_allowed' || selectedField === 'active') ? (
                   <div className="flex items-center space-x-4">
                     <label className="flex items-center">
                       <input

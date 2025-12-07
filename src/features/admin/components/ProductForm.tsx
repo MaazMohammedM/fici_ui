@@ -46,6 +46,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
     handleAddSize,
     handleRemoveSize,
     handleSizePriceChange,
+    handleSizeQuantityChange,
     handleFileChange,
     handleThumbnailSelect,
     onSubmit,
@@ -353,6 +354,19 @@ const ProductForm: React.FC<ProductFormProps> = ({
           )}
         </div>
 
+        {/* Active Status */}
+        <div className="flex items-center space-x-2">
+          <input
+            type="checkbox"
+            id="is_active"
+            {...(register as any)('is_active')}
+            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+          />
+          <label htmlFor="is_active" className="text-sm font-medium text-gray-700 dark:text-white">
+            Product is active
+          </label>
+        </div>
+
         {/* Size Manager */}
         <div className="md:col-span-2">
           <SizeManager
@@ -365,6 +379,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
             onRemoveSize={handleRemoveSize}
             sizePrices={sizePrices}
             onSizePriceChange={handleSizePriceChange}
+            onSizeQuantityChange={handleSizeQuantityChange}
           />
         </div>
 

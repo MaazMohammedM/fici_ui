@@ -89,6 +89,13 @@ export const useEditProductForm = (product: AdminProduct, onSuccess?: () => void
     form.setValue('size_prices', JSON.stringify(newSizePrices));
   };
 
+  const handleSizeQuantityChange = (size: string, quantity: number) => {
+    const newSizesList = { ...sizesList, [size]: quantity };
+    setSizesList(newSizesList);
+    // Update the form's sizes field with JSON string
+    form.setValue('sizes', JSON.stringify(newSizesList));
+  };
+
   const onSubmit = async (data: PartialEditProductFormData) => {
     console.log('🚀 FORM SUBMISSION TRIGGERED!');
     console.log('📝 Form data received:', data);
@@ -227,6 +234,7 @@ export const useEditProductForm = (product: AdminProduct, onSuccess?: () => void
     handleAddSize,
     handleRemoveSize,
     handleSizePriceChange,
+    handleSizeQuantityChange,
     onSubmit
   };
 };

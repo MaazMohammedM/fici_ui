@@ -20,7 +20,8 @@ export const enhancedProductSchema = z.object({
   }, 'Please add at least one size with quantity'),
   images: z.string().optional(), // Optional for form validation, checked manually in onSubmit
   thumbnail_url: z.string().optional(),
-  size_prices: z.string().optional() // JSON string for per-size pricing
+  size_prices: z.string().optional(), // JSON string for per-size pricing
+  is_active: z.boolean().default(true).optional()
 });
 
 // Update schema for editing (without article_id) - allows partial updates

@@ -181,7 +181,7 @@ const PincodeSearch: React.FC = () => {
           {deliveryTime && (
             <div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
               <Clock className="h-3 w-3 mr-2 text-gray-400" />
-              <span>Delivery by: {deliveryTime} (3 days after shipping)</span>
+              <span>Delivery by: {deliveryTime} from the date of dispatch</span>
             </div>
           )}
           

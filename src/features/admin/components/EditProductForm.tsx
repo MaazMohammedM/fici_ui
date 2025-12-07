@@ -4,6 +4,7 @@ import { X } from 'lucide-react';
 import { useEditProductForm } from '@lib/hooks/useEditProductForm';
 import { useAdminStore } from '../store/adminStore';
 import SizeManager from './SizeManager';
+import ProductDiscountForm from './ProductDiscountForm';
 import type { AdminProduct } from '../store/adminStore';
 
 interface EditProductFormProps {
@@ -29,6 +30,7 @@ export const EditProductForm: React.FC<EditProductFormProps> = ({
     handleAddSize,
     handleRemoveSize,
     handleSizePriceChange,
+    handleSizeQuantityChange,
     onSubmit
   } = useEditProductForm(product, onSuccess);
 
@@ -295,6 +297,7 @@ export const EditProductForm: React.FC<EditProductFormProps> = ({
             onRemoveSize={handleRemoveSize}
             sizePrices={sizePrices}
             onSizePriceChange={handleSizePriceChange}
+            onSizeQuantityChange={handleSizeQuantityChange}
           />
         </div>
 
@@ -382,6 +385,15 @@ export const EditProductForm: React.FC<EditProductFormProps> = ({
             );
           })}
         </div>
+      </div>
+
+      {/* Product Discount Section */}
+      <div className="md:col-span-2 mt-6 p-4 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-800">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Product Discount Settings</h3>
+        <ProductDiscountForm 
+          allProducts={[product]} 
+          singleProductId={product.product_id} 
+        />
       </div>
 
       {/* Action Buttons */}

@@ -27,7 +27,7 @@ const PopularCategoriesSection: React.FC = () => {
   return (
     <section className="w-full">
       {/* Compact tech-premium header */}
-      <div className="text-center mb-6 sm:mb-8 lg:mb-10">
+      <div className="text-center mb-4 sm:mb-6">
         <div className="space-y-2">
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black bg-gradient-to-r from-purple-600 via-pink-600 to-purple-600 bg-clip-text text-transparent bg-300% animate-gradient">
             Shop by Category

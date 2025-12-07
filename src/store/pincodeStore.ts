@@ -51,17 +51,18 @@ interface PincodeState {
   bulkUpdatePincodes: (request: BulkPincodeUpdateRequest) => Promise<{ updatedCount: number; error?: string }>;
   
   // New method to get count for preview
-  getBulkUpdateCount: (request: Omit<BulkPincodeUpdateRequest, 'field' | 'value'>) => Promise<number>;
+  getBulkUpdateCount: (request: Omit<BulkPincodeUpdateRequest, 'value'>) => Promise<number>;
 }
 
 export type BulkPincodeUpdateRequest = {
-  field: 'is_serviceable' | 'cod_allowed' | 'delivery_time' | 'min_order_amount' | 'shipping_fee' | 'cod_fee' | 'free_shipping_threshold';
+  field: 'is_serviceable' | 'cod_allowed' | 'active' | 'delivery_time' | 'min_order_amount' | 'shipping_fee' | 'cod_fee' | 'free_shipping_threshold';
   value: boolean | string | number;
   scope: 'all' | 'state' | 'city' | 'single_pincode' | 'multiple_pincodes';
   state?: string;
   city?: string;
   pincode?: string;
   pincodes?: string[];
+  isNullCondition?: boolean; // true for updating null fields, false for updating non-null fields
 };
 
 export const usePincodeStore = create<PincodeState>((set, get) => ({
@@ -303,46 +304,100 @@ export const usePincodeStore = create<PincodeState>((set, get) => ({
     try {
       // Build the update data first
       const updateData: any = {};
-      updateData[request.field] = request.value;
+      
+      // Convert field values to proper types
+      let processedValue = request.value;
+      
+      // Handle boolean fields
+      if (['is_serviceable', 'cod_allowed', 'active'].includes(request.field)) {
+        if (typeof request.value === 'string') {
+          processedValue = request.value.toLowerCase() === 'true';
+        }
+      }
+      // Handle numeric fields
+      else if (['min_order_amount', 'shipping_fee', 'cod_fee', 'free_shipping_threshold'].includes(request.field)) {
+        if (typeof request.value === 'string') {
+          processedValue = parseFloat(request.value);
+          if (isNaN(processedValue)) {
+            processedValue = null;
+          }
+        }
+      }
+      
+      updateData[request.field] = processedValue;
       updateData.updated_at = new Date().toISOString();
+      
+      // Debug logging
+      console.log('Bulk Update Debug:', {
+        field: request.field,
+        originalValue: request.value,
+        processedValue: processedValue,
+        updateData: updateData,
+        isNullCondition: request.isNullCondition
+      });
       
       // Build the update query based on scope
       let query: any;
       
+      // Build where clause based on field null/not null condition
+      const buildWhereClause = (baseQuery: any, field: string, isNullCondition: boolean) => {
+        if (isNullCondition) {
+          return baseQuery.is(field, null);
+        } else {
+          return baseQuery.not(field, 'is', null);
+        }
+      };
+
       switch (request.scope) {
         case 'all':
-          // No additional filter - update all pincodes
-          query = supabase.from('pincodes').update(updateData);
+          // Update all pincodes with field null/not null condition
+          query = buildWhereClause(
+            supabase.from('pincodes').update(updateData),
+            request.field,
+            request.isNullCondition
+          );
           break;
           
         case 'state':
           if (!request.state) {
             throw new Error('State is required for state scope');
           }
-          query = supabase
-            .from('pincodes')
-            .update(updateData)
-            .eq('state', request.state);
+          query = buildWhereClause(
+            supabase
+              .from('pincodes')
+              .update(updateData)
+              .eq('state', request.state),
+            request.field,
+            request.isNullCondition
+          );
           break;
           
         case 'city':
           if (!request.city) {
             throw new Error('City is required for city scope');
           }
-          query = supabase
-            .from('pincodes')
-            .update(updateData)
-            .eq('city', request.city);
+          query = buildWhereClause(
+            supabase
+              .from('pincodes')
+              .update(updateData)
+              .eq('city', request.city),
+            request.field,
+            request.isNullCondition
+          );
           break;
           
         case 'single_pincode':
           if (!request.pincode) {
             throw new Error('Pincode is required for single pincode scope');
           }
-          query = supabase
-            .from('pincodes')
-            .update(updateData)
-            .eq('pincode', request.pincode);
+          query = buildWhereClause(
+            supabase
+              .from('pincodes')
+              .update(updateData)
+              .eq('pincode', request.pincode),
+            request.field,
+            request.isNullCondition
+          );
           break;
           
         case 'multiple_pincodes':
@@ -350,10 +405,14 @@ export const usePincodeStore = create<PincodeState>((set, get) => ({
             throw new Error('Pincodes are required for multiple pincodes scope');
           }
           // Use single query with .in() for multiple pincodes
-          query = supabase
-            .from('pincodes')
-            .update(updateData)
-            .in('pincode', request.pincodes);
+          query = buildWhereClause(
+            supabase
+              .from('pincodes')
+              .update(updateData)
+              .in('pincode', request.pincodes),
+            request.field,
+            request.isNullCondition
+          );
           break;
           
         default:
@@ -361,9 +420,12 @@ export const usePincodeStore = create<PincodeState>((set, get) => ({
       }
       
       // Execute the update and get count
+      console.log('Executing query with scope:', request.scope);
       const { data, error, count } = await (query as any)
         .select('pincode')
         .throwOnError();
+      
+      console.log('Query Results:', { data, error, count });
       
       if (error) throw error;
       
@@ -413,52 +475,81 @@ export const usePincodeStore = create<PincodeState>((set, get) => ({
     try {
       let query: any;
       
+      // Build where clause based on field null/not null condition
+      const buildWhereClause = (baseQuery: any, field: string, isNullCondition: boolean) => {
+        if (isNullCondition) {
+          return baseQuery.is(field, null);
+        } else {
+          return baseQuery.not(field, 'is', null);
+        }
+      };
+      
       switch (request.scope) {
         case 'all':
-          // No additional filter - count all pincodes
-          query = supabase
-            .from('pincodes')
-            .select('*', { count: 'exact', head: true });
+          // Count all pincodes with field null/not null condition
+          query = buildWhereClause(
+            supabase
+              .from('pincodes')
+              .select('*', { count: 'exact', head: true }),
+            request.field,
+            request.isNullCondition
+          );
           break;
           
         case 'state':
           if (!request.state) {
             throw new Error('State is required for state scope');
           }
-          query = supabase
-            .from('pincodes')
-            .select('*', { count: 'exact', head: true })
-            .eq('state', request.state);
+          query = buildWhereClause(
+            supabase
+              .from('pincodes')
+              .select('*', { count: 'exact', head: true })
+              .eq('state', request.state),
+            request.field,
+            request.isNullCondition
+          );
           break;
           
         case 'city':
           if (!request.city) {
             throw new Error('City is required for city scope');
           }
-          query = supabase
-            .from('pincodes')
-            .select('*', { count: 'exact', head: true })
-            .eq('city', request.city);
+          query = buildWhereClause(
+            supabase
+              .from('pincodes')
+              .select('*', { count: 'exact', head: true })
+              .eq('city', request.city),
+            request.field,
+            request.isNullCondition
+          );
           break;
           
         case 'single_pincode':
           if (!request.pincode) {
             throw new Error('Pincode is required for single pincode scope');
           }
-          query = supabase
-            .from('pincodes')
-            .select('*', { count: 'exact', head: true })
-            .eq('pincode', request.pincode);
+          query = buildWhereClause(
+            supabase
+              .from('pincodes')
+              .select('*', { count: 'exact', head: true })
+              .eq('pincode', request.pincode),
+            request.field,
+            request.isNullCondition
+          );
           break;
           
         case 'multiple_pincodes':
           if (!request.pincodes || request.pincodes.length === 0) {
             throw new Error('Pincodes are required for multiple pincodes scope');
           }
-          query = supabase
-            .from('pincodes')
-            .select('*', { count: 'exact', head: true })
-            .in('pincode', request.pincodes);
+          query = buildWhereClause(
+            supabase
+              .from('pincodes')
+              .select('*', { count: 'exact', head: true })
+              .in('pincode', request.pincodes),
+            request.field,
+            request.isNullCondition
+          );
           break;
           
         default:

@@ -45,6 +45,13 @@ const AddressForm: React.FC<Props> = ({ onSelect, selectedId }) => {
   const [loading, setLoading] = useState(false);
   const [showAllAddresses, setShowAllAddresses] = useState(false);
 
+  // Validation state
+  const [errors, setErrors] = useState<{
+    phone?: string;
+    email?: string;
+    pincode?: string;
+  }>({});
+
   // Alert modal state
   const [alertModal, setAlertModal] = useState<{
     isOpen: boolean;
@@ -66,6 +73,59 @@ const AddressForm: React.FC<Props> = ({ onSelect, selectedId }) => {
       message,
       type,
     });
+  };
+
+  // Validation functions
+  const validatePhone = (phone: string) => {
+    const phoneRegex = /^[6-9]\d{9}$/; // Indian mobile number: starts with 6-9, total 10 digits
+    if (!phone) {
+      return 'Phone number is required';
+    }
+    if (!phoneRegex.test(phone)) {
+      return 'Please enter a valid 10-digit mobile number';
+    }
+    return '';
+  };
+
+  const validateEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email) {
+      return ''; // Email is optional
+    }
+    if (!emailRegex.test(email)) {
+      return 'Please enter a valid email address';
+    }
+    return '';
+  };
+
+  const validatePincode = (pincode: string) => {
+    const pincodeRegex = /^\d{6}$/; // Exactly 6 digits
+    if (!pincode) {
+      return 'Pincode is required';
+    }
+    if (!pincodeRegex.test(pincode)) {
+      return 'Pincode must be exactly 6 digits';
+    }
+    return '';
+  };
+
+  // Real-time validation handlers
+  const handlePhoneChange = (value: string) => {
+    setForm(prev => ({ ...prev, phone: value }));
+    const error = validatePhone(value);
+    setErrors(prev => ({ ...prev, phone: error }));
+  };
+
+  const handleEmailChange = (value: string) => {
+    setForm(prev => ({ ...prev, email: value }));
+    const error = validateEmail(value);
+    setErrors(prev => ({ ...prev, email: error }));
+  };
+
+  const handlePincodeChange = (value: string) => {
+    setForm(prev => ({ ...prev, pincode: value }));
+    const error = validatePincode(value);
+    setErrors(prev => ({ ...prev, pincode: error }));
   };
 
   // Handle pincode selection from suggestions
@@ -109,6 +169,17 @@ const AddressForm: React.FC<Props> = ({ onSelect, selectedId }) => {
       if (error) throw error;
       const arr = Array.isArray(data?.addresses) ? data.addresses : [];
       setAddresses(arr);
+      
+      // Auto-select default address if exists and no address is currently selected
+      if (arr.length > 0 && !selectedId) {
+        const defaultAddress = arr.find(addr => addr.is_default);
+        if (defaultAddress) {
+          onSelect(defaultAddress);
+        } else if (arr.length === 1) {
+          // If only one address and no default, select it
+          onSelect(arr[0]);
+        }
+      }
     } catch (err) {
       showAlert("Failed to load addresses. Please try again.", "error");
     } finally {
@@ -195,11 +266,17 @@ const AddressForm: React.FC<Props> = ({ onSelect, selectedId }) => {
     }
   };
 
-  // Always show default address first in the list
-  const sortedAddresses = [...addresses].sort(
-    (a, b) =>
-      (b.is_default ? 1 : 0) - (a.is_default ? 1 : 0) // true first
-  );
+  // Always show default address first, then sort by ID
+  const sortedAddresses = [...addresses].sort((a, b) => {
+    // First, sort by is_default (true first)
+    const defaultOrder = (b.is_default ? 1 : 0) - (a.is_default ? 1 : 0);
+    if (defaultOrder !== 0) return defaultOrder;
+    
+    // If both have same is_default status, sort by ID
+    const aId = a.id || '';
+    const bId = b.id || '';
+    return aId.localeCompare(bId);
+  });
 
   return (
     <div className="bg-white dark:bg-dark2 rounded-2xl shadow-lg p-6">
@@ -241,14 +318,14 @@ const AddressForm: React.FC<Props> = ({ onSelect, selectedId }) => {
             <div className="space-y-2">
               <h3 className="font-medium text-gray-900 dark:text-gray-100">Saved Addresses</h3>
               <div className="space-y-3">
-                {addresses.slice(0, showAllAddresses ? undefined : 2).map((addr) => (
+                {sortedAddresses.slice(0, showAllAddresses ? undefined : 2).map((addr) => (
                   <div
                     key={addr.id}
                     onClick={() => onSelect(addr)}
-                    className={`p-4 border rounded-lg cursor-pointer transition-colors ${
+                    className={`p-4 border rounded-lg cursor-pointer transition-all duration-200 relative ${
                       selectedId === addr.id
-                        ? 'border-primary-500 bg-primary-50 dark:bg-dark3'
-                        : 'border-gray-200 dark:border-gray-700 hover:border-primary-300 dark:hover:border-primary-600 bg-white dark:bg-dark2'
+                        ? 'border-blue-500 bg-blue-50 dark:border-blue-400 dark:bg-blue-900/20 shadow-md ring-2 ring-blue-500/20'
+                        : 'border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 hover:bg-gray-50 dark:hover:bg-gray-700 bg-white dark:bg-dark2'
                     }`}
                   >
                     <div className="flex justify-between items-start">
@@ -363,10 +440,19 @@ const AddressForm: React.FC<Props> = ({ onSelect, selectedId }) => {
                 <input
                   type="tel"
                   value={form.phone || ''}
-                  onChange={(e) => setForm(prev => ({ ...prev, phone: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 dark:bg-dark3 dark:text-gray-100"
+                  onChange={(e) => handlePhoneChange(e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 dark:bg-dark3 dark:text-gray-100 ${
+                    errors.phone 
+                      ? 'border-red-500 focus:border-red-500' 
+                      : 'border-gray-300 dark:border-gray-600'
+                  }`}
+                  placeholder="10-digit mobile number"
+                  maxLength={10}
                   required
                 />
+                {errors.phone && (
+                  <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.phone}</p>
+                )}
               </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -377,9 +463,17 @@ const AddressForm: React.FC<Props> = ({ onSelect, selectedId }) => {
                 <input
                   type="email"
                   value={form.email || ''}
-                  onChange={(e) => setForm(prev => ({ ...prev, email: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 dark:bg-dark3 dark:text-gray-100"
+                  onChange={(e) => handleEmailChange(e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 dark:bg-dark3 dark:text-gray-100 ${
+                    errors.email 
+                      ? 'border-red-500 focus:border-red-500' 
+                      : 'border-gray-300 dark:border-gray-600'
+                  }`}
+                  placeholder="your@email.com"
                 />
+                {errors.email && (
+                  <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.email}</p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -387,12 +481,16 @@ const AddressForm: React.FC<Props> = ({ onSelect, selectedId }) => {
                 </label>
                 <PincodeInput
                   value={form.pincode || ''}
-                  onChange={(value) => setForm(prev => ({ ...prev, pincode: value }))}
+                  onChange={(value) => handlePincodeChange(value)}
                   onPincodeSelect={handlePincodeSelect}
                   onDetailsFetched={handlePincodeDetails}
                   placeholder="Enter 6-digit pincode"
                   showDeliveryInfo={true}
+                  className={errors.pincode ? 'border-red-500' : ''}
                 />
+                {errors.pincode && (
+                  <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.pincode}</p>
+                )}
               </div>
             </div>
             <div>
@@ -497,7 +595,7 @@ const AddressForm: React.FC<Props> = ({ onSelect, selectedId }) => {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-4 py-2 text-sm font-medium text-white bg-primary-600 border border-transparent rounded-md shadow-sm hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed dark:bg-primary-600 dark:hover:bg-primary-700 transition-colors"
+                  className="px-4 py-2 text-sm font-medium text-white bg-primary border border-transparent rounded-md shadow-sm hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   {loading ? 'Saving...' : editing ? 'Update Address' : 'Save Address'}
                 </button>
