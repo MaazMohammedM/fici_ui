@@ -301,25 +301,25 @@ const ProductPage: React.FC = () => {
     }
   }, [fetchProducts, location.search]);
 
-  useEffect(() => {
-    const currentSearchParam = new URLSearchParams(location.search).get("q") || "";
-    if (debouncedSearchInput !== currentSearchParam) {
-      handleSearch();
-    }
-  }, [debouncedSearchInput]);
-
   // --- Handlers --------------------------------------------------
 
   const handleSearch = useCallback(() => {
     const params = new URLSearchParams(location.search);
-    const q = searchInput.trim();
+    const q = debouncedSearchInput.trim();
 
     if (q) params.set("q", q);
     else params.delete("q");
 
     params.delete("page");
     navigate({ pathname: "/products", search: params.toString() });
-  }, [location.search, searchInput, navigate]);
+  }, [location.search, debouncedSearchInput, navigate]);
+
+  useEffect(() => {
+    const currentSearchParam = new URLSearchParams(location.search).get("q") || "";
+    if (debouncedSearchInput !== currentSearchParam) {
+      handleSearch();
+    }
+  }, [debouncedSearchInput, handleSearch]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
