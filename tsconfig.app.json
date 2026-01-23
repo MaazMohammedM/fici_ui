@@ -17,6 +17,7 @@
     "noUnusedParameters": false,  // Disabled to avoid bundling issues
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true,
     "noUncheckedSideEffectImports": true,
 
     /* Added for path aliasing */
