@@ -28,6 +28,38 @@ export default defineConfig({
       {
         find: '@lib',
         replacement: path.resolve(__dirname, './src/lib').replace(/\\/g, '/')
+      },
+      {
+        find: '@components',
+        replacement: path.resolve(__dirname, './src/components').replace(/\\/g, '/')
+      },
+      {
+        find: '@features',
+        replacement: path.resolve(__dirname, './src/features').replace(/\\/g, '/')
+      },
+      {
+        find: '@types',
+        replacement: path.resolve(__dirname, './src/types').replace(/\\/g, '/')
+      },
+      {
+        find: '@store',
+        replacement: path.resolve(__dirname, './src/store').replace(/\\/g, '/')
+      },
+      {
+        find: '@auth',
+        replacement: path.resolve(__dirname, './src/auth').replace(/\\/g, '/')
+      },
+      {
+        find: '@orders',
+        replacement: path.resolve(__dirname, './src/features/orders').replace(/\\/g, '/')
+      },
+      {
+        find: '@checkout',
+        replacement: path.resolve(__dirname, './src/features/checkout').replace(/\\/g, '/')
+      },
+      {
+        find: '@hooks',
+        replacement: path.resolve(__dirname, './src/hooks').replace(/\\/g, '/')
       }
     ]
   },
