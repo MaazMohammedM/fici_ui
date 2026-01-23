@@ -8,7 +8,7 @@ import {
   validateOtpIdentity,
   getOtpContact,
   type Identity
-} from '../../utils/identitySource';
+} from '@utils/identitySource';
 
 interface OtpMethodSelectorProps {
   method: 'email' | 'phone';
