@@ -31,8 +31,7 @@
       "@auth/*": ["./auth/*"],
       "@orders/*": ["features/orders/*"],
       "@checkout/*": ["features/checkout/*"],
-      "@hooks/*": ["hooks/*"],
-      "@utils/*": ["../utils/*"]
+      "@hooks/*": ["hooks/*"]
     }
   },
   "include": ["src"]

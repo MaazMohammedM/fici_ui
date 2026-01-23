@@ -60,10 +60,6 @@ export default defineConfig({
       {
         find: '@hooks',
         replacement: path.resolve(__dirname, './src/hooks').replace(/\\/g, '/')
-      },
-      {
-        find: '@utils',
-        replacement: path.resolve(__dirname, './src/utils').replace(/\\/g, '/')
       }
     ]
   },

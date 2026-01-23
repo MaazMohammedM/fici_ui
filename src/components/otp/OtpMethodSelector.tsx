@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect } from 'react';
 import { validateContact } from '../../lib/otpApi';
-import { InfoBanner } from '../ui/InfoBanner';
 import { 
   getIdentity,
   isPhoneMissing,
@@ -8,7 +7,8 @@ import {
   validateOtpIdentity,
   getOtpContact,
   type Identity
-} from '@utils/identitySource';
+} from '../../utils/identitySource';
+import { InfoBanner } from '../ui/InfoBanner';
 
 interface OtpMethodSelectorProps {
   method: 'email' | 'phone';
