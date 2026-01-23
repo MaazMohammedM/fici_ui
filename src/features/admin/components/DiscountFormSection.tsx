@@ -1,6 +1,6 @@
-// @ts-nocheck
+// Improved DiscountFormSection.tsx
 import React, { useState, useEffect } from "react";
-import { Percent, MapPin } from "lucide-react";
+import { Percent, MapPin, Info, AlertCircle } from "lucide-react";
 import { PincodeManager } from "./PincodeManager";
 import ProductDiscountForm from "./ProductDiscountForm";
 import {
@@ -17,9 +17,11 @@ type DiscountFormSectionProps = {
 };
 
 type CheckoutErrors = {
-  min_cart_value?: string;
+  min_order?: string;
   max_discount_cap?: string;
   value?: string;
+  starts_at?: string;
+  ends_at?: string;
 };
 
 const DiscountFormSection: React.FC<DiscountFormSectionProps> = ({
@@ -32,19 +34,19 @@ const DiscountFormSection: React.FC<DiscountFormSectionProps> = ({
   const [checkoutRule, setCheckoutRule] = useState<CheckoutRule | null>(null);
   const [savingCheckout, setSavingCheckout] = useState(false);
   const [checkoutErrors, setCheckoutErrors] = useState<CheckoutErrors>({});
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
   // Load checkout rule on mount
   useEffect(() => {
     const loadCheckoutRule = async () => {
       try {
-        const rule = await getActiveCheckoutRule();
-        setCheckoutRule(rule || {
+        setCheckoutRule(await getActiveCheckoutRule() || {
           rule_type: "amount",
-          amount: 0,
+          amount: null,
           percent: null,
           min_order: null,
           max_discount_cap: null,
-          active: true,
+          active: false,
           starts_at: null,
           ends_at: null
         });
@@ -60,7 +62,7 @@ const DiscountFormSection: React.FC<DiscountFormSectionProps> = ({
     const errors: CheckoutErrors = {};
 
     if (rule.min_order != null && rule.min_order < 0) {
-      errors.min_cart_value = "Minimum order amount cannot be negative";
+      errors.min_order = "Minimum order amount cannot be negative";
     }
 
     if (rule.rule_type === "percent") {
@@ -78,6 +80,11 @@ const DiscountFormSection: React.FC<DiscountFormSectionProps> = ({
       }
     }
 
+    // Validate date range
+    if (rule.starts_at && rule.ends_at && new Date(rule.starts_at) >= new Date(rule.ends_at)) {
+      errors.ends_at = "End date must be after start date";
+    }
+
     setCheckoutErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -92,6 +99,8 @@ const DiscountFormSection: React.FC<DiscountFormSectionProps> = ({
     try {
       setSavingCheckout(true);
       await upsertCheckoutRule(checkoutRule);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
     } catch (error) {
       console.error("Failed to save checkout rule:", error);
     } finally {
@@ -100,7 +109,7 @@ const DiscountFormSection: React.FC<DiscountFormSectionProps> = ({
   };
 
   if (!checkoutRule) {
-    return <div>Loading...</div>;
+    return <div className="p-4">Loading discount settings...</div>;
   }
 
   return (
@@ -111,198 +120,395 @@ const DiscountFormSection: React.FC<DiscountFormSectionProps> = ({
             {showCheckoutDiscount && (
               <li className="me-2" role="presentation">
                 <button
-                  className={`inline-block p-4 border-b-2 rounded-t-lg ${
+                  className={`inline-flex items-center p-4 border-b-2 rounded-t-lg ${
                     activeTab === "checkout"
                       ? "text-blue-600 border-blue-600 dark:text-blue-500 dark:border-blue-500"
                       : "hover:text-gray-600 hover:border-gray-300 dark:hover:text-gray-300"
                   }`}
                   onClick={() => setActiveTab("checkout")}
                 >
-                  <div className="flex items-center gap-2">
-                    <Percent className="w-4 h-4" />
-                    <span>Checkout Discount</span>
-                  </div>
+                  <Percent className="w-4 h-4 mr-2" />
+                  <span>Checkout Discount</span>
                 </button>
               </li>
             )}
             <li className="me-2" role="presentation">
               <button
-                className={`inline-block p-4 border-b-2 rounded-t-lg ${
+                className={`inline-flex items-center p-4 border-b-2 rounded-t-lg ${
                   activeTab === "product"
                     ? "text-blue-600 border-blue-600 dark:text-blue-500 dark:border-blue-500"
                     : "hover:text-gray-600 hover:border-gray-300 dark:hover:text-gray-300"
                 }`}
                 onClick={() => setActiveTab("product")}
               >
-                <div className="flex items-center gap-2">
-                  <Percent className="w-4 h-4" />
-                  <span>Product Discounts</span>
-                </div>
+                <Percent className="w-4 h-4 mr-2" />
+                <span>Product Discounts</span>
               </button>
             </li>
             <li className="me-2" role="presentation">
               <button
-                className={`inline-block p-4 border-b-2 rounded-t-lg ${
+                className={`inline-flex items-center p-4 border-b-2 rounded-t-lg ${
                   activeTab === "pincode"
                     ? "text-blue-600 border-blue-600 dark:text-blue-500 dark:border-blue-500"
                     : "hover:text-gray-600 hover:border-gray-300 dark:hover:text-gray-300"
                 }`}
                 onClick={() => setActiveTab("pincode")}
               >
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-4 h-4" />
-                  <span>Pincode Management</span>
-                </div>
+                <MapPin className="w-4 h-4 mr-2" />
+                <span>Pincode Management</span>
               </button>
             </li>
           </ul>
         </div>
       )}
 
-      <div className="space-y-4">
+      <div className="space-y-6">
+        {saveSuccess && (
+          <div className="p-4 mb-4 text-sm text-green-700 bg-green-100 rounded-lg dark:bg-green-200 dark:text-green-800" role="alert">
+            <span className="font-medium">Success!</span> Checkout discount settings saved successfully.
+          </div>
+        )}
+
         {(!showTabs || activeTab === "checkout") && showCheckoutDiscount && (
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-4 sm:p-6">
-            <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Checkout Discount</h3>
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <label className="text-sm">
-                  Type
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+            <div className="mb-6">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Checkout Discount Settings</h2>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Configure site-wide discounts applied during checkout
+              </p>
+            </div>
+
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Discount Type */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Discount Type
+                    <span className="text-red-500 ml-1">*</span>
+                  </label>
                   <select
-                    className="mt-1 w-full border rounded p-2 bg-transparent dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-gray-100"
+                    className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                     value={checkoutRule.rule_type || "amount"}
                     onChange={(e) => {
+                      const newType = e.target.value as "percent" | "amount";
                       setCheckoutRule({
                         ...checkoutRule,
-                        rule_type: e.target.value as "percent" | "amount",
-                        amount: e.target.value === "amount" ? 0 : null,
-                        percent: e.target.value === "percent" ? 10 : null
+                        rule_type: newType,
+                        amount: newType === "amount" ? 0 : null,
+                        percent: newType === "percent" ? 10 : null
                       });
                     }}
                   >
-                    <option value="amount">Amount</option>
-                    <option value="percent">Percent</option>
+                    <option value="amount">Fixed Amount</option>
+                    <option value="percent">Percentage</option>
                   </select>
-                </label>
-                <label className="text-sm flex items-center">
-                  Active
-                  <input
-                    type="checkbox"
-                    checked={!!checkoutRule.active}
-                    onChange={(e) => {
-                      setCheckoutRule({
-                        ...checkoutRule,
-                        active: e.target.checked,
-                      });
-                    }}
-                    className="ml-2"
-                  />
-                </label>
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    {checkoutRule.rule_type === "percent" 
+                      ? "Discount will be calculated as a percentage of the order total"
+                      : "Fixed amount to be deducted from the order total"}
+                  </p>
+                </div>
+
+                {/* Active Toggle */}
+                <div className="flex items-center">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Status
+                    </label>
+                    <div className="mt-1">
+                      <label className="inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="sr-only peer"
+                          checked={!!checkoutRule.active}
+                          onChange={(e) => {
+                            setCheckoutRule({
+                              ...checkoutRule,
+                              active: e.target.checked,
+                            });
+                          }}
+                        />
+                        <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                        <span className="ms-3 text-sm font-medium text-gray-700 dark:text-gray-300">
+                          {checkoutRule.active ? "Active" : "Inactive"}
+                        </span>
+                      </label>
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      {checkoutRule.active
+                        ? "This discount is currently active and will be applied to eligible orders."
+                        : "This discount is currently inactive and won't be applied to any orders."}
+                    </p>
+                  </div>
+                </div>
               </div>
 
-              {checkoutRule.rule_type === "percent" ? (
-                <label className="text-sm">
-                  Percent (%)
-                  <input
-                    type="number"
-                    min={0}
-                    max={100}
-                    className="mt-1 w-full border rounded p-2 bg-transparent dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-gray-100"
-                    value={checkoutRule.percent ?? ""}
-                    onChange={(e) => {
-                      const raw = e.target.value;
-                      if (!/^\d*$/.test(raw)) return;
-                      setCheckoutRule({
-                        ...checkoutRule,
-                        percent: raw === "" ? null : Number(raw),
-                      });
-                    }}
-                  />
-                  {checkoutErrors.value && (
-                    <p className="mt-1 text-xs text-red-500 dark:text-red-400">
-                      {checkoutErrors.value}
+              {/* Discount Value */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {checkoutRule.rule_type === "percent" ? (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Discount Percentage
+                      <span className="text-red-500 ml-1">*</span>
+                    </label>
+                    <div className="mt-1 relative rounded-md shadow-sm">
+                      <input
+                        type="number"
+                        min="1"
+                        max="100"
+                        className={`block w-full pr-10 sm:text-sm rounded-md ${
+                          checkoutErrors.value
+                            ? "border-red-300 text-red-900 placeholder-red-300 focus:outline-none focus:ring-red-500 focus:border-red-500"
+                            : "border-gray-300 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                        }`}
+                        value={checkoutRule.percent ?? ""}
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          if (!/^\d*$/.test(raw)) return;
+                          setCheckoutRule({
+                            ...checkoutRule,
+                            percent: raw === "" ? null : Number(raw),
+                          });
+                        }}
+                        aria-invalid={!!checkoutErrors.value}
+                        aria-describedby="percent-error"
+                      />
+                      <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                        <span className="text-gray-500 sm:text-sm">%</span>
+                      </div>
+                    </div>
+                    {checkoutErrors.value && (
+                      <p className="mt-2 text-sm text-red-600" id="percent-error">
+                        {checkoutErrors.value}
+                      </p>
+                    )}
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      Enter a value between 1 and 100
                     </p>
-                  )}
-                </label>
-              ) : (
-                <label className="text-sm">
-                  Amount (₹)
-                  <input
-                    type="number"
-                    min={0}
-                    className="mt-1 w-full border rounded p-2 bg-transparent dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-gray-100"
-                    value={checkoutRule.amount ?? ""}
-                    onChange={(e) => {
-                      const raw = e.target.value;
-                      if (!/^\d*$/.test(raw)) return;
-                      setCheckoutRule({
-                        ...checkoutRule,
-                        amount: raw === "" ? null : Number(raw),
-                      });
-                    }}
-                  />
-                  {checkoutErrors.value && (
-                    <p className="mt-1 text-xs text-red-500 dark:text-red-400">
-                      {checkoutErrors.value}
-                    </p>
-                  )}
-                </label>
-              )}
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Discount Amount
+                      <span className="text-red-500 ml-1">*</span>
+                    </label>
+                    <div className="mt-1 relative rounded-md shadow-sm">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <span className="text-gray-500 sm:text-sm">₹</span>
+                      </div>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        className={`block w-full pl-7 pr-12 sm:text-sm rounded-md ${
+                          checkoutErrors.value
+                            ? "border-red-300 text-red-900 placeholder-red-300 focus:outline-none focus:ring-red-500 focus:border-red-500"
+                            : "border-gray-300 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                        }`}
+                        value={checkoutRule.amount ?? ""}
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          if (!/^\d*\.?\d*$/.test(raw)) return;
+                          setCheckoutRule({
+                            ...checkoutRule,
+                            amount: raw === "" ? null : Number(raw),
+                          });
+                        }}
+                        aria-invalid={!!checkoutErrors.value}
+                        aria-describedby="amount-error"
+                      />
+                    </div>
+                    {checkoutErrors.value && (
+                      <p className="mt-2 text-sm text-red-600" id="amount-error">
+                        {checkoutErrors.value}
+                      </p>
+                    )}
+                  </div>
+                )}
 
-              <div className="grid grid-cols-2 gap-3">
-                <label className="text-sm">
-                  Min Order (₹)
-                  <input
-                    type="number"
-                    min={0}
-                    className="mt-1 w-full border rounded p-2 bg-transparent dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-gray-100"
-                    value={checkoutRule.min_order ?? ""}
-                    onChange={(e) => {
-                      const raw = e.target.value;
-                      if (!/^\d*$/.test(raw)) return;
-                      setCheckoutRule({
-                        ...checkoutRule,
-                        min_order: raw === "" ? null : Number(raw),
-                      });
-                    }}
-                  />
-                  {checkoutErrors.min_cart_value && (
-                    <p className="mt-1 text-xs text-red-500 dark:text-red-400">
-                      {checkoutErrors.min_cart_value}
-                    </p>
-                  )}
-                </label>
-                <label className="text-sm">
-                  Max Cap (₹)
-                  <input
-                    type="number"
-                    min={0}
-                    className="mt-1 w-full border rounded p-2 bg-transparent dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-gray-100"
-                    value={checkoutRule.max_discount_cap ?? ""}
-                    onChange={(e) => {
-                      const raw = e.target.value;
-                      if (!/^\d*$/.test(raw)) return;
-                      setCheckoutRule({
-                        ...checkoutRule,
-                        max_discount_cap: raw === "" ? null : Number(raw),
-                      });
-                    }}
-                  />
-                  {checkoutErrors.max_discount_cap && (
-                    <p className="mt-1 text-xs text-red-500 dark:text-red-400">
-                      {checkoutErrors.max_discount_cap}
-                    </p>
-                  )}
-                </label>
+                {/* Max Discount Cap (only for percentage) */}
+                {checkoutRule.rule_type === "percent" && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Maximum Discount Cap (Optional)
+                    </label>
+                    <div className="mt-1 relative rounded-md shadow-sm">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <span className="text-gray-500 sm:text-sm">₹</span>
+                      </div>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        className={`block w-full pl-7 sm:text-sm rounded-md ${
+                          checkoutErrors.max_discount_cap
+                            ? "border-red-300 text-red-900 placeholder-red-300 focus:outline-none focus:ring-red-500 focus:border-red-500"
+                            : "border-gray-300 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                        }`}
+                        value={checkoutRule.max_discount_cap ?? ""}
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          if (!/^\d*\.?\d*$/.test(raw)) return;
+                          setCheckoutRule({
+                            ...checkoutRule,
+                            max_discount_cap: raw === "" ? null : Number(raw),
+                          });
+                        }}
+                        placeholder="No maximum"
+                        aria-invalid={!!checkoutErrors.max_discount_cap}
+                        aria-describedby="max-cap-error"
+                      />
+                    </div>
+                    {checkoutErrors.max_discount_cap ? (
+                      <p className="mt-2 text-sm text-red-600" id="max-cap-error">
+                        {checkoutErrors.max_discount_cap}
+                      </p>
+                    ) : (
+                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        Maximum amount this discount can apply (leave empty for no limit)
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
-              <div className="flex justify-end">
-                <button
-                  onClick={handleSaveCheckoutRule}
-                  disabled={savingCheckout}
-                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
-                >
-                  {savingCheckout ? "Saving..." : "Save Checkout Discount"}
-                </button>
+              {/* Minimum Order Amount */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Minimum Order Amount (Optional)
+                  </label>
+                  <div className="mt-1 relative rounded-md shadow-sm">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <span className="text-gray-500 sm:text-sm">₹</span>
+                    </div>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      className={`block w-full pl-7 sm:text-sm rounded-md ${
+                        checkoutErrors.min_order
+                          ? "border-red-300 text-red-900 placeholder-red-300 focus:outline-none focus:ring-red-500 focus:border-red-500"
+                          : "border-gray-300 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                      }`}
+                      value={checkoutRule.min_order ?? ""}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        if (!/^\d*\.?\d*$/.test(raw)) return;
+                        setCheckoutRule({
+                          ...checkoutRule,
+                          min_order: raw === "" ? null : Number(raw),
+                        });
+                      }}
+                      placeholder="No minimum"
+                      aria-invalid={!!checkoutErrors.min_order}
+                      aria-describedby="min-order-error"
+                    />
+                  </div>
+                  {checkoutErrors.min_order ? (
+                    <p className="mt-2 text-sm text-red-600" id="min-order-error">
+                      {checkoutErrors.min_order}
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      Minimum order total required to apply this discount
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Date Range */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Start Date (Optional)
+                  </label>
+                  <div className="mt-1">
+                    <input
+                      type="datetime-local"
+                      className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                      value={
+                        checkoutRule.starts_at
+                          ? new Date(checkoutRule.starts_at).toISOString().slice(0, 16)
+                          : ""
+                      }
+                      onChange={(e) => {
+                        setCheckoutRule({
+                          ...checkoutRule,
+                          starts_at: e.target.value
+                            ? new Date(e.target.value).toISOString()
+                            : null,
+                        });
+                      }}
+                    />
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      Date and time when this discount becomes active
+                    </p>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    End Date (Optional)
+                  </label>
+                  <div className="mt-1">
+                    <input
+                      type="datetime-local"
+                      className={`block w-full rounded-md ${
+                        checkoutErrors.ends_at
+                          ? "border-red-300 text-red-900 placeholder-red-300 focus:outline-none focus:ring-red-500 focus:border-red-500"
+                          : "border-gray-300 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                      } shadow-sm sm:text-sm`}
+                      value={
+                        checkoutRule.ends_at
+                          ? new Date(checkoutRule.ends_at).toISOString().slice(0, 16)
+                          : ""
+                      }
+                      onChange={(e) => {
+                        setCheckoutRule({
+                          ...checkoutRule,
+                          ends_at: e.target.value
+                            ? new Date(e.target.value).toISOString()
+                            : null,
+                        });
+                      }}
+                      aria-invalid={!!checkoutErrors.ends_at}
+                      aria-describedby="end-date-error"
+                    />
+                    {checkoutErrors.ends_at ? (
+                      <p className="mt-2 text-sm text-red-600" id="end-date-error">
+                        {checkoutErrors.ends_at}
+                      </p>
+                    ) : (
+                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        Date and time when this discount expires
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Save Button */}
+              <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={handleSaveCheckoutRule}
+                    disabled={savingCheckout}
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {savingCheckout ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Saving...
+                      </>
+                    ) : (
+                      "Save Checkout Discount"
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -316,8 +522,13 @@ const DiscountFormSection: React.FC<DiscountFormSectionProps> = ({
         )}
 
         {(!showTabs || activeTab === "pincode") && (
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-4 sm:p-6">
-            <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Pincode Management</h3>
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+            <div className="mb-6">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Pincode Management</h2>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Manage serviceable pincodes and delivery areas
+              </p>
+            </div>
             <PincodeManager />
           </div>
         )}

@@ -405,10 +405,6 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ className = '' }) => 
                     </button>
                   )}
                   <button
-                    onClick={() => {
-                      // View order details logic here
-                      console.log('View order details for:', order.order_id);
-                    }}
                     className="px-4 py-2 bg-gray-100 text-gray-700 text-sm rounded-lg hover:bg-gray-200 transition-colors"
                   >
                     <Eye className="w-4 h-4 inline mr-1" />

@@ -34,7 +34,11 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   }
 
   if (!user) {
-    // Redirect to sign-in page with return url
+    // Allow unauthenticated access for guest order routes
+    if (location.pathname.startsWith('/orders')) {
+      return <>{children}</>;
+    }
+    // Otherwise redirect to sign-in page
     return <Navigate to={redirectTo} state={{ from: location }} replace />
   }
 

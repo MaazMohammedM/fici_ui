@@ -377,7 +377,7 @@ export const PincodeManager = () => {
         setBulkPreviewSample([]);
       }
     }
-  }, [showBulkUpdate, selectedScope, scopeValue, multiplePincodes, getBulkUpdateCount]);
+  }, [showBulkUpdate, selectedScope, selectedField, scopeValue, multiplePincodes, isNullCondition, getBulkUpdateCount]);
 
   // Preview legacy bulk edit when selection changes
   useEffect(() => {
@@ -540,7 +540,7 @@ export const PincodeManager = () => {
     
     // Handle legacy bulk edit
     let pincodesToUpdate: string[] = [];
-    let updateData: any = {};
+    const updateData: any = {};
     
     if (bulkSelectionMode === 'selected') {
       pincodesToUpdate = Array.from(selectedPincodes);

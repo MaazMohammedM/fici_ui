@@ -76,8 +76,9 @@ const AppContent = () => {
     <div className="min-h-screen flex flex-col bg-gradient-light dark:bg-gradient-dark">
       <SEOHead />
       <Header />
-      <main className="flex-1 flex flex-col">
+      <main id="app-content" className="flex-1 flex flex-col min-h-0">
         <Suspense fallback={<LoadingSpinner />}>
+            <ScrollToTop />
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/contact" element={<ContactPage />} />

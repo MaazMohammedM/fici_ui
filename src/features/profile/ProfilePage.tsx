@@ -6,12 +6,13 @@ import { User, Mail, Phone, Lock, Eye, EyeOff, Save, Edit3 } from 'lucide-react'
 import { useAuthStore } from '@store/authStore';
 import { supabase } from '@lib/supabase';
 import { Input, Button } from '../../auth/ui';
+import PhoneUpdateWithOtp from '../../components/PhoneUpdateWithOtp';
 
 const ProfileSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
   lastName: z.string().min(1, 'Last name is required'),
-  email: z.string().email('Please enter a valid email address'),
-  phone: z.string().optional()
+  email: z.string().email('Please enter a valid email address').readonly(),
+  // phone removed from main schema - only editable via OTP modal
 });
 
 const PasswordSchema = z.object({
@@ -42,14 +43,15 @@ const ProfilePage: React.FC = () => {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [userProfile, setUserProfile] = useState<any>(null);
+  const [showPhoneUpdate, setShowPhoneUpdate] = useState(false);
 
   const profileForm = useForm<ProfileFormData>({
     resolver: zodResolver(ProfileSchema),
     defaultValues: {
       firstName: '',
       lastName: '',
-      email: '',
-      phone: ''
+      email: ''
+      // phone removed from default values
     }
   });
 
@@ -74,8 +76,8 @@ const ProfilePage: React.FC = () => {
         profileForm.reset({
           firstName: data.first_name || '',
           lastName: data.last_name || '',
-          email: data.email || user.email || '',
-          phone: data.phone_number || ''
+          email: data.email || user.email || ''
+          // phone removed from main form reset
         });
       } catch (error) {
         console.error('Error fetching user profile:', error);
@@ -93,36 +95,25 @@ const ProfilePage: React.FC = () => {
     setProfileSuccess(null);
 
     try {
-      // Update user profile in database
+      // Update user profile in database (excluding email and phone)
       const { error: profileError } = await supabase
         .from('user_profiles')
         .update({
           first_name: data.firstName,
-          last_name: data.lastName,
-          email: data.email,
-          phone_number: data.phone || null
+          last_name: data.lastName
+          // phone_number removed - only updated via OTP modal
         })
         .eq('user_id', user.id);
 
       if (profileError) throw profileError;
-
-      // Update auth user email if changed
-      if (data.email !== user.email) {
-        const { error: emailError } = await supabase.auth.updateUser({
-          email: data.email
-        });
-
-        if (emailError) throw emailError;
-      }
 
       // Update local state
       setFirstName(data.firstName);
       setUserProfile((prev: any) => ({
         ...prev,
         first_name: data.firstName,
-        last_name: data.lastName,
-        email: data.email,
-        phone_number: data.phone
+        last_name: data.lastName
+        // phone_number removed - only updated via OTP modal
       }));
 
       setProfileSuccess('Profile updated successfully!');
@@ -167,6 +158,17 @@ const ProfilePage: React.FC = () => {
     }
   };
 
+  const handlePhoneUpdateSuccess = (newPhone: string) => {
+    // Update local state
+    setUserProfile(prev => prev ? { ...prev, phone_number: newPhone } : null);
+    // phone setValue removed - not part of main form schema
+    setShowPhoneUpdate(false);
+    setProfileSuccess('Phone number updated successfully!');
+    
+    // Clear success message after 3 seconds
+    setTimeout(() => setProfileSuccess(null), 3000);
+  };
+
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -180,6 +182,7 @@ const ProfilePage: React.FC = () => {
   }
 
   return (
+    <>
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="bg-white dark:bg-gray-800 shadow rounded-lg">
@@ -248,16 +251,11 @@ const ProfilePage: React.FC = () => {
                     error={profileForm.formState.errors.email?.message}
                     {...profileForm.register('email')}
                     required
+                    disabled
+                    className="bg-gray-50 dark:bg-gray-700 cursor-not-allowed"
                   />
 
-                  <Input
-                    type="tel"
-                    label="Phone Number (Optional)"
-                    placeholder="Enter your phone number"
-                    leftIcon={Phone}
-                    error={profileForm.formState.errors.phone?.message}
-                    {...profileForm.register('phone')}
-                  />
+                  {/* Phone number removed from main form - only editable via OTP modal */}
 
                   <div className="flex gap-3">
                     <Button
@@ -313,9 +311,20 @@ const ProfilePage: React.FC = () => {
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                       Phone Number
                     </label>
-                    <p className="text-gray-900 dark:text-white">
-                      {userProfile?.phone_number || 'Not provided'}
-                    </p>
+                    <div className="flex items-center justify-between">
+                      <p className="text-gray-900 dark:text-white">
+                        {userProfile?.phone_number || 'Not provided'}
+                      </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowPhoneUpdate(true)}
+                        leftIcon={Phone}
+                      >
+                        {userProfile?.phone_number ? 'Update' : 'Add'}
+                      </Button>
+                    </div>
                   </div>
                 </div>
               )}
@@ -453,9 +462,9 @@ const ProfilePage: React.FC = () => {
                     <p className="text-gray-900 dark:text-white">
                       ••••••••••••
                     </p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    {/* <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                       Last updated: {new Date().toLocaleDateString()}
-                    </p>
+                    </p> */}
                   </div>
                 </div>
               )}
@@ -464,6 +473,18 @@ const ProfilePage: React.FC = () => {
         </div>
       </div>
     </div>
+    
+    {/* Phone Update Modal */}
+    {showPhoneUpdate && (
+      <PhoneUpdateWithOtp
+        initialPhone={userProfile?.phone_number || ''}
+        onSuccess={handlePhoneUpdateSuccess}
+        variant="modal"
+        isOpen={showPhoneUpdate}
+        onClose={() => setShowPhoneUpdate(false)}
+      />
+    )}
+    </>
   );
 };
 

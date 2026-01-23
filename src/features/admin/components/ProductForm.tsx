@@ -43,6 +43,7 @@ const ProductForm: React.FC<ProductFormProps> = ({
     uploadProgress,
     uploadError,
     selectedThumbnail,
+    color,
     handleAddSize,
     handleRemoveSize,
     handleSizePriceChange,
@@ -51,7 +52,12 @@ const ProductForm: React.FC<ProductFormProps> = ({
     handleThumbnailSelect,
     onSubmit,
     setSizeInput,
-    setQuantityInput
+    setQuantityInput,
+    setFiles,
+    setSizesList,
+    setSizePrices,
+    setSelectedThumbnail,
+    setColor
   } = formHook as any;
 
   const {
@@ -72,7 +78,19 @@ const ProductForm: React.FC<ProductFormProps> = ({
       await onSubmit(data);
       if (onSuccess) onSuccess();
       if (!isEditMode) {
-        setSuccessMessage('Product added successfully!');
+        setSuccessMessage('Product added successfully! You can add another product or go to the product list.');
+        // Reset form to allow adding another product
+        setTimeout(() => {
+          form.reset();
+          setFiles(null);
+          setSizesList({});
+          setSizePrices({});
+          setSizeInput('');
+          setQuantityInput('');
+          setSelectedThumbnail(0);
+          setColor('');
+          setSuccessMessage(''); // Clear message after a delay
+        }, 5000);
       }
     } catch (error) {
       console.error(`Error ${isEditMode ? 'updating' : 'creating'} product:`, error);
@@ -235,15 +253,18 @@ const ProductForm: React.FC<ProductFormProps> = ({
         {/* Color */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-white">
-            Color
+            Color *
           </label>
           <input
-            {...register('color')}
+            value={color}
+            onChange={(e) => setColor(e.target.value)}
             placeholder="e.g. Black, Brown"
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white"
           />
-          {(errors as any).color && (
-            <p className="text-red-500 text-sm mt-1">{(errors as any).color.message}</p>
+          {!color && (errors as any).root?.message?.includes('Color') && (
+            <p className="text-red-500 text-sm mt-1">
+              {(errors as any).root.message}
+            </p>
           )}
         </div>
 
@@ -434,12 +455,21 @@ const ProductForm: React.FC<ProductFormProps> = ({
             ? isEditMode ? 'Updating Product...' : 'Adding Product...'
             : isEditMode ? 'Update Product' : 'Add Product'}
         </button>
+        {successMessage && !isEditMode && (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="flex-1 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl shadow transition-colors"
+          >
+            Go to Product List
+          </button>
+        )}
         <button
           type="button"
           onClick={onCancel}
-          className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 px-6 py-3 rounded-xl shadow transition-colors"
+          className={`${successMessage && !isEditMode ? 'flex-1' : 'flex-1'} bg-gray-200 hover:bg-gray-300 text-gray-800 px-6 py-3 rounded-xl shadow transition-colors`}
         >
-          Cancel
+          {successMessage && !isEditMode ? 'Stay Here' : 'Cancel'}
         </button>
       </div>
     </form>

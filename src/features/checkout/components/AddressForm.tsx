@@ -1,10 +1,30 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
 import { supabase } from '@lib/supabase';
 import { useAuthStore } from '@store/authStore';
 import { Edit, Trash2, Check, Plus } from 'lucide-react';
 import PincodeInput from '@components/ui/PincodeInput';
 import AlertModal from '@components/ui/AlertModal';
+import PhoneUpdateWithOtp from '@/components/PhoneUpdateWithOtp';
 import type { PincodeDetails } from '@store/pincodeStore';
+import { getDeliveryPhoneHelperText } from '../../../utils/identitySource';
+
+// Schema for form validation
+const AddressSchema = z.object({
+  name: z.string().min(2, 'Name must be at least 2 characters'),
+  phone: z.string().min(10, 'Phone number must be at least 10 digits'),
+  email: z.string().email('Please enter a valid email address').optional(),
+  address: z.string().min(10, 'Address must be at least 10 characters'),
+  city: z.string().min(2, 'City is required'),
+  district: z.string().min(2, 'District is required'),
+  state: z.string().min(2, 'State is required'),
+  pincode: z.string().min(6, 'Pincode must be 6 digits').max(6, 'Pincode must be 6 digits'),
+  landmark: z.string().optional()
+});
+
+type AddressFormData = z.infer<typeof AddressSchema>;
 
 export type Address = {
   id?: string;
@@ -23,34 +43,43 @@ export type Address = {
 interface Props {
   onSelect: (addr: Address) => void;
   selectedId?: string;
+  userProfile?: any;
+  onPhoneUpdateSuccess?: (newPhone: string) => void;
 }
 
-const AddressForm: React.FC<Props> = ({ onSelect, selectedId }) => {
+const AddressForm: React.FC<Props> = ({ onSelect, selectedId, userProfile, onPhoneUpdateSuccess }) => {
   const { user } = useAuthStore();
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [editing, setEditing] = useState<Address | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState<Address>({
-    name: '',
-    phone: '',
-    email: '',
-    address: '',
-    city: '',
-    state: '',
-    pincode: '',
-    landmark: '',
-    district: '',
-    is_default: false
-  });
+  const [showPhoneUpdate, setShowPhoneUpdate] = useState(false);
+  const [hasUserSelected, setHasUserSelected] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showAllAddresses, setShowAllAddresses] = useState(false);
 
-  // Validation state
-  const [errors, setErrors] = useState<{
-    phone?: string;
-    email?: string;
-    pincode?: string;
-  }>({});
+  // React Hook Form for better form management
+  const { 
+    register, 
+    handleSubmit, 
+    setValue, 
+    watch, 
+    reset,
+    formState: { errors },
+    clearErrors
+  } = useForm<AddressFormData>({
+    resolver: zodResolver(AddressSchema),
+    defaultValues: {
+      name: '',
+      phone: '',
+      email: '',
+      address: '',
+      city: '',
+      state: '',
+      pincode: '',
+      district: '',
+      landmark: ''
+    }
+  });
 
   // Alert modal state
   const [alertModal, setAlertModal] = useState<{
@@ -75,86 +104,50 @@ const AddressForm: React.FC<Props> = ({ onSelect, selectedId }) => {
     });
   };
 
-  // Validation functions
-  const validatePhone = (phone: string) => {
-    const phoneRegex = /^[6-9]\d{9}$/; // Indian mobile number: starts with 6-9, total 10 digits
-    if (!phone) {
-      return 'Phone number is required';
-    }
-    if (!phoneRegex.test(phone)) {
-      return 'Please enter a valid 10-digit mobile number';
-    }
-    return '';
-  };
+  // Handle pincode change with form integration
+  const handlePincodeChange = useCallback((value: string) => {
+    setValue('pincode', value);
+    clearErrors('pincode');
+  }, [setValue, clearErrors]);
 
-  const validateEmail = (email: string) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!email) {
-      return ''; // Email is optional
-    }
-    if (!emailRegex.test(email)) {
-      return 'Please enter a valid email address';
-    }
-    return '';
-  };
-
-  const validatePincode = (pincode: string) => {
-    const pincodeRegex = /^\d{6}$/; // Exactly 6 digits
-    if (!pincode) {
-      return 'Pincode is required';
-    }
-    if (!pincodeRegex.test(pincode)) {
-      return 'Pincode must be exactly 6 digits';
-    }
-    return '';
-  };
-
-  // Real-time validation handlers
-  const handlePhoneChange = (value: string) => {
-    setForm(prev => ({ ...prev, phone: value }));
-    const error = validatePhone(value);
-    setErrors(prev => ({ ...prev, phone: error }));
-  };
-
-  const handleEmailChange = (value: string) => {
-    setForm(prev => ({ ...prev, email: value }));
-    const error = validateEmail(value);
-    setErrors(prev => ({ ...prev, email: error }));
-  };
-
-  const handlePincodeChange = (value: string) => {
-    setForm(prev => ({ ...prev, pincode: value }));
-    const error = validatePincode(value);
-    setErrors(prev => ({ ...prev, pincode: error }));
-  };
-
-  // Handle pincode selection from suggestions
-  const handlePincodeSelect = (pincodeData: PincodeDetails) => {
-    setForm(prev => ({
-      ...prev,
-      pincode: pincodeData.pincode,
-      city: pincodeData.city ? pincodeData.city : prev.city,
-      state: pincodeData.state || prev.state,
-      district: (pincodeData.districts?.[0] as string) || prev.district
-    }));
-  };
-
-  // Handle pincode details fetched from database
-  const handlePincodeDetails = (details: PincodeDetails) => {
-    if (details) {
-      setForm(prev => ({
-        ...prev,
-        city: details.city ? details.city : prev.city,
-        state: details.state || prev.state,
-        district: (details.districts?.[0] as string) || prev.district
-      }));
-    }
-  };
+  // Handle pincode selection with form integration
+  const handlePincodeSelect = useCallback((pincodeData: PincodeDetails) => {
+    setValue('pincode', pincodeData.pincode);
+    if (!watch('city')) setValue('city', pincodeData.city || '');
+    if (!watch('state')) setValue('state', pincodeData.state || '');
+    if (!watch('district')) setValue('district', pincodeData.districts?.[0] || '');
+    clearErrors('pincode');
+  }, [setValue, watch, clearErrors]);
 
   useEffect(() => {
     if (user?.id) loadAddresses();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
+
+
+  const handlePhoneUpdateUpdateSuccess = (newPhone: string) => {
+    // Update local userProfile state
+    if (onPhoneUpdateSuccess) {
+      onPhoneUpdateSuccess(newPhone);
+    }
+    setShowPhoneUpdate(false);
+    showAlert('Phone number updated successfully!', 'success');
+  };
+
+  // Reset user selection flag drilled when selectedId becomes undefined (indicating parent cleared selection)
+  useEffect(() => {
+    if (!selectedId && hasUserSelected) {
+      setHasUserSelected(false);
+    }
+  }, [selectedId, hasUserSelected]);
+
+  useEffect(() => {
+    if (!loading && addresses.length === 0) {
+      setShowForm(true);
+    } else if (!loading && addresses.length > 0 && !editing) {
+      setShowForm(false);
+    }
+  }, [addresses.length, loading, editing]);
 
   const loadAddresses = async () => {
     if (!user?.id) return;
@@ -171,14 +164,57 @@ const AddressForm: React.FC<Props> = ({ onSelect, selectedId }) => {
       setAddresses(arr);
       
       // Auto-select default address if exists and no address is currently selected
-      if (arr.length > 0 && !selectedId) {
-        const defaultAddress = arr.find(addr => addr.is_default);
-        if (defaultAddress) {
-          onSelect(defaultAddress);
-        } else if (arr.length === 1) {
-          // If only one address and no default, select it
-          onSelect(arr[0]);
+      if (arr.length > 0 && !hasUserSelected) {
+        if (!selectedId) {
+          // First try to find default address with valid pincode
+          const defaultAddress = arr.find(addr => addr.is_default && addr.pincode && addr.pincode.trim() !== "");
+          if (defaultAddress) {
+            onSelect(defaultAddress);
+          } else {
+            // If no default with valid pincode, try any default address
+            const anyDefaultAddress = arr.find(addr => addr.is_default);
+            if (anyDefaultAddress) {
+              onSelect(anyDefaultAddress);
+            } else if (arr.length === 1) {
+              // If only one address and no default, select it only if it has a valid pincode
+              const singleAddress = arr[0];
+              if (singleAddress.pincode && singleAddress.pincode.trim() !== "") {
+                onSelect(singleAddress);
+              }
+            } else {
+              // If multiple addresses and no default, select the first one with valid pincode
+              const firstValidAddress = arr.find(addr => addr.pincode && addr.pincode.trim() !== "");
+              if (firstValidAddress) {
+                onSelect(firstValidAddress);
+              }
+            }
+          }
+        } else {
+          // If there's a selectedId, verify it exists in the addresses
+          const selectedExists = arr.some(addr => addr.id === selectedId);
+          if (!selectedExists) {
+            // Selected address doesn't exist, try to select default with valid pincode
+            const defaultAddress = arr.find(addr => addr.is_default && addr.pincode && addr.pincode.trim() !== "");
+            if (defaultAddress) {
+              onSelect(defaultAddress);
+            } else {
+              // Try any default address
+              const anyDefaultAddress = arr.find(addr => addr.is_default);
+              if (anyDefaultAddress) {
+                onSelect(anyDefaultAddress);
+              } else if (arr.length > 0) {
+                // Select the first available address with valid pincode
+                const firstValidAddress = arr.find(addr => addr.pincode && addr.pincode.trim() !== "");
+                if (firstValidAddress) {
+                  onSelect(firstValidAddress);
+                } else {
+                  onSelect(arr[0]);
+                }
+              }
+            }
+          }
         }
+      } else if (hasUserSelected) {
       }
     } catch (err) {
       showAlert("Failed to load addresses. Please try again.", "error");
@@ -196,34 +232,31 @@ const AddressForm: React.FC<Props> = ({ onSelect, selectedId }) => {
     return { error };
   };
 
-  const handleSave = async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    const next = [...addresses];
-    if (editing?.id) {
-      const idx = next.findIndex(a => a.id === editing.id);
-      if (idx >= 0) next[idx] = { ...form, id: editing.id };
-    } else {
-      next.push({ ...form, id: `addr_${Date.now()}` });
-    }
-
+  const handleSave = async (data: AddressFormData) => {
     setLoading(true);
+    
     try {
+      const next = [...addresses];
+      const newAddress: Address = {
+        ...data,
+        id: editing?.id || `addr_${Date.now()}`,
+        is_default: false
+      };
+      
+      if (editing?.id) {
+        const idx = next.findIndex(a => a.id === editing.id);
+        if (idx >= 0) next[idx] = newAddress;
+      } else {
+        next.push(newAddress);
+      }
+
       const { error } = await upsertAddresses(next);
       if (error) throw error;
+      
       setAddresses(next);
       setEditing(null);
-      setForm({
-        name: '',
-        phone: '',
-        email: '',
-        address: '',
-        city: '',
-        state: '',
-        pincode: '',
-        landmark: '',
-        district: '',
-        is_default: false
-      });
+      reset(); // Reset form to default values
+      showAlert("Address saved successfully!", "success");
     } catch (err) {
       showAlert("Failed to save address. Please try again.", "error");
     } finally {
@@ -239,6 +272,11 @@ const AddressForm: React.FC<Props> = ({ onSelect, selectedId }) => {
       const { error } = await upsertAddresses(next);
       if (error) throw error;
       setAddresses(next);
+      
+      // If this was the last address, show the form automatically
+      if (next.length === 0) {
+        setShowForm(true);
+      }
     } catch (err) {
       showAlert("Failed to delete address. Please try again.", "error");
     } finally {
@@ -248,7 +286,19 @@ const AddressForm: React.FC<Props> = ({ onSelect, selectedId }) => {
 
   const startEdit = (addr: Address) => {
     setEditing(addr);
-    setForm(addr);
+    // Reset form with address data
+    reset({
+      name: addr.name || '',
+      phone: addr.phone || '',
+      email: addr.email || '',
+      address: addr.address || '',
+      city: addr.city || '',
+      state: addr.state || '',
+      pincode: addr.pincode || '',
+      district: addr.district || '',
+      landmark: addr.landmark || ''
+    });
+    setShowForm(true);
   };
 
   const setAsDefault = async (id?: string) => {
@@ -282,31 +332,23 @@ const AddressForm: React.FC<Props> = ({ onSelect, selectedId }) => {
     <div className="bg-white dark:bg-dark2 rounded-2xl shadow-lg p-6">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Shipping Address</h2>
-        <button
-          type="button"
-          onClick={() => {
-            setShowForm(!showForm);
-            if (showForm) {
-              setEditing(null);
-              setForm({
-                name: '',
-                phone: '',
-                email: '',
-                address: '',
-                city: '',
-                state: '',
-                pincode: '',
-                landmark: '',
-                district: '',
-                is_default: false
-              });
-            }
-          }}
-          className="flex items-center text-sm font-medium text-primary-600 hover:text-primary-800 dark:text-primary-400 dark:hover:text-primary-300 transition-colors"
-        >
-          <Plus className="w-4 h-4 mr-1" />
-          {showForm ? 'Cancel' : 'Add New Address'}
-        </button>
+        {/* Only show Add New Address button when user has addresses or form is hidden */}
+        {!loading && (addresses.length > 0 || !showForm) && (
+          <button
+            type="button"
+            onClick={() => {
+              setShowForm(!showForm);
+              if (showForm) {
+                setEditing(null);
+                reset();
+              }
+            }}
+            className="flex items-center text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 px-3 py-2 rounded-lg transition-colors shadow-sm hover:shadow-md"
+          >
+            <Plus className="w-4 h-4 mr-1" />
+            {showForm ? 'Cancel' : 'Add New Address'}
+          </button>
+        )}
       </div>
 
       {/* Address list */}
@@ -321,7 +363,10 @@ const AddressForm: React.FC<Props> = ({ onSelect, selectedId }) => {
                 {sortedAddresses.slice(0, showAllAddresses ? undefined : 2).map((addr) => (
                   <div
                     key={addr.id}
-                    onClick={() => onSelect(addr)}
+                    onClick={() => {
+                      setHasUserSelected(true); // Mark that user manually selected
+                      onSelect(addr);
+                    }}
                     className={`p-4 border rounded-lg cursor-pointer transition-all duration-200 relative ${
                       selectedId === addr.id
                         ? 'border-blue-500 bg-blue-50 dark:border-blue-400 dark:bg-blue-900/20 shadow-md ring-2 ring-blue-500/20'
@@ -329,16 +374,16 @@ const AddressForm: React.FC<Props> = ({ onSelect, selectedId }) => {
                     }`}
                   >
                     <div className="flex justify-between items-start">
-                      <div>
-                        <p className="font-medium text-gray-900 dark:text-gray-100">{addr.name}</p>
-                        <p className="text-sm text-gray-600 dark:text-gray-300">{addr.phone}</p>
-                        <p className="text-sm text-gray-600 dark:text-gray-300">{addr.email}</p>
-                        <p className="mt-2 text-gray-700 dark:text-gray-200">{addr.address}</p>
-                        <p className="text-sm text-gray-600 dark:text-gray-300">
-                          {[addr.city, addr.state, addr.pincode].filter(Boolean).join(', ')}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-gray-900 dark:text-gray-100 text-sm">{addr.name}</p>
+                        <p className="text-xs text-gray-600 dark:text-gray-300">{addr.phone}</p>
+                        <p className="text-xs text-gray-600 dark:text-gray-300">{addr.email}</p>
+                        <p className="mt-1 text-gray-700 dark:text-gray-200 text-sm">{addr.address}</p>
+                        <p className="text-xs text-gray-600 dark:text-gray-300">
+                          {[addr.city, addr.district, addr.state, addr.pincode].filter(Boolean).join(', ')}
                         </p>
                         {addr.landmark && (
-                          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                             <span className="text-gray-500 dark:text-gray-500">Landmark:</span> {addr.landmark}
                           </p>
                         )}
@@ -347,9 +392,7 @@ const AddressForm: React.FC<Props> = ({ onSelect, selectedId }) => {
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            setEditing(addr);
-                            setForm(addr);
-                            setShowForm(true);
+                            startEdit(addr);
                           }}
                           className="p-1 text-gray-500 hover:text-primary-600 dark:text-gray-400 dark:hover:text-primary-300 transition-colors"
                           title="Edit address"
@@ -419,28 +462,31 @@ const AddressForm: React.FC<Props> = ({ onSelect, selectedId }) => {
           <h3 className="font-medium mb-4 text-gray-900 dark:text-gray-100">
             {editing ? 'Edit Address' : 'Add New Address'}
           </h3>
-          <form onSubmit={handleSave} className="space-y-3">
+          <form onSubmit={handleSubmit(handleSave)} className="space-y-3">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Full Name *
                 </label>
                 <input
-                  type="text"
-                  value={form.name || ''}
-                  onChange={(e) => setForm(prev => ({ ...prev, name: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 dark:bg-dark3 dark:text-gray-100"
+                  {...register('name')}
+                  className={`w-full px-3 py-2 border rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 dark:bg-dark3 dark:text-gray-100 ${
+                    errors.name 
+                      ? 'border-red-500 focus:border-red-500' 
+                      : 'border-gray-300 dark:border-gray-600'
+                  }`}
                   required
                 />
+                {errors.name && (
+                  <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.name.message}</p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   Phone Number *
                 </label>
                 <input
-                  type="tel"
-                  value={form.phone || ''}
-                  onChange={(e) => handlePhoneChange(e.target.value)}
+                  {...register('phone')}
                   className={`w-full px-3 py-2 border rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 dark:bg-dark3 dark:text-gray-100 ${
                     errors.phone 
                       ? 'border-red-500 focus:border-red-500' 
@@ -451,19 +497,18 @@ const AddressForm: React.FC<Props> = ({ onSelect, selectedId }) => {
                   required
                 />
                 {errors.phone && (
-                  <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.phone}</p>
+                  <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.phone.message}</p>
                 )}
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  {getDeliveryPhoneHelperText()}
+                </p>
               </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Email
+                  Email Address
                 </label>
                 <input
-                  type="email"
-                  value={form.email || ''}
-                  onChange={(e) => handleEmailChange(e.target.value)}
+                  {...register('email')}
                   className={`w-full px-3 py-2 border rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 dark:bg-dark3 dark:text-gray-100 ${
                     errors.email 
                       ? 'border-red-500 focus:border-red-500' 
@@ -472,76 +517,102 @@ const AddressForm: React.FC<Props> = ({ onSelect, selectedId }) => {
                   placeholder="your@email.com"
                 />
                 {errors.email && (
-                  <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.email}</p>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Pincode *
-                </label>
-                <PincodeInput
-                  value={form.pincode || ''}
-                  onChange={(value) => handlePincodeChange(value)}
-                  onPincodeSelect={handlePincodeSelect}
-                  onDetailsFetched={handlePincodeDetails}
-                  placeholder="Enter 6-digit pincode"
-                  showDeliveryInfo={true}
-                  className={errors.pincode ? 'border-red-500' : ''}
-                />
-                {errors.pincode && (
-                  <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.pincode}</p>
+                  <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.email.message}</p>
                 )}
               </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Complete Address *
+                Address *
               </label>
               <textarea
-                value={form.address || ''}
-                onChange={(e) => setForm(prev => ({ ...prev, address: e.target.value }))}
-                placeholder="House/Flat no., Building, Area, Street"
+                {...register('address')}
                 rows={3}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 dark:bg-dark3 dark:text-gray-100"
+                className={`w-full px-3 py-2 border rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 dark:bg-dark3 dark:text-gray-100 ${
+                  errors.address 
+                    ? 'border-red-500 focus:border-red-500' 
+                    : 'border-gray-300 dark:border-gray-600'
+                }`}
+                placeholder="Full address with building name, street, area"
                 required
               />
+              {errors.address && (
+                <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.address.message}</p>
+              )}
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Pincode *
+                </label>
+                <PincodeInput
+                  value={watch('pincode')}
+                  onChange={handlePincodeChange}
+                  onPincodeSelect={handlePincodeSelect}
+                  className={`w-full px-3 py-2 border rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 dark:bg-dark3 dark:text-gray-100 ${
+                    errors.pincode 
+                      ? 'border-red-500 focus:border-red-500' 
+                      : 'border-gray-300 dark:border-gray-600'
+                  }`}
+                  placeholder="6-digit pincode"
+                />
+                {errors.pincode && (
+                  <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.pincode.message}</p>
+                )}
+              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   City *
                 </label>
                 <input
-                  type="text"
-                  value={form.city || ''}
-                  onChange={(e) => setForm(prev => ({ ...prev, city: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 dark:bg-dark3 dark:text-gray-100"
+                  {...register('city')}
+                  className={`w-full px-3 py-2 border rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 dark:bg-dark3 dark:text-gray-100 ${
+                    errors.city 
+                      ? 'border-red-500 focus:border-red-500' 
+                      : 'border-gray-300 dark:border-gray-600'
+                  }`}
+                  placeholder="City name"
                   required
                 />
+                {errors.city && (
+                  <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.city.message}</p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   District *
                 </label>
                 <input
-                  type="text"
-                  value={form.district || ''}
-                  onChange={(e) => setForm(prev => ({ ...prev, district: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 dark:bg-dark3 dark:text-gray-100"
+                  {...register('district')}
+                  className={`w-full px-3 py-2 border rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 dark:bg-dark3 dark:text-gray-100 ${
+                    errors.district 
+                      ? 'border-red-500 focus:border-red-500' 
+                      : 'border-gray-300 dark:border-gray-600'
+                  }`}
+                  placeholder="District name"
                   required
                 />
+                {errors.district && (
+                  <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.district.message}</p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                   State *
                 </label>
                 <input
-                  type="text"
-                  value={form.state || ''}
-                  onChange={(e) => setForm(prev => ({ ...prev, state: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 dark:bg-dark3 dark:text-gray-100"
+                  {...register('state')}
+                  className={`w-full px-3 py-2 border rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 dark:bg-dark3 dark:text-gray-100 ${
+                    errors.state 
+                      ? 'border-red-500 focus:border-red-500' 
+                      : 'border-gray-300 dark:border-gray-600'
+                  }`}
+                  placeholder="State name"
                   required
                 />
+                {errors.state && (
+                  <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.state.message}</p>
+                )}
               </div>
             </div>
             <div>
@@ -549,62 +620,53 @@ const AddressForm: React.FC<Props> = ({ onSelect, selectedId }) => {
                 Landmark (Optional)
               </label>
               <input
-                type="text"
-                value={form.landmark || ''}
-                onChange={(e) => setForm(prev => ({ ...prev, landmark: e.target.value }))}
-                placeholder="E.g. Near Central Mall, Opposite Bank"
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 dark:bg-dark3 dark:text-gray-100"
+                {...register('landmark')}
+                className={`w-full px-3 py-2 border rounded-md shadow-sm focus:ring-primary-500 focus:border-primary-500 dark:bg-dark3 dark:text-gray-100 ${
+                  errors.landmark 
+                    ? 'border-red-500 focus:border-red-500' 
+                    : 'border-gray-300 dark:border-gray-600'
+                }`}
+                placeholder="Nearby landmark for easier delivery"
               />
+              {errors.landmark && (
+                <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.landmark.message}</p>
+              )}
             </div>
-            <div className="mt-6 flex justify-end space-x-3">
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="setAsDefault"
-                  checked={form.is_default || false}
-                  onChange={(e) => setForm(prev => ({ ...prev, is_default: e.target.checked }))}
-                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded dark:bg-dark3 dark:border-gray-600"
-                />
-                <label htmlFor="setAsDefault" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
-                  Set as default address
-                </label>
-              </div>
-              <div className="flex space-x-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowForm(false);
-                    setEditing(null);
-                    setForm({
-                      name: '',
-                      phone: '',
-                      email: '',
-                      address: '',
-                      city: '',
-                      state: '',
-                      pincode: '',
-                      landmark: '',
-                      district: '',
-                      is_default: false,
-                    });
-                  }}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 dark:bg-dark3 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="px-4 py-2 text-sm font-medium text-white bg-primary border border-transparent rounded-md shadow-sm hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  {loading ? 'Saving...' : editing ? 'Update Address' : 'Save Address'}
-                </button>
-              </div>
+            <div className="flex space-x-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowForm(false);
+                  setEditing(null);
+                  reset();
+                }}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 dark:bg-dark3 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className="px-4 py-2 text-sm font-medium text-white bg-primary border border-transparent rounded-md shadow-sm hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {loading ? 'Saving...' : editing ? 'Update Address' : 'Save Address'}
+              </button>
             </div>
           </form>
         </div>
       )}
-      
+
+      {/* Phone Update Modal */}
+      {showPhoneUpdate && (
+        <PhoneUpdateWithOtp
+          initialPhone={userProfile?.phone_number || ''}
+          onSuccess={handlePhoneUpdateUpdateSuccess}
+          variant="modal"
+          isOpen={showPhoneUpdate}
+          onClose={() => setShowPhoneUpdate(false)}
+        />
+      )}
+
       {/* Alert Modal */}
       <AlertModal
         isOpen={alertModal.isOpen}

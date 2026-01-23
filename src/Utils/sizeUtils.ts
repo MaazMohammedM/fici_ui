@@ -16,7 +16,7 @@ export const getSizeRange = (
   // This ensures missing sizes are shown in the UI with WhatsApp icons
   if (category === 'Footwear') {
     if (gender === 'women' && (subCategory === 'Shoes' || subCategory === 'Sandals' || subCategory === 'Slippers')) {
-      return Array.from({ length: 9 }, (_, i) => (i + 35).toString()); // 35-43
+      return Array.from({ length: 8 }, (_, i) => (i + 35).toString()); // 35-42
     } 
     
     if (gender === 'men' && (subCategory === 'Shoes' || subCategory === 'Sandals' || subCategory === 'Slippers')) {
@@ -35,12 +35,13 @@ export const getSizeRange = (
 
 /**
  * Get all available sizes for filtering in ProductPage
- * Returns comprehensive size options for men and women
+ * Returns comprehensive size options for men, women, and bags
  */
-export const getAllFilterSizes = (): { men: string[], women: string[] } => {
+export const getAllFilterSizes = (): { men: string[], women: string[], bags: string[] } => {
   return {
     men: Array.from({ length: 9 }, (_, i) => (i + 39).toString()), // 39-47
-    women: Array.from({ length: 9 }, (_, i) => (i + 35).toString()) // 35-43
+    women: Array.from({ length: 8 }, (_, i) => (i + 35).toString()), // 35-42
+    bags: ['14inch', '15inch', '16inch', '17inch', '18inch', '19inch', '20inch', '21inch', '22inch'] // Common bag sizes
   };
 };
 

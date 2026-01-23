@@ -164,7 +164,10 @@ const AdminPage: React.FC = () => {
         )}
 
         {activeTab === "list" && <ProductList />}
-        {activeTab === "add" && <ProductForm onCancel={() => setActiveTab("list")} onSuccess={() => setActiveTab("list")} />}
+        {activeTab === "add" && <ProductForm onCancel={() => setActiveTab("list")} onSuccess={() => {
+          // Keep user on add product tab to show success message and allow adding more products
+          // Don't change tab, just let the success message display in the form
+        }} />}
         {activeTab === "orders" && <AdminOrderDashboard />}
         {activeTab === "discounts" && (
           <DiscountFormSection allProducts={allProducts} />

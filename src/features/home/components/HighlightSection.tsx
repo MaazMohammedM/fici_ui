@@ -2,9 +2,16 @@
 import React, { useEffect, useMemo } from 'react';
 import { useProductStore } from '@/store/productStore';
 import { Link } from 'react-router-dom';
+import { filterInStockProductsWithCount } from '@lib/utils/stockFilter';
 
 const HighlightSection: React.FC = () => {
-  const { highlightProducts, fetchHighlightProducts, loading } = useProductStore();
+  const { highlightProducts, fetchHighlightProducts, clearHighlightProductsCache, loading } = useProductStore();
+
+  // Filter out out-of-stock products and ensure consistent count
+  const inStockHighlightProducts = useMemo(() => {
+    const filtered = filterInStockProductsWithCount(highlightProducts, 5);    
+    return filtered;
+  }, [highlightProducts]);
 
   // Calculate discount percentage for each product
   const getDiscountPercentage = (product: any) => {
@@ -25,11 +32,13 @@ const HighlightSection: React.FC = () => {
     return 0;
   };
 
+  // Clear cache on mount to ensure fresh data and only active products
   useEffect(() => {
+    clearHighlightProductsCache();
     fetchHighlightProducts();
-  }, [fetchHighlightProducts]);
+  }, [fetchHighlightProducts, clearHighlightProductsCache]);
 
-  if (loading && highlightProducts.length === 0) {
+  if (loading && inStockHighlightProducts.length === 0) {
     return (
       <div className="py-8 sm:py-10 bg-[color:var(--color-light1)] dark:bg-[color:var(--color-dark1)]">
         <div className="container mx-auto px-4">
@@ -47,7 +56,7 @@ const HighlightSection: React.FC = () => {
     );
   }
 
-  if (highlightProducts.length === 0) return null;
+  if (inStockHighlightProducts.length === 0) return null;
 
   return (
     <section className="py-8 sm:py-10 bg-[color:var(--color-light1)] dark:bg-[color:var(--color-dark1)]">
@@ -67,7 +76,7 @@ const HighlightSection: React.FC = () => {
         {/* Horizontal list with 2-up on mobile, snap to card */}
         <div className="w-full overflow-x-auto pb-4 scrollbar-hide">
           <div className="flex items-stretch gap-3 sm:gap-5 snap-x snap-center px-1 sm:px-0">
-            {highlightProducts.map((product) => {
+            {inStockHighlightProducts.map((product) => {
               const discountPercentage = getDiscountPercentage(product);
               
               return (

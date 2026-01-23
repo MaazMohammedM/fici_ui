@@ -34,8 +34,8 @@ export interface UseOtpReturn extends OtpState {
   otpValue: string;
 
   // Actions
-  requestOtp: (contact: string, method: 'email' | 'phone', purpose?: 'cod_verification') => Promise<boolean>;
-  verifyOtp: (contact: string, method: 'email' | 'phone', code: string, purpose?: 'cod_verification') => Promise<boolean>;
+  requestOtp: (contact: string, method: 'email' | 'phone', purpose?: 'cod_verification' | 'phone_update' | 'cancel' | 'replacement') => Promise<boolean>;
+  verifyOtp: (contact: string, method: 'email' | 'phone', code: string, purpose?: 'cod_verification' | 'phone_update' | 'cancel' | 'replacement') => Promise<boolean>;
   reset: () => void;
   clearErrors: () => void;
   handleOtpChange: (value: string) => void;
@@ -91,7 +91,7 @@ export function useOtp(options: UseOtpOptions = {}): UseOtpReturn {
   const requestOtpHandler = useCallback(async (
     contact: string,
     method: 'email' | 'phone',
-    purpose: 'cod_verification' = 'cod_verification'
+    purpose: 'cod_verification' | 'phone_update' | 'cancel' | 'replacement' = 'cod_verification'
   ): Promise<boolean> => {
     // Validate contact format
     if (!validateContact(contact, method)) {
@@ -142,7 +142,7 @@ export function useOtp(options: UseOtpOptions = {}): UseOtpReturn {
     contact: string,
     method: 'email' | 'phone',
     code: string,
-    purpose: 'cod_verification' = 'cod_verification'
+    purpose: 'cod_verification' | 'phone_update' | 'cancel' | 'replacement' = 'cod_verification'
   ): Promise<boolean> => {
     if (code.length !== 6) {
       setState(prev => ({ ...prev, verifyError: 'INVALID_CODE' }));

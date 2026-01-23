@@ -97,11 +97,6 @@ export const useEditProductForm = (product: AdminProduct, onSuccess?: () => void
   };
 
   const onSubmit = async (data: PartialEditProductFormData) => {
-    console.log('🚀 FORM SUBMISSION TRIGGERED!');
-    console.log('📝 Form data received:', data);
-    console.log('📏 Current sizes list:', sizesList);
-    console.log('🔍 Form errors:', form.formState.errors);
-    console.log('✅ Form is valid:', form.formState.isValid);
 
     try {
       // Check if any actual changes have been made
@@ -121,7 +116,6 @@ export const useEditProductForm = (product: AdminProduct, onSuccess?: () => void
       });
 
       if (!hasChanges) {
-        console.log('⚠️ No changes detected, skipping update');
         form.setError('root', {
           type: 'manual',
           message: 'No changes detected. Please make at least one change to update the product.'
@@ -137,7 +131,6 @@ export const useEditProductForm = (product: AdminProduct, onSuccess?: () => void
       if (sizesChanged) {
         // Validate sizes before proceeding
         if (Object.keys(sizesList).length === 0) {
-          console.log('❌ No sizes added, setting error');
           form.setError('sizes', {
             type: 'manual',
             message: 'Please add at least one size with quantity'
@@ -149,7 +142,6 @@ export const useEditProductForm = (product: AdminProduct, onSuccess?: () => void
         try {
           const parsedSizes = JSON.parse(currentSizesJson);
           if (typeof parsedSizes !== 'object' || parsedSizes === null || Object.keys(parsedSizes).length === 0) {
-            console.log('❌ Invalid sizes JSON, setting error');
             form.setError('sizes', {
               type: 'manual',
               message: 'Please add at least one size with quantity'
@@ -157,7 +149,6 @@ export const useEditProductForm = (product: AdminProduct, onSuccess?: () => void
             return;
           }
         } catch (parseError) {
-          console.log('❌ Failed to parse sizes JSON, setting error');
           form.setError('sizes', {
             type: 'manual',
             message: 'Invalid sizes data format'
@@ -200,19 +191,15 @@ export const useEditProductForm = (product: AdminProduct, onSuccess?: () => void
         }
       });
 
-      console.log('📦 Final product data to update:', productData);
-      console.log('🆔 Product ID:', product.product_id);
-
       const success = await updateProduct(product.product_id, productData);
 
       if (success) {
-        console.log('✅ Product updated successfully');
         form.reset();
         setSizesList({});
         // Call the success callback to close the edit form
         onSuccess?.();
       } else {
-        console.log('❌ Failed to update product');
+        console.warn('❌ Failed to update product');
       }
     } catch (error) {
       console.error('💥 Error updating product:', error);

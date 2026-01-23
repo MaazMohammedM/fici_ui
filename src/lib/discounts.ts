@@ -72,6 +72,7 @@ export const getActiveCheckoutRule = async (): Promise<CheckoutRule | null> => {
 };
 
 export type ProductDiscountRule = {
+  discount_id?: string;
   product_id: string;
   mode: "percent" | "amount";
   value: number;
@@ -79,7 +80,12 @@ export type ProductDiscountRule = {
   active?: boolean;
   starts_at?: string | null;
   ends_at?: string | null;
-  max_discount_cap?: number | null; // NEW
+  max_discount_cap?: number | null;
+  name?: string | null;
+  promotion_type?: "clearance" | "deal_of_the_day" | "flash_sale" | "campaign" | "generic";
+  priority?: number;
+  stackable?: boolean;
+  promo_tag?: string | null;
 };
 
 export const getActiveProductDiscountsForProducts = async (
@@ -190,6 +196,7 @@ export const upsertCheckoutRule = async (rule: CheckoutRule) => {
 
 export const upsertProductDiscount = async (rule: ProductDiscountRule) => {
   const payload: any = {
+    discount_id: rule.discount_id || crypto.randomUUID(), // Generate new ID if not provided
     product_id: rule.product_id,
     mode: rule.mode,
     value: rule.value,
@@ -197,12 +204,19 @@ export const upsertProductDiscount = async (rule: ProductDiscountRule) => {
     active: rule.active ?? true,
     starts_at: rule.starts_at ?? null,
     ends_at: rule.ends_at ?? null,
-    max_discount_cap: rule.max_discount_cap ?? null, // NEW
+    max_discount_cap: rule.max_discount_cap ?? null,
+    name: rule.name || null,
+    promotion_type: rule.promotion_type || "generic",
+    priority: rule.priority || 100,
+    stackable: rule.stackable || false,
+    promo_tag: rule.promo_tag || null,
   };
 
   const { error } = await supabase
     .from("product_discounts")
-    .upsert(payload, { onConflict: "product_id" });
+    .upsert(payload, { onConflict: "discount_id" })
+    .select("discount_id")
+    .single();
 
   if (error) throw error;
 };

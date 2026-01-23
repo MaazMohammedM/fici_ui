@@ -16,6 +16,11 @@ interface RefundModalProps {
   orderId: string;
   onConfirmRefund: (amount: number, reason: string, refReference: string) => void;
   processing: boolean;
+  refundType?: 'full' | 'partial';
+  initialRefundType?: 'full' | 'partial';
+  onRefundTypeChange?: (type: 'full' | 'partial') => void;
+  customAmount?: string;
+  onCustomAmountChange?: (amount: string) => void;
 }
 
 export const RefundModal: React.FC<RefundModalProps> = ({
@@ -28,8 +33,8 @@ export const RefundModal: React.FC<RefundModalProps> = ({
 }) => {
   const [reason, setReason] = useState('');
   const [refReference, setRefReference] = useState('');
-  const [customAmount, setCustomAmount] = useState('');
-  const [useCustomAmount, setUseCustomAmount] = useState(false);
+  const [refundType, setRefundType] = useState<'full' | 'partial'>('full');
+  const [refundAmount, setRefundAmount] = useState<number>(0);
 
   // Calculate total refund amount
   const totalAmount = items.reduce((sum, item) => sum + (item.price_at_purchase * item.quantity), 0);
@@ -39,16 +44,21 @@ export const RefundModal: React.FC<RefundModalProps> = ({
       // Reset form when modal closes
       setReason('');
       setRefReference('');
-      setCustomAmount('');
-      setUseCustomAmount(false);
+      setRefundType('full');
+      setRefundAmount(0);
     }
   }, [isOpen]);
 
   const handleConfirm = () => {
-    const amount = useCustomAmount ? parseFloat(customAmount) : totalAmount;
+    const amount = refundType === 'partial' ? refundAmount : totalAmount;
     
     if (!amount || amount <= 0) {
       alert('Please enter a valid refund amount');
+      return;
+    }
+
+    if (amount > totalAmount) {
+      alert('Refund amount cannot exceed total order amount');
       return;
     }
 
@@ -125,18 +135,17 @@ export const RefundModal: React.FC<RefundModalProps> = ({
           <div className="mb-6">
             <div className="flex items-center justify-between mb-3">
               <h4 className="font-semibold text-gray-900 dark:text-white">Refund Amount</h4>
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={useCustomAmount}
-                  onChange={(e) => setUseCustomAmount(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
-                />
-                <span className="text-gray-700 dark:text-gray-300">Custom amount</span>
-              </label>
+              <select
+                value={refundType}
+                onChange={(e) => setRefundType(e.target.value as 'full' | 'partial')}
+                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white text-sm"
+              >
+                <option value="full">Full Refund</option>
+                <option value="partial">Partial Refund</option>
+              </select>
             </div>
 
-            {useCustomAmount ? (
+            {refundType === 'partial' ? (
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Enter custom refund amount
@@ -145,8 +154,8 @@ export const RefundModal: React.FC<RefundModalProps> = ({
                   <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">₹</span>
                   <input
                     type="number"
-                    value={customAmount}
-                    onChange={(e) => setCustomAmount(e.target.value)}
+                    value={refundAmount}
+                    onChange={(e) => setRefundAmount(Number(e.target.value))}
                     placeholder="0.00"
                     step="0.01"
                     min="0"

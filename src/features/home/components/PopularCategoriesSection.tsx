@@ -25,15 +25,15 @@ const PopularCategoriesSection: React.FC = () => {
   }));
 
   return (
-    <section className="w-full">
+    <section className="w-full pb-16 sm:pb-20 lg:pb-24 select-none">
       {/* Compact tech-premium header */}
       <div className="text-center mb-4 sm:mb-6">
         <div className="space-y-2">
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black bg-gradient-to-r from-purple-600 via-pink-600 to-purple-600 bg-clip-text text-transparent bg-300% animate-gradient">
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black bg-gradient-to-r from-purple-600 via-pink-600 to-purple-600 bg-clip-text text-transparent bg-300% animate-gradient select-none">
             Shop by Category
           </h2>
           <p className="text-base sm:text-lg text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
-            Explore curated collections of premium footwear
+            Explore curated collections of premium leather products
           </p>
         </div>
         

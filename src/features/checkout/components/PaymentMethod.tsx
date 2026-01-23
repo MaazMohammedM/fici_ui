@@ -1,10 +1,11 @@
 import React from 'react';
+import type { PaymentMethod as PaymentMethodType } from '../CheckoutPage';
 
 interface PaymentMethodProps {
-  value: string;
+  value: PaymentMethodType;
   label: React.ReactNode;
   checked: boolean;
-  onChange: (value: string) => void;
+  onChange: (value: PaymentMethodType) => void;
   icon?: React.ReactNode;
   disabled?: boolean;
 }

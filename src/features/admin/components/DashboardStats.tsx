@@ -19,17 +19,76 @@ interface DashboardStatsProps {
   trafficVisits?: number;
 }
 
+// Function to fetch order statistics using same logic as AdminOrderDashboard
+const fetchOrderStats = async () => {
+  try {
+    // Use the same query as AdminOrderDashboard's adminStore
+    let query = supabase
+      .from('orders')
+      .select(`
+        *,
+        order_items (*)
+      `, { count: 'exact' });
+
+    // For dashboard, we want all orders (excluding pending razorpay orders like in admin dashboard)
+    const { data, error, count } = await query
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    // Apply the same filtering logic as AdminOrderDashboard
+    let filteredData = data || [];
+    
+    // Exclude razorpay orders that are still pending (not paid) - same as admin dashboard
+    filteredData = filteredData.filter(order => 
+      !(order.payment_method === 'razorpay' && order.status === 'pending')
+    );
+
+    // Calculate statistics using same logic as AdminOrderDashboard
+    const totalOrders = filteredData.length;
+    const pendingOrders = filteredData.filter((order) => 
+      order.payment_status === 'paid' && order.status !== 'shipped' && order.status !== 'delivered'
+    ).length;
+    
+    // Calculate total revenue from paid orders using effective_amount (same as original logic)
+    const totalRevenue = filteredData
+      .filter(order => order.payment_status === 'paid')
+      .reduce((sum, order) => sum + (order.effective_amount || order.total_amount || 0), 0);
+
+    return {
+      totalOrders,
+      pendingOrders,
+      totalRevenue
+    };
+  } catch (error) {
+    console.error('Error fetching order stats:', error);
+    return {
+      totalOrders: 0,
+      pendingOrders: 0,
+      totalRevenue: 0
+    };
+  }
+};
+
 const DashboardStats: React.FC<DashboardStatsProps> = ({
   totalVisits,
-  totalOrders,
+  totalOrders: totalOrdersProp,
   totalUsers,
   conversionRate,
-  totalRevenue,
-  pendingOrders,
+  totalRevenue: totalRevenueProp,
+  pendingOrders: pendingOrdersProp,
   trafficVisits
 }) => {
   // Fetch total traffic visits if not provided
   const [totalTrafficVisits, setTotalTrafficVisits] = React.useState<number | null>(null);
+  
+  // Fetch order statistics dynamically
+  const [orderStats, setOrderStats] = React.useState({
+    totalOrders: totalOrdersProp || 0,
+    pendingOrders: pendingOrdersProp || 0,
+    totalRevenue: totalRevenueProp || 0
+  });
+  const [orderStatsLoading, setOrderStatsLoading] = React.useState(false);
   
   React.useEffect(() => {
     if (typeof trafficVisits === 'number') {
@@ -57,6 +116,26 @@ const DashboardStats: React.FC<DashboardStatsProps> = ({
     
     fetchTrafficVisits();
   }, [trafficVisits]);
+
+  // Fetch order statistics
+  React.useEffect(() => {
+    const fetchStats = async () => {
+      setOrderStatsLoading(true);
+      try {
+        const stats = await fetchOrderStats();
+        setOrderStats(stats);
+      } catch (error) {
+        console.error('Failed to fetch order stats:', error);
+      } finally {
+        setOrderStatsLoading(false);
+      }
+    };
+
+    fetchStats();
+  }, []);
+
+  // Use fetched order stats, falling back to props if available
+  const { totalOrders, pendingOrders, totalRevenue } = orderStats;
   const baseStats = [
     {
       title: 'Total Visits',
@@ -67,7 +146,7 @@ const DashboardStats: React.FC<DashboardStatsProps> = ({
     },
     {
       title: 'Total Orders',
-      value: totalOrders.toLocaleString(),
+      value: orderStatsLoading ? '...' : totalOrders.toLocaleString(),
       icon: ShoppingBag,
       color: 'text-green-600',
       bgColor: 'bg-green-50'
@@ -81,7 +160,7 @@ const DashboardStats: React.FC<DashboardStatsProps> = ({
     },
     {
       title: 'Total Revenue',
-      value: `₹${totalRevenue.toLocaleString('en-IN')}`,
+      value: orderStatsLoading ? '...' : `₹${totalRevenue.toLocaleString('en-IN')}`,
       icon: DollarSign,
       color: 'text-emerald-600',
       bgColor: 'bg-emerald-50'
@@ -95,7 +174,7 @@ const DashboardStats: React.FC<DashboardStatsProps> = ({
     },
     {
       title: 'Pending Orders',
-      value: pendingOrders.toLocaleString(),
+      value: orderStatsLoading ? '...' : pendingOrders.toLocaleString(),
       icon: Package,
       color: 'text-yellow-600',
       bgColor: 'bg-yellow-50'

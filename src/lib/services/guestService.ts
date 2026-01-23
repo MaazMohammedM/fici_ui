@@ -1,5 +1,5 @@
-import { supabase } from '@lib/supabase'; // Make sure to import supabase client
-import type { GuestContactInfo } from '@lib/validation/checkout';
+import { supabase } from '../supabase'; // Make sure to import supabase client
+import type { GuestContactInfo } from '../validation/checkout';
 
 export interface GuestSession {
   guest_session_id: string;

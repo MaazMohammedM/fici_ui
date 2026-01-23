@@ -31,7 +31,7 @@ const ProductDescription: React.FC<ProductDescriptionProps> = ({ description, cl
       <div className="relative">
         <p
           ref={descriptionRef}
-          className={`text-sm text-gray-600 dark:text-gray-300 leading-relaxed transition-all duration-300 ${
+          className={`text-sm text-gray-600 dark:text-gray-300 leading-relaxed transition-all duration-300 whitespace-pre-wrap ${
             !isExpanded && shouldShowToggle ? 'line-clamp-3' : ''
           }`}
         >

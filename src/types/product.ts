@@ -17,6 +17,7 @@ export interface Product {
   created_at: string;
   rating?: Rating;
   tags?: string[];
+  size_prices?: Record<string, number> | null;
 }
 
 export interface Rating {

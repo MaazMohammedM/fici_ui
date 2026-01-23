@@ -13,7 +13,6 @@ const HomePage: React.FC = () => {
   return (
     //<main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-950 dark:via-black dark:to-slate-900 transition-colors duration-300">
           <main className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 dark:from-slate-950 dark:via-black dark:to-slate-900 transition-colors duration-300">
-      <InstructionSection/>
       {/* Hero Section - Full bleed, no padding */}
       <HeroSection />
       
@@ -21,7 +20,7 @@ const HomePage: React.FC = () => {
       <div className="w-full space-y-4 sm:space-y-6 md:space-y-8">
         
         {/* Popular Categories */}
-        <section className="pt-4 sm:pt-6 md:pt-8 pb-2 sm:pb-4">
+        <section className="pt-4 sm:pt-6 md:pt-8 pb-8 sm:pb-12 md:pb-16">
           <div className="mx-auto max-w-7xl px-3 sm:px-4 md:px-6">
             <PopularCategoriesSection />
           </div>

@@ -1,7 +1,8 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import TopDealsCard from './TopDealsCard';
 import { useProductStore } from '@store/productStore';
+import { filterInStockProductsWithCount } from '@lib/utils/stockFilter';
 
 const TopDealsSection: React.FC = () => {
   const { topDeals, loading, fetchTopDeals } = useProductStore();
@@ -10,7 +11,12 @@ const TopDealsSection: React.FC = () => {
     fetchTopDeals();
   }, [fetchTopDeals]);
 
-  if (loading && topDeals.length === 0) {
+  // Filter out out-of-stock products and ensure consistent count
+  const inStockTopDeals = useMemo(() => {
+    return filterInStockProductsWithCount(topDeals, 6); // Always show max 6 products
+  }, [topDeals]);
+
+  if (loading && inStockTopDeals.length === 0) {
     return (
       <div className='bg-[color:var(--color-light1)] dark:bg-[color:var(--color-dark1)] w-full px-4 sm:px-8 lg:px-16 py-8 sm:py-10 flex items-center justify-center'>
         <div className="text-center">
@@ -21,7 +27,7 @@ const TopDealsSection: React.FC = () => {
     );
   }
 
-  if (topDeals.length === 0) {
+  if (inStockTopDeals.length === 0) {
     return (
       <div className='bg-[color:var(--color-light1)] dark:bg-[color:var(--color-dark1)] w-full px-4 sm:px-8 lg:px-16 py-8 sm:py-10 flex items-center justify-center'>
         <div className="text-center">
@@ -57,7 +63,7 @@ const TopDealsSection: React.FC = () => {
       {/* Horizontal list with 2-up on mobile, snap to card */}
       <div className='w-full overflow-x-auto pb-4 scrollbar-hide'>
         <div className="flex items-stretch gap-3 sm:gap-5 snap-x snap-center px-1 sm:px-0">
-          {topDeals.map((product) => (
+          {inStockTopDeals.map((product) => (
             <div
               key={product.product_id}
               className={[
@@ -75,7 +81,7 @@ const TopDealsSection: React.FC = () => {
                 originalPrice={parseFloat(String(product.mrp_price))}
                 reviews={Math.floor(Math.random() * 200) + 50}
                 image={product.thumbnail_url || product.images?.[0]}
-                link={`/products/${product.article_id.split('_').at(0)}`}
+                link={`/products/${product.article_id}`}
                 discountPercentage={product.discount_percentage}
                 className="h-full"
               />

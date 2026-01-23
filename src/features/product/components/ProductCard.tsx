@@ -6,9 +6,21 @@ import CachedImage from "../../../components/ui/CachedImage";
 interface ProductCardProps {
   product: Product;
   className?: string;
+  // Props for highlighting active filters
+  activeSizes?: string[];
+  activeCategories?: string[];
+  activeGenders?: string[];
+  activeSubCategories?: string[];
 }
 
-const ProductCard: React.FC<ProductCardProps> = ({ product, className = '' }) => {
+const ProductCard: React.FC<ProductCardProps> = ({ 
+  product, 
+  className = '', 
+  activeSizes = [], 
+  activeCategories = [], 
+  activeGenders = [], 
+  activeSubCategories = [] 
+}) => {
   const navigate = useNavigate();
 
   // Calculate discount percentage
@@ -24,13 +36,22 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, className = '' }) =>
     return 0;
   }, [product.discount_percentage, product.mrp_price, product.discount_price]);
 
+  // Check if product attributes match active filters
+  const isSubCategoryActive = React.useMemo(() => {
+    return product.sub_category && activeSubCategories.includes(product.sub_category);
+  }, [product.sub_category, activeSubCategories]);
+
+  const isCategoryActive = React.useMemo(() => {
+    return product.category && activeCategories.includes(product.category);
+  }, [product.category, activeCategories]);
+
   return (
     <div
       onClick={() => navigate(`/products/${product.article_id}`)}
-      className={`cursor-pointer group rounded-xl shadow-sm bg-white dark:bg-dark2 hover:shadow-lg transition overflow-hidden min-h-[280px] flex flex-col ${className}`}
+      className={`cursor-pointer group rounded-xl shadow-sm bg-white dark:bg-dark2 hover:shadow-lg transition overflow-hidden min-h-[320px] flex flex-col ${className}`}
     >
-      {/* Product Image */}
-      <div className="relative aspect-square w-full bg-gray-50 dark:bg-gray-800 flex items-center justify-center overflow-hidden flex-shrink-0">
+      {/* Product Image - Larger and more appealing */}
+      <div className="relative aspect-[4/5] w-full bg-gray-50 dark:bg-gray-800 flex items-center justify-center overflow-hidden flex-shrink-0">
         <CachedImage
           src={product.images?.[0] || ''}
           alt={product.name}
@@ -55,49 +76,34 @@ const ProductCard: React.FC<ProductCardProps> = ({ product, className = '' }) =>
 
         {/* Sub-category */}
         {product.sub_category && (
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{product.sub_category}</p>
+          <p className={`text-xs mt-1 ${
+            isSubCategoryActive 
+              ? 'text-primary font-medium' 
+              : 'text-gray-500 dark:text-gray-400'
+          }`}>
+            {product.sub_category}
+          </p>
         )}
 
         {/* Price */}
-        <div className="mt-2 flex flex-col items-center gap-1">
-          <div className="flex items-center justify-center gap-1 sm:gap-2">
-            <span className="text-sm sm:text-base sm:text-lg font-medium text-gray-900 dark:text-white">
-              ₹{product.discount_price}
-            </span>
-            {product.mrp_price && (
-              <span className="text-xs text-gray-400 dark:text-gray-500 line-through">
-                ₹{product.mrp_price}
+        <div className="mt-auto pt-3">
+          <div className="flex flex-col items-center gap-1">
+            <div className="flex items-center justify-center gap-1 sm:gap-2">
+              <span className="text-base sm:text-lg font-bold text-gray-900 dark:text-white">
+                ₹{product.discount_price}
               </span>
-            )}
-            {discountPercentage > 0 && (
-              <span className="text-xs bg-green-100 text-green-800 px-1.5 py-0.5 rounded font-medium">
-                {discountPercentage}% OFF
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* Sizes - Always maintain consistent space */}
-        <div className="mt-2 min-h-[32px] flex items-center justify-center">
-          {product.sizes && Object.keys(product.sizes).length > 0 ? (
-            <div className="flex flex-wrap justify-center gap-1">
-              {Object.keys(product.sizes)
-                .slice(0, 3)
-                .map((size) => (
-                  <span
-                    key={size}
-                    className="px-2 py-0.5 text-xs border rounded-md bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-300 border-gray-200 dark:border-gray-600"
-                  >
-                    {size}
-                  </span>
-                ))}
-              {Object.keys(product.sizes).length > 3 && (
-                <span className="px-2 py-0.5 text-xs text-gray-500 dark:text-gray-400">+more</span>
+              {product.mrp_price && (
+                <span className="text-xs text-gray-400 dark:text-gray-500 line-through">
+                  ₹{product.mrp_price}
+                </span>
+              )}
+              {discountPercentage > 0 && (
+                <span className="text-xs bg-green-100 text-green-800 px-1.5 py-0.5 rounded font-medium">
+                  {discountPercentage}% OFF
+                </span>
               )}
             </div>
-          ) : (
-            <span className="text-xs text-gray-400 dark:text-gray-500">No sizes</span>
-          )}
+          </div>
         </div>
       </div>
     </div>

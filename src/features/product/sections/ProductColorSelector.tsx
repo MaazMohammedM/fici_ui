@@ -15,9 +15,10 @@ const ProductColorSelector: React.FC<Props> = ({
   onColorChange,
 }) => {
   const displayColorLabel =
-    selectedVariant?.color ||
-    currentProduct.variants[0]?.color ||
-    "";
+    String(selectedVariant?.color || currentProduct.variants[0]?.color || "");
+    
+  // Convert to lowercase for consistent display
+  const normalizedDisplayLabel = displayColorLabel.toLowerCase();
 
   return (
     <div>
@@ -30,7 +31,7 @@ const ProductColorSelector: React.FC<Props> = ({
       <div className="flex flex-wrap gap-3">
         {currentProduct.variants.map((variant) => {
           const colorLabel =
-            String(variant.color || variant.article_id.split("_")[1] || "");
+            String(variant.color || variant.article_id.split("_")[1] || "").toLowerCase();
           const isSelected = variant.article_id === selectedArticleId;
           const thumbnailUrl =
             variant.thumbnail_url ||

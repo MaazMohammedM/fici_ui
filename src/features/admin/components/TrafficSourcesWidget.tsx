@@ -94,7 +94,7 @@ const TrafficSourcesWidget: React.FC = () => {
 const getSourceIcon = (source: string) => {
   const iconClass = 'w-4 h-4 text-gray-500 dark:text-gray-400';
   
-  switch(source) {
+  switch (source) {
     case 'whatsapp':
       return <MessageCircle className={iconClass} />;
     case 'instagram':
@@ -121,16 +121,15 @@ const getSourceIcon = (source: string) => {
     case 'telegram':
       return <MessageCircle className={iconClass} />;
     case 'snapchat':
-      return <Globe className={iconClass} />;
+      return <MessageCircle className={iconClass} />;
     case 'pinterest':
-      return <Globe className={iconClass} />;
     case 'reddit':
-      return <Globe className={iconClass} />;
     case 'tiktok':
       return <Globe className={iconClass} />;
     case 'mobile_app':
+      return <Instagram className={iconClass} />; // Use Instagram icon for mobile apps
     case 'social':
-      return <Instagram className={iconClass} />;
+      return <Instagram className={iconClass} />; // Use Instagram icon for social
     case 'chrome':
     case 'firefox':
     case 'safari':

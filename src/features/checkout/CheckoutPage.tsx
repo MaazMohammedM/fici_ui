@@ -7,15 +7,35 @@ import React, {
   useRef,
 } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { ArrowLeft, Shield } from "lucide-react";
+import { ArrowLeft, Shield, Phone, Plus } from "lucide-react";
 import { OtpFlow } from "@/components/otp";
 import AddressCard from "./components/AddressForm";
 import GuestAddressForm from "./components/GuestAddressForm";
-import PaymentMethods from "./components/PaymentMethods";
-import OrderSummary from "./components/OrderSummary";
+ import OrderSummary from "./components/OrderSummary";
 import PaymentStatusModal from "./modal/PaymentStatusModal";
 import GuestCheckoutForm from "./components/GuestCheckoutForm";
+import PhoneUpdateWithOtp from "@/components/PhoneUpdateWithOtp";
+import CheckoutSummary from "./components/CheckoutSummary";
+import CheckoutAddressSection from "./components/CheckoutAddressSection";
+import CheckoutPaymentSection from "./components/CheckoutPaymentSection";
+import CheckoutActions from "./components/CheckoutActions";
 import { supabase } from "@lib/supabase";
+import { 
+  getOtpIdentity, 
+  getNonEditableIdentityFields, 
+  shouldShowMissingPhoneMessage,
+  getMissingPhoneMessage,
+  validateOtpIdentity,
+  getOtpContact,
+  type OtpIdentity,
+  type IdentityFields 
+} from "../../utils/otpIdentity";
+import { 
+  isCurrentIdentityVerified, 
+  shouldRequireOtpVerification,
+  getVerificationStatus, 
+  markCurrentIdentityVerified
+} from "../../utils/identityVerification";
 import type { Address } from "./components/AddressForm";
 import type { GuestContactInfo } from "../../types/guest";
 import razorpayPayments from "../../assets/razorpay-with-all-cards-upi-seeklogo.png";
@@ -28,12 +48,17 @@ import {
   type CheckoutRule,
 } from "@lib/discounts";
 import { usePincodeStore } from "@store/pincodeStore";
-import { getShippingFee, getFreeShippingThreshold, isCODAvailable, getDeliveryTime } from "@lib/utils/pincodeUtils";
 import { useAuthStore } from "@store/authStore";
 import { useCartStore } from "@store/cartStore";
 import { usePaymentStore } from "@store/paymentStore";
 import { useThemeStore } from "@store/themeStore";
+import { useWishlistStore } from "@store/wishlistStore";
 import AlertModal from "@components/ui/AlertModal";
+import { clearIdentityVerification } from "../../utils/identityVerification";
+import { validateCartItemStock } from "@lib/stock/stockValidator";
+
+// Payment method type for consistency
+export type PaymentMethod = "razorpay" | "cod";
 
 const getRazorpayKey = () => {
   if (
@@ -68,20 +93,27 @@ const loadRazorpayScript = (): Promise<void> => {
 };
 
 const CHECKOUT_DRAFT_KEY = "checkoutDraft";
+const CHECKOUT_SESSION_KEY = "checkoutSessionId";
 
 const CheckoutPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { items: cartItems, getCartTotal, clearCart } = useCartStore();
+  const { items: cartItems, getCartTotal, clearCart, removeFromCart } = useCartStore();
   const { savePaymentDetails } = usePaymentStore(); // currently unused but kept for behavior
-  const { mode } = useThemeStore(); // Add theme store to respond to theme changes
+  const { mode, initializeTheme } = useThemeStore(); // Add theme store to respond to theme changes
+  const { addToWishlist } = useWishlistStore();
   const user = useAuthStore((state) => state.user);
+  const userProfile = useAuthStore((state) => state.userProfile);
+  const setUserProfile = useAuthStore((state) => state.setUserProfile);
   const isGuest = useAuthStore((state) => state.isGuest);
+  const guestInfo = useAuthStore((state) => state.guestContactInfo);
+  const setGuestInfo = useAuthStore((state) => state.updateGuestContactInfo);
   const guestContactInfo = useAuthStore((state) => state.guestContactInfo);
   const guestSession = useAuthStore((state) => state.guestSession);
   const createGuestSession = useAuthStore(
     (state) => state.createGuestSession
   );
+  const clearGuestSessionState = useAuthStore((state) => state.clearGuestSession);
   const getAuthenticationType = useAuthStore(
     (state) => state.getAuthenticationType
   );
@@ -90,7 +122,7 @@ const CheckoutPage: React.FC = () => {
     null
   );
   const [selectedPayment, setSelectedPayment] =
-    useState<string>("razorpay"); // Default to Razorpay
+    useState<PaymentMethod>("razorpay"); // Default to Razorpay
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<
     "success" | "failed" | "pending" | null
@@ -110,6 +142,22 @@ const CheckoutPage: React.FC = () => {
     null
   );
 
+  // Additional missing state variables
+  const [showPhoneUpdate, setShowPhoneUpdate] = useState(false);
+  const [showGuestForm, setShowGuestForm] = useState(false);
+  const [isIdentityVerified, setIsIdentityVerified] = useState(false);
+  const [verificationStatus, setVerificationStatus] = useState<any>(null);
+  const [codOtpTriggered, setCodOtpTriggered] = useState(false);
+  const [otpValue, setOtpValue] = useState('');
+  const [otpError, setOtpError] = useState('');
+  // Unique checkout session id used to scope OTP verification to this checkout attempt
+  const [checkoutSessionId, setCheckoutSessionId] = useState<string | null>(() => {
+    // Always generate a fresh session ID on component mount to ensure OTP is scoped per checkout attempt
+    const fresh = crypto.randomUUID();
+    sessionStorage.setItem(CHECKOUT_SESSION_KEY, fresh);
+    return fresh;
+  });
+
   // Navigation warning modal state
   const [navigationWarning, setNavigationWarning] = useState<{
     isOpen: boolean;
@@ -124,16 +172,7 @@ const CheckoutPage: React.FC = () => {
   });
 
   const [showOtpVerification, setShowOtpVerification] = useState(false);
-  const [otpValue, setOtpValue] = useState("");
-  const [otpVerified, setOtpVerified] = useState(false);
-  const [otpError, setOtpError] = useState("");
-  const [showGuestForm, setShowGuestForm] = useState(false);
-  const [showOtpVerificationPage, setShowOtpVerificationPage] =
-    useState(false);
-  const [guestInfo, setGuestInfo] = useState<GuestContactInfo | null>(
-    null
-  );
-  const [codOtpTriggered, setCodOtpTriggered] = useState(false);
+  const [showOtpVerificationPage, setShowOtpVerificationPage] = useState(false);
 
   const [alertModal, setAlertModal] = useState<{
     isOpen: boolean;
@@ -146,6 +185,167 @@ const CheckoutPage: React.FC = () => {
   });
 
   const [prepaidDiscountAmount, setPrepaidDiscountAmount] = useState(0);
+  const [productDetails, setProductDetails] = useState<Record<string, any>>({});
+  const [validationResults, setValidationResults] = useState<Record<string, any>>({});
+
+  // Reset guest form state when guest session is cleared
+  useEffect(() => {
+    if (isGuest && !guestSession && !guestInfo && !showGuestForm) {
+      setShowGuestForm(true);
+      setSelectedAddress(null);
+    }
+  }, [isGuest, guestSession, guestInfo, showGuestForm]);
+
+  // Load product details for cart validation
+  useEffect(() => {
+    const loadProductDetails = async () => {
+      if (!cartItems.length) return;
+
+      // Debug logging for cart items
+      console.log('Processing cart items:', cartItems.map(item => ({
+        cartItemId: item.id,
+        productId: item.product_id,
+        productName: item.name,
+        size: item.size,
+        quantity: item.quantity
+      })));
+
+      const productIds = Array.from(new Set(cartItems.map(item => item.product_id).filter(Boolean)));
+      
+      console.log('Fetching product details for IDs:', productIds);
+      
+      if (productIds.length === 0) return;
+
+      try {
+        // Build proper query for multiple product IDs
+        const { data: products, error } = await supabase
+          .from('products')
+          .select('*')
+          .in('product_id', productIds);
+
+        if (error) {
+          console.error('Error fetching product details:', error);
+          return;
+        }
+
+        console.log('Products returned from database:', products.map(p => ({
+          productId: p.product_id,
+          productName: p.name,
+          articleId: p.article_id
+        })));
+
+        // Create a mapping from product_id to product details for easier lookup
+        const productMap = products.reduce((acc, product) => {
+          acc[product.product_id] = product;
+          return acc;
+        }, {});
+
+        // Now map each cart item to its product details
+        const details = cartItems.reduce((acc, cartItem) => {
+          const product = productMap[cartItem.product_id];
+          
+          // Debug logging for product mapping
+          console.log('Mapping product to cart:', {
+            cartItemId: cartItem.id,
+            productId: cartItem.product_id,
+            productName: cartItem.name,
+            foundProduct: !!product,
+            productNameFromDb: product?.name
+          });
+          
+          if (product) {
+            acc[cartItem.id] = product;
+          }
+          return acc;
+        }, {});
+
+        setProductDetails(details);
+
+        // Validate cart items
+        const invalidItems = cartItems.filter(item => {
+          const product = details[item.id];
+          if (!product) {
+            console.warn(`Product details not found for cart item ${item.id}, product_id: ${item.product_id}`);
+            return true; // Mark as invalid if product details not found
+          }
+          
+          const stock = validateCartItemStock(product, {
+            size: item.size,
+            quantity: item.quantity,
+          });
+          
+          // Debug logging for troubleshooting
+          if (!stock.isActive || !stock.selectedSizeInStock || stock.issues.length > 0) {
+            console.warn(`Item validation failed:`, {
+              cartItemId: item.id,
+              productName: item.name,
+              productId: item.product_id,
+              selectedSize: item.size,
+              requestedQuantity: item.quantity,
+              productSizes: product.sizes,
+              stock,
+              parsedSizes: JSON.parse(product.sizes || '{}')
+            });
+          }
+          
+          return !stock.isActive || !stock.selectedSizeInStock || stock.issues.length > 0;
+        });
+        
+        setValidationResults(
+          cartItems.reduce((acc, item) => {
+            const product = details[item.id];
+            const stock = validateCartItemStock(product, {
+              size: item.size,
+              quantity: item.quantity,
+            });
+            
+            acc[item.id] = {
+              isValid: stock.isActive && stock.selectedSizeInStock && stock.issues.length === 0,
+              isInactive: !stock.isActive,
+              isOutOfStock: !stock.selectedSizeInStock || stock.issues.length > 0,
+              errors: []
+            };
+            
+            if (!product) {
+              acc[item.id].errors.push('Product information not found');
+            } else {
+              if (!stock.isActive) acc[item.id].errors.push('Product is no longer available');
+              if (!stock.selectedSizeInStock || stock.issues.length > 0) {
+                if (!item.size) {
+                  acc[item.id].errors.push('No size selected');
+                } else {
+                  if (stock.issues.includes('SIZE_OUT_OF_STOCK')) {
+                    acc[item.id].errors.push(`Size ${item.size} is out of stock`);
+                  } else if (stock.issues.includes('QUANTITY_EXCEEDED')) {
+                    acc[item.id].errors.push(`Only ${stock.availableQty} available in size ${item.size}, but you requested ${item.quantity}`);
+                  } else {
+                    acc[item.id].errors.push(`Size ${item.size} is not available`);
+                  }
+                }
+              }
+            }
+            
+            return acc;
+          }, {} as Record<string, any>)
+        );
+
+      } catch (error) {
+        console.error('Error loading product details:', error);
+      }
+    };
+
+    loadProductDetails();
+  }, [cartItems]);
+
+  // Cart verification modal state
+  const [showCartVerification, setShowCartVerification] = useState(false);
+
+  // Show cart verification on page load if there are items
+  useEffect(() => {
+    if (cartItems.length > 0) {
+      setShowCartVerification(true);
+    }
+  }, [cartItems.length]);
 
   // Derived label for checkout-level offer (prepaid)
   const checkoutOfferLabel = useMemo(() => {
@@ -232,6 +432,12 @@ const CheckoutPage: React.FC = () => {
     if (!hasUnsavedChanges) return;
 
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      // Clear guest session data when leaving the page
+      if (isGuest) {
+        const { clearGuestSession } = useAuthStore.getState();
+        clearGuestSession();
+      }
+      
       e.preventDefault();
       e.returnValue =
         "You have unsaved changes. Are you sure you want to leave?";
@@ -264,22 +470,32 @@ const CheckoutPage: React.FC = () => {
       window.removeEventListener("beforeunload", handleBeforeUnload);
       window.removeEventListener("popstate", handlePopState);
     };
-  }, [hasUnsavedChanges]);
+  }, [hasUnsavedChanges, isGuest]);
 
-  // Calculate subtotal after applying product discounts
-  const subtotal = useMemo(() => {
-    if (!cartItems.length) return 0;
-    
-    return cartItems.reduce((sum, item) => {
-      const rule = productDiscounts[item.product_id];
-      const discountedPrice = applyProductDiscountToPrice(
-        item.price,
-        item.mrp,
-        rule
-      );
-      return sum + discountedPrice * item.quantity;
-    }, 0);
-  }, [cartItems, productDiscounts]);
+  // Handle guest data cleanup on page unload (even without unsaved changes)
+  useEffect(() => {
+    if (!isGuest) return;
+
+    const handlePageHide = () => {
+      // Clear guest session data when page is hidden (navigation, tab close, etc.)
+      const { clearGuestSession } = useAuthStore.getState();
+      clearGuestSession();
+    };
+
+    window.addEventListener("pagehide", handlePageHide);
+
+    return () => {
+      window.removeEventListener("pagehide", handlePageHide);
+    };
+  }, [isGuest]);
+
+// Update the subtotal calculation to use discount_price when available
+const subtotal = useMemo(() => {
+  return cartItems.reduce((sum, item) => {
+    const price = item.discount_price || item.price ;
+    return sum + price * item.quantity;
+  }, 0);
+}, [cartItems]);
 
   // Calculate original price total (sum of item.price, not item.mrp)
   const originalPriceTotal = useMemo(() => {
@@ -296,71 +512,90 @@ const CheckoutPage: React.FC = () => {
     }, 0);
   }, [cartItems]);
 
-  // Calculate product savings by summing individual line savings
-  const productSavings = useMemo(() => {
-    if (!cartItems.length) return 0;
-    
-    const totalSavings = cartItems.reduce((sum, item) => {
-      const rule = productDiscounts[item.product_id];
-      const discountedPrice = applyProductDiscountToPrice(
-        item.price,
-        item.mrp,
-        rule
-      );
-      const baseForSavings =
-        rule &&
-        rule.base === "mrp" &&
-        item.mrp != null
-          ? item.mrp
-          : item.price;
-      const originalLine = baseForSavings * item.quantity;
-      const lineSubtotal = discountedPrice * item.quantity;
-      const lineSavings = Math.max(0, originalLine - lineSubtotal);
+// Calculate product savings only when there are active product discounts
+const productSavings = useMemo(() => {
+  if (!cartItems.length || Object.keys(productDiscounts).length === 0) return 0;
+  
+  const totalSavings = cartItems.reduce((sum, item) => {
+    // Only calculate savings if there's an active discount for this product
+    if (productDiscounts[item.id]) {
+      // Convert string prices to numbers
+      const mrp = item.mrp;
+      const discountPrice = item.discount_price;
+      const price = item.price;
       
-      return sum + lineSavings;
-    }, 0);
-    
-    return totalSavings;
-  }, [cartItems, productDiscounts]);
+      // Use the lower of discount_price or price, but only if it's actually a discount
+      const discountedPrice = discountPrice > 0 && discountPrice < mrp ? discountPrice : price;
+      
+      // Only show savings if the discounted price is actually less than MRP
+      if (discountedPrice < mrp) {
+        const originalLine = mrp * item.quantity;
+        const lineSubtotal = discountedPrice * item.quantity;
+        return sum + (originalLine - lineSubtotal);
+      }
+    }
+    return sum;
+  }, 0);
+  
+  return totalSavings;
+}, [cartItems, productDiscounts]);
 
   // Calculate checkout discount (only for online payments)
-  // Note: Calculate on MRP total for fair comparison with product discounts
+  // Calculate on subtotal (after product discounts) for standard e-commerce behavior
   const checkoutDiscount = useMemo(() => {
     if (selectedPayment !== "razorpay") return 0;
-    // Calculate checkout discount on MRP total, not on discounted subtotal
-    return checkoutRule ? calculateCheckoutDiscount(checkoutRule, mrpTotal) : 0;
-  }, [checkoutRule, mrpTotal, selectedPayment]);
-
-  // Determine which discount is better: product discounts OR checkout discount
-  const bestDiscountType = useMemo(() => {
-    if (productSavings > checkoutDiscount) {
-      return 'product';
-    } else if (checkoutDiscount > productSavings) {
-      return 'checkout';
-    }
-    return 'equal'; // When both are equal or zero
-  }, [productSavings, checkoutDiscount]);
-
-  // Calculate the maximum discount amount
-  const maxDiscountAmount = useMemo(() => {
-    return Math.max(productSavings, checkoutDiscount);
-  }, [productSavings, checkoutDiscount]);
+    // Calculate checkout discount on the discounted subtotal (after product discounts)
+    return checkoutRule ? calculateCheckoutDiscount(checkoutRule, subtotal) : 0;
+  }, [checkoutRule, subtotal, selectedPayment]);
 
   // State for delivery charge calculation
   const [deliveryCharge, setDeliveryCharge] = useState(0);
+
+  // Determine which discount to apply: only the bigger one, prefer prepaid when equal
+  const discountType = useMemo(() => {
+    if (checkoutDiscount > productSavings) {
+      return 'prepaid';
+    } else if (productSavings > checkoutDiscount) {
+      return 'product';
+    } else {
+      // Equal amounts - prefer prepaid discount
+      return 'prepaid';
+    }
+  }, [checkoutDiscount, productSavings]);
+
+  // Calculate final total amount with only the selected discount
+  const totalAmount = useMemo(() => {
+    let finalSubtotal;
+    
+    if (discountType === 'prepaid') {
+      // Use MRP total and apply only prepaid discount
+      finalSubtotal = subtotal;
+      if (selectedPayment === "razorpay" && checkoutRule) {
+        const checkoutDiscountAmount = calculateCheckoutDiscount(checkoutRule, finalSubtotal);
+        finalSubtotal = Math.max(0, finalSubtotal - checkoutDiscountAmount);
+      }
+    } else {
+      // Use subtotal (product discounts already applied)
+      finalSubtotal = subtotal;
+    }
+    
+    return Math.max(0, finalSubtotal + deliveryCharge);
+  }, [discountType, mrpTotal, subtotal, deliveryCharge, selectedPayment, checkoutRule]);
   const [deliveryTime, setDeliveryTime] = useState<string | null>(null);
   const [codAvailable, setCodAvailable] = useState(true);
+  const [prevCodAvailable, setPrevCodAvailable] = useState(true);
+  const [isPincodeServiceable, setIsPincodeServiceable] = useState(true);
 
   // Zustand store for pincode operations
   const { fetchDetails } = usePincodeStore();
 
-  // Calculate delivery charge and other pincode-based details
+  // Calculate delivery charge and other pincode-based details (excluding COD availability)
   useEffect(() => {
     const calculateDeliveryDetails = async () => {
       if (!selectedAddress?.pincode) {
         setDeliveryCharge(0);
         setDeliveryTime(null);
-        setCodAvailable(true);
+        // Don't set COD availability here - it's handled separately
         return;
       }
 
@@ -369,40 +604,81 @@ const CheckoutPage: React.FC = () => {
         const details = await fetchDetails(selectedAddress.pincode);
         
         if (details) {
+          // Check if pincode is serviceable
+          if (details.is_serviceable === false) {
+            setDeliveryCharge(0);
+            setDeliveryTime(null);
+            setIsPincodeServiceable(false);
+            return;
+          }
+          
           // Use the details from the store
           const shippingFee = details.shipping_fee || 0;
           const freeShippingThreshold = details.free_shipping_threshold || 999;
           
-          // Free shipping if above threshold
           const finalDeliveryCharge = subtotal >= freeShippingThreshold ? 0 : shippingFee;
           setDeliveryCharge(finalDeliveryCharge);
           setDeliveryTime(details.delivery_time || null);
-          setCodAvailable(details.cod_allowed !== false);
+          setIsPincodeServiceable(true);
         } else {
-          // Default values if no details found
           setDeliveryCharge(0);
           setDeliveryTime(null);
-          setCodAvailable(true);
+          setIsPincodeServiceable(true);
         }
       } catch (error) {
         console.error('Error calculating delivery details:', error);
-        // Default values on error
         setDeliveryCharge(0);
         setDeliveryTime(null);
-        setCodAvailable(true);
       }
     };
 
     calculateDeliveryDetails();
   }, [selectedAddress?.pincode, subtotal, fetchDetails]);
 
+  // Separate useEffect for COD availability to prevent infinite loops
+  useEffect(() => {
+    const checkCodAvailability = async () => {
+      if (!selectedAddress?.pincode) {
+        setCodAvailable(true);
+        setIsPincodeServiceable(true);
+        return;
+      }
+
+      try {
+        const details = await fetchDetails(selectedAddress.pincode);
+        if (details) {
+          // Set serviceability state
+          setIsPincodeServiceable(details.is_serviceable !== false);
+          // Only allow COD if pincode is serviceable AND COD is allowed
+          setCodAvailable(details.is_serviceable !== false && details.cod_allowed !== false);
+        } else {
+          setIsPincodeServiceable(true);
+          setCodAvailable(true);
+        }
+      } catch (error) {
+        console.error('Error checking COD availability:', error);
+        setCodAvailable(true);
+        setIsPincodeServiceable(true);
+      }
+    };
+
+    checkCodAvailability();
+  }, [selectedAddress?.pincode, fetchDetails]); // Don't include subtotal
+
   // Auto-switch to online payment if COD becomes unavailable
   useEffect(() => {
-    if (selectedPayment === "cod" && !codAvailable) {
+    // Only switch if COD was previously available and now is unavailable
+    // AND the current payment method is COD
+    if (prevCodAvailable && !codAvailable && selectedPayment === "cod") {
       setSelectedPayment("razorpay");
       showAlert("COD is not available for this pincode. Switched to online payment.", "info");
     }
-  }, [codAvailable, selectedPayment]);
+  }, [codAvailable, selectedPayment]); // Remove prevCodAvailable to prevent loop
+
+  // Update previous COD availability separately
+  useEffect(() => {
+    setPrevCodAvailable(codAvailable);
+  }, [codAvailable]);
 
   // Validate COD payment method
   const validateCODPayment = useCallback(() => {
@@ -413,26 +689,23 @@ const CheckoutPage: React.FC = () => {
     return true;
   }, [selectedPayment, codAvailable]);
 
-  // Calculate final total amount with maximum discount
-  const totalAmount = useMemo(() => {
-    if (bestDiscountType === 'product') {
-      // Apply product discounts (already applied in subtotal)
-      return Math.max(0, subtotal + deliveryCharge);
-    } else if (bestDiscountType === 'checkout') {
-      // Apply checkout discount instead of product discounts
-      const subtotalWithoutProductDiscounts = mrpTotal; // Use MRP as base
-      return Math.max(0, subtotalWithoutProductDiscounts + deliveryCharge - checkoutDiscount);
-    } else {
-      // Equal or zero - use product discounts by default
-      return Math.max(0, subtotal + deliveryCharge);
-    }
-  }, [bestDiscountType, subtotal, mrpTotal, deliveryCharge, checkoutDiscount]);
-
+  
   // Calculate display values for OrderSummary
   const displaySubtotal = useMemo(() => {
-    // Always show the discounted price (after product discounts)
-    return subtotal;
-  }, [subtotal]);
+    // Show the price after applying the selected discount
+    if (discountType === 'prepaid') {
+      // For prepaid discount, show the price after prepaid discount is applied
+      let discountedSubtotal = subtotal;
+      if (selectedPayment === "razorpay" && checkoutRule) {
+        const checkoutDiscountAmount = calculateCheckoutDiscount(checkoutRule, discountedSubtotal);
+        discountedSubtotal = Math.max(0, discountedSubtotal - checkoutDiscountAmount);
+      }
+      return discountedSubtotal;
+    } else {
+      // For product discount, show the price after product discounts
+      return subtotal;
+    }
+  }, [discountType, mrpTotal, subtotal, selectedPayment, checkoutRule]);
 
   const displayMRPTotal = useMemo(() => {
     // Always show the MRP total
@@ -440,30 +713,32 @@ const CheckoutPage: React.FC = () => {
   }, [mrpTotal]);
 
   const displaySavings = useMemo(() => {
-    if (bestDiscountType === 'product') {
-      return productSavings;
-    } else if (bestDiscountType === 'checkout') {
-      return checkoutDiscount;
-    }
-    return maxDiscountAmount; // When equal
-  }, [bestDiscountType, productSavings, checkoutDiscount, maxDiscountAmount]);
+    // Calculate total savings from MRP to current discounted price
+    // This shows the actual savings the customer gets (MRP - discounted price)
+    const totalSavings = mrpTotal - subtotal;
+    return Math.max(0, totalSavings); // Ensure no negative savings
+  }, [mrpTotal, subtotal]);
 
   // Check if dark mode is active
-  const isDarkMode = useMemo(() => {
-    if (typeof window !== 'undefined') {
-      return window.matchMedia('(prefers-color-scheme: dark)').matches || 
-             document.documentElement.classList.contains('dark');
-    }
-    return false;
-  }, []);
+  const isDarkMode = mode === 'dark';
+  
+    const handlePhoneUpdateSuccess = (newPhone: string) => {
+    // Update local state
+    setUserProfile(prev => prev ? { ...prev, phone_number: newPhone } : null);
+    setShowPhoneUpdate(false);
+    showAlert('Phone number updated successfully!', 'success');
+  };
+
   const getContactInfo = () => {
     if (user) {
       return {
         email:
           user.email ||
           (selectedAddress as any)?.email ||
+          userProfile?.email ||
           "",
         phone:
+          userProfile?.phone_number ||
           (user as any).phone ||
           (selectedAddress as any)?.phone ||
           "",
@@ -477,22 +752,210 @@ const CheckoutPage: React.FC = () => {
     return { email: "", phone: "" };
   };
 
-  // Load draft
+  // Load draft and handle default address selection for signed-in users
   useEffect(() => {
     const saved = sessionStorage.getItem(CHECKOUT_DRAFT_KEY);
+    let draftAddress = null;
+    
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (parsed?.selectedAddress)
-          setSelectedAddress(parsed.selectedAddress);
+        if (parsed?.selectedAddress) {
+          // Only load the draft address if it belongs to the current user or if it's a guest address
+          const address = parsed.selectedAddress;
+          const isCurrentUserAddress = user && address.email === user.email;
+          const isGuestAddress = !user && guestInfo && address.email === guestInfo.email;
+          
+          // For signed-in users, be more lenient about email matching
+          if (user && address.email && !address.email.includes('guest')) {
+            // Allow any non-guest address for signed-in users
+            draftAddress = address;
+            setSelectedAddress(address);
+          } else if (isGuestAddress) {
+            // For guests, only allow guest addresses
+            draftAddress = address;
+            setSelectedAddress(address);
+          } else if (isCurrentUserAddress) {
+            // Exact match case
+            draftAddress = address;
+            setSelectedAddress(address);
+          } else {
+            // Clear the draft if it doesn't belong to the current user type
+            sessionStorage.removeItem(CHECKOUT_DRAFT_KEY);
+          }
+        }
         if (parsed?.selectedPayment) {
           setSelectedPayment(parsed.selectedPayment);
         }
       } catch (error) {
         console.error("Error parsing checkout draft:", error);
+        sessionStorage.removeItem(CHECKOUT_DRAFT_KEY);
       }
     }
-  }, []);
+    
+    // For signed-in users, if no draft address exists, try to load default address from user profile
+    if (user && !draftAddress) {
+      loadDefaultAddress();
+    }
+  }, [user, guestInfo]); // Remove selectedPayment to prevent infinite loop
+
+
+  // Function to load default address for signed-in users
+  const loadDefaultAddress = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('addresses')
+        .eq('user_id', user.id)
+        .single();
+
+      if (!error && data?.addresses && Array.isArray(data.addresses)) {
+        const addresses = data.addresses;
+        
+        // Find default address with valid pincode
+        const defaultAddress = addresses.find(addr => 
+          addr.is_default && 
+          addr.pincode && 
+          addr.pincode.trim() !== ""
+        );
+        
+        if (defaultAddress) {
+          setSelectedAddress(defaultAddress);
+          // Save to draft
+          const draftData = { selectedAddress: defaultAddress, selectedPayment };
+          sessionStorage.setItem(CHECKOUT_DRAFT_KEY, JSON.stringify(draftData));
+        } else if (addresses.length === 1) {
+          // If only one address and no default, select it if it has valid pincode
+          const singleAddress = addresses[0];
+          if (singleAddress.pincode && singleAddress.pincode.trim() !== "") {
+            setSelectedAddress(singleAddress);
+            // Save to draft
+            const draftData = { selectedAddress: singleAddress, selectedPayment };
+            sessionStorage.setItem(CHECKOUT_DRAFT_KEY, JSON.stringify(draftData));
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error loading default address:", error);
+    }
+  };
+
+  // Additional effect to restore address after OTP verification
+  useEffect(() => {
+    if (!showOtpVerification && isIdentityVerified && !selectedAddress) {
+      const saved = sessionStorage.getItem(CHECKOUT_DRAFT_KEY);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (parsed?.selectedAddress) {
+            const address = parsed.selectedAddress;
+            const isCurrentUserAddress = user && address.email === user.email;
+            const isGuestAddress = !user && guestInfo && address.email === guestInfo.email;
+            
+            if (isCurrentUserAddress || isGuestAddress) {
+              setSelectedAddress(address);
+            }
+          }
+        } catch (error) {
+          console.error("Error restoring address after OTP:", error);
+        }
+      }
+      
+      // Fallback: Check sessionStorage directly for guest addresses
+      if (!selectedAddress && !user && guestInfo) {
+        const guestSessionId = useAuthStore.getState().guestSession?.guest_session_id;
+        if (guestSessionId) {
+          const stored = sessionStorage.getItem(`guest_addresses_${guestSessionId}`);
+          if (stored) {
+            try {
+              const addresses = JSON.parse(stored);
+              if (addresses.length > 0) {
+                // Use the most recent address (last in array)
+                const latestAddress = addresses[addresses.length - 1];
+                if (latestAddress.email === guestInfo.email) {
+                  setSelectedAddress(latestAddress);
+                  // Update the draft with this address
+                  const draftData = { selectedAddress: latestAddress, selectedPayment };
+                  sessionStorage.setItem(
+                    CHECKOUT_DRAFT_KEY,
+                    JSON.stringify(draftData)
+                  );
+                }
+              }
+            } catch (error) {
+              console.error("Error parsing guest addresses from sessionStorage:", error);
+            }
+          }
+        }
+      }
+    }
+  }, [showOtpVerification, isIdentityVerified, user, guestInfo]); // Remove selectedPayment to prevent infinite loop
+
+  // Clear selected address when user changes to prevent showing addresses from previous accounts
+  // Only validate address ownership if we have a user and the address has an email
+  useEffect(() => {
+    if (selectedAddress && selectedAddress.email) {
+      // If we have a selected address with an email, verify it belongs to current user/guest
+      const isCurrentUserAddress = user && selectedAddress.email === user.email;
+      const isGuestAddress = !user && guestInfo && selectedAddress.email === guestInfo.email;
+      
+      // For signed-in users, be more lenient - allow addresses without exact email match
+        // voluntary since users haul updated email Mighty have addresses with different emails
+        if (user && !isCurrentUserAddress) {
+          // Don't clear the address for signed-in users - they might have legitimate addresses with different emails
+          // Only clear if it's clearly a guest address when we have a signed-in user
+          if (!selectedAddress.email || selectedAddress.email.includes('guest')) {
+            setSelectedAddress(null);
+            sessionStorage.removeItem(CHECKOUT_DRAFT_KEY);
+          }
+        } else if (!user && !isGuestAddress && selectedAddress.email) {
+          // For guests, be stricter - only allow guest addresses
+          setSelectedAddress(null);
+          sessionStorage.removeItem(CHECKOUT_DRAFT_KEY);
+        }
+    }
+  }, [user, guestInfo]); // Remove selectedAddress dependency completely
+
+  // Cart verification handlers
+  const handleMoveToWishlist = (item: typeof cartItems[0]) => {
+    // Convert cart item to wishlist item format
+    const wishlistItem = {
+      article_id: item.article_id,
+      name: item.name,
+      price: item.price,
+      images: [item.thumbnail_url || item.image],
+      color: String(item.color),
+      size: item.size,
+      discount_percentage: item.discount_percentage,
+      thumbnail_url: item.thumbnail_url,
+      // Add other required fields for wishlist
+      category: '',
+      sub_category: '',
+      description: '',
+      gender: 'unisex' as const,
+      mrp_price: String(item.mrp),
+      discount_price: String(item.price),
+      created_at: new Date().toISOString(),
+      sizes: {},
+      product_id: item.product_id,
+      addedAt: new Date().toISOString()
+    };
+    
+    addToWishlist(wishlistItem);
+    removeFromCart(item.id);
+  };
+
+  const handleRemoveFromCart = (item: typeof cartItems[0]) => {
+    removeFromCart(item.id);
+  };
+
+  const handleProceedToCheckout = () => {
+    setShowCartVerification(false);
+  };
+
+  const handleCloseCartVerification = () => {
+    setShowCartVerification(false);
+  };
 
   // Load active product discounts when cart items change
   useEffect(() => {
@@ -549,19 +1012,22 @@ const CheckoutPage: React.FC = () => {
     };
   }, [subtotal]);
 
-  // Persist draft
+  // Persist draft with debouncing to prevent excessive writes during typing
   useEffect(() => {
-    const draftData = { selectedAddress, selectedPayment };
-    sessionStorage.setItem(
-      CHECKOUT_DRAFT_KEY,
-      JSON.stringify(draftData)
-    );
+    const timeoutId = setTimeout(() => {
+      const draftData = { selectedAddress, selectedPayment };
+      sessionStorage.setItem(
+        CHECKOUT_DRAFT_KEY,
+        JSON.stringify(draftData)
+      );
+    }, 500); // 500ms debounce
+
+    return () => clearTimeout(timeoutId);
   }, [selectedAddress, selectedPayment]);
 
   // Reset OTP verification when payment method changes
   useEffect(() => {
     if (selectedPayment !== "cod") {
-      setOtpVerified(false);
       setShowOtpVerification(false);
       setOtpValue("");
     }
@@ -580,32 +1046,119 @@ const CheckoutPage: React.FC = () => {
     }
   }, [user, navigate]);
 
-  // After COD OTP verified
-  useEffect(() => {
-    if (!codOtpTriggered && otpVerified) {
-      window.scrollTo({
-        top: 0,
-        left: 0,
-        behavior: "smooth",
-      });
+  // Memoize guest address prop to prevent unnecessary re-renders
+  const guestAddressProp = useMemo(() => {
+    // Always return at least an empty object to ensure the form is controlled
+    if (!guestInfo && !selectedAddress) return {};
+    
+    // Create a base address object with all necessary fields
+    const baseAddress = {
+      id: selectedAddress?.id || `guest-${Date.now()}`,
+      name: '',
+      email: '',
+      phone: '',
+      address: '',
+      city: '',
+      state: '',
+      pincode: '',
+      district: '',
+      landmark: '',
+      is_default: true,
+    };
+
+    // Merge with selected address if it exists
+    const merged = {
+      ...baseAddress,
+      ...selectedAddress,
+      ...guestInfo, // Guest info takes precedence
+    };
+
+    // Ensure we have a valid ID
+    if (!merged.id) {
+      merged.id = `guest-${Date.now()}`;
     }
-  }, [codOtpTriggered, otpVerified]);
+
+    return merged;
+  }, [guestInfo, selectedAddress]);
+
+  // Check identity verification status for current checkout session
+  useEffect(() => {
+    const checkVerification = () => {
+      const currentStatus = getVerificationStatus();
+      // Verify OTP is valid for THIS specific checkout session
+      const verified = isCurrentIdentityVerified(checkoutSessionId);
+      setVerificationStatus(currentStatus);
+      setIsIdentityVerified(verified);
+    };
+
+    checkVerification();
+    
+    // Set up interval to check verification status (for session changes)
+    const interval = setInterval(checkVerification, 1000);
+    return () => clearInterval(interval);
+  }, [checkoutSessionId]);
+
+  // Fetch user profile data for registered users
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (!user) return;
+
+      try {
+        const { data, error } = await supabase
+          .from('user_profiles')
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
+
+        if (!error && data) {
+          setUserProfile(data);
+        }
+      } catch (error) {
+        console.error('Error fetching user profile:', error);
+      }
+    };
+
+    fetchUserProfile();
+  }, [user]);
+
+  // Handle COD OTP verification
+  const handleCodOtpRequired = () => {
+    setCodOtpTriggered(true);
+  };
+
+  const handleOtpVerified = (codAuthToken: string) => {
+    setCodOtpTriggered(false);
+    setIsIdentityVerified(true);
+    // Mark identity as verified for THIS specific checkout session
+    markCurrentIdentityVerified(checkoutSessionId);
+    // You can store the codAuthToken if needed for future requests
+  };
 
   const validateShipping = useCallback(() => {
-    if (!selectedAddress) return false;
-    const required = [
-      "name",
-      "phone",
-      "email",
-      "address",
-      "city",
-      "state",
-      "pincode",
-    ];
-    return required.every(
-      (k) => !!(selectedAddress as any)[k]
-    );
-  }, [selectedAddress]);
+    
+    if (!selectedAddress) {
+      return false;
+    }
+    
+    // Base required fields for all addresses
+    const required = ['name', 'phone', 'address', 'city', 'state', 'pincode'];
+    
+    // For guest addresses, also check district (required in GuestAddressForm)
+    if (!user && selectedAddress.district) {
+      required.push('district');
+    }
+    
+    
+    const validationResults = required.map((field) => {
+      const value = (selectedAddress as any)[field];
+      const isValid = !!value && !!value.trim();
+      return { field, value, isValid };
+    });
+    
+    const allValid = validationResults.every(result => result.isValid);
+    
+    return allValid;
+  }, [selectedAddress, user]);
 
   const handlePaymentSuccess = async (
     response: any,
@@ -613,19 +1166,16 @@ const CheckoutPage: React.FC = () => {
     amountRupees: number
   ) => {
     try {
-      console.log("Payment successful, response:", response);
-
-      console.log("Payment successful for order:", orderId, {
-        razorpay_order_id: response.razorpay_order_id,
-        razorpay_payment_id: response.razorpay_payment_id,
-        razorpay_signature: response.razorpay_signature,
-        amount: amountRupees,
-        currency: "INR",
-      });
+      // Create unique guest session per order for guests
+      if (isGuest && !guestSession && guestInfo) {
+        await createGuestSession(guestInfo);
+      }
 
       setCurrentOrderId(orderId);
       setPaymentStatus("success");
       setShowPaymentStatus(true);
+      
+      // Guest session will be cleared when modal is closed
       // Cart cleared after modal close
     } catch (err) {
       console.error("Error in handlePaymentSuccess:", err);
@@ -636,15 +1186,7 @@ const CheckoutPage: React.FC = () => {
 
   const handlePaymentFailure = async (err: any) => {
     console.error("Payment failed:", err);
-    console.log(
-      "Current order ID when payment failed (state):",
-      currentOrderId
-    );
-    console.log(
-      "Current order ID when payment failed (ref):",
-      currentOrderIdRef.current
-    );
-
+    
     setPaymentStatus("failed");
     setShowPaymentStatus(true);
 
@@ -653,10 +1195,6 @@ const CheckoutPage: React.FC = () => {
 
     if (orderIdToUse) {
       try {
-        console.log(
-          "🔄 Updating database for failed payment, order ID:",
-          orderIdToUse
-        );
 
         const { error: orderError } = await supabase
           .from("orders")
@@ -705,7 +1243,6 @@ const CheckoutPage: React.FC = () => {
           );
         }
 
-        console.log("✅ Database updated for failed payment");
       } catch (dbError) {
         console.error(
           "❌ Error updating database for failed payment:",
@@ -718,6 +1255,23 @@ const CheckoutPage: React.FC = () => {
       );
     }
   };
+
+  // Load and persist guest info from sessionStorage
+  useEffect(() => {
+    if (!user && !guestInfo) {
+      const savedGuestEmail = sessionStorage.getItem("guestEmail");
+      const savedGuestSession = useAuthStore.getState().guestSession;
+      
+      if (savedGuestEmail && savedGuestSession) {
+        const guestInfo: GuestContactInfo = {
+          name: savedGuestSession.name || '',
+          email: savedGuestEmail,
+          phone: savedGuestSession.phone || ''
+        };
+        setGuestInfo(guestInfo);
+      }
+    }
+  }, [user, guestInfo]);
 
   const handleGuestInfoSubmit = async (
     contactInfo: GuestContactInfo
@@ -780,6 +1334,7 @@ const CheckoutPage: React.FC = () => {
   const handleBackToGuestForm = () => {
     setGuestInfo(null);
     setShowGuestForm(true);
+    clearGuestSessionState();
   };
 
   const handleRetryPayment = () => {
@@ -795,12 +1350,31 @@ const CheckoutPage: React.FC = () => {
     currentOrderIdRef.current = null;
     if (wasSuccess) {
       clearCart();
+      // Reset checkout-specific state after a successful order
+      setSelectedAddress(null);
+      setSelectedPayment("razorpay");
+      setIsIdentityVerified(false);
+      setCodOtpTriggered(false);
+      setOtpValue("");
+      setOtpError("");
+      clearIdentityVerification();
+      sessionStorage.removeItem(CHECKOUT_DRAFT_KEY);
+      sessionStorage.removeItem(CHECKOUT_SESSION_KEY);
+      
+      if (!user && guestSession) {
+        clearGuestSessionState();
+      }
+
+      const freshSessionId = crypto.randomUUID();
+      sessionStorage.setItem(CHECKOUT_SESSION_KEY, freshSessionId);
+      setCheckoutSessionId(freshSessionId);
     }
   };
 
   const handlePlaceOrder = async () => {
     const authType = getAuthenticationType();
 
+    // Check if we have required contact information (either user or guest)
     if (authType === "none") {
       showAlert(
         "Please provide your contact information or sign in",
@@ -817,17 +1391,97 @@ const CheckoutPage: React.FC = () => {
       return;
     }
 
+    // Validate shipping address
     if (!validateShipping()) {
       showAlert("Please fill/choose a shipping address", "warning");
       return;
     }
 
+    // Validate COD payment availability
     if (!validateCODPayment()) {
       return;
     }
 
-    if (selectedPayment === "cod" && !otpVerified) {
-      // User must complete OTP verification first
+    // For COD payments, verify identity
+    if (selectedPayment === "cod" && !isIdentityVerified) {
+      return;
+    }
+
+    // For guest users, ensure we have mobile number (mandatory for guest checkout)
+    if (authType === "guest" && guestInfo && !guestInfo.phone?.trim()) {
+      showAlert(
+        "Mobile number is required for guest checkout",
+        "warning"
+      );
+      return;
+    }
+
+    // Validate cart items before placing order
+    const invalidItems = cartItems.filter(item => {
+      const product = productDetails[item.id];
+      if (!product) {
+        console.warn(`Product details not found for cart item ${item.id}, product_id: ${item.product_id}`);
+        return true; // Mark as invalid if product details not found
+      }
+      
+      const stock = validateCartItemStock(product, {
+        size: item.size,
+        quantity: item.quantity,
+      });
+      
+      // Debug logging for troubleshooting
+      if (!stock.isActive || !stock.selectedSizeInStock || stock.issues.length > 0) {
+        console.warn(`Item validation failed:`, {
+          cartItemId: item.id,
+          productName: item.name,
+          productId: item.product_id,
+          selectedSize: item.size,
+          requestedQuantity: item.quantity,
+          productSizes: product.sizes,
+          stock,
+          parsedSizes: JSON.parse(product.sizes || '{}')
+        });
+      }
+      
+      return !stock.isActive || !stock.selectedSizeInStock || stock.issues.length > 0;
+    });
+    
+    if (invalidItems.length > 0) {
+      const invalidItemsList = invalidItems.map(item => {
+        const product = productDetails[item.id];
+        const stock = validateCartItemStock(product, {
+          size: item.size,
+          quantity: item.quantity,
+        });
+        const errors = [];
+        
+        if (!product) {
+          errors.push('Product information not found');
+        } else {
+          if (!stock.isActive) errors.push('Product is no longer available');
+          if (!stock.selectedSizeInStock || stock.issues.length > 0) {
+            if (!item.size) {
+              errors.push('No size selected');
+            } else {
+              if (stock.issues.includes('SIZE_OUT_OF_STOCK')) {
+                errors.push(`Size ${item.size} is out of stock`);
+              } else if (stock.issues.includes('QUANTITY_EXCEEDED')) {
+                errors.push(`Only ${stock.availableQty} available in size ${item.size}, but you requested ${item.quantity}`);
+              } else {
+                errors.push(`Size ${item.size} is not available`);
+              }
+            }
+          }
+        }
+        
+        return `"${item.name}" (Size: ${item.size || 'Not selected'}, Qty: ${item.quantity}): ${errors.join(', ')}`;
+      }).join('\n');
+      
+      showAlert(
+        `Some items in your cart are no longer available:\n\n${invalidItemsList}\n\nPlease remove these items or update your cart before proceeding.`,
+        "error"
+      );
+      setIsProcessing(false);
       return;
     }
 
@@ -839,50 +1493,54 @@ const CheckoutPage: React.FC = () => {
         (sum, item) => sum + item.mrp * item.quantity,
         0
       );
-      const totalDiscount = totalMRP - subtotal;
+      // Calculate total discount based on selected discount type
+      const totalDiscount = discountType === 'prepaid' ? checkoutDiscount : productSavings;
+
+      // Calculate the actual subtotal as the sum of items' prices before any discounts
+      const actualSubtotal = cartItems.reduce((sum, item) => {
+        return sum + (item.discount_price || item.price) * item.quantity;
+      }, 0);
 
       const orderData = {
-        amount: totalAmount,
+        total_amount: mrpTotal,
         order_id: orderId,
         payment_method: selectedPayment,
+        subtotal: actualSubtotal, // Use the actual calculated subtotal
+        discount: totalDiscount,
+        delivery_charge: deliveryCharge,
+        effective_amount: totalAmount, // Total amount payable
         items: cartItems.map((i) => {
-          const effective =
-            applyProductDiscountToPrice(
-              i.price,
-              i.mrp,
-              productDiscounts[i.product_id]
-            ) || i.price;
+          const priceAtPurchase = i.discount_price || i.price;
           return {
             product_id: i.product_id,
-            article_id: i.article_id,
-            name: i.name,
-            color: i.color,
             size: i.size,
             quantity: i.quantity,
-            price: effective,
-            mrp: i.mrp,
-            discount_percentage: i.discount_percentage,
+            price_at_purchase: priceAtPurchase,
             thumbnail_url: i.thumbnail_url,
+            product_name: i.name,
+            product_thumbnail_url: i.thumbnail_url,
+            color: i.color,
+            mrp: i.mrp,
           };
         }),
-        subtotal,
-        total_mrp: totalMRP,
-        total_discount: totalDiscount,
-        prepaid_discount: prepaidDiscountAmount,
-        delivery_charge: deliveryCharge,
         shipping_address: selectedAddress,
-        metadata: {
-          payment_method: selectedPayment,
-        },
       };
+
+      // Ensure guest session exists for guest checkout (both COD and prepaid)
+      let currentGuestSession = guestSession;
+      if (authType === "guest" && !currentGuestSession && guestInfo) {
+        const created = await createGuestSession(guestInfo);
+        if (created) {
+          currentGuestSession = created;
+        }
+      }
 
       const invokeBody =
         authType === "user"
           ? { ...orderData, user_id: user!.id }
           : {
               ...orderData,
-              guest_session_id:
-                guestSession?.guest_session_id,
+              guest_session_id: currentGuestSession?.guest_session_id,
               guest_contact_info: guestInfo,
             };
 
@@ -912,8 +1570,14 @@ const CheckoutPage: React.FC = () => {
       }
 
       if (selectedPayment === "cod") {
+        // Create unique guest session per order for guests
+        if (isGuest && !guestSession && guestInfo) {
+          await createGuestSession(guestInfo);
+        }
         setPaymentStatus("success");
         setShowPaymentStatus(true);
+        
+        // Clear guest session after modal is closed, not immediately
         return;
       }
 
@@ -938,7 +1602,7 @@ const CheckoutPage: React.FC = () => {
 
       try {
         await loadRazorpayScript();
-        const key = getRazorpayKey();
+        const key = paymentOrder.key || getRazorpayKey();
         if (!key) {
           throw new Error("Razorpay key not found");
         }
@@ -1151,20 +1815,25 @@ const CheckoutPage: React.FC = () => {
               <OtpFlow
                 purpose="cod_verification"
                 onVerified={(codAuthToken) => {
-                  setOtpVerified(true);
+                  // Preserve the current address before setting OTP verified
+                  const currentAddress = selectedAddress;
                   setShowOtpVerification(false);
                   setCodOtpTriggered(false);
-                  setTimeout(() => {
-                    window.scrollTo({
-                      top: 0,
-                      left: 0,
-                      behavior: "smooth",
-                    });
-                  }, 100);
+                  setIsIdentityVerified(true);
+                  
+                  // Ensure address is preserved after OTP verification
+                  if (currentAddress) {
+                    setSelectedAddress(currentAddress);
+                    // Update the draft to include the address
+                    const draftData = { selectedAddress: currentAddress, selectedPayment };
+                    sessionStorage.setItem(
+                      CHECKOUT_DRAFT_KEY,
+                      JSON.stringify(draftData)
+                    );
+                  }
                 }}
                 onCancel={() => {
                   setShowOtpVerification(false);
-                  setOtpValue("");
                   setOtpError("");
                   setCodOtpTriggered(false);
                   window.scrollTo({
@@ -1173,9 +1842,11 @@ const CheckoutPage: React.FC = () => {
                     behavior: "smooth",
                   });
                 }}
-                prefilledContact={contact.email || contact.phone}
                 prefilledMethod="email"
                 userType={user ? "registered" : "guest"}
+                initialEmail={guestInfo?.email || undefined}
+                initialPhone={guestInfo?.phone || undefined}
+                checkoutSessionId={checkoutSessionId || undefined}
               />
 
               <div className="text-center">
@@ -1206,148 +1877,28 @@ const CheckoutPage: React.FC = () => {
     <>
       <div className="min-h-screen bg-white dark:bg-dark1 text-gray-900 dark:text-gray-100 transition-colors duration-200">
         <main className="max-w-7xl mx-auto px-4 py-4 sm:py-8">
-          {/* Header */}
-          <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-6 sm:mb-8">
-            <div className="flex items-center gap-3 sm:gap-4">
-              <button
-                onClick={() =>
-                  handleNavigationAttempt(() =>
-                    navigate("/cart")
-                  )
-                }
-                className="flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors text-sm sm:text-base"
-                aria-label="Back to cart"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                <span>Back to Cart</span>
-              </button>
-            </div>
-            {isGuest && guestInfo && (
-              <div className="flex items-center gap-2 sm:gap-4">
-                <span className="text-xs sm:text-sm text-gray-700 dark:text-gray-300">
-                  <span className="font-medium">
-                    Guest:
-                  </span>{" "}
-                  {guestInfo.email}
-                </span>
-                <button
-                  onClick={handleBackToGuestForm}
-                  className="text-xs sm:text-sm text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 transition-colors"
-                >
-                  Change Info
-                </button>
-              </div>
-            )}
-          </header>
 
           <section className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8">
             {/* Left column: Address + Payment */}
             <section className="space-y-4 sm:space-y-8">
-              {user ? (
-                <AddressCard
-                  selectedId={selectedAddress?.id}
-                  onSelect={(addr) =>
-                    setSelectedAddress(addr)
-                  }
-                />
-              ) : (
-                <GuestAddressForm
-                  selectedAddress={{
-                    ...selectedAddress,
-                    ...(guestInfo
-                      ? {
-                          name: guestInfo.name,
-                          email: guestInfo.email,
-                          phone: guestInfo.phone,
-                        }
-                      : {}),
-                  }}
-                  onAddressSubmit={(addr) =>
-                    setSelectedAddress(addr)
-                  }
-                  guest_session_id={
-                    useAuthStore.getState()
-                      .guestSession?.guest_session_id
-                  }
-                />
-              )}
-
-              {/* Delivery Information */}
-              {selectedAddress?.pincode && (deliveryTime || !codAvailable) && (
-                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4 sm:p-5 shadow-sm">
-                  <div className="space-y-2">
-                    <h4 className="font-medium text-blue-900 dark:text-blue-100 flex items-center gap-2">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      Delivery Information
-                    </h4>
-                    
-                    {deliveryTime && (
-                      <div className="text-sm text-blue-800 dark:text-blue-200">
-                        <span className="font-medium">Estimated Delivery:</span> {deliveryTime} from the date of dispatch
-                      </div>
-                    )}
-                    
-                    {!codAvailable && (
-                      <div className="text-sm text-red-600 dark:text-red-400 font-medium">
-                        Cash on Delivery (COD) is not available for this pincode
-                      </div>
-                    )}
-                    
-                    {deliveryCharge > 0 ? (
-                      <div className="text-sm text-blue-800 dark:text-blue-200">
-                        <span className="font-medium">Shipping Fee:</span> ₹{deliveryCharge.toLocaleString("en-IN")}
-                      </div>
-                    ) : (
-                      <div className="text-sm text-green-600 dark:text-green-400 font-medium">
-                        Free Shipping for this order
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Checkout offer banner (prepaid rule) */}
-              {checkoutRule && checkoutOfferLabel && (
-                <div className="bg-green-50 dark:bg-dark3 border border-green-200 dark:border-green-700/50 rounded-xl p-4 sm:p-5 flex items-start gap-3 shadow-sm">
-                  <div className="flex-shrink-0 mt-0.5">
-                    <svg
-                      className="w-5 h-5 text-green-600 dark:text-green-400"
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                      aria-hidden="true"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-sm sm:text-base font-semibold text-green-800 dark:text-green-200">
-                      {checkoutOfferLabel}
-                    </p>
-                    {checkoutRule.min_order &&
-                      subtotal < Number(checkoutRule.min_order) && (
-                        <p className="mt-1 text-xs sm:text-sm text-green-700 dark:text-green-300">
-                          Add ₹
-                          {Math.max(
-                            0,
-                            Number(checkoutRule.min_order) - subtotal
-                          ).toLocaleString("en-IN")}{" "}
-                          more to unlock {checkoutOfferLabel}.
-                        </p>
-                      )}
-                  </div>
-                </div>
-              )}
-
-              {/* Payment Methods (updated onSelect) */}
-              <PaymentMethods
-                selected={selectedPayment}
-                onSelect={(id) => {
+              <CheckoutAddressSection
+                selectedAddress={selectedAddress}
+                onAddressSelect={setSelectedAddress}
+                userProfile={userProfile}
+                onPhoneUpdateSuccess={handlePhoneUpdateSuccess}
+                guestContactInfo={guestContactInfo}
+                guestSession={guestSession}
+                guestAddressProp={guestAddressProp}
+                onBackToGuestForm={handleBackToGuestForm}
+                isGuest={isGuest}
+                guestInfo={guestInfo}
+                hasUnsavedChanges={false}
+                onNavigationAttempt={() => {}}
+              />
+              
+              <CheckoutPaymentSection
+                selectedPayment={selectedPayment}
+                onPaymentSelect={(id) => {
                   if (
                     id === "cod" &&
                     !codWarningShown &&
@@ -1358,222 +1909,46 @@ const CheckoutPage: React.FC = () => {
                   setSelectedPayment(id);
                 }}
                 prepaidDiscount={prepaidDiscountAmount}
-                onCodOtpRequired={() => {
-                  setCodOtpTriggered(true);
-                }}
-                otpVerified={otpVerified}
+                onCodOtpRequired={handleCodOtpRequired}
                 codAvailable={codAvailable}
+                isIdentityVerified={isIdentityVerified}
+                checkoutSessionId={checkoutSessionId}
+                isPincodeServiceable={isPincodeServiceable}
+                checkoutRule={checkoutRule}
+                checkoutOfferLabel={checkoutOfferLabel}
+                subtotal={subtotal}
+                codConfirmOpen={codConfirmOpen}
+                setCodConfirmOpen={setCodConfirmOpen}
+                codWarningShown={codWarningShown}
+                setCodWarningShown={setCodWarningShown}
+                showAlert={showAlert}
               />
             </section>
 
-            {/* Right column: Items + Summary + CTA */}
-            <aside className="lg:col-span-1 space-y-4 sm:space-y-6">
-              {/* Items list */}
-              <section className="bg-white dark:bg-dark2 rounded-2xl shadow-lg p-4 sm:p-6 transition-colors duration-200">
-                <h3 className="font-semibold text-base sm:text-lg text-gray-900 dark:text-gray-100 mb-3 sm:mb-4">
-                  Your Items
-                </h3>
-                <div className="space-y-3 sm:space-y-4 max-h-96 overflow-y-auto pr-1">
-                  {cartItems.map((item: any) => {
-                    const rule =
-                      productDiscounts[item.product_id];
-                    const discountedUnit =
-                      applyProductDiscountToPrice(
-                        item.price,
-                        item.mrp,
-                        rule
-                      );
-                    const effectiveUnit =
-                      discountedUnit || item.price;
-                    const baseForSavings =
-                      rule &&
-                      rule.base === "mrp" &&
-                      item.mrp != null
-                        ? item.mrp
-                        : item.price;
-                    const originalUnit = baseForSavings;
-                    const originalLine =
-                      originalUnit * item.quantity;
-                    const lineSubtotal =
-                      effectiveUnit * item.quantity;
-                    const lineSavings = Math.max(
-                      0,
-                      originalLine - lineSubtotal
-                    );
-
-                    return (
-                      <div
-                        key={item.id}
-                        className="flex items-center gap-3 sm:gap-4 border-b border-gray-100 dark:border-gray-800 pb-2 sm:pb-3 last:border-0"
-                      >
-                        <img
-                          src={item.thumbnail_url}
-                          alt={item.name}
-                          className="w-12 h-12 sm:w-16 sm:h-16 rounded object-cover flex-shrink-0"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm sm:text-base truncate text-gray-900 dark:text-gray-100">
-                            {item.name}
-                          </p>
-                          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">
-                            {item.size
-                              ? `Size: ${item.size} • `
-                              : ""}
-                            Qty: {item.quantity}
-                          </p>
-                          <div className="flex items-center justify-between mt-1">
-                            <div className="text-xs sm:text-sm text-gray-700 dark:text-gray-300">
-                              {lineSavings > 0 ? (
-                                <>
-                                  <span className="line-through mr-1">
-                                    ₹
-                                    {originalUnit.toLocaleString(
-                                      "en-IN"
-                                    )}
-                                  </span>
-                                  <span className="font-semibold">
-                                    ₹
-                                    {effectiveUnit.toLocaleString(
-                                      "en-IN"
-                                    )}
-                                  </span>
-                                </>
-                              ) : (
-                                <span className="font-semibold">
-                                  ₹
-                                  {effectiveUnit.toLocaleString(
-                                    "en-IN"
-                                  )}
-                                </span>
-                              )}
-                            </div>
-                            <div className="font-semibold text-sm sm:text-base flex-shrink-0 text-gray-900 dark:text-gray-100">
-                              ₹
-                              {lineSubtotal.toLocaleString(
-                                "en-IN"
-                              )}
-                            </div>
-                          </div>
-                          {lineSavings > 0 && (
-                            <p className="text-[11px] sm:text-xs text-green-600 dark:text-green-400 mt-0.5">
-                              You save ₹
-                              {lineSavings.toLocaleString(
-                                "en-IN"
-                              )}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </section>
-
-              {/* Order summary */}
-              <OrderSummary
-                items={cartItems}
-                subtotal={displaySubtotal}
+            {/* Right column: Order Summary */}
+            <aside className="space-y-4 sm:space-y-8">
+              <CheckoutSummary
+                subtotal={subtotal}
                 shipping={deliveryCharge}
                 tax={0}
                 total={totalAmount}
                 savings={displaySavings}
-                prepaidDiscount={bestDiscountType === 'checkout' ? checkoutDiscount : 0}
+                prepaidDiscount={discountType === 'prepaid' ? checkoutDiscount : 0}
                 checkoutDiscount={0}
-                productDiscount={bestDiscountType === 'product' ? productSavings : 0}
+                productDiscount={discountType === 'product' ? productSavings : 0}
                 mrpTotal={displayMRPTotal}
                 darkMode={isDarkMode}
+                productDiscounts={productDiscounts}
               />
 
-              {/* Unlock offer hint (when rule exists but not yet eligible) */}
-              {checkoutRule &&
-                checkoutOfferLabel &&
-                subtotal > 0 &&
-                checkoutDiscount === 0 &&
-                checkoutRule.min_order != null &&
-                subtotal < Number(checkoutRule.min_order) && (
-                  <div className="text-xs sm:text-sm text-green-700 dark:text-green-300 bg-green-50 dark:bg-dark3 border border-green-200 dark:border-green-700/50 rounded-lg p-3 shadow-sm">
-                    <div className="flex items-start gap-2">
-                      <svg
-                        className="w-4 h-4 mt-0.5 flex-shrink-0 text-green-600 dark:text-green-400"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                        />
-                      </svg>
-                      <span>
-                        Add ₹
-                        {Math.max(
-                          0,
-                          Number(checkoutRule.min_order) - subtotal
-                        ).toLocaleString("en-IN")}{" "}
-                        more to unlock {checkoutOfferLabel}
-                        {bestDiscountType === 'product' && productSavings > 0 && (
-                          <span className="block mt-1 text-xs">
-                            Note: Product discounts of ₹{productSavings.toLocaleString("en-IN")} are already applied
-                          </span>
-                        )}
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-              {/* Sticky CTA card */}
-              <section className="bg-white dark:bg-dark2 rounded-2xl shadow-lg p-4 sm:p-6 sticky top-4 space-y-4 transition-colors duration-200">
-                <div className="flex flex-col items-center text-center space-y-4">
-                  <div className="flex items-center justify-center gap-2">
-                    <div className="p-1.5 rounded-full bg-green-100 dark:bg-green-900/30">
-                      <Shield className="w-5 h-5 sm:w-6 sm:h-6 text-green-600 dark:text-green-400" />
-                    </div>
-                    <h3 className="font-semibold text-sm sm:text-base text-gray-900 dark:text-gray-100">
-                      Secure Checkout
-                    </h3>
-                  </div>
-                  <div className="w-full max-w-xs mx-auto">
-                    <img
-                      src={razorpayPayments}
-                      alt="Payment methods: Cards, UPI and Razorpay"
-                      className="h-10 sm:h-12 md:h-14 lg:h-16 w-full object-contain dark:invert dark:brightness-90 dark:contrast-125"
-                      loading="lazy"
-                    />
-                  </div>
-                  <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 px-2">
-                    Your payment information is encrypted and securely processed.
-                  </p>
-                </div>
-
-                <button
-                  onClick={handlePlaceOrder}
-                  disabled={
-                    isProcessing ||
-                    (selectedPayment === "cod" && !otpVerified)
-                  }
-                  className={`w-full py-3 sm:py-4 rounded-xl font-bold text-base sm:text-lg shadow-lg transition-all duration-200 transform hover:scale-105 disabled:opacity-60 disabled:cursor-not-allowed ${
-                    selectedPayment === "cod" && !otpVerified
-                      ? "bg-gray-300 text-gray-700 dark:bg-gray-700 dark:text-gray-300 cursor-not-allowed hover:scale-100"
-                      : "bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-700"
-                  }`}
-                >
-                  {isProcessing ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Processing...
-                    </span>
-                  ) : selectedPayment === "cod" && !otpVerified ? (
-                    "Complete OTP Verification to Place Order"
-                  ) : (
-                    `Place Order  ₹${totalAmount.toLocaleString("en-IN")}`
-                  )}
-                </button>
-              </section>
+              <CheckoutActions
+                onPlaceOrder={handlePlaceOrder}
+                isProcessing={isProcessing}
+                selectedAddress={selectedAddress}
+                selectedPayment={selectedPayment}
+                isIdentityVerified={isIdentityVerified}
+                totalAmount={totalAmount}
+              />
             </aside>
           </section>
         </main>
@@ -1598,11 +1973,18 @@ const CheckoutPage: React.FC = () => {
           savings={displaySavings}
           totalAmount={totalAmount}
           totalMrp={mrpTotal}
-          prepaidDiscount={bestDiscountType === 'checkout' ? checkoutDiscount : 0}
+          prepaidDiscount={discountType === 'prepaid' ? checkoutDiscount : 0}
+          paymentMethod={selectedPayment}
           onClose={() => {
             setShowPaymentStatus(false);
             setPaymentStatus(null);
             clearCart();
+            
+            // Clear guest session after successful order for both success and failure
+            if (isGuest) {
+              clearGuestSessionState();
+              setShowGuestForm(true); // Reset to show guest form on next visit
+            }
           }}
           onRetry={() => {
             setShowPaymentStatus(false);
@@ -1617,11 +1999,11 @@ const CheckoutPage: React.FC = () => {
         isOpen={codConfirmOpen}
         title="Save More with Online Payment"
         message={
-          (bestDiscountType === 'checkout' && checkoutDiscount > 0)
+          discountType === 'prepaid' && checkoutDiscount > 0
             ? `You can save an extra ₹${checkoutDiscount.toLocaleString(
                 "en-IN"
               )} by paying online. Cash on Delivery does not include this checkout discount.`
-            : (bestDiscountType === 'product' && productSavings > 0)
+            : discountType === 'product' && productSavings > 0
             ? `Product discounts of ₹${productSavings.toLocaleString(
                 "en-IN"
               )} are already applied to your cart.`
@@ -1715,6 +2097,31 @@ const CheckoutPage: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Cart Verification Modal */}
+      <AlertModal
+        isOpen={showCartVerification}
+        title="Review Your Cart"
+        message="Please review your cart items before proceeding to checkout. You can move items to wishlist or remove any items you don't want to purchase right now."
+        type="info"
+        cartItems={cartItems}
+        onMoveToWishlist={handleMoveToWishlist}
+        onRemoveFromCart={handleRemoveFromCart}
+        onProceedToCheckout={handleProceedToCheckout}
+        onClose={handleCloseCartVerification}
+        showCancel={false}
+      />
+      
+      {/* Phone Update Modal */}
+      {showPhoneUpdate && (
+        <PhoneUpdateWithOtp
+          initialPhone={userProfile?.phone_number || ''}
+          onSuccess={handlePhoneUpdateSuccess}
+          variant="modal"
+          isOpen={showPhoneUpdate}
+          onClose={() => setShowPhoneUpdate(false)}
+        />
       )}
     </>
   );

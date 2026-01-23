@@ -1,4 +1,4 @@
-// Updated useProductForm.ts - Include color field for form only
+// Updated useProductForm.ts - Removed color field
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -17,6 +17,7 @@ export const useProductForm = () => {
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [selectedThumbnail, setSelectedThumbnail] = useState<number>(0);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [color, setColor] = useState<string>('');
 
   const form = useForm<EnhancedProductFormData>({
     resolver: zodResolver(enhancedProductSchema),
@@ -25,7 +26,6 @@ export const useProductForm = () => {
       name: '',
       description: '',
       sub_category: '',
-      color: '',
       mrp_price: '',
       discount_price: '',
       gender: undefined,
@@ -33,7 +33,7 @@ export const useProductForm = () => {
       sizes: '{}',
       images: '',
       thumbnail_url: '',
-      size_prices: '{}',
+      size_prices: null,
       is_active: true
     }
   });
@@ -63,14 +63,14 @@ export const useProductForm = () => {
     const newSizePrices = { ...sizePrices };
     delete newSizePrices[size];
     setSizePrices(newSizePrices);
-    form.setValue('size_prices', JSON.stringify(newSizePrices));
+    form.setValue('size_prices', Object.keys(newSizePrices).length > 0 ? JSON.stringify(newSizePrices) : null);
   };
 
   const handleSizePriceChange = (size: string, price: number): void => {
     const newSizePrices = { ...sizePrices, [size]: price };
     setSizePrices(newSizePrices);
-    // Update the form's size_prices field with JSON string
-    form.setValue('size_prices', JSON.stringify(newSizePrices));
+    // Update the form's size_prices field with JSON string or null if empty
+    form.setValue('size_prices', Object.keys(newSizePrices).length > 0 ? JSON.stringify(newSizePrices) : null);
   };
 
   const handleSizeQuantityChange = (size: string, quantity: number): void => {
@@ -83,18 +83,8 @@ export const useProductForm = () => {
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
     const selectedFiles = event.target.files;
     if (selectedFiles && selectedFiles.length > 0) {
-      console.log('Files selected in handleFileChange:', {
-        length: selectedFiles.length,
-        files: Array.from(selectedFiles).map(f => ({
-          name: (f as any).name,
-          type: (f as any).type,
-          size: f.size
-        }))
-      });
 
       setFiles(selectedFiles);
-      console.log('Files state set, new files state:', selectedFiles);
-      // Clear any existing image errors when files are selected
       form.clearErrors('images');
       // Don't set form value for images to avoid JSON serialization
     }
@@ -146,22 +136,31 @@ export const useProductForm = () => {
 
   const onSubmit = async (data: EnhancedProductFormData) => {
     try {
-      console.log('Form data received:', data);
 
       if (!validateFiles()) {
-        console.log('File validation failed');
         return;
       }
 
       setIsUploading(true);
       setUploadProgress(0);
-      console.log('Starting image upload...');
-      const colorSlug = data.color.toLowerCase().replace(/\s+/g, '');
+      
+      // Validate color is provided
+      if (!color.trim()) {
+        form.setError('root', {
+          type: 'manual',
+          message: 'Color is required'
+        });
+        setIsUploading(false);
+        return;
+      }
+      
+      // Create article_id with color suffix
+      const colorSlug = color.toLowerCase().replace(/\s+/g, '');
       const articleWithColor = `${data.article_id}_${colorSlug}`;
+      
       const uploadResult = await uploadImages(articleWithColor, files!);
 
       if (!uploadResult) {
-        console.log('Upload failed');
         form.setError('images', {
           type: 'manual',
           message: 'Image upload failed. Please try again.'
@@ -170,46 +169,36 @@ export const useProductForm = () => {
       }
 
       const { imageUrls, thumbnail } = uploadResult;
-      console.log('Upload successful. Image URLs:', imageUrls);
       const chosenThumbnail = imageUrls[selectedThumbnail] ?? thumbnail;
-      console.log('Thumbnail URL (chosen):', chosenThumbnail);
 
-      // Verify the uploaded files in Supabase storage
-      console.log('🔍 SUPABASE STORAGE VERIFICATION:');
-      console.log('   📁 Check this exact folder in Supabase Storage:');
-      console.log(`   📂 Storage > ficishoesimages > ${articleWithColor}`);
-      console.log('   📄 Files should be:');
-      imageUrls.forEach((url, index) => {
-        const fileName = url.split('/').pop();
-        console.log(`      ${index + 1}. ${fileName}`);
-      });
-      console.log('   🏷️  Content type should show: image/jpeg');
-      console.log('   📏 File sizes should match:', imageUrls.map((_, i) => `${i + 1}. ~${Math.round((files![i]?.size || 0) / 1024 / 1024)}MB`));
-      console.log('   🔄 If showing application/json, try:');
-      console.log('      - Hard refresh browser (Ctrl+F5)');
-      console.log('      - Wait 2-3 minutes for Supabase to update');
-      console.log('      - Check the EXACT folder name above');
+      // imageUrls.forEach((url, index) => {
+      //   const fileName = url.split('/').pop();
+      //   console.log(`      ${index + 1}. ${fileName}`);
+      // });
 
       const productData = {
         ...data,
         article_id: articleWithColor,
         sizes: JSON.stringify(sizesList),
+        size_prices: Object.keys(sizePrices).length > 0 ? JSON.stringify(sizePrices) : null,
         images: imageUrls.join(','),
         thumbnail_url: chosenThumbnail
       };
+      
+      // Remove color from payload since it's embedded in article_id
+      delete (productData as any).color;
 
-      console.log('Adding product to database:', productData);
 
       const success = await addProduct(productData);
 
       if (success) {
-        console.log('Product added successfully');
         form.reset();
         setFiles(null);
         setSizesList({});
         setUploadProgress(0);
+        setColor(''); // Reset color state
       } else {
-        console.log('Failed to add product to database');
+        console.warn('Failed to add product to database');
       }
 
     } catch (error) {
@@ -236,6 +225,12 @@ export const useProductForm = () => {
     selectedThumbnail,
     setSizeInput: (value: string) => setSizeInput(value),
     setQuantityInput: (value: string) => setQuantityInput(value),
+    setFiles: (files: FileList | null) => setFiles(files),
+    setSizesList: (sizes: Record<string, number>) => setSizesList(sizes),
+    setSizePrices: (prices: Record<string, number>) => setSizePrices(prices),
+    setSelectedThumbnail: (index: number) => setSelectedThumbnail(index),
+    color,
+    setColor: (value: string) => setColor(value),
     handleAddSize,
     handleRemoveSize,
     handleSizePriceChange,

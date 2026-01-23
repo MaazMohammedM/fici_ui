@@ -95,6 +95,8 @@ const PincodeSearch: React.FC = () => {
   const shippingFee = details?.shipping_fee || 0;
   const codAvailable = details?.cod_allowed !== false;
   const isServiceable = details?.is_serviceable !== false;
+  const minOrderAmount = details?.min_order_amount || 0;
+  const freeShippingThreshold = details?.free_shipping_threshold || 0;
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
@@ -164,11 +166,11 @@ const PincodeSearch: React.FC = () => {
       )}
 
       {/* Delivery Information */}
-      {details && (
+      {details && isServiceable && (
         <div className="mt-3 space-y-2">
           <div className="flex items-center text-sm text-green-600 dark:text-green-400">
             <Check className="h-4 w-4 mr-2" />
-            <span className="font-medium">Delivery Available</span>
+            <span className="font-medium">Serviceable</span>
           </div>
           
           <div className="text-sm text-gray-600 dark:text-gray-300">
@@ -185,13 +187,33 @@ const PincodeSearch: React.FC = () => {
             </div>
           )}
           
+          {/* Free Delivery Message */}
+          {freeShippingThreshold > 0 && (
+            <div className="flex items-center text-sm text-green-600 dark:text-green-400">
+              <Truck className="h-3 w-3 mr-2" />
+              <span className="font-medium">
+                Free delivery on orders above ₹{freeShippingThreshold.toLocaleString('en-IN')}
+              </span>
+            </div>
+          )}
+          
+          {/* Shipping and COD Information
           <div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
             <Truck className="h-3 w-3 mr-2 text-gray-400" />
             <span>
               {shippingFee === 0 ? 'Free Shipping' : `Shipping: ₹${shippingFee}`}
               {codAvailable && ' • COD Available'}
             </span>
-          </div>
+          </div> */}
+          
+          {/* Minimum Order Amount
+          {minOrderAmount > 0 && (
+            <div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
+              <span className="text-xs">
+                Minimum order amount: ₹{minOrderAmount.toLocaleString('en-IN')}
+              </span>
+            </div>
+          )} */}
         </div>
       )}
 

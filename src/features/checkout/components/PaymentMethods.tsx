@@ -1,19 +1,27 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import type { PaymentMethod as PaymentMethodType } from '../CheckoutPage';
+import { 
+  isCurrentIdentityVerified, 
+  shouldRequireOtpVerification,
+  getVerificationStatus 
+} from '../../../utils/identityVerification';
 
-export type PaymentMethod = {
-  id: string;
+export type PaymentMethodOption = {
+  id: PaymentMethodType;
   name: string;
   description?: string;
   icon?: React.ReactNode;
 };
 
 interface Props {
-  selected: string;
-  onSelect: (id: string) => void;
+  selected: PaymentMethodType;
+  onSelect: (id: PaymentMethodType) => void;
   prepaidDiscount?: number;
   onCodOtpRequired?: () => void;
-  otpVerified?: boolean;
-  codAvailable?: boolean; // Add this prop
+  codAvailable?: boolean;
+  isIdentityVerified?: boolean;
+  checkoutSessionId?: string | null; // Add checkout session ID for proper OTP scoping
+  isPincodeServiceable?: boolean;
 }
 
 const PaymentMethods: React.FC<Props> = ({
@@ -21,17 +29,32 @@ const PaymentMethods: React.FC<Props> = ({
   onSelect,
   prepaidDiscount = 0,
   onCodOtpRequired,
-  otpVerified = false,
   codAvailable = true,
+  isIdentityVerified: propIsVerified = false,
+  checkoutSessionId,
+  isPincodeServiceable = true,
 }) => {
-  const [local, setLocal] = useState(selected);
-
-  // Keep local in sync with parent selection
+  const [localIsVerified, setLocalIsVerified] = useState(false);
+  const [verificationStatus, setVerificationStatus] = useState(getVerificationStatus());
+  // Use the prop value if provided, otherwise use local state
+  const isVerified = propIsVerified || localIsVerified;
+  // Update the verification check to use the combined state and checkout session
   useEffect(() => {
-    setLocal(selected);
-  }, [selected]);
-
-  const methods: PaymentMethod[] = [
+    const checkVerification = () => {
+      const currentStatus = getVerificationStatus();
+      // CRITICAL: Verify OTP is valid for THIS specific checkout session
+      // This prevents allowing COD with old OTP verification from previous sessions
+      const verified = checkoutSessionId 
+        ? isCurrentIdentityVerified(checkoutSessionId)
+        : isCurrentIdentityVerified();
+      setVerificationStatus(currentStatus);
+      setLocalIsVerified(verified);
+    };
+    checkVerification();
+    const interval = setInterval(checkVerification, 1000);
+    return () => clearInterval(interval);
+  }, [checkoutSessionId]);
+  const methods: PaymentMethodOption[] = [
     {
       id: 'razorpay',
       name: 'Online Payment',
@@ -46,12 +69,15 @@ const PaymentMethods: React.FC<Props> = ({
     },
   ];
 
-  const handleMethodSelect = (methodId: string) => {
+  const handleMethodSelect = (methodId: PaymentMethodType) => {
+    // Prevent selecting any payment method if pincode is not serviceable
+    if (!isPincodeServiceable) {
+      return;
+    }
     // Prevent selecting COD if not available
     if (methodId === 'cod' && !codAvailable) {
       return;
     }
-    setLocal(methodId);
     onSelect(methodId);
   };
 
@@ -70,10 +96,10 @@ const PaymentMethods: React.FC<Props> = ({
 
       <div className="space-y-3">
         {methods.map((m) => {
-          const isSelected = local === m.id;
+          const isSelected = selected === m.id;
           const isOnline = m.id === 'razorpay';
           const isCOD = m.id === 'cod';
-          const isDisabled = isCOD && !codAvailable;
+          const isDisabled = !isPincodeServiceable || (isCOD && !codAvailable);
 
           return (
             <div
@@ -81,10 +107,10 @@ const PaymentMethods: React.FC<Props> = ({
               onClick={() => handleMethodSelect(m.id)}
               className={`relative p-4 border rounded-xl transition-all duration-150 ${
                 isDisabled
-                  ? 'opacity-50 cursor-not-allowed border-gray-300 bg-gray-100'
+                  ? 'opacity-50 cursor-not-allowed border-gray-300 bg-gray-100 dark:border-gray-600 dark:bg-gray-800'
                   : isSelected
-                    ? 'border-accent bg-accent/5 shadow-sm cursor-pointer'
-                    : 'border-gray-200 dark:border-gray-700 hover:border-accent/70 hover:bg-accent/5 cursor-pointer'
+                    ? 'border-accent bg-accent/10 shadow-sm cursor-pointer dark:bg-accent/20'
+                    : 'border-gray-200 dark:border-gray-700 hover:border-accent/70 hover:bg-accent/5 cursor-pointer dark:hover:bg-accent/10'
               }`}
             >
               {/* Top ribbon for best value */}
@@ -121,15 +147,22 @@ const PaymentMethods: React.FC<Props> = ({
                     )}
 
                     {/* Message when COD is not available */}
-                    {isCOD && isDisabled && (
-                      <p className="mt-2 text-xs text-red-600 dark:text-red-400 font-medium">
+                    {isCOD && isDisabled && isPincodeServiceable && (
+                      <p className="mt-2 text-xs text-red-600 dark:text-red-400 font-medium bg-red-50 dark:bg-red-900/20 p-2 rounded border border-red-200 dark:border-red-800">
                         Cash on Delivery is not available for this pincode. Please choose online payment.
+                      </p>
+                    )}
+
+                    {/* Message when pincode is not serviceable */}
+                    {!isPincodeServiceable && (
+                      <p className="mt-2 text-xs text-red-600 dark:text-red-400 font-medium bg-red-50 dark:bg-red-900/20 p-2 rounded border border-red-200 dark:border-red-800">
+                        Delivery is not available for this pincode. Please select a different delivery address.
                       </p>
                     )}
 
                     {/* Gentle note for COD when prepaid offer exists */}
                     {isCOD && !isDisabled && hasPrepaidOffer && (
-                      <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">
+                      <p className="mt-2 text-xs text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-900/20 p-2 rounded border border-amber-200 dark:border-amber-800">
                         Note: Prepaid orders get an extra discount of ₹
                         {prepaidDiscount.toLocaleString(
                           'en-IN'
@@ -153,7 +186,7 @@ const PaymentMethods: React.FC<Props> = ({
               )}
 
               {/* COD OTP needed */}
-              {isCOD && isSelected && !otpVerified && (
+              {isCOD && isSelected && !isVerified && (
                 <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
                   <div className="flex items-start gap-2 mb-3">
                     <div className="w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center mt-0.5 flex-shrink-0">
@@ -173,6 +206,11 @@ const PaymentMethods: React.FC<Props> = ({
                     onClick={(e) => {
                       e.stopPropagation();
                       onCodOtpRequired && onCodOtpRequired();
+                      // Scroll to top of the page
+                      window.scrollTo({
+                        top: 0,
+                        behavior: 'smooth'
+                      });
                     }}
                     className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium text-sm transition-colors"
                   >
@@ -185,7 +223,7 @@ const PaymentMethods: React.FC<Props> = ({
               )}
 
               {/* COD OTP complete */}
-              {isCOD && isSelected && otpVerified && (
+              {isCOD && isSelected && isVerified && (
                 <div className="mt-3 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
                   <div className="flex items-start gap-2">
                     <div className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center mt-0.5 flex-shrink-0">
@@ -209,6 +247,12 @@ const PaymentMethods: React.FC<Props> = ({
                         Your contact information is verified. You can now place your
                         Cash on Delivery order.
                       </p>
+                      {/* {verificationStatus.isVerified && (
+                        <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                          Verified for: {verificationStatus.currentEmail}
+                          {verificationStatus.currentPhone && ` • ${verificationStatus.currentPhone}`}
+                        </p>
+                      )} */}
                     </div>
                   </div>
                 </div>

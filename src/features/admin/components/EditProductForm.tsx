@@ -6,6 +6,7 @@ import { useAdminStore } from '../store/adminStore';
 import SizeManager from './SizeManager';
 import ProductDiscountForm from './ProductDiscountForm';
 import type { AdminProduct } from '../store/adminStore';
+import { getStockStatus, getActiveStatus, getStatusBadgeProps } from '../../../lib/admin/productStatus';
 
 interface EditProductFormProps {
   product: AdminProduct;
@@ -19,6 +20,12 @@ export const EditProductForm: React.FC<EditProductFormProps> = ({
   onSuccess 
 }) => {
   const { error, success, clearError, clearSuccess } = useAdminStore();
+  
+  // Calculate current status
+  const stockStatus = getStockStatus(product);
+  const activeStatus = getActiveStatus(product);
+  const stockBadgeProps = getStatusBadgeProps(stockStatus.status, stockStatus.statusColor);
+  const activeBadgeProps = getStatusBadgeProps(activeStatus.status, activeStatus.statusColor);
   const {
     form,
     sizesList,
@@ -69,9 +76,6 @@ export const EditProductForm: React.FC<EditProductFormProps> = ({
 
   // Handle form submission
   const handleFormSubmit = async (data: any) => {
-    console.log('Form submission data:', data);
-    console.log('Form errors:', errors);
-    console.log('Form is valid:', !Object.keys(errors).length);
     try {
       await onSubmit(data);
       if (onSuccess) onSuccess();
@@ -98,6 +102,21 @@ export const EditProductForm: React.FC<EditProductFormProps> = ({
 
   return (
     <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6 bg-white dark:bg-dark2 p-6 rounded-2xl shadow-md">
+      {/* Product Status Header */}
+      <div className="flex justify-between items-center pb-4 border-b border-gray-200 dark:border-gray-700">
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{product.name}</h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Article ID: {product.article_id}</p>
+        </div>
+        <div className="flex gap-2">
+          <span className={stockBadgeProps.className}>
+            {stockBadgeProps.text}
+          </span>
+          <span className={activeBadgeProps.className}>
+            {activeBadgeProps.text}
+          </span>
+        </div>
+      </div>
       {/* Error Display */}
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded flex justify-between items-center">

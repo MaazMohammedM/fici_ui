@@ -162,12 +162,19 @@ const GuestCheckoutForm: React.FC<GuestCheckoutFormProps> = ({
 
         <Input
           type="tel"
-          label="Phone Number (Optional)"
+          label="Phone Number"
           placeholder="Enter your phone number"
           leftIcon={Phone}
           error={errors.phone?.message}
           {...register('phone')}
+          required
         />
+
+        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+          <p className="text-sm text-amber-700 dark:text-amber-300">
+            <strong>Mobile number is required:</strong> We'll use this to send order updates and delivery notifications.
+          </p>
+        </div>
 
         <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
           <p className="text-sm text-amber-700 dark:text-amber-300">

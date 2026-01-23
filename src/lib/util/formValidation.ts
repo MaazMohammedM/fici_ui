@@ -4,7 +4,6 @@ export const enhancedProductSchema = z.object({
   article_id: z.string().min(4, 'Please ensure at least 4 characters'),
   name: z.string().min(2, 'Product name must be at least 2 characters'),
   description: z.string().optional(),
-  color: z.string(),
   sub_category: z.string().optional(),
   mrp_price: z.string().min(1, 'MRP price is required'),
   discount_price: z.string().min(1, 'Discount price is required'),
@@ -20,7 +19,7 @@ export const enhancedProductSchema = z.object({
   }, 'Please add at least one size with quantity'),
   images: z.string().optional(), // Optional for form validation, checked manually in onSubmit
   thumbnail_url: z.string().optional(),
-  size_prices: z.string().optional(), // JSON string for per-size pricing
+  size_prices: z.string().nullable().optional(), // JSON string for per-size pricing or null
   is_active: z.boolean().default(true).optional()
 });
 
@@ -58,7 +57,7 @@ export const editProductSchema = z.object({
   thumbnail_url: z.string().optional(),
   // New fields for enhanced product management
   is_active: z.boolean().optional(),
-  size_prices: z.string().optional(), // JSON string for per-size pricing
+  size_prices: z.string().nullable().optional(), // JSON string for per-size pricing or null
   tags: z.string().optional() // Comma-separated tags or JSON array
 });
 
@@ -114,7 +113,7 @@ export const partialEditProductSchema = z.object({
   thumbnail_url: z.string().optional(),
   // New fields for enhanced product management
   is_active: z.boolean().optional(),
-  size_prices: z.string().optional(), // JSON string for per-size pricing
+  size_prices: z.string().nullable().optional(), // JSON string for per-size pricing or null
   tags: z.string().optional() // Comma-separated tags or JSON array
 });
 

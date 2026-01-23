@@ -20,12 +20,15 @@ export interface WishlistItem {
   color: string; // Always a string
   discount_percentage: number;
   thumbnail_url?: string;
+  is_active?: boolean;
+  id?: string;
 }
 
 interface WishlistState {
   items: WishlistItem[];
   addToWishlist: (product: Product | WishlistItem) => void;
   removeFromWishlist: (productId: string) => void;
+  updateProductDetails: (product: any) => void;
   isInWishlist: (productId: string) => boolean;
   clearWishlist: () => void;
 }
@@ -51,7 +54,7 @@ export const useWishlistStore = create<WishlistState>()(
           // If it's a Product, convert it to a WishlistItem
           const wishlistItem: WishlistItem = {
             ...product,
-            product_id: articleId,
+            product_id: 'product_id' in product ? product.product_id : articleId,
             article_id: articleId,
             name: product.name || '',
             price: parseFloat(String(product.discount_price)) || 0,
@@ -80,6 +83,17 @@ export const useWishlistStore = create<WishlistState>()(
         set((state) => ({
           items: state.items.filter((item) => item.article_id !== articleId),
         })),
+      updateProductDetails: (updatedProduct: WishlistItem) =>
+        set((state) => {
+          
+          return {
+            items: state.items.map((item) =>
+              item.product_id === updatedProduct.product_id
+                ? { ...item, ...updatedProduct }
+                : item
+            ),
+          };
+        }),
       isInWishlist: (articleId: string) =>
         get().items.some((item) => item.article_id === articleId),
       clearWishlist: () => set({ items: [] }),

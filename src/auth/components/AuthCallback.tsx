@@ -26,12 +26,7 @@ const AuthCallback = memo(() => {
         }
 
         const user = session.user;
-        console.log('AuthCallback: Setting user in store:', user.id);
-
-        // Set user in store - profile will be handled by auth store automatically
         setUser(user);
-
-        // Wait a bit for profile to be created by auth store
         await new Promise(resolve => setTimeout(resolve, 1000));
 
         setStep('success');

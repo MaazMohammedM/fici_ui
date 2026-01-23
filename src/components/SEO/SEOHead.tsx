@@ -173,8 +173,8 @@ const SEOHead = ({
             ]
           },
           "sameAs": [
-            "https://www.facebook.com/FICIshoes",
-            "https://www.instagram.com/FICIshoes",
+            "https://www.facebook.com/FICI-shoes",
+            "https://www.instagram.com/FICI_shoes",
             "https://www.justdial.com/Ambur/FICI-Shoes-by-NMF-International",
             "https://www.indiamart.com/nmf-international"
           ]

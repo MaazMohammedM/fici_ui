@@ -205,10 +205,10 @@ const GuestOrderLookup: React.FC<GuestOrderLookupProps> = () => {
           <div className="mt-6 text-center text-sm text-gray-500">
             <p>Having trouble finding your order?</p>
             <a 
-              href="mailto:support@example.com" 
+              href="mailto:support@ficishoes.com" 
               className="text-blue-600 hover:underline"
             >
-              Contact our support team
+              Contact our support team support@ficishoes.com
             </a>
           </div>
         </div>

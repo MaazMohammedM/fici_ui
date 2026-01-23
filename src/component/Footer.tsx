@@ -23,7 +23,7 @@ const Footer: React.FC = () => {
         <div className="flex flex-col items-center text-center gap-1.5 sm:gap-2 mb-3 sm:mb-5">
           <p className="text-gray-300 text-sm sm:text-[15px] leading-snug max-w-lg">
             Premium leather footwear crafted with passion and precision.<br/> Discover the perfect blend
-            of style, comfort, and quality.
+            of style, comfort and quality.
           </p>
 
           {/* Social */}

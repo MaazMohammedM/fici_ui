@@ -43,15 +43,9 @@ export const useProductVariant = ({ currentProduct, articleId }: UseProductVaria
       return [];
     }
 
-    if (isBag) {
-      // For bags, get sizes from the sizes object if available
-      const bagSizes = Object.keys(selectedVariant.sizes).filter(s => (selectedVariant.sizes[s] ?? 0) > 0);
-      return bagSizes.length > 0 ? bagSizes : [];
-    }
-
-    // For shoes and sandals, use existing logic
-    const shoeSizes = Object.keys(selectedVariant.sizes).filter(s => (selectedVariant.sizes[s] ?? 0) > 0);
-    return shoeSizes;
+    // For both bags and shoes, only return sizes with stock > 0
+    const inStockSizes = Object.keys(selectedVariant.sizes).filter(s => (selectedVariant.sizes[s] ?? 0) > 0);
+    return inStockSizes;
   }, [selectedVariant, isBag]);
 
   // Get full size range based on product category/subcategory
@@ -63,22 +57,26 @@ export const useProductVariant = ({ currentProduct, articleId }: UseProductVaria
     const isFootwear = subcategory.includes('shoe') || subcategory.includes('sandal') ||
                       category.includes('footwear') || category.includes('shoe') || category.includes('sandal');
 
-    // For bags that are out of stock, return empty array to show "out of stock" message
-    if (isBag && availableSizes.length === 0) {
-      return [];
+    // For bags, show all sizes from the sizes object regardless of stock
+    if (isBag && selectedVariant?.sizes) {
+      const bagSizes = Object.keys(selectedVariant.sizes);
+      return bagSizes.length > 0 ? bagSizes : [];
     }
 
     // For footwear (shoes/sandals), use gender-based sizing
     if (isFootwear) {
       const gender = currentProduct?.gender?.toLowerCase() || '';
 
-      if (gender.includes('men')) {
-        return Array.from({ length: 9 }, (_, i) => (39 + i).toString()); // 39-47
-      } else if (gender.includes('women')) {
-        return Array.from({ length: 8 }, (_, i) => (35 + i).toString()); // 35-43
+      // Check for women first, then men, to ensure proper precedence
+      if (gender === 'women' || gender.includes('women')) {
+        const womenSizes = Array.from({ length: 8 }, (_, i) => (35 + i).toString()); // 35-42
+        return womenSizes;
+      } else if (gender === 'men' || gender.includes('men')) {
+        const menSizes = Array.from({ length: 9 }, (_, i) => (39 + i).toString()); // 39-47
+        return menSizes;
       } else {
-        // Default to men's range if unclear
-        return Array.from({ length: 9 }, (_, i) => (39 + i).toString()); // 39-47
+        const defaultSizes = Array.from({ length: 9 }, (_, i) => (39 + i).toString()); // 39-47
+        return defaultSizes;
       }
     }
 
@@ -135,21 +133,22 @@ export const useProductVariant = ({ currentProduct, articleId }: UseProductVaria
         setSelectedArticleId(requestedArticleId);
         fetchRelatedProducts(currentProduct.category, found.product_id);
         setRequestedArticleId(null);
-        return;
+        return; // Important: return early to prevent override
       }
       setRequestedArticleId(null);
     }
 
-    // If we don't have a selection or the selectedArticleId is not present in the new currentProduct, set default to first variant
-    const exists = currentProduct.variants.some(v => v.article_id === selectedArticleId);
-    if (!selectedArticleId || !exists) {
+    // Only set default if no selection exists
+    if (!selectedArticleId) {
       const first = currentProduct.variants[0];
       if (first) {
         setSelectedArticleId(first.article_id);
         fetchRelatedProducts(currentProduct.category, first.product_id);
       }
-    } else {
-      // If current selection exists, update related products (defensive)
+    }
+    
+    // Update related products for current selection (defensive)
+    if (selectedArticleId) {
       const sel = currentProduct.variants.find(v => v.article_id === selectedArticleId);
       if (sel) fetchRelatedProducts(currentProduct.category, sel.product_id);
     }
