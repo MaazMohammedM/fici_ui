@@ -1,7 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { XCircle, Package, ArrowLeft, X, Upload, CheckCircle } from 'lucide-react';
-import OrderItemCard from './OrderItemCard';
 import ReviewModal from './components/ReviewModal';
 import { useOrderStore } from '../../store/orderStore';
 import { useAuthStore } from '../../store/authStore';
