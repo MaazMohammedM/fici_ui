@@ -1,46 +1,117 @@
 import React, { useState } from 'react';
+import { X } from 'lucide-react';
 import { useProductForm } from '@lib/hooks/useProductForm';
+import { useEditProductForm } from '@lib/hooks/useEditProductForm';
 import FileUpload from './FileUpload';
 import SizeManager from './SizeManager';
 import { useAdminStore } from '../store/adminStore';
-import { CATEGORY_CONFIG, GENDER_OPTIONS } from './constants/productConfig'; // Import the constants
+import { CATEGORY_CONFIG, GENDER_OPTIONS } from './constants/productConfig';
+import type { Product } from '../../../types/product';
 
-const ProductForm: React.FC = () => {
-  const { error, clearError } = useAdminStore();
+interface ProductFormProps {
+  product?: Product;
+  onSuccess?: () => void;
+  onCancel: () => void;
+}
+
+const ProductForm: React.FC<ProductFormProps> = ({ 
+  product,
+  onSuccess,
+  onCancel 
+}) => {
+  const isEditMode = !!product;
+  const { error, success, clearError, clearSuccess } = useAdminStore();
+  
+  // Use the appropriate form hook based on mode
+  const createFormHook = useProductForm();
+  const editFormHook = product ? useEditProductForm(product, onSuccess) : null;
+  
+  const formHook = isEditMode ? editFormHook : createFormHook;
+  
+  if (!formHook) {
+    return <div>Loading...</div>;
+  }
+
   const {
     form,
     files,
     sizesList,
     sizeInput,
     quantityInput,
+    sizePrices,
     isUploading,
     uploadProgress,
     uploadError,
     selectedThumbnail,
+    color,
     handleAddSize,
     handleRemoveSize,
+    handleSizePriceChange,
+    handleSizeQuantityChange,
     handleFileChange,
     handleThumbnailSelect,
     onSubmit,
     setSizeInput,
-    setQuantityInput
-  } = useProductForm();
+    setQuantityInput,
+    setFiles,
+    setSizesList,
+    setSizePrices,
+    setSelectedThumbnail,
+    setColor
+  } = formHook as any;
 
   const {
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors, isSubmitting }
-  } = form;
+  } = form as any;
 
   const [successMessage, setSuccessMessage] = useState('');
-  const selectedCategory = watch('category');
+  const selectedCategory = (watch('category' as any) as string);
 
+  // Handle form submission
   const wrappedSubmit = async (data: any) => {
     setSuccessMessage('');
-    await onSubmit(data);
-    setSuccessMessage('Product added successfully!');
+    try {
+      await onSubmit(data);
+      if (onSuccess) onSuccess();
+      if (!isEditMode) {
+        setSuccessMessage('Product added successfully! You can add another product or go to the product list.');
+        // Reset form to allow adding another product
+        setTimeout(() => {
+          form.reset();
+          setFiles(null);
+          setSizesList({});
+          setSizePrices({});
+          setSizeInput('');
+          setQuantityInput('');
+          setSelectedThumbnail(0);
+          setColor('');
+          setSuccessMessage(''); // Clear message after a delay
+        }, 5000);
+      }
+    } catch (error) {
+      console.error(`Error ${isEditMode ? 'updating' : 'creating'} product:`, error);
+    }
   };
+
+  // Handle tag toggling
+  const handleTagToggle = (tag: string) => {
+    const currentTags = (watch('tags' as any) as unknown as string[]) || [];
+    const newTags = currentTags.includes(tag)
+      ? currentTags.filter(t => t !== tag)
+      : [...currentTags, tag];
+    setValue('tags' as any, newTags, { shouldValidate: true });
+  };
+
+  // Available tag options
+  const TAG_OPTIONS = [
+    { value: 'clearance_sale', label: 'Clearance Sale' },
+    { value: 'discount_sale', label: 'Discount Sale' },
+    { value: 'deal_of_the_day', label: 'Deal of the Day' },
+  ];
 
   const getSubCategoryOptions = () => {
     if (!selectedCategory) return [];
@@ -62,8 +133,27 @@ const ProductForm: React.FC = () => {
       className="space-y-6 bg-white dark:bg-dark2 p-6 rounded-2xl shadow-md"
     >
       {successMessage && (
-        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded">
-          {successMessage}
+        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded flex justify-between items-center">
+          <span>{successMessage}</span>
+          <button
+            type="button"
+            onClick={() => setSuccessMessage('')}
+            className="text-green-500 hover:text-green-700"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+      {success && (
+        <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded flex justify-between items-center">
+          <span>{success}</span>
+          <button
+            type="button"
+            onClick={clearSuccess}
+            className="text-green-500 hover:text-green-700"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
       )}
       {error && (
@@ -112,14 +202,22 @@ const ProductForm: React.FC = () => {
           <label className="block text-sm font-medium text-gray-700 dark:text-white">
             Article ID *
           </label>
-          <input
-            {...register('article_id')}
-            placeholder="e.g. SH123488"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white"
-          />
-          {errors.article_id && (
+          {isEditMode ? (
+            <input
+              value={product?.article_id}
+              readOnly
+              className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 dark:bg-gray-700 dark:text-white" 
+            />
+          ) : (
+            <input
+              {...(register as any)('article_id')}
+              placeholder="e.g. SH123488"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white"
+            />
+          )}
+          {(errors as any).article_id && (
             <p className="text-red-500 text-sm mt-1">
-              {errors.article_id.message}
+              {(errors as any).article_id.message}
             </p>
           )}
         </div>
@@ -130,12 +228,12 @@ const ProductForm: React.FC = () => {
             Product Name *
           </label>
           <input
-            {...register('name')}
+            {...(register as any)('name')}
             placeholder="Product name"
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white"
           />
-          {errors.name && (
-            <p className="text-red-500 text-sm mt-1">{errors.name.message}</p>
+          {(errors as any).name && (
+            <p className="text-red-500 text-sm mt-1">{(errors as any).name.message}</p>
           )}
         </div>
 
@@ -145,7 +243,7 @@ const ProductForm: React.FC = () => {
             Description
           </label>
           <textarea
-            {...register('description')}
+            {...(register as any)('description')}
             placeholder="Product description"
             rows={3}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white"
@@ -155,15 +253,18 @@ const ProductForm: React.FC = () => {
         {/* Color */}
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-white">
-            Color
+            Color *
           </label>
           <input
-            {...register('color')}
+            value={color}
+            onChange={(e) => setColor(e.target.value)}
             placeholder="e.g. Black, Brown"
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white"
           />
-          {errors.color && (
-            <p className="text-red-500 text-sm mt-1">{errors.color.message}</p>
+          {!color && (errors as any).root?.message?.includes('Color') && (
+            <p className="text-red-500 text-sm mt-1">
+              {(errors as any).root.message}
+            </p>
           )}
         </div>
 
@@ -174,13 +275,13 @@ const ProductForm: React.FC = () => {
           </label>
           <input
             type="text"
-            {...register('mrp_price')}
+            {...(register as any)('mrp_price')}
             placeholder="0.00"
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white"
           />
-          {errors.mrp_price && (
+          {(errors as any).mrp_price && (
             <p className="text-red-500 text-sm mt-1">
-              {errors.mrp_price.message}
+              {(errors as any).mrp_price.message}
             </p>
           )}
         </div>
@@ -192,13 +293,13 @@ const ProductForm: React.FC = () => {
           </label>
           <input
             type="text"
-            {...register('discount_price')}
+            {...(register as any)('discount_price')}
             placeholder="0.00"
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white"
           />
-          {errors.discount_price && (
+          {(errors as any).discount_price && (
             <p className="text-red-500 text-sm mt-1">
-              {errors.discount_price.message}
+              {(errors as any).discount_price.message}
             </p>
           )}
         </div>
@@ -209,7 +310,7 @@ const ProductForm: React.FC = () => {
             Gender *
           </label>
           <select
-            {...register('gender')}
+            {...(register as any)('gender')}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white"
           >
             <option value="">Select Gender</option>
@@ -219,8 +320,8 @@ const ProductForm: React.FC = () => {
               </option>
             ))}
           </select>
-          {errors.gender && (
-            <p className="text-red-500 text-sm mt-1">{errors.gender.message}</p>
+          {(errors as any).gender && (
+            <p className="text-red-500 text-sm mt-1">{(errors as any).gender.message}</p>
           )}
         </div>
 
@@ -230,7 +331,7 @@ const ProductForm: React.FC = () => {
             Category *
           </label>
           <select
-            {...register('category')}
+            {...(register as any)('category')}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white"
           >
             <option value="">Select Category</option>
@@ -240,9 +341,9 @@ const ProductForm: React.FC = () => {
               </option>
             ))}
           </select>
-          {errors.category && (
+          {(errors as any).category && (
             <p className="text-red-500 text-sm mt-1">
-              {errors.category.message}
+              {(errors as any).category.message}
             </p>
           )}
         </div>
@@ -254,7 +355,7 @@ const ProductForm: React.FC = () => {
           </label>
           {selectedCategory && Object.keys(CATEGORY_CONFIG).includes(selectedCategory) ? (
             <select
-              {...register('sub_category')}
+              {...(register as any)('sub_category')}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white"
             >
               <option value="">Select SubCategory</option>
@@ -266,12 +367,25 @@ const ProductForm: React.FC = () => {
             </select>
           ) : (
             <input
-              {...register('sub_category')}
+              {...(register as any)('sub_category')}
               placeholder="SubCategory name"
               disabled={!selectedCategory}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white disabled:bg-gray-100 disabled:cursor-not-allowed"
             />
           )}
+        </div>
+
+        {/* Active Status */}
+        <div className="flex items-center space-x-2">
+          <input
+            type="checkbox"
+            id="is_active"
+            {...(register as any)('is_active')}
+            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+          />
+          <label htmlFor="is_active" className="text-sm font-medium text-gray-700 dark:text-white">
+            Product is active
+          </label>
         </div>
 
         {/* Size Manager */}
@@ -284,6 +398,9 @@ const ProductForm: React.FC = () => {
             onQuantityInputChange={setQuantityInput}
             onAddSize={handleAddSize}
             onRemoveSize={handleRemoveSize}
+            sizePrices={sizePrices}
+            onSizePriceChange={handleSizePriceChange}
+            onSizeQuantityChange={handleSizeQuantityChange}
           />
         </div>
 
@@ -292,22 +409,67 @@ const ProductForm: React.FC = () => {
           <FileUpload
             files={files}
             onChange={handleFileChange}
-            error={errors.images?.message}
+            error={(errors as any).images?.message}
             disabled={isUploading}
             selectedThumbnail={selectedThumbnail}
             onThumbnailSelect={handleThumbnailSelect}
           />
         </div>
+
+        {/* Tags */}
+        <div className="md:col-span-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-white mb-2">
+            Tags
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {TAG_OPTIONS.map((tag) => {
+              const isSelected = ((watch('tags' as any) as unknown as string[]) || []).includes(tag.value);
+              return (
+                <button
+                  key={tag.value}
+                  type="button"
+                  onClick={() => handleTagToggle(tag.value)}
+                  className={`px-3 py-1 rounded-full text-sm font-medium ${
+                    isSelected
+                      ? 'bg-primary-100 text-primary-800 dark:bg-primary-900 dark:text-primary-200'
+                      : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+                  }`}
+                >
+                  {tag.label}
+                  {isSelected && <X className="ml-1 h-3 w-3 inline" />}
+                </button>
+              );
+            })}
+          </div>
+        </div>
       </div>
 
-      {/* Submit Button */}
-      <div className="pt-4">
+      {/* Action Buttons */}
+      <div className="pt-4 flex gap-4">
         <button
           type="submit"
           disabled={isSubmitting || isUploading}
-          className="w-full bg-primary hover:bg-primary-active text-white px-6 py-3 rounded-xl shadow transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 bg-primary hover:bg-primary-active text-white px-6 py-3 rounded-xl shadow transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {isSubmitting || isUploading ? 'Adding Product...' : 'Add Product'}
+          {isSubmitting || isUploading 
+            ? isEditMode ? 'Updating Product...' : 'Adding Product...'
+            : isEditMode ? 'Update Product' : 'Add Product'}
+        </button>
+        {successMessage && !isEditMode && (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="flex-1 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl shadow transition-colors"
+          >
+            Go to Product List
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={onCancel}
+          className={`${successMessage && !isEditMode ? 'flex-1' : 'flex-1'} bg-gray-200 hover:bg-gray-300 text-gray-800 px-6 py-3 rounded-xl shadow transition-colors`}
+        >
+          {successMessage && !isEditMode ? 'Stay Here' : 'Cancel'}
         </button>
       </div>
     </form>

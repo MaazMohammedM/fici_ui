@@ -1,921 +1,538 @@
-import React, { useEffect, useState } from "react";
-import { Percent, MapPin } from "lucide-react";
+// Improved DiscountFormSection.tsx
+import React, { useState, useEffect } from "react";
+import { Percent, MapPin, Info, AlertCircle } from "lucide-react";
 import { PincodeManager } from "./PincodeManager";
+import ProductDiscountForm from "./ProductDiscountForm";
 import {
   getActiveCheckoutRule,
   upsertCheckoutRule,
-  getActiveProductDiscountsForProducts,
-  upsertProductDiscount,
   type CheckoutRule,
-  type ProductDiscountRule,
 } from "@lib/discounts";
 
 type DiscountFormSectionProps = {
   allProducts: any[];
+  singleProductId?: string;
+  showTabs?: boolean;
+  showCheckoutDiscount?: boolean;
 };
 
 type CheckoutErrors = {
-  percent?: string;
-  amount?: string;
   min_order?: string;
   max_discount_cap?: string;
-};
-
-type ProductErrors = {
   value?: string;
-  max_discount_cap?: string;
+  starts_at?: string;
+  ends_at?: string;
 };
-
-type BannerState =
-  | {
-      type: "success" | "error";
-      message: string;
-    }
-  | null;
 
 const DiscountFormSection: React.FC<DiscountFormSectionProps> = ({
   allProducts,
+  singleProductId,
+  showTabs = true,
+  showCheckoutDiscount = true,
 }) => {
-  const [activeTab, setActiveTab] = useState<'discounts' | 'pincodes'>('discounts');
+  const [activeTab, setActiveTab] = useState<string>("checkout");
   const [checkoutRule, setCheckoutRule] = useState<CheckoutRule | null>(null);
   const [savingCheckout, setSavingCheckout] = useState(false);
   const [checkoutErrors, setCheckoutErrors] = useState<CheckoutErrors>({});
+  const [saveSuccess, setSaveSuccess] = useState(false);
 
-  const [selectedProductId, setSelectedProductId] = useState<string>("");
-  const [productRule, setProductRule] = useState<ProductDiscountRule | null>(
-    null
-  );
-  const [savingProduct, setSavingProduct] = useState(false);
-  const [productErrors, setProductErrors] = useState<ProductErrors>({});
+  // Load checkout rule on mount
+  useEffect(() => {
+    const loadCheckoutRule = async () => {
+      try {
+        setCheckoutRule(await getActiveCheckoutRule() || {
+          rule_type: "amount",
+          amount: null,
+          percent: null,
+          min_order: null,
+          max_discount_cap: null,
+          active: false,
+          starts_at: null,
+          ends_at: null
+        });
+      } catch (error) {
+        console.error("Failed to load checkout rule:", error);
+      }
+    };
+    loadCheckoutRule();
+  }, []);
 
-  const [productDiscountsMap, setProductDiscountsMap] = useState<
-    Record<string, ProductDiscountRule>
-  >({});
-  const [loadingProductDiscounts, setLoadingProductDiscounts] = useState(false);
-
-  const [banner, setBanner] = useState<BannerState>(null);
-
-  // ---------- VALIDATION HELPERS ----------
-
-  const validateCheckoutRule = (rule: CheckoutRule): CheckoutErrors => {
+  // Validate checkout rule
+  const validateCheckoutRule = (rule: CheckoutRule): boolean => {
     const errors: CheckoutErrors = {};
+
+    if (rule.min_order != null && rule.min_order < 0) {
+      errors.min_order = "Minimum order amount cannot be negative";
+    }
 
     if (rule.rule_type === "percent") {
       const pct = rule.percent ?? 0;
       if (pct <= 0 || pct > 100) {
-        errors.percent = "Percent discount must be between 1 and 100.";
+        errors.value = "Percent discount must be between 1 and 100";
+      }
+      if (rule.max_discount_cap != null && rule.max_discount_cap < 0) {
+        errors.max_discount_cap = "Maximum discount cap cannot be negative";
       }
     } else {
       const amt = rule.amount ?? 0;
       if (amt <= 0) {
-        errors.amount = "Amount discount must be greater than 0.";
+        errors.value = "Amount discount must be greater than 0";
       }
     }
 
-    if (rule.min_order != null && rule.min_order < 0) {
-      errors.min_order = "Minimum order amount cannot be negative.";
-    }
-
-    if (rule.max_discount_cap != null && rule.max_discount_cap < 0) {
-      errors.max_discount_cap = "Maximum discount cap cannot be negative.";
+    // Validate date range
+    if (rule.starts_at && rule.ends_at && new Date(rule.starts_at) >= new Date(rule.ends_at)) {
+      errors.ends_at = "End date must be after start date";
     }
 
     setCheckoutErrors(errors);
-    return errors;
+    return Object.keys(errors).length === 0;
   };
 
-  const validateProductRule = (rule: ProductDiscountRule): ProductErrors => {
-    const errors: ProductErrors = {};
+  // Save checkout rule
+  const handleSaveCheckoutRule = async () => {
+    if (!checkoutRule) return;
 
-    if (rule.mode === "percent") {
-      const pct = rule.value ?? 0;
-      if (pct <= 0 || pct > 100) {
-        errors.value = "Percent discount must be between 1 and 100.";
-      }
-      if (rule.max_discount_cap != null && rule.max_discount_cap < 0) {
-        errors.max_discount_cap = "Maximum discount cap cannot be negative.";
-      }
-    } else {
-      const amt = rule.value ?? 0;
-      if (amt <= 0) {
-        errors.value = "Amount discount must be greater than 0.";
-      }
-      // We ignore max_discount_cap in amount mode
+    const isValid = validateCheckoutRule(checkoutRule);
+    if (!isValid) return;
+
+    try {
+      setSavingCheckout(true);
+      await upsertCheckoutRule(checkoutRule);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (error) {
+      console.error("Failed to save checkout rule:", error);
+    } finally {
+      setSavingCheckout(false);
     }
-
-    setProductErrors(errors);
-    return errors;
   };
 
-  // Load active checkout rule on mount
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadRule = async () => {
-      const fallback: CheckoutRule = {
-        rule_type: "amount",
-        amount: 0,
-        percent: null,
-        min_order: null,
-        max_discount_cap: null,
-        active: true,
-        starts_at: null,
-        ends_at: null,
-      };
-
-      try {
-        const rule = await getActiveCheckoutRule();
-        if (!cancelled) {
-          const toUse = rule || fallback;
-          setCheckoutRule(toUse);
-          validateCheckoutRule(toUse);
-        }
-      } catch {
-        if (!cancelled) {
-          setCheckoutRule(fallback);
-          validateCheckoutRule(fallback);
-        }
-      }
-    };
-
-    loadRule();
-
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Load product discount rule when product changes
-  useEffect(() => {
-    if (!selectedProductId) {
-      setProductRule(null);
-      setProductErrors({});
-      return;
-    }
-
-    const existing = productDiscountsMap[selectedProductId];
-    if (existing) {
-      setProductRule(existing);
-      validateProductRule(existing);
-      return;
-    }
-
-    (async () => {
-      const map = await getActiveProductDiscountsForProducts([
-        selectedProductId,
-      ]);
-      const found = map[selectedProductId];
-      const fallback: ProductDiscountRule = {
-        product_id: selectedProductId,
-        mode: "amount",
-        value: 0,
-        base: "price",
-        active: true,
-        starts_at: null,
-        ends_at: null,
-        max_discount_cap: null,
-      };
-      const toUse = found || fallback;
-      setProductRule(toUse);
-      if (found) {
-        setProductDiscountsMap((prev) => ({
-          ...prev,
-          [selectedProductId]: found,
-        }));
-      }
-      validateProductRule(toUse);
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedProductId, productDiscountsMap]);
-
-  // Load a map of all active product discounts for listing
-  useEffect(() => {
-    if (!allProducts || allProducts.length === 0) return;
-
-    (async () => {
-      try {
-        setLoadingProductDiscounts(true);
-        const ids = allProducts.map((p: any) => p.product_id).filter(Boolean);
-        if (!ids.length) {
-          setProductDiscountsMap({});
-          return;
-        }
-        const map = await getActiveProductDiscountsForProducts(ids);
-        setProductDiscountsMap(map);
-      } finally {
-        setLoadingProductDiscounts(false);
-      }
-    })();
-  }, [allProducts]);
+  if (!checkoutRule) {
+    return <div className="p-4">Loading discount settings...</div>;
+  }
 
   return (
-    <div className="space-y-8 max-w-6xl mx-auto p-4">
-      <div className="space-y-2">
-        <h2 className="text-2xl font-bold">Discount & Delivery Management</h2>
-        <p className="text-muted-foreground">
-          Configure discounts and delivery settings for your store
-        </p>
-      </div>
-
-      <div className="flex flex-wrap gap-2 sm:gap-4">
-        <button
-          onClick={() => setActiveTab('discounts')}
-          className={`flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-3 rounded-xl shadow transition whitespace-nowrap flex-shrink-0 ${
-            activeTab === 'discounts'
-              ? 'bg-blue-600 text-white'
-              : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
-          }`}
-        >
-          <Percent className="w-4 h-4" />
-          <span className="hidden sm:inline">Discounts</span>
-        </button>
-        <button
-          onClick={() => setActiveTab('pincodes')}
-          className={`flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-3 rounded-xl shadow transition whitespace-nowrap flex-shrink-0 ${
-            activeTab === 'pincodes'
-              ? 'bg-blue-600 text-white'
-              : 'bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
-          }`}
-        >
-          <MapPin className="w-4 h-4" />
-          <span className="hidden sm:inline">Pincode Management</span>
-        </button>
-      </div>
-
-      {/* Tab Content */}
-      {activeTab === 'discounts' ? (
-        <div className="space-y-8">
-          {banner && (
-            <div
-              className={`fixed top-4 left-4 right-4 sm:left-auto sm:right-4 z-50 bg-green-500 text-white px-4 sm:px-6 py-3 rounded-lg shadow-lg flex items-center gap-3 animate-in slide-in-from-top-2 duration-300 max-w-md sm:max-w-none border ${
-                banner.type === "success"
-                  ? "border-green-400"
-                  : "bg-red-500 text-white border-red-400"
-              }`}
-            >
-              <svg
-                className="w-5 h-5 flex-shrink-0"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d={
-                    banner.type === "success"
-                      ? "M5 13l4 4L19 7"
-                      : "M6 18L18 6M6 6l12 12"
-                  }
-                />
-              </svg>
-              <span className="text-sm sm:text-base flex-1 pr-2">
-                {banner.message}
-              </span>
-              <button
-                onClick={() => setBanner(null)}
-                className="flex-shrink-0 p-1 hover:bg-green-600 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-green-300"
-                aria-label="Close message"
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+    <div className="space-y-6">
+      {showTabs && (
+        <div className="border-b border-gray-200 dark:border-gray-700">
+          <ul className="flex flex-wrap -mb-px text-sm font-medium text-center">
+            {showCheckoutDiscount && (
+              <li className="me-2" role="presentation">
+                <button
+                  className={`inline-flex items-center p-4 border-b-2 rounded-t-lg ${
+                    activeTab === "checkout"
+                      ? "text-blue-600 border-blue-600 dark:text-blue-500 dark:border-blue-500"
+                      : "hover:text-gray-600 hover:border-gray-300 dark:hover:text-gray-300"
+                  }`}
+                  onClick={() => setActiveTab("checkout")}
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
+                  <Percent className="w-4 h-4 mr-2" />
+                  <span>Checkout Discount</span>
+                </button>
+              </li>
+            )}
+            <li className="me-2" role="presentation">
+              <button
+                className={`inline-flex items-center p-4 border-b-2 rounded-t-lg ${
+                  activeTab === "product"
+                    ? "text-blue-600 border-blue-600 dark:text-blue-500 dark:border-blue-500"
+                    : "hover:text-gray-600 hover:border-gray-300 dark:hover:text-gray-300"
+                }`}
+                onClick={() => setActiveTab("product")}
+              >
+                <Percent className="w-4 h-4 mr-2" />
+                <span>Product Discounts</span>
               </button>
-            </div>
-          )}
+            </li>
+            <li className="me-2" role="presentation">
+              <button
+                className={`inline-flex items-center p-4 border-b-2 rounded-t-lg ${
+                  activeTab === "pincode"
+                    ? "text-blue-600 border-blue-600 dark:text-blue-500 dark:border-blue-500"
+                    : "hover:text-gray-600 hover:border-gray-300 dark:hover:text-gray-300"
+                }`}
+                onClick={() => setActiveTab("pincode")}
+              >
+                <MapPin className="w-4 h-4 mr-2" />
+                <span>Pincode Management</span>
+              </button>
+            </li>
+          </ul>
+        </div>
+      )}
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Checkout Discount Rule */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-4 sm:p-6">
-              <h3 className="text-lg font-semibold mb-4">
-                Checkout (Prepaid) Discount
-              </h3>
-              {checkoutRule && (
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <label className="text-sm">
-                      Type
-                      <select
-                        className="mt-1 w-full border rounded p-2 bg-transparent"
-                        value={checkoutRule.rule_type}
-                        onChange={(e) => {
-                          const nextRule: CheckoutRule = {
-                            ...checkoutRule,
-                            rule_type: e.target.value as any,
-                            percent:
-                              e.target.value === "percent"
-                                ? checkoutRule.percent ?? 10
-                                : null,
-                            amount:
-                              e.target.value === "amount"
-                                ? checkoutRule.amount ?? 100
-                                : null,
-                          };
-                          setCheckoutRule(nextRule);
-                          validateCheckoutRule(nextRule);
-                        }}
-                      >
-                        <option value="amount">Amount</option>
-                        <option value="percent">Percent</option>
-                      </select>
+      <div className="space-y-6">
+        {saveSuccess && (
+          <div className="p-4 mb-4 text-sm text-green-700 bg-green-100 rounded-lg dark:bg-green-200 dark:text-green-800" role="alert">
+            <span className="font-medium">Success!</span> Checkout discount settings saved successfully.
+          </div>
+        )}
+
+        {(!showTabs || activeTab === "checkout") && showCheckoutDiscount && (
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+            <div className="mb-6">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Checkout Discount Settings</h2>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Configure site-wide discounts applied during checkout
+              </p>
+            </div>
+
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Discount Type */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Discount Type
+                    <span className="text-red-500 ml-1">*</span>
+                  </label>
+                  <select
+                    className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    value={checkoutRule.rule_type || "amount"}
+                    onChange={(e) => {
+                      const newType = e.target.value as "percent" | "amount";
+                      setCheckoutRule({
+                        ...checkoutRule,
+                        rule_type: newType,
+                        amount: newType === "amount" ? 0 : null,
+                        percent: newType === "percent" ? 10 : null
+                      });
+                    }}
+                  >
+                    <option value="amount">Fixed Amount</option>
+                    <option value="percent">Percentage</option>
+                  </select>
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    {checkoutRule.rule_type === "percent" 
+                      ? "Discount will be calculated as a percentage of the order total"
+                      : "Fixed amount to be deducted from the order total"}
+                  </p>
+                </div>
+
+                {/* Active Toggle */}
+                <div className="flex items-center">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Status
                     </label>
-                    <label className="text-sm">
-                      Active
-                      <input
-                        type="checkbox"
-                        className="ml-2 align-middle"
-                        checked={!!checkoutRule.active}
-                        onChange={(e) => {
-                          const nextRule: CheckoutRule = {
-                            ...checkoutRule,
-                            active: e.target.checked,
-                          };
-                          setCheckoutRule(nextRule);
-                          validateCheckoutRule(nextRule);
-                        }}
-                      />
-                    </label>
+                    <div className="mt-1">
+                      <label className="inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="sr-only peer"
+                          checked={!!checkoutRule.active}
+                          onChange={(e) => {
+                            setCheckoutRule({
+                              ...checkoutRule,
+                              active: e.target.checked,
+                            });
+                          }}
+                        />
+                        <div className="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+                        <span className="ms-3 text-sm font-medium text-gray-700 dark:text-gray-300">
+                          {checkoutRule.active ? "Active" : "Inactive"}
+                        </span>
+                      </label>
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      {checkoutRule.active
+                        ? "This discount is currently active and will be applied to eligible orders."
+                        : "This discount is currently inactive and won't be applied to any orders."}
+                    </p>
                   </div>
-                  {checkoutRule.rule_type === "percent" ? (
-                    <label className="text-sm">
-                      Percent (%)
+                </div>
+              </div>
+
+              {/* Discount Value */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {checkoutRule.rule_type === "percent" ? (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Discount Percentage
+                      <span className="text-red-500 ml-1">*</span>
+                    </label>
+                    <div className="mt-1 relative rounded-md shadow-sm">
                       <input
                         type="number"
-                        min={0}
-                        max={100}
-                        className="mt-1 w-full border rounded p-2 bg-transparent"
+                        min="1"
+                        max="100"
+                        className={`block w-full pr-10 sm:text-sm rounded-md ${
+                          checkoutErrors.value
+                            ? "border-red-300 text-red-900 placeholder-red-300 focus:outline-none focus:ring-red-500 focus:border-red-500"
+                            : "border-gray-300 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                        }`}
                         value={checkoutRule.percent ?? ""}
                         onChange={(e) => {
                           const raw = e.target.value;
                           if (!/^\d*$/.test(raw)) return;
-                          const nextRule: CheckoutRule = {
+                          setCheckoutRule({
                             ...checkoutRule,
                             percent: raw === "" ? null : Number(raw),
-                            amount: null,
-                          };
-                          setCheckoutRule(nextRule);
-                          validateCheckoutRule(nextRule);
+                          });
                         }}
+                        aria-invalid={!!checkoutErrors.value}
+                        aria-describedby="percent-error"
                       />
-                      {checkoutErrors.percent && (
-                        <p className="mt-1 text-xs text-red-500">
-                          {checkoutErrors.percent}
-                        </p>
-                      )}
+                      <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                        <span className="text-gray-500 sm:text-sm">%</span>
+                      </div>
+                    </div>
+                    {checkoutErrors.value && (
+                      <p className="mt-2 text-sm text-red-600" id="percent-error">
+                        {checkoutErrors.value}
+                      </p>
+                    )}
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      Enter a value between 1 and 100
+                    </p>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Discount Amount
+                      <span className="text-red-500 ml-1">*</span>
                     </label>
-                  ) : (
-                    <label className="text-sm">
-                      Amount (₹)
+                    <div className="mt-1 relative rounded-md shadow-sm">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <span className="text-gray-500 sm:text-sm">₹</span>
+                      </div>
                       <input
                         type="number"
-                        min={0}
-                        className="mt-1 w-full border rounded p-2 bg-transparent"
+                        min="0"
+                        step="0.01"
+                        className={`block w-full pl-7 pr-12 sm:text-sm rounded-md ${
+                          checkoutErrors.value
+                            ? "border-red-300 text-red-900 placeholder-red-300 focus:outline-none focus:ring-red-500 focus:border-red-500"
+                            : "border-gray-300 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                        }`}
                         value={checkoutRule.amount ?? ""}
                         onChange={(e) => {
                           const raw = e.target.value;
-                          if (!/^\d*$/.test(raw)) return;
-                          const nextRule: CheckoutRule = {
+                          if (!/^\d*\.?\d*$/.test(raw)) return;
+                          setCheckoutRule({
                             ...checkoutRule,
                             amount: raw === "" ? null : Number(raw),
-                            percent: null,
-                          };
-                          setCheckoutRule(nextRule);
-                          validateCheckoutRule(nextRule);
+                          });
                         }}
+                        aria-invalid={!!checkoutErrors.value}
+                        aria-describedby="amount-error"
                       />
-                      {checkoutErrors.amount && (
-                        <p className="mt-1 text-xs text-red-500">
-                          {checkoutErrors.amount}
-                        </p>
-                      )}
+                    </div>
+                    {checkoutErrors.value && (
+                      <p className="mt-2 text-sm text-red-600" id="amount-error">
+                        {checkoutErrors.value}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* Max Discount Cap (only for percentage) */}
+                {checkoutRule.rule_type === "percent" && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Maximum Discount Cap (Optional)
                     </label>
-                  )}
-                  <div className="grid grid-cols-2 gap-3">
-                    <label className="text-sm">
-                      Min Order (₹)
+                    <div className="mt-1 relative rounded-md shadow-sm">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <span className="text-gray-500 sm:text-sm">₹</span>
+                      </div>
                       <input
                         type="number"
-                        min={0}
-                        className="mt-1 w-full border rounded p-2 bg-transparent"
-                        value={checkoutRule.min_order ?? ""}
-                        onChange={(e) => {
-                          const raw = e.target.value;
-                          if (!/^\d*$/.test(raw)) return;
-                          const nextRule: CheckoutRule = {
-                            ...checkoutRule,
-                            min_order: raw === "" ? null : Number(raw),
-                          };
-                          setCheckoutRule(nextRule);
-                          validateCheckoutRule(nextRule);
-                        }}
-                      />
-                      {checkoutErrors.min_order && (
-                        <p className="mt-1 text-xs text-red-500">
-                          {checkoutErrors.min_order}
-                        </p>
-                      )}
-                    </label>
-                    <label className="text-sm">
-                      Max Cap (₹)
-                      <input
-                        type="number"
-                        min={0}
-                        className="mt-1 w-full border rounded p-2 bg-transparent"
+                        min="0"
+                        step="0.01"
+                        className={`block w-full pl-7 sm:text-sm rounded-md ${
+                          checkoutErrors.max_discount_cap
+                            ? "border-red-300 text-red-900 placeholder-red-300 focus:outline-none focus:ring-red-500 focus:border-red-500"
+                            : "border-gray-300 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                        }`}
                         value={checkoutRule.max_discount_cap ?? ""}
                         onChange={(e) => {
                           const raw = e.target.value;
-                          if (!/^\d*$/.test(raw)) return;
-                          const nextRule: CheckoutRule = {
+                          if (!/^\d*\.?\d*$/.test(raw)) return;
+                          setCheckoutRule({
                             ...checkoutRule,
                             max_discount_cap: raw === "" ? null : Number(raw),
-                          };
-                          setCheckoutRule(nextRule);
-                          validateCheckoutRule(nextRule);
-                        }}
-                      />
-                      {checkoutErrors.max_discount_cap && (
-                        <p className="mt-1 text-xs text-red-500">
-                          {checkoutErrors.max_discount_cap}
-                        </p>
-                      )}
-                    </label>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <label className="text-sm">
-                      Starts At
-                      <input
-                        type="datetime-local"
-                        className="mt-1 w-full border rounded p-2 bg-transparent"
-                        value={
-                          checkoutRule.starts_at
-                            ? new Date(checkoutRule.starts_at)
-                                .toISOString()
-                                .slice(0, 16)
-                            : ""
-                        }
-                        onChange={(e) => {
-                          const nextRule: CheckoutRule = {
-                            ...checkoutRule,
-                            starts_at: e.target.value
-                              ? new Date(e.target.value).toISOString()
-                              : null,
-                          };
-                          setCheckoutRule(nextRule);
-                          validateCheckoutRule(nextRule);
-                        }}
-                      />
-                    </label>
-                    <label className="text-sm">
-                      Ends At
-                      <input
-                        type="datetime-local"
-                        className="mt-1 w-full border rounded p-2 bg-transparent"
-                        value={
-                          checkoutRule.ends_at
-                            ? new Date(checkoutRule.ends_at)
-                                .toISOString()
-                                .slice(0, 16)
-                            : ""
-                        }
-                        onChange={(e) => {
-                          const nextRule: CheckoutRule = {
-                            ...checkoutRule,
-                            ends_at: e.target.value
-                              ? new Date(e.target.value).toISOString()
-                              : null,
-                          };
-                          setCheckoutRule(nextRule);
-                          validateCheckoutRule(nextRule);
-                        }}
-                      />
-                    </label>
-                  </div>
-                  <div className="flex justify-end">
-                    <button
-                      disabled={
-                        savingCheckout ||
-                        Object.keys(checkoutErrors).length > 0 ||
-                        !checkoutRule
-                      }
-                      onClick={async () => {
-                        if (!checkoutRule) return;
-                        try {
-                          setSavingCheckout(true);
-                          const ruleToSave: CheckoutRule = { ...checkoutRule };
-
-                          const errors = validateCheckoutRule(ruleToSave);
-                          if (Object.keys(errors).length > 0) {
-                            // Errors are displayed inline
-                            return;
-                          }
-
-                          if (ruleToSave.rule_type === "percent") {
-                            ruleToSave.amount = null as any;
-                          } else {
-                            ruleToSave.percent = null as any;
-                          }
-
-                          await upsertCheckoutRule(ruleToSave);
-                          setBanner({
-                            type: "success",
-                            message: "Checkout discount saved",
                           });
-                        } catch (e) {
-                          setBanner({
-                            type: "error",
-                            message: "Failed to save checkout discount",
-                          });
-                        } finally {
-                          setSavingCheckout(false);
-                        }
-                      }}
-                      className="px-4 py-2 rounded bg-blue-600 text-white disabled:opacity-50"
-                    >
-                      {savingCheckout ? "Saving..." : "Save"}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Product Discount Rule */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-4 sm:p-6">
-              <h3 className="text-lg font-semibold mb-4">Product Discounts</h3>
-              <div className="space-y-3">
-                <label className="text-sm">
-                  Select Product
-                  <select
-                    className="mt-1 w-full border rounded p-2 bg-transparent"
-                    value={selectedProductId}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setSelectedProductId(value);
-                      if (!value) {
-                        setProductRule(null);
-                        setProductErrors({});
-                        return;
-                      }
-                      const existing = productDiscountsMap[value];
-                      const baseRule: ProductDiscountRule =
-                        existing ?? {
-                          product_id: value,
-                          mode: "amount",
-                          value: 0,
-                          base: "price",
-                          active: true,
-                          starts_at: null,
-                          ends_at: null,
-                          max_discount_cap: null,
-                        };
-                      setProductRule(baseRule);
-                      validateProductRule(baseRule);
-                    }}
-                  >
-                    <option value="">-- Choose a product --</option>
-                    {allProducts.map((p: any) => (
-                      <option key={p.product_id} value={p.product_id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                {selectedProductId && productRule && (
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-2 gap-3">
-                      <label className="text-sm">
-                        Mode
-                        <select
-                          className="mt-1 w-full border rounded p-2 bg-transparent"
-                          value={productRule.mode}
-                          onChange={(e) => {
-                            const nextRule: ProductDiscountRule = {
-                              ...productRule,
-                              product_id: selectedProductId,
-                              mode: e.target.value as any,
-                            };
-                            setProductRule(nextRule);
-                            validateProductRule(nextRule);
-                          }}
-                        >
-                          <option value="amount">Amount</option>
-                          <option value="percent">Percent</option>
-                        </select>
-                      </label>
-                      <label className="text-sm">
-                        Base
-                        <select
-                          className="mt-1 w-full border rounded p-2 bg-transparent"
-                          value={productRule.base || "price"}
-                          onChange={(e) => {
-                            const nextRule: ProductDiscountRule = {
-                              ...productRule,
-                              product_id: selectedProductId,
-                              base: e.target.value as any,
-                            };
-                            setProductRule(nextRule);
-                            validateProductRule(nextRule);
-                          }}
-                        >
-                          <option value="price">Price</option>
-                          <option value="mrp">MRP</option>
-                        </select>
-                      </label>
+                        }}
+                        placeholder="No maximum"
+                        aria-invalid={!!checkoutErrors.max_discount_cap}
+                        aria-describedby="max-cap-error"
+                      />
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <label className="text-sm">
-                        Value
-                        <input
-                          type="number"
-                          min={0}
-                          className="mt-1 w-full border rounded p-2 bg-transparent"
-                          value={productRule.value ?? ""}
-                          onChange={(e) => {
-                            const raw = e.target.value;
-                            if (!/^\d*$/.test(raw)) return;
-                            const nextRule: ProductDiscountRule = {
-                              ...productRule,
-                              product_id: selectedProductId,
-                              value: raw === "" ? (null as any) : Number(raw),
-                            };
-                            setProductRule(nextRule);
-                            validateProductRule(nextRule);
-                          }}
-                        />
-                        {productErrors.value && (
-                          <p className="mt-1 text-xs text-red-500">
-                            {productErrors.value}
-                          </p>
-                        )}
-                      </label>
-                      <label className="text-sm">
-                        Active
-                        <input
-                          type="checkbox"
-                          className="ml-2 align-middle"
-                          checked={!!productRule.active}
-                          onChange={(e) => {
-                            const nextRule: ProductDiscountRule = {
-                              ...productRule,
-                              product_id: selectedProductId,
-                              active: e.target.checked,
-                            };
-                            setProductRule(nextRule);
-                            validateProductRule(nextRule);
-                          }}
-                        />
-                      </label>
-                    </div>
-
-                    {/* Max Cap only for percent mode */}
-                    {productRule.mode === "percent" && (
-                      <div className="grid grid-cols-2 gap-3">
-                        <label className="text-sm">
-                          Max Cap (₹)
-                          <input
-                            type="number"
-                            min={0}
-                            className="mt-1 w-full border rounded p-2 bg-transparent"
-                            value={productRule.max_discount_cap ?? ""}
-                            onChange={(e) => {
-                              const raw = e.target.value;
-                              if (!/^\d*$/.test(raw)) return;
-                              const nextRule: ProductDiscountRule = {
-                                ...productRule,
-                                product_id: selectedProductId,
-                                max_discount_cap:
-                                  raw === "" ? null : Number(raw),
-                              };
-                              setProductRule(nextRule);
-                              validateProductRule(nextRule);
-                            }}
-                          />
-                          {productErrors.max_discount_cap && (
-                            <p className="mt-1 text-xs text-red-500">
-                              {productErrors.max_discount_cap}
-                            </p>
-                          )}
-                        </label>
-                      </div>
+                    {checkoutErrors.max_discount_cap ? (
+                      <p className="mt-2 text-sm text-red-600" id="max-cap-error">
+                        {checkoutErrors.max_discount_cap}
+                      </p>
+                    ) : (
+                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        Maximum amount this discount can apply (leave empty for no limit)
+                      </p>
                     )}
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <label className="text-sm">
-                        Starts At
-                        <input
-                          type="datetime-local"
-                          className="mt-1 w-full border rounded p-2 bg-transparent"
-                          value={
-                            productRule.starts_at
-                              ? new Date(productRule.starts_at)
-                                  .toISOString()
-                                  .slice(0, 16)
-                              : ""
-                          }
-                          onChange={(e) => {
-                            const nextRule: ProductDiscountRule = {
-                              ...productRule,
-                              product_id: selectedProductId,
-                              starts_at: e.target.value
-                                ? new Date(e.target.value).toISOString()
-                                : null,
-                            };
-                            setProductRule(nextRule);
-                            validateProductRule(nextRule);
-                          }}
-                        />
-                      </label>
-                      <label className="text-sm">
-                        Ends At
-                        <input
-                          type="datetime-local"
-                          className="mt-1 w-full border rounded p-2 bg-transparent"
-                          value={
-                            productRule.ends_at
-                              ? new Date(productRule.ends_at)
-                                  .toISOString()
-                                  .slice(0, 16)
-                              : ""
-                          }
-                          onChange={(e) => {
-                            const nextRule: ProductDiscountRule = {
-                              ...productRule,
-                              product_id: selectedProductId,
-                              ends_at: e.target.value
-                                ? new Date(e.target.value).toISOString()
-                                : null,
-                            };
-                            setProductRule(nextRule);
-                            validateProductRule(nextRule);
-                          }}
-                        />
-                      </label>
-                    </div>
-                    <div className="flex justify-end">
-                      <button
-                        disabled={
-                          savingProduct ||
-                          !productRule ||
-                          Object.keys(productErrors).length > 0
-                        }
-                        onClick={async () => {
-                          if (!productRule) return;
-                          try {
-                            setSavingProduct(true);
-                            const toSave: ProductDiscountRule = {
-                              ...productRule,
-                              product_id: selectedProductId,
-                            };
-
-                            const errors = validateProductRule(toSave);
-                            if (Object.keys(errors).length > 0) {
-                              // Errors are displayed inline
-                              return;
-                            }
-
-                            await upsertProductDiscount(toSave);
-                            if (toSave.active) {
-                              setProductDiscountsMap((prev) => ({
-                                ...prev,
-                                [selectedProductId]: toSave,
-                              }));
-                            } else {
-                              setProductDiscountsMap((prev) => {
-                                const copy = { ...prev };
-                                delete copy[selectedProductId];
-                                return copy;
-                              });
-                            }
-                            setBanner({
-                              type: "success",
-                              message: "Product discount saved",
-                            });
-                          } catch (e) {
-                            setBanner({
-                              type: "error",
-                              message: "Failed to save product discount",
-                            });
-                          } finally {
-                            setSavingProduct(false);
-                          }
-                        }}
-                        className="px-4 py-2 rounded bg-blue-600 text-white disabled:opacity-50"
-                      >
-                        {savingProduct ? "Saving..." : "Save"}
-                      </button>
-                    </div>
                   </div>
                 )}
               </div>
 
-              {/* Active discounts list */}
-              <div className="mt-6 border-t border-gray-200 dark:border-gray-700 pt-4">
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-sm font-semibold">Active Product Discounts</h4>
-                  {loadingProductDiscounts && (
-                    <span className="text-xs text-gray-500 dark:text-gray-400">
-                      Loading...
-                    </span>
+              {/* Minimum Order Amount */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Minimum Order Amount (Optional)
+                  </label>
+                  <div className="mt-1 relative rounded-md shadow-sm">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <span className="text-gray-500 sm:text-sm">₹</span>
+                    </div>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      className={`block w-full pl-7 sm:text-sm rounded-md ${
+                        checkoutErrors.min_order
+                          ? "border-red-300 text-red-900 placeholder-red-300 focus:outline-none focus:ring-red-500 focus:border-red-500"
+                          : "border-gray-300 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                      }`}
+                      value={checkoutRule.min_order ?? ""}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        if (!/^\d*\.?\d*$/.test(raw)) return;
+                        setCheckoutRule({
+                          ...checkoutRule,
+                          min_order: raw === "" ? null : Number(raw),
+                        });
+                      }}
+                      placeholder="No minimum"
+                      aria-invalid={!!checkoutErrors.min_order}
+                      aria-describedby="min-order-error"
+                    />
+                  </div>
+                  {checkoutErrors.min_order ? (
+                    <p className="mt-2 text-sm text-red-600" id="min-order-error">
+                      {checkoutErrors.min_order}
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      Minimum order total required to apply this discount
+                    </p>
                   )}
                 </div>
-                {Object.keys(productDiscountsMap).length === 0 ? (
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
-                    No active product discounts found.
-                  </p>
-                ) : (
-                  <div className="max-h-64 overflow-y-auto text-xs sm:text-sm">
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="border-b border-gray-200 dark:border-gray-700">
-                          <th className="py-1 pr-2 font-medium">Product</th>
-                          <th className="py-1 pr-2 font-medium">Type</th>
-                          <th className="py-1 pr-2 font-medium">Base</th>
-                          <th className="py-1 pr-2 font-medium">Value</th>
-                          <th className="py-1 pr-2 font-medium">Window</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {Object.entries(productDiscountsMap).map(
-                          ([productId, rule]) => {
-                            const product = allProducts.find(
-                              (p: any) => p.product_id === productId
-                            );
-                            const label = product ? product.name : productId;
-                            const valueLabel =
-                              rule.mode === "percent"
-                                ? `${rule.value}%`
-                                : `₹${rule.value}`;
-                            const windowLabel =
-                              rule.starts_at || rule.ends_at
-                                ? `${
-                                    rule.starts_at
-                                      ? new Date(
-                                          rule.starts_at as string
-                                        ).toLocaleDateString()
-                                      : "—"
-                                  } → ${
-                                    rule.ends_at
-                                      ? new Date(
-                                          rule.ends_at as string
-                                        ).toLocaleDateString()
-                                      : "—"
-                                  }`
-                                : "Always on";
-                            return (
-                              <tr
-                                key={productId}
-                                className="border-b border-gray-100 dark:border-gray-800 last:border-0 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-900"
-                                onClick={() => {
-                                  // Selecting a row makes the discount editable
-                                  setSelectedProductId(productId);
-                                  setProductRule(rule);
-                                  validateProductRule(rule);
-                                }}
-                              >
-                                <td
-                                  className="py-1 pr-2 truncate max-w-[10rem]"
-                                  title={label}
-                                >
-                                  {label}
-                                </td>
-                                <td className="py-1 pr-2 capitalize">
-                                  {rule.mode}
-                                </td>
-                                <td className="py-1 pr-2 uppercase">
-                                  {rule.base || "price"}
-                                </td>
-                                <td className="py-1 pr-2">{valueLabel}</td>
-                                <td className="py-1 pr-2 text-[0.7rem] sm:text-xs">
-                                  {windowLabel}
-                                </td>
-                              </tr>
-                            );
-                          }
-                        )}
-                      </tbody>
-                    </table>
+              </div>
+
+              {/* Date Range */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Start Date (Optional)
+                  </label>
+                  <div className="mt-1">
+                    <input
+                      type="datetime-local"
+                      className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                      value={
+                        checkoutRule.starts_at
+                          ? new Date(checkoutRule.starts_at).toISOString().slice(0, 16)
+                          : ""
+                      }
+                      onChange={(e) => {
+                        setCheckoutRule({
+                          ...checkoutRule,
+                          starts_at: e.target.value
+                            ? new Date(e.target.value).toISOString()
+                            : null,
+                        });
+                      }}
+                    />
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      Date and time when this discount becomes active
+                    </p>
                   </div>
-                )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    End Date (Optional)
+                  </label>
+                  <div className="mt-1">
+                    <input
+                      type="datetime-local"
+                      className={`block w-full rounded-md ${
+                        checkoutErrors.ends_at
+                          ? "border-red-300 text-red-900 placeholder-red-300 focus:outline-none focus:ring-red-500 focus:border-red-500"
+                          : "border-gray-300 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                      } shadow-sm sm:text-sm`}
+                      value={
+                        checkoutRule.ends_at
+                          ? new Date(checkoutRule.ends_at).toISOString().slice(0, 16)
+                          : ""
+                      }
+                      onChange={(e) => {
+                        setCheckoutRule({
+                          ...checkoutRule,
+                          ends_at: e.target.value
+                            ? new Date(e.target.value).toISOString()
+                            : null,
+                        });
+                      }}
+                      aria-invalid={!!checkoutErrors.ends_at}
+                      aria-describedby="end-date-error"
+                    />
+                    {checkoutErrors.ends_at ? (
+                      <p className="mt-2 text-sm text-red-600" id="end-date-error">
+                        {checkoutErrors.ends_at}
+                      </p>
+                    ) : (
+                      <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        Date and time when this discount expires
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Save Button */}
+              <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    onClick={handleSaveCheckoutRule}
+                    disabled={savingCheckout}
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {savingCheckout ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Saving...
+                      </>
+                    ) : (
+                      "Save Checkout Discount"
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      ) : (
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6">
-          <PincodeManager />
-        </div>
-      )}
+        )}
+
+        {(!showTabs || activeTab === "product") && (
+          <ProductDiscountForm
+            allProducts={allProducts}
+            singleProductId={singleProductId}
+          />
+        )}
+
+        {(!showTabs || activeTab === "pincode") && (
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow p-6">
+            <div className="mb-6">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Pincode Management</h2>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Manage serviceable pincodes and delivery areas
+              </p>
+            </div>
+            <PincodeManager />
+          </div>
+        )}
+      </div>
     </div>
   );
 };

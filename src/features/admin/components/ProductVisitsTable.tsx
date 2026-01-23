@@ -6,7 +6,7 @@ interface ProductVisit {
   name: string;
   visit_count: number;
   thumbnail_url?: string;
-  last_visited?: string;
+  last_visited_at?: string;
 }
 
 interface ProductVisitsTableProps {
@@ -131,8 +131,16 @@ const ProductVisitsTable: React.FC<ProductVisitsTableProps> = ({
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {product.last_visited 
-                    ? new Date(product.last_visited).toLocaleDateString()
+                  {product.last_visited_at 
+                    ? new Date(product.last_visited_at).toLocaleString('en-IN', {
+                        timeZone: 'Asia/Kolkata',
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: true
+                      })
                     : 'N/A'
                   }
                 </td>

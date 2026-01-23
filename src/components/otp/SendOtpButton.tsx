@@ -41,7 +41,7 @@ export const SendOtpButton: React.FC<SendOtpButtonProps> = ({
     }
 
     if (!canResend) {
-      return 'Too many requests';
+      return 'Send OTP';
     }
 
     return 'Send OTP';

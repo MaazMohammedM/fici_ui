@@ -23,7 +23,7 @@ const Footer: React.FC = () => {
         <div className="flex flex-col items-center text-center gap-1.5 sm:gap-2 mb-3 sm:mb-5">
           <p className="text-gray-300 text-sm sm:text-[15px] leading-snug max-w-lg">
             Premium leather footwear crafted with passion and precision.<br/> Discover the perfect blend
-            of style, comfort, and quality.
+            of style, comfort and quality.
           </p>
 
           {/* Social */}
@@ -177,10 +177,10 @@ const Footer: React.FC = () => {
               <div className="flex items-center gap-3">
                 <Mail className="w-5 h-5 text-gray-400" />
                 <a
-                  href="mailto:nmfinternational@gmail.com"
+                  href="mailto:support@ficishoes.com"
                   className="text-gray-300 text-sm sm:text-base hover:text-white transition-colors"
                 >
-                  nmfinternational@gmail.com
+                  support@ficishoes.com
                 </a>
               </div>
             </div>

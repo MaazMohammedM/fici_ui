@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { useAuthStore } from '@store/authStore';
-import { GuestService } from '@lib/services/guestService';
-import type { GuestContactInfo } from '@lib/validation/checkout';
+import { GuestService } from '../lib/services/guestService';
+import type { GuestContactInfo } from '../lib/validation/checkout';
 
 export const useGuestSession = () => {
   const guestSession = useAuthStore((state) => state.guestSession);

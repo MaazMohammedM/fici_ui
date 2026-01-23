@@ -1,16 +1,44 @@
 // src/features/home/components/HighlightSection.tsx
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useProductStore } from '@/store/productStore';
 import { Link } from 'react-router-dom';
+import { filterInStockProductsWithCount } from '@lib/utils/stockFilter';
 
 const HighlightSection: React.FC = () => {
-  const { highlightProducts, fetchHighlightProducts, loading } = useProductStore();
+  const { highlightProducts, fetchHighlightProducts, clearHighlightProductsCache, loading } = useProductStore();
 
+  // Filter out out-of-stock products and ensure consistent count
+  const inStockHighlightProducts = useMemo(() => {
+    const filtered = filterInStockProductsWithCount(highlightProducts, 5);    
+    return filtered;
+  }, [highlightProducts]);
+
+  // Calculate discount percentage for each product
+  const getDiscountPercentage = (product: any) => {
+    // Use pre-calculated discount percentage if available
+    if (product.discount_percentage && typeof product.discount_percentage === 'number') {
+      return product.discount_percentage;
+    }
+    
+    // Calculate from prices
+    const mrpPrice = Number(product.mrp_price);
+    const discountPrice = Number(product.discount_price);
+    
+    // Ensure both prices are valid numbers and MRP is greater than discount price
+    if (!isNaN(mrpPrice) && !isNaN(discountPrice) && mrpPrice > 0 && discountPrice > 0 && mrpPrice > discountPrice) {
+      return Math.round(((mrpPrice - discountPrice) / mrpPrice) * 100);
+    }
+    
+    return 0;
+  };
+
+  // Clear cache on mount to ensure fresh data and only active products
   useEffect(() => {
+    clearHighlightProductsCache();
     fetchHighlightProducts();
-  }, [fetchHighlightProducts]);
+  }, [fetchHighlightProducts, clearHighlightProductsCache]);
 
-  if (loading && highlightProducts.length === 0) {
+  if (loading && inStockHighlightProducts.length === 0) {
     return (
       <div className="py-8 sm:py-10 bg-[color:var(--color-light1)] dark:bg-[color:var(--color-dark1)]">
         <div className="container mx-auto px-4">
@@ -28,7 +56,7 @@ const HighlightSection: React.FC = () => {
     );
   }
 
-  if (highlightProducts.length === 0) return null;
+  if (inStockHighlightProducts.length === 0) return null;
 
   return (
     <section className="py-8 sm:py-10 bg-[color:var(--color-light1)] dark:bg-[color:var(--color-dark1)]">
@@ -47,8 +75,11 @@ const HighlightSection: React.FC = () => {
 
         {/* Horizontal list with 2-up on mobile, snap to card */}
         <div className="w-full overflow-x-auto pb-4 scrollbar-hide">
-          <div className="flex items-stretch gap-3 sm:gap-5 snap-x snap-mandatory px-1 sm:px-0">
-            {highlightProducts.map((product) => (
+          <div className="flex items-stretch gap-3 sm:gap-5 snap-x snap-center px-1 sm:px-0">
+            {inStockHighlightProducts.map((product) => {
+              const discountPercentage = getDiscountPercentage(product);
+              
+              return (
               <div
                 key={product.article_id}
                 className={[
@@ -80,21 +111,31 @@ const HighlightSection: React.FC = () => {
                       {product.name}
                     </h3>
                     <div className="mt-auto">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1 sm:gap-2">
                         <span className="text-sm sm:text-base font-bold text-[color:var(--color-primary)]">
                           ₹{product.discount_price}
                         </span>
-                        {product.discount_price && (
-                          <span className="text-xs text-gray-500 line-through">₹{product.mrp_price}</span>
+                        {product.mrp_price && Number(product.mrp_price) > Number(product.discount_price) && (
+                          <>
+                            <span className="text-xs text-gray-500 line-through">
+                              ₹{product.mrp_price}
+                            </span>
+                            {discountPercentage > 0 && (
+                              <span className="text-xs bg-green-100 text-green-800 px-1 py-0.5 rounded font-medium">
+                                {discountPercentage}% OFF
+                              </span>
+                            )}
+                          </>
                         )}
                       </div>
                     </div>
                   </div>
                 </Link>
               </div>
-            ))}
+              );
+            })}
             {/* Right padding spacer so the last snap card isn't cropped */}
-            <div className="w-4 sm:w-0 flex-shrink-0" />
+            <div className="w-8 sm:w-4 lg:w-8 flex-shrink-0" />
           </div>
         </div>
       </div>

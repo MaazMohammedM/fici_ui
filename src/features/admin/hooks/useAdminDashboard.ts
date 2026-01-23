@@ -68,23 +68,26 @@ export const useAdminDashboard = () => {
       // Get total orders and revenue
       const { data: ordersData, error: ordersError } = await supabase
         .from("orders")
-        .select("total_amount, status, payment_status");
+        .select("effective_amount, status, payment_status");
 
       if (ordersError) throw ordersError;
 
       const totalOrders = ordersData?.length || 0;
       const totalRevenue = ordersData?.reduce((sum, order) =>
-        order.payment_status === 'paid' ? sum + (order.total_amount || 0) : sum, 0) || 0;
+        order.payment_status === 'paid' ? sum + (order.effective_amount || 0) : sum, 0) || 0;
       const pendingOrders = ordersData?.filter(order =>
         order.payment_status === 'paid' && order.status !== 'shipped' && order.status !== 'delivered'
       ).length || 0;
 
-      // Get total users
-      const { count: totalUsers, error: usersError } = await supabase
+      // Get total users - only count registered users (excluding guests)
+      const { data: usersData, error: usersError } = await supabase
         .from("user_profiles")
-        .select("*", { count: "exact", head: true });
-
+        .select("user_id")
+        .eq("is_guest", false); 
+            
       if (usersError) throw usersError;
+      
+      const totalUsers = usersData?.length || 0;
 
       const conversionRate = totalVisits && totalOrders ? (totalOrders / totalVisits) * 100 : 0;
 
@@ -196,7 +199,7 @@ export const useAdminDashboard = () => {
 
         const { data, error, count } = await query
           .range(from, to)
-          .order("visit_count", { ascending: false });
+          .order("last_visited_at", { ascending: false });
 
         if (error) throw error;
 

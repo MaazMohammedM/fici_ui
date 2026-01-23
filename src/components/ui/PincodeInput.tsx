@@ -71,35 +71,25 @@ const PincodeInput: React.FC<PincodeInputProps> = ({
     
     setIsValidating(true);
     setError(null);
-    
-    console.log('🔍 Validating pincode:', value);
-    console.log('📦 Loaded:', loaded);
-    console.log('✅ Valid pincode check:', isValidPincode(value));
 
     try {
       // Step 1: Validate locally from the pincode set
       if (!isValidPincode(value)) {
-        console.log('❌ Pincode not found in local list');
         setError("We could not find this pincode in our service list.");
         setDetails(null);
         return;
       }
 
-      console.log('✅ Pincode found in local list, fetching details...');
       
       // Step 2: Fetch full details from Supabase (with caching)
       const info = await fetchDetails(value);
-      console.log('📊 Fetched details:', info);
       
       if (!info) {
-        console.log('❌ No details found in database');
         setError("Pincode details not found. You can enter city, state, and district manually.");
         setDetails(null);
         return;
       }
 
-      console.log('✅ Details found, setting state');
-      console.log('📋 Pincode info:', info);
       setDetails(info);
       onDetailsFetched?.(info);
       onPincodeSelect?.(info);
@@ -207,14 +197,14 @@ const PincodeInput: React.FC<PincodeInputProps> = ({
             {deliveryTime && (
               <div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
                 <Clock className="h-4 w-4 mr-2" />
-                <span>Delivery: {deliveryTime}</span>
+                <span>Delivery: {deliveryTime} from the day of dispatch</span>
               </div>
             )}
             
             <div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
               <Truck className="h-4 w-4 mr-2" />
               <span>
-                Shipping: {shippingFee === 0 ? 'Free' : `₹${shippingFee}`}
+                {/* Shipping: {shippingFee === 0 ? 'Free' : `₹${shippingFee}`} */}
                 {codAvailable ? ' • COD Available' : ' • COD Not Available'}
               </span>
             </div>

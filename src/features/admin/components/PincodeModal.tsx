@@ -143,8 +143,8 @@ export const PincodeModal = ({ isOpen, onClose, pincode, onSubmit }: PincodeModa
               onClick={() => setActiveTab('location')}
               className={`flex items-center px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium border-b-2 transition-colors ${
                 activeTab === 'location'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                  ? 'border-blue-500 text-blue-600 dark:border-blue-400 dark:text-blue-400'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
               }`}
             >
               <MapPin className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
@@ -155,8 +155,8 @@ export const PincodeModal = ({ isOpen, onClose, pincode, onSubmit }: PincodeModa
               onClick={() => setActiveTab('settings')}
               className={`flex items-center px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium border-b-2 transition-colors ${
                 activeTab === 'settings'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                  ? 'border-blue-500 text-blue-600 dark:border-blue-400 dark:text-blue-400'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
               }`}
             >
               <Package className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
@@ -167,8 +167,8 @@ export const PincodeModal = ({ isOpen, onClose, pincode, onSubmit }: PincodeModa
               onClick={() => setActiveTab('financials')}
               className={`flex items-center px-2 sm:px-4 py-2 text-xs sm:text-sm font-medium border-b-2 transition-colors ${
                 activeTab === 'financials'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                  ? 'border-blue-500 text-blue-600 dark:border-blue-400 dark:text-blue-400'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
               }`}
             >
               <DollarSign className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
@@ -189,7 +189,7 @@ export const PincodeModal = ({ isOpen, onClose, pincode, onSubmit }: PincodeModa
                     {...register('pincode')}
                   />
                   {errors.pincode && (
-                    <p className="text-sm text-red-500">{errors.pincode.message}</p>
+                    <p className="text-sm text-red-500 dark:text-red-400">{errors.pincode.message}</p>
                   )}
                 </div>
 
@@ -262,7 +262,7 @@ export const PincodeModal = ({ isOpen, onClose, pincode, onSubmit }: PincodeModa
           {activeTab === 'settings' && (
             <div className="space-y-6 pt-4">
               <div className="space-y-4">
-                <div className="flex items-center justify-between rounded-lg border p-3 sm:p-4">
+                <div className="flex items-center justify-between rounded-lg border dark:border-gray-600 p-3 sm:p-4">
                   <div className="flex-1">
                     <h4 className="font-medium text-sm sm:text-base">Active</h4>
                     <p className="text-xs sm:text-sm text-muted-foreground">
@@ -275,7 +275,7 @@ export const PincodeModal = ({ isOpen, onClose, pincode, onSubmit }: PincodeModa
                   />
                 </div>
 
-                <div className="flex items-center justify-between rounded-lg border p-3 sm:p-4">
+                <div className="flex items-center justify-between rounded-lg border dark:border-gray-600 p-3 sm:p-4">
                   <div className="flex-1">
                     <h4 className="font-medium text-sm sm:text-base">Serviceable Area</h4>
                     <p className="text-xs sm:text-sm text-muted-foreground">
@@ -288,7 +288,7 @@ export const PincodeModal = ({ isOpen, onClose, pincode, onSubmit }: PincodeModa
                   />
                 </div>
 
-                <div className="flex items-center justify-between rounded-lg border p-3 sm:p-4">
+                <div className="flex items-center justify-between rounded-lg border dark:border-gray-600 p-3 sm:p-4">
                   <div className="flex-1">
                     <h4 className="font-medium text-sm sm:text-base">Cash on Delivery</h4>
                     <p className="text-xs sm:text-sm text-muted-foreground">
@@ -322,7 +322,7 @@ export const PincodeModal = ({ isOpen, onClose, pincode, onSubmit }: PincodeModa
                     />
                   </div>
                   {errors.min_order_amount && (
-                    <p className="text-sm text-red-500">{errors.min_order_amount.message}</p>
+                    <p className="text-sm text-red-500 dark:text-red-400">{errors.min_order_amount.message}</p>
                   )}
                 </div>
 

@@ -1,5 +1,6 @@
 import React from 'react';
-import { X } from 'lucide-react';
+import { X, Heart, ShoppingCart, Trash2 } from 'lucide-react';
+import type { CartItem } from '@store/cartStore';
 
 interface AlertModalProps {
   isOpen: boolean;
@@ -11,6 +12,11 @@ interface AlertModalProps {
   onConfirm?: () => void;
   confirmText?: string;
   cancelText?: string;
+  // Cart verification props
+  cartItems?: CartItem[];
+  onMoveToWishlist?: (item: CartItem) => void;
+  onRemoveFromCart?: (item: CartItem) => void;
+  onProceedToCheckout?: () => void;
 }
 
 const AlertModal: React.FC<AlertModalProps> = ({
@@ -22,7 +28,11 @@ const AlertModal: React.FC<AlertModalProps> = ({
   showCancel = false,
   onConfirm,
   confirmText,
-  cancelText
+  cancelText,
+  cartItems = [],
+  onMoveToWishlist,
+  onRemoveFromCart,
+  onProceedToCheckout
 }) => {
   if (!isOpen) return null;
 
@@ -46,9 +56,11 @@ const AlertModal: React.FC<AlertModalProps> = ({
     }
   };
 
+  const isCartVerification = cartItems.length > 0;
+
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-      <div className="card-modern animate-scale-in max-w-lg w-full overflow-hidden">
+      <div className="card-modern animate-scale-in max-w-2xl w-full max-h-[90vh] overflow-hidden">
         {/* Header */}
         <div className={`flex items-center justify-between p-6 ${typeStyles[type]} text-white`}>
           <div className="flex items-center gap-4">
@@ -73,10 +85,60 @@ const AlertModal: React.FC<AlertModalProps> = ({
         </div>
 
         {/* Content */}
-        <div className="p-6">
-          <p className="text-gray-700 dark:text-gray-300 text-lg leading-relaxed">
-            {message}
-          </p>
+        <div className="p-6 max-h-96 overflow-y-auto">
+          {!isCartVerification ? (
+            <p className="text-gray-700 dark:text-gray-300 text-lg leading-relaxed">
+              {message}
+            </p>
+          ) : (
+            <div className="space-y-4">
+              <div className="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 p-3 rounded-lg text-sm">
+                <p className="text-yellow-700 dark:text-yellow-300">
+                  {message}
+                </p>
+              </div>
+              
+              {/* Cart Items List */}
+              <div className="space-y-3 mt-4">
+                {cartItems.map((item) => (
+                  <div key={item.id} className="flex items-center gap-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <img
+                      src={item.thumbnail_url || item.image}
+                      alt={item.name}
+                      className="w-16 h-16 object-cover rounded-lg"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-medium text-gray-900 dark:text-gray-100 truncate">
+                        {item.name}
+                      </h4>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        {item.color} • {item.size} • Qty: {item.quantity}
+                      </p>
+                      <p className="text-sm font-semibold text-blue-600 dark:text-blue-400">
+                        ₹{item.price.toLocaleString('en-IN')}
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => onMoveToWishlist?.(item)}
+                        className="p-2 text-pink-600 hover:bg-pink-50 dark:hover:bg-pink-900/20 rounded-lg transition-colors"
+                        title="Move to Wishlist"
+                      >
+                        <Heart className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => onRemoveFromCart?.(item)}
+                        className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                        title="Remove from Cart"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Footer */}
@@ -90,12 +152,19 @@ const AlertModal: React.FC<AlertModalProps> = ({
             </button>
           )}
           <button
-            onClick={showCancel && onConfirm ? onConfirm : onClose}
-            className={`btn-primary px-6 py-3 font-semibold transition-all duration-200 hover:scale-105 ${
+            onClick={isCartVerification ? onProceedToCheckout : (showCancel && onConfirm ? onConfirm : onClose)}
+            className={`btn-primary px-6 py-3 font-semibold transition-all duration-200 hover:scale-105 flex items-center gap-2 ${
               showCancel ? 'ml-3' : ''
             }`}
           >
-            {showCancel ? (confirmText || 'Confirm') : (confirmText || 'OK')}
+            {isCartVerification ? (
+              <>
+                <ShoppingCart className="w-4 h-4" />
+                Proceed to Checkout ({cartItems.length} items)
+              </>
+            ) : (
+              showCancel ? (confirmText || 'Confirm') : (confirmText || 'OK')
+            )}
           </button>
         </div>
       </div>

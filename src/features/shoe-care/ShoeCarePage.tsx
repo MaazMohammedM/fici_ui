@@ -1,5 +1,5 @@
 import React from "react";
-import desktopImg from "../../assets/shoe_care_desktop_screen.png";
+import desktopImg from "../../assets/shoecare_desktop.png";
 import mobileImg from "../../assets/shoe_care_mobile_screen.png";
 
 const ShoeCarePage: React.FC = () => {

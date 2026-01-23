@@ -9,7 +9,7 @@ interface OrderItem {
   quantity: number;
   price_at_purchase: number;
   thumbnail_url: string;
-  item_status?: 'pending' | 'cancelled' | 'shipped' | 'delivered' | 'returned' | 'refunded';
+  item_status?: 'pending' | 'cancelled' | 'shipped' | 'delivered' | 'returned' | 'refunded' | 'replacement_requested' | 'replacement_initiated' | 'replacement_shipped' | 'replacement_delivered' | 'replacement_rejected' | 'returned_to_warehouse';
   cancel_reason?: string;
   return_reason?: string;
   refund_amount?: number;

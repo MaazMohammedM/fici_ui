@@ -11,6 +11,7 @@ interface PaymentStatusModalProps {
   totalAmount?: number;
   totalMrp?: number;
   prepaidDiscount?: number;
+  paymentMethod?: 'razorpay' | 'cod';
   onClose: () => void;
   onRetry?: () => void;
 }
@@ -23,6 +24,7 @@ const PaymentStatusModal: React.FC<PaymentStatusModalProps> = ({
   totalAmount,
   totalMrp,
   prepaidDiscount,
+  paymentMethod,
   onClose,
   onRetry
 }) => {
@@ -44,10 +46,11 @@ const PaymentStatusModal: React.FC<PaymentStatusModalProps> = ({
   const getStatusConfig = () => {
     switch (status) {
       case 'success':
+        const isCodOrder = paymentMethod === 'cod';
         return {
           icon: <CheckCircle className="w-16 h-16 text-green-500" />,
-          title: 'Payment Successful!',
-          subtitle: message || 'Your order has been placed successfully',
+          title: isCodOrder ? 'Order Successful!' : 'Payment Successful!',
+          subtitle: message || (isCodOrder ? 'Your order has been placed successfully' : 'Your payment has been completed successfully'),
           color: 'text-green-600',
           bgColor: 'bg-green-50',
           borderColor: 'border-green-200'
@@ -125,10 +128,12 @@ const PaymentStatusModal: React.FC<PaymentStatusModalProps> = ({
                   <span className="text-gray-600 dark:text-gray-400">Subtotal:</span>
                   <span className="font-medium text-gray-900 dark:text-white">₹{subtotal.toLocaleString('en-IN')}</span>
                 </div>
+                {savingsValue > 0 && (
                 <div className="flex justify-between text-sm sm:text-base">
                   <span className="text-gray-600 dark:text-gray-400">Savings:</span>
                   <span className="font-medium text-green-600">₹{savingsValue.toLocaleString('en-IN')}</span>
                 </div>
+            )}
                 {discountValue > 0 && (
                   <div className="flex justify-between text-sm sm:text-base">
                     <span className="text-gray-600 dark:text-gray-400">Prepaid Discount:</span>
@@ -136,7 +141,7 @@ const PaymentStatusModal: React.FC<PaymentStatusModalProps> = ({
                   </div>
                 )}
                 <div className="flex justify-between text-base sm:text-lg font-bold text-gray-900 dark:text-white">
-                  <span>Total:</span>
+                  <span>{paymentMethod === 'cod' ? 'Total Payable:' : 'Total Paid:'}</span>
                   <span>₹{finalTotal.toLocaleString('en-IN')}</span>
                 </div>
               </div>

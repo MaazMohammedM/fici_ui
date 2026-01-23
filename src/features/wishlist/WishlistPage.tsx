@@ -1,58 +1,159 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { X, ShoppingCart, Heart as HeartIcon, HeartOff, ArrowLeft } from 'lucide-react';
 import { useWishlistStore } from '@store/wishlistStore';
 import { useCartStore } from '@store/cartStore';
 import { toast } from 'sonner';
+import { supabase } from '@lib/supabase';
+import { parseProductSizes } from '@lib/productAvailability';
+import { validateCartItemStock } from '@lib/stock/stockValidator';
 
 export const WishlistPage: React.FC = () => {
-  const { items, removeFromWishlist, clearWishlist } = useWishlistStore();
+  const { items: wishlist, removeFromWishlist, addToWishlist, updateProductDetails, clearWishlist } = useWishlistStore();
+  const [filteredWishlist, setFilteredWishlist] = useState(wishlist);
   const { addToCart } = useCartStore();
   const [banner, setBanner] = React.useState<{
     type: 'success' | 'error';
     message: string;
   } | null>(null);
-  
+
+  // Filter out inactive products and update when wishlist changes
+  useEffect(() => {
+    setFilteredWishlist(wishlist.filter(item => item.is_active !== false));
+  }, [wishlist]);
+
+  // Refresh wishlist data from database on mount to ensure current stock levels
+  useEffect(() => {
+    const refreshWishlistData = async () => {
+      if (!wishlist.length) return;
+      
+      try {
+        const productIds = wishlist.map(item => item.product_id);
+        
+        // Fetch current product data from database
+        const { data: currentProducts, error } = await supabase
+          .from('products')
+          .select('*')
+          .in('product_id', productIds);
+          
+        if (error) {
+          return;
+        }
+        
+        // Update each wishlist item with current database data
+        currentProducts?.forEach(product => {
+          updateProductDetails({
+            ...product,
+            product_id: product.product_id,
+            article_id: product.article_id
+          });
+        });
+        
+      } catch (error) {
+        // Error refreshing wishlist data
+      }
+    };
+    
+    refreshWishlistData();
+  }, [wishlist.length]); // Only run when wishlist length changes
+
+  // Set up real-time subscription for product updates
+  useEffect(() => {
+    if (!wishlist.length) return;
+
+    const productIds = wishlist.map(item => item.product_id);
+    const channel = supabase
+      .channel('product_updates')
+      .on('postgres_changes', 
+        { 
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'products',
+          filter: `product_id=in.(${productIds.join(',')})`
+        }, 
+        (payload) => {
+          const updatedProduct = payload.new;
+          
+          // If product is now inactive, remove it from wishlist
+          if (updatedProduct.is_active === false) {
+            removeFromWishlist(updatedProduct.product_id);
+            toast.error(`${updatedProduct.name} is no longer available and has been removed from your wishlist`);
+          } else {
+            // Otherwise, update the product details
+            updateProductDetails(updatedProduct);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [wishlist, removeFromWishlist, updateProductDetails]);
+
   const handleAddToCart = (product: any) => {
     try {
-      // Extract available sizes from wishlist item's sizes field
-      const availableSizes = product.sizes
-        ? Object.keys(product.sizes).filter(size => (product.sizes[size] ?? 0) > 0)
-        : [];
+      // Parse sizes properly to handle triple-escaped JSON
+      const parsedSizes = parseProductSizes(product.sizes);
+      const availableSizes = Object.keys(parsedSizes).filter(size => (parsedSizes[size] ?? 0) > 0);
 
-      // If no sizes available, show error
+      // If no sizes available, mark as currently unavailable
       if (availableSizes.length === 0) {
-        setBanner({ type: 'error', message: 'No sizes available for this product' });
+        setBanner({ type: 'error', message: 'This product is currently unavailable. Please check back later.' });
         return;
       }
 
-      // Use the first available size as default, or user's previously selected size if available
-      const defaultSize = availableSizes[0];
+      const preferredSize = availableSizes[0];
+
+      // Canonical stock validation for move-to-cart eligibility
+      const stock = validateCartItemStock(product, {
+        size: preferredSize,
+        quantity: 1,
+      });
+
+      if (!stock.isActive) {
+        setBanner({ type: 'error', message: 'This product is no longer available.' });
+        return;
+      }
+
+      if (!stock.selectedSizeInStock || stock.issues.includes('SIZE_OUT_OF_STOCK')) {
+        setBanner({ type: 'error', message: `Size ${preferredSize} is currently unavailable.` });
+        return;
+      }
+
+      // Handle both string and array image formats
+      const getFirstImage = () => {
+        if (!product.images) return '';
+        if (Array.isArray(product.images)) return product.images[0] || '';
+        if (typeof product.images === 'string') return product.images.split(',')[0] || '';
+        return '';
+      };
 
       const cartItem = {
-        product_id: product.product_id || product.article_id,
+        product_id: product.product_id || product.id,
         article_id: product.article_id,
         name: product.name,
         color: product.color || 'default',
-        size: defaultSize, // Use first available size as default
-        image: product.thumbnail_url || product.images?.[0] || '/placeholder-product.jpg',
-        price: product.price || 0,
-        mrp: product.mrp_price ? parseFloat(product.mrp_price) : (product.price || 0),
+        size: preferredSize,
+        image: getFirstImage(),
+        price: parseFloat(product.price || 0),
+        mrp: parseFloat(product.mrp_price || product.price || 0),
+        discount_price: parseFloat(product.discount_price || product.price || 0),
         quantity: 1,
         discount_percentage: product.discount_percentage || 0,
-        thumbnail_url: product.thumbnail_url || product.images?.[0] || '/placeholder-product.jpg',
-        availableSizes: availableSizes // Pass all available sizes for dropdown selection
+        thumbnail_url: product.thumbnail_url || getFirstImage(),
+        availableSizes,
+        is_active: product.is_active !== false
       };
 
       addToCart(cartItem);
       setBanner({ type: 'success', message: 'Product added to cart successfully!' });
     } catch (error) {
-      console.error('Error adding to cart:', error);
       setBanner({ type: 'error', message: 'Failed to add to cart' });
     }
   };
 
-  if (items.length === 0) {
+  if (filteredWishlist.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 px-4 sm:py-12 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
@@ -125,17 +226,16 @@ export const WishlistPage: React.FC = () => {
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:gap-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {items.map((product) => {
-            // Check if product is out of stock (all sizes have 0 stock)
-            const availableSizes = product.sizes
-              ? Object.keys(product.sizes).filter(size => (product.sizes[size] ?? 0) > 0)
-              : [];
+          {filteredWishlist.map((product) => {
+            // Parse sizes properly to handle triple-escaped JSON
+            const parsedSizes = parseProductSizes(product.sizes);
+            const availableSizes = Object.keys(parsedSizes).filter(size => (parsedSizes[size] ?? 0) > 0);
             const isOutOfStock = availableSizes.length === 0;
 
             return (
               <div key={product.article_id} className="group relative bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
                 <div className="aspect-square w-full overflow-hidden rounded-t-lg bg-gray-200 dark:bg-gray-700 relative">
-                  <Link to={`/products/${product.article_id}`} className="block h-full w-full">
+                  <Link to={`/products/${product.article_id}`} className="block h-full w-full relative z-10">
                     <img
                       src={product.thumbnail_url || product.images?.[0] || '/placeholder-product.jpg'}
                       alt={product.name}
@@ -145,7 +245,7 @@ export const WishlistPage: React.FC = () => {
 
                   {/* Out of Stock Overlay */}
                   {isOutOfStock && (
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-black/10 flex items-center justify-center z-5">
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-black/10 flex items-center justify-center z-20 pointer-events-none">
                       <div className="bg-red-500/90 text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center backdrop-blur-sm shadow-lg border border-red-400/50">
                         <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M9 9l6-3m0 0l6 3m-6-3v12" />

@@ -27,6 +27,11 @@ export const SignUpSchema = z.object({
     .email('Please enter a valid email address')
     .min(1, 'Email is required')
     .max(255, 'Email is too long'),
+  mobile: z.string()
+    .optional()
+    .refine((val) => !val || /^\+?[\d\s\-\(\)]{10,15}$/.test(val), {
+      message: 'Please enter a valid mobile number'
+    }),
   password: z.string()
     .min(8, 'Password must be at least 8 characters')
     .max(128, 'Password is too long')
@@ -48,10 +53,9 @@ export const GuestContactSchema = z.object({
     .max(100, 'Name is too long')
     .regex(/^[a-zA-Z\s]+$/, 'Name can only contain letters and spaces'),
   phone: z.string()
-    .optional()
-    .refine((val) => !val || /^\+?[\d\s\-\(\)]{10,15}$/.test(val), {
-      message: 'Please enter a valid phone number'
-    })
+    .min(10, 'Phone number is required')
+    .max(15, 'Phone number is too long')
+    .regex(/^\+?[\d\s\-\(\)]{10,15}$/, 'Please enter a valid phone number')
 });
 
 // Address Schema

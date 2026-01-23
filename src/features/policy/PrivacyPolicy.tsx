@@ -34,7 +34,7 @@ const PrivacyPolicy: React.FC = () => {
           </div>
           <div>
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">6. Contact</h2>
-            <p className="text-gray-700 dark:text-gray-300 leading-relaxed">Questions about this policy? Contact us at info@fici.com or +91 81220 03006.</p>
+            <p className="text-gray-700 dark:text-gray-300 leading-relaxed">Questions about this policy? Contact us at support@ficishoes.com or +91 81220 03006.</p>
           </div>
         </div>
       </section>

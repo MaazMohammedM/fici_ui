@@ -7,7 +7,7 @@ interface SizeData {
   uk: number;
   us: number;
   eu: number;
-  footLength: number;
+  footLength: string;
 }
 
 interface SizeGuideModalProps {
@@ -18,36 +18,35 @@ interface SizeGuideModalProps {
 }
 
 const MEN_SIZE_DATA: SizeData[] = [
-  { size: 39, uk: 6, us: 7, eu: 39, footLength: 25 },
-  { size: 40, uk: 7, us: 8, eu: 40, footLength: 25.5 },
-  { size: 41, uk: 8, us: 9, eu: 41, footLength: 26 },
-  { size: 42, uk: 9, us: 10, eu: 42, footLength: 26.5 },
-  { size: 43, uk: 10, us: 11, eu: 43, footLength: 27 },
-  { size: 44, uk: 11, us: 12, eu: 44, footLength: 27.5 },
-  { size: 45, uk: 12, us: 13, eu: 45, footLength: 28 },
-  { size: 46, uk: 13, us: 14, eu: 46, footLength: 28.5 },
-  { size: 47, uk: 14, us: 15, eu: 47, footLength: 29 },
+  { size: 6, uk: 5, us: 6, eu: 39, footLength: '24.1 to 24.5' },
+  { size: 7, uk: 6, us: 7, eu: 40, footLength: '24.6 to 25.0' },
+  { size: 8, uk: 7, us: 8, eu: 41, footLength: '25.1 to 25.9' },
+  { size: 9, uk: 8, us: 9, eu: 42, footLength: '26 to 26.9' },
+  { size: 10, uk: 9, us: 10, eu: 43, footLength: '27 to 27.9' },
+  { size: 11, uk: 10, us: 11, eu: 44, footLength: '28 to 28.7' },
+  { size: 12, uk: 11, us: 12, eu: 45, footLength: '28.8 to 29.5' },
+  { size: 13, uk: 12, us: 13, eu: 46, footLength: '29.6 to 30' },
+  { size: 14, uk: 13, us: 14, eu: 47, footLength: '30.1 to 30.6' },
 ];
 
 const WOMEN_SIZE_DATA: SizeData[] = [
-  { size: 35, uk: 2, us: 4, eu: 35, footLength: 22.5 },
-  { size: 36, uk: 3, us: 5, eu: 36, footLength: 23 },
-  { size: 37, uk: 4, us: 6, eu: 37, footLength: 23.5 },
-  { size: 38, uk: 5, us: 7, eu: 38, footLength: 24 },
-  { size: 39, uk: 6, us: 8, eu: 39, footLength: 24.5 },
-  { size: 40, uk: 7, us: 9, eu: 40, footLength: 25 },
-  { size: 41, uk: 8, us: 10, eu: 41, footLength: 25.5 },
-  { size: 42, uk: 9, us: 11, eu: 42, footLength: 26 },
-  { size: 43, uk: 10, us: 12, eu: 43, footLength: 26.5 },
+  { size: 4, uk: 2, us: 4, eu: 35, footLength: '21.5' },
+  { size: 5, uk: 3, us: 5, eu: 36, footLength: '22.2' },
+  { size: 6, uk: 4, us: 6, eu: 37, footLength: '23' },
+  { size: 7, uk: 5, us: 7, eu: 38, footLength: '23.8' },
+  { size: 8, uk: 6, us: 8, eu: 39, footLength: '24.6' },
+  { size: 9, uk: 7, us: 9, eu: 40, footLength: '25.4' },
+  { size: 10, uk: 8, us: 10, eu: 41, footLength: '26.2' },
+  { size: 11, uk: 9, us: 11, eu: 42, footLength: '27' },
 ];
 
 const SizeGuideModal: React.FC<SizeGuideModalProps> = ({ isOpen, onClose, gender, subCategory }) => {
-  // State for portal container
   const [portalContainer, setPortalContainer] = useState<HTMLDivElement | null>(null);
   
   // Derived state
   const isFootwear = subCategory === 'Shoes' || subCategory === 'Sandals';
   const currentSizeData = gender === 'men' ? MEN_SIZE_DATA : WOMEN_SIZE_DATA;
+  
 
   // Initialize portal container on mount
   useEffect(() => {
@@ -112,7 +111,10 @@ const SizeGuideModal: React.FC<SizeGuideModalProps> = ({ isOpen, onClose, gender
           <div className="sticky top-0 bg-white dark:bg-dark2 z-10 pb-4">
             <div className="flex items-center justify-between">
               <h2 id="size-guide-title" className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
-                {gender === 'men' ? "Men's" : "Women's"} {isFootwear ? 'Shoe' : 'Size'} Guide
+                {(() => {
+                  const title = gender === 'men' ? "Men's" : "Women's";
+                  return title;
+                })()} {isFootwear ? 'Shoe' : 'Size'} Guide
               </h2>
               <button
                 onClick={onClose}
@@ -173,7 +175,7 @@ const SizeGuideModal: React.FC<SizeGuideModalProps> = ({ isOpen, onClose, gender
                   {gender === 'men' ? "Men's" : "Women's"} {subCategory} Size Chart
                 </h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Our {gender === 'men' ? "men's" : "women's"} {subCategory?.toLowerCase()} are available in sizes {gender === 'men' ? '39-47' : '35-43'}.
+                  Our {gender === 'men' ? "men's" : "women's"} {subCategory?.toLowerCase()} are available in sizes {gender === 'men' ? '6-14' : '4-11'}.
                 </p>
               </div>
               
@@ -182,32 +184,28 @@ const SizeGuideModal: React.FC<SizeGuideModalProps> = ({ isOpen, onClose, gender
                   <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                     <thead className="bg-gray-50 dark:bg-gray-700/50">
                       <tr>
-                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Size</th>
-                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">UK</th>
-                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">US</th>
-                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">EU</th>
+                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">U.S</th>
+                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">UK/IND</th>
+                        <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">EURO</th>
                         <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                          <span className="hidden sm:inline">Foot</span> Length
+                          <span className="hidden sm:inline">Length</span> ( in cms )
                         </th>
                       </tr>
                     </thead>
                     <tbody className="bg-white dark:bg-dark2 divide-y divide-gray-200 dark:divide-gray-700">
                       {currentSizeData.map((row, index) => (
                         <tr 
-                          key={row.size} 
+                          key={`${gender}-${index}`} 
                           className={index % 2 === 0 ? 'bg-white dark:bg-dark2' : 'bg-gray-50 dark:bg-gray-800/30 hover:bg-gray-50/80 dark:hover:bg-gray-800/50 transition-colors'}
                         >
                           <td className="px-3 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
-                            {row.size}
+                            {gender === 'men' ? row.us : row.us}
                           </td>
                           <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
                             {row.uk}
                           </td>
                           <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
-                            {row.us}
-                          </td>
-                          <td className="px-3 py-3 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300">
-                            {row.eu}
+                            {gender === 'men' ? row.eu : row.eu}
                           </td>
                           <td className="px-3 py-3 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                             {row.footLength} cm
@@ -258,13 +256,15 @@ const SizeGuideModal: React.FC<SizeGuideModalProps> = ({ isOpen, onClose, gender
         
         {/* Footer */}
         <div className="p-4 sm:p-6 border-t border-gray-100 dark:border-gray-700/50 bg-gray-50/50 dark:bg-gray-800/30 rounded-b-xl">
-          <button
-            onClick={onClose}
-            className="w-full sm:w-auto bg-primary hover:bg-primary-active text-white px-6 py-3 rounded-lg font-semibold transition-all duration-200 transform hover:scale-[1.02] active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-2"
-          >
-            Got it, thanks!
-          </button>
+          <div className="flex justify-center">
+            <button
+              onClick={onClose}
+              className="w-full sm:w-auto bg-primary hover:bg-primary-active text-white px-6 py-3 rounded-lg font-semibold transition-all duration-200 transform hover:scale-[1.02] active:scale-95 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-2"
+            >
+              Got it, thanks!
+            </button>
           </div>
+        </div>
         </div>
       </div>
     </div>,

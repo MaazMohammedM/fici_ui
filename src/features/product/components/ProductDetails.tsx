@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import type { Product, ProductDetail } from "../../../types/product";
+import { hasValidSizePrices, parseProductSizes } from "@lib/productAvailability";
 import {
   getActiveProductDiscountsForProducts,
   applyProductDiscountToPrice,
@@ -14,6 +15,8 @@ import ProductActionButtons from "@features/product/sections/ProductActionButton
 import SizeGuideModal from "../../../components/ui/SizeGuideModal";
 import ShareModal from "./ShareModal";
 import ProductDescription from "./ProductDescription";
+import PincodeSearch from "./PincodeSearch";
+import razorpayPayments from "../../../assets/razorpay-with-all-cards-upi-seeklogo.png";
 
 interface ProductDetailsProps {
   currentProduct: ProductDetail;
@@ -33,6 +36,9 @@ interface ProductDetailsProps {
   isWishlisted: boolean;
   isBag?: boolean;
   isOutOfStock?: boolean;
+  productOfferRule?: ProductDiscountRule | null;
+  productOfferLoading?: boolean;
+  showError?: (message: string) => void;
 }
 
 const ProductDetails: React.FC<ProductDetailsProps> = ({
@@ -49,13 +55,44 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
   onAddToCart,
   onBuyNow,
   onWhatsAppContact,
-  onWishlistToggle,
   isWishlisted,
   isBag = false,
   isOutOfStock = false,
+  productOfferRule,
+  productOfferLoading,
+  showError,
 }) => {
   const [showSizeGuide, setShowSizeGuide] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [availableQuantities, setAvailableQuantities] = useState<Record<string, number>>({});
+  const [maxQuantity, setMaxQuantity] = useState(0);
+
+  // Extract product details
+  const gender = currentProduct.gender?.toLowerCase() as 'men' | 'women' | undefined;
+  const subCategory = currentProduct.sub_category;
+  const category = currentProduct.category;
+  const sizePrices = selectedVariant?.size_prices || null;
+  const discountPrice = selectedVariant?.discount_price ? Number(selectedVariant.discount_price) : null;
+
+  // Handle size change
+  const handleSizeChange = (size: string) => {
+    onSizeChange(size);
+    // Update max quantity when size changes
+    if (availableQuantities[size]) {
+      setMaxQuantity(availableQuantities[size]);
+      // Reset quantity to 1 when size changes if needed
+      if (quantity > availableQuantities[size]) {
+        onQuantityChange(1);
+      }
+    } else {
+      setMaxQuantity(0);
+    }
+  };
+
+  // Handle show size guide
+  const handleShowSizeGuide = () => {
+    setShowSizeGuide(true);
+  };
 
   // Memoized care instructions based on product sub_category
   const careInstructions = useMemo(() => {
@@ -122,13 +159,23 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
     ];
   }, [currentProduct.sub_category]);
 
-  const [productOfferRule, setProductOfferRule] = useState<ProductDiscountRule | null>(null);
-  const [productOfferLoading, setProductOfferLoading] = useState(false);
+  useEffect(() => {
+    if (selectedVariant) {
+      const sizes = parseProductSizes(selectedVariant.sizes);
+      setAvailableQuantities(sizes);
+      
+      // Update max quantity based on selected size
+      if (selectedSize && sizes[selectedSize]) {
+        setMaxQuantity(sizes[selectedSize]);
+      } else {
+        setMaxQuantity(0);
+      }
+    }
+  }, [selectedVariant, selectedSize]);
 
   useEffect(() => {
     const pid = selectedVariant?.product_id;
     if (!pid) {
-      setProductOfferRule(null);
       return;
     }
 
@@ -136,18 +183,15 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
 
     (async () => {
       try {
-        setProductOfferLoading(true);
-        const map = await getActiveProductDiscountsForProducts([pid]);
-        if (!cancelled) {
-          setProductOfferRule(map[pid] || null);
-        }
+        // The props are already managed by the parent component
+        // No need to set local state here
       } catch {
         if (!cancelled) {
-          setProductOfferRule(null);
+          // Handle error if needed
         }
       } finally {
         if (!cancelled) {
-          setProductOfferLoading(false);
+          // Handle cleanup if needed
         }
       }
     })();
@@ -163,62 +207,69 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
     savingsAmount,
     hasOffer,
     offerLabel,
+    shouldShowOnlyMrp,
   } = useMemo(() => {
     const numericPrice = Number(selectedVariant?.discount_price || 0);
     const numericMrp = Number(
-      (selectedVariant as any)?.mrp_price ?? (selectedVariant as any)?.mrp ?? 0
+      selectedVariant?.mrp_price ?? selectedVariant?.mrp ?? 0
     );
+    
+    // Check if size_prices exists and has valid values
+    const hasSizePrices = hasValidSizePrices(selectedVariant?.size_prices);
 
-    if (!productOfferRule) {
-      const showMrp = numericMrp > numericPrice;
-      const basePrice = showMrp ? numericMrp : numericPrice;
-      const savings =
-        showMrp && basePrice > numericPrice ? basePrice - numericPrice : 0;
+    // If size_prices exists, show only MRP in main pricing section
+    if (hasSizePrices) {
       return {
-        displayPrice: numericPrice,
-        basePriceForDisplay: showMrp ? basePrice : 0,
-        savingsAmount: savings,
+        displayPrice: numericMrp,
+        basePriceForDisplay: 0,
+        savingsAmount: 0,
         hasOffer: false,
         offerLabel: "",
+        shouldShowOnlyMrp: true,
       };
     }
 
-    const discountedPrice = applyProductDiscountToPrice(
-      numericPrice,
-      numericMrp || undefined,
-      productOfferRule
-    );
-    const baseForSavings =
-      productOfferRule.base === "mrp" && numericMrp
-        ? numericMrp
-        : numericPrice;
-    const savings = Math.max(0, baseForSavings - discountedPrice);
+    // Always show normal pricing (MRP vs discount price) without applying product discounts
+    const showMrp = numericMrp > numericPrice;
+    const basePrice = showMrp ? numericMrp : numericPrice;
+    const savings =
+      showMrp && basePrice > numericPrice ? basePrice - numericPrice : 0;
 
-    let label = "";
-    if (productOfferRule.mode === "percent") {
-      label = `Get ${productOfferRule.value}% off`;
-      if (productOfferRule.max_discount_cap != null) {
-        label += ` up to ₹${Number(
-          productOfferRule.max_discount_cap
-        ).toLocaleString("en-IN")}`;
+    // Generate offer label if product discount exists, but don't apply to pricing
+    let offerLabel = "";
+    let hasProductOffer = false;
+    
+    if (productOfferRule) {
+      hasProductOffer = true;
+      if (productOfferRule.mode === "percent") {
+        offerLabel = `Get ${productOfferRule.value}% off`;
+        if (productOfferRule.max_discount_cap != null) {
+          offerLabel += ` up to ₹${Number(
+            productOfferRule.max_discount_cap
+          ).toLocaleString("en-IN")}`;
+        }
+        if (productOfferRule.base === "mrp" && numericMrp) {
+          offerLabel += " on MRP";
+        }
+      } else {
+        offerLabel = `Flat ₹${Number(
+          productOfferRule.value
+        ).toLocaleString("en-IN")} off`;
       }
-      if (productOfferRule.base === "mrp" && numericMrp) {
-        label += " on MRP";
-      }
-    } else {
-      label = `Flat ₹${Number(
-        productOfferRule.value
-      ).toLocaleString("en-IN")} off`;
     }
 
     return {
-      displayPrice: discountedPrice,
-      basePriceForDisplay: baseForSavings,
+      displayPrice: numericPrice,
+      basePriceForDisplay: showMrp ? basePrice : 0,
       savingsAmount: savings,
-      hasOffer: true,
-      offerLabel: label,
+      hasOffer: hasProductOffer,
+      offerLabel: offerLabel,
+      shouldShowOnlyMrp: false,
     };
-  }, [selectedVariant, productOfferRule]);
+  }, [
+    selectedVariant,
+    productOfferRule,
+  ]);
 
   const [checkoutRule, setCheckoutRule] = useState<CheckoutRule | null>(null);
 
@@ -293,18 +344,28 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
       {/* Price & Offers */}
       <div className="mt-4 space-y-1">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-3xl font-bold text-gray-900 dark:text-white">
-            ₹{displayPrice.toLocaleString("en-IN")}
-          </span>
-          {basePriceForDisplay > displayPrice && (
+          {shouldShowOnlyMrp ? (
+            // Show only MRP when size_prices exists
+            <span className="text-3xl font-bold text-gray-900 dark:text-white">
+              MRP ₹{displayPrice.toLocaleString("en-IN")}
+            </span>
+          ) : (
+            // Show normal pricing when no size_prices
             <>
-              <span className="text-lg text-gray-500 dark:text-gray-400 line-through">
-                ₹{basePriceForDisplay.toLocaleString("en-IN")}
+              <span className="text-3xl font-bold text-gray-900 dark:text-white">
+                ₹{displayPrice.toLocaleString("en-IN")}
               </span>
-              {savingsAmount > 0 && (
-                <span className="text-sm bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 px-2 py-1 rounded font-medium">
-                  Save ₹{savingsAmount.toLocaleString("en-IN")}
-                </span>
+              {basePriceForDisplay > displayPrice && (
+                <>
+                  <span className="text-lg text-gray-500 dark:text-gray-400 line-through">
+                    ₹{basePriceForDisplay.toLocaleString("en-IN")}
+                  </span>
+                  {savingsAmount > 0 && (
+                    <span className="text-sm bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 px-2 py-1 rounded font-medium">
+                      Save ₹{savingsAmount.toLocaleString("en-IN")}
+                    </span>
+                  )}
+                </>
               )}
             </>
           )}
@@ -356,13 +417,18 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
             </ul>
           </div>
         )}
-        {!hasOffer && !hasCheckoutOffer && !productOfferLoading && (
-          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            No special offers currently available on this product.
-          </p>
-        )}
       </div>
-
+      
+      {/* Exchange Policy Notice */}
+      <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+        <div className="flex items-start gap-2">
+          <div>
+            <p className="mt-1 text-sm sm:text-base text-amber-700 dark:text-amber-300">
+              Exchange only, no returns or refunds.
+            </p>
+          </div>
+        </div>
+      </div>
       {/* Color Selector */}
       <div className="pt-3 border-t border-gray-200">
         <ProductColorSelector
@@ -380,24 +446,34 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
             fullSizeRange={fullSizeRange}
             availableSizes={availableSizes}
             selectedSize={selectedSize}
-            onSizeChange={onSizeChange}
+            onSizeChange={handleSizeChange}
             onWhatsAppContact={onWhatsAppContact}
-            onShowSizeGuide={() => setShowSizeGuide(true)}
+            onShowSizeGuide={handleShowSizeGuide}
             isBag={isBag}
             isOutOfStock={isOutOfStock}
-            gender={currentProduct.gender?.toLowerCase() as 'men' | 'women' | undefined}
-            subCategory={currentProduct.sub_category}
+            gender={gender}
+            subCategory={subCategory}
+            category={category}
+            sizePrices={sizePrices}
+            discountPrice={discountPrice}
+            availableQuantities={availableQuantities}
+            currentQuantity={quantity}
+            onQuantityChange={onQuantityChange}
           />
         </div>
       )}
+
+      {/* Pincode Search */}
+      <PincodeSearch />
 
       {/* Quantity Selector - Only show if a size is selected */}
       {selectedSize && (
         <div className="pt-3 border-t border-gray-200">
           <ProductQuantitySelector
             quantity={quantity}
+            maxQuantity={maxQuantity}
             onQuantityChange={onQuantityChange}
-            maxQuantity={10}
+            disabled={!selectedSize || isOutOfStock}
           />
         </div>
       )}
@@ -409,6 +485,11 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
           onBuyNow={onBuyNow}
           isOutOfStock={isOutOfStock}
           isBag={isBag}
+          selectedSize={selectedSize}
+          quantity={quantity}
+          availableQuantity={maxQuantity}
+          selectedVariant={selectedVariant}
+          showError={showError}
         />
 
         <div className="flex items-center justify-center space-x-2 py-2 px-2">
@@ -419,14 +500,21 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
         </div>
       </div>
 
+                  <div className="w-full max-w-xs mx-auto">
+                    <img
+                      src={razorpayPayments}
+                      alt="Payment methods: Cards, UPI and Razorpay"
+                      className="h-10 sm:h-12 md:h-14 lg:h-16 w-full object-contain dark:invert dark:brightness-90 dark:contrast-125"
+                      loading="lazy"
+                    />
+                  </div>
       {/* Product Description */}
       {currentProduct.description && (
         <ProductDescription
           description={currentProduct.description}
         />
       )}
-
-      {/* Product Highlights */}
+{/* 
       <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
         <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Product Highlights</h3>
         <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
@@ -446,12 +534,11 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
             <svg className="h-5 w-5 text-green-500 mr-2 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
-            <span>Easy 3-days returns</span>
+            <span>Easy 3-days replacement</span>
           </li>
         </ul>
       </div>
 
-      {/* Care Instructions */}
       <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
         <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-3">Care Instructions</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -465,7 +552,7 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
           ))}
         </div>
       </div>
-
+ */}
       {/* Share & More */}
       <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
         <div className="flex items-center justify-center sm:justify-start">
@@ -485,13 +572,14 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
       <SizeGuideModal
         isOpen={showSizeGuide}
         onClose={() => setShowSizeGuide(false)}
-        gender="men"
+        gender={gender}
+        subCategory={subCategory}
       />
       <ShareModal
         isOpen={showShareModal}
         onClose={() => setShowShareModal(false)}
         productName={selectedVariant?.name || currentProduct.name}
-        productUrl={window.location.href}
+        productUrl={`${typeof window !== 'undefined' ? window.location.origin : ''}/products/${selectedArticleId}`}
         productImage={selectedVariant?.thumbnail_url}
         productPrice={String(selectedVariant?.discount_price || '')}
       />

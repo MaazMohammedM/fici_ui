@@ -5,7 +5,7 @@ const TermsOfService: React.FC = () => {
     <div className="bg-white dark:bg-neutral-900">
       <section className="border-b bg-neutral-50 dark:bg-neutral-800">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Terms of Service</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Terms & Conditions</h1>
           <p className="text-gray-600 dark:text-gray-400 mt-2">Please read these terms carefully before using our website.</p>
         </div>
       </section>
@@ -34,7 +34,7 @@ const TermsOfService: React.FC = () => {
           </div>
           <div>
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">6. Contact</h2>
-            <p className="text-gray-700 dark:text-gray-300 leading-relaxed">For any questions, contact us at info@fici.com or +91 81220 03006.</p>
+            <p className="text-gray-700 dark:text-gray-300 leading-relaxed">For any questions, contact us at support@ficishoes.com or +91 81220 03006.</p>
           </div>
         </div>
       </section>
