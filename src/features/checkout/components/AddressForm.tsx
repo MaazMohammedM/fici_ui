@@ -9,7 +9,7 @@ import PincodeInput from '@components/ui/PincodeInput';
 import AlertModal from '@components/ui/AlertModal';
 import PhoneUpdateWithOtp from '@/components/PhoneUpdateWithOtp';
 import type { PincodeDetails } from '@store/pincodeStore';
-import { getDeliveryPhoneHelperText } from '../../../utils/identitySource';
+import { getDeliveryPhoneHelperText } from '@utils/identitySource';
 
 // Schema for form validation
 const AddressSchema = z.object({

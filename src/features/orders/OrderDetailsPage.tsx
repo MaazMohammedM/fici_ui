@@ -14,7 +14,7 @@ import { ReplacementRequestModal } from '../../components/order/ReplacementReque
 import type { ReplacementRequestData } from '../../types/replacement';
 import { CancelModal } from '../../components/order/CancelModal';
 import { OtpFlow } from '../../components/otp/OtpFlow';
-import { isCurrentIdentityVerified, shouldRequireOtpVerification, markCurrentIdentityVerified } from '../../utils/identityVerification';
+import { isCurrentIdentityVerified, shouldRequireOtpVerification, markCurrentIdentityVerified } from '@utils/identityVerification';
 import type { 
   Order, 
   ShippingAddress, 

@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { X, SlidersHorizontal } from 'lucide-react';
-import { getAllFilterSizes } from '../../utils/sizeUtils';
+import { getAllFilterSizes } from '@utils/sizeUtils';
 import { CATEGORY_CONFIG } from '../../features/admin/components/constants/productConfig';
 
 // Constants

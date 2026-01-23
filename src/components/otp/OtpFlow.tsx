@@ -6,8 +6,8 @@ import { OtpInput } from './OtpInput';
 import { ResendLink } from './ResendLink';
 import { OTP_ERROR_MESSAGES } from '../../lib/otpApi';
 import { useAuthStore } from '@store/authStore';
-import { getIdentity, isPhoneMissing, getOtpContact, validateOtpIdentity } from '../../utils/identitySource';
-import { getVerificationStatus, isCurrentIdentityVerified, shouldRequireOtpVerification, markCurrentIdentityVerified } from '../../utils/identityVerification';
+import { getIdentity, isPhoneMissing, getOtpContact, validateOtpIdentity } from '@utils/identitySource';
+import { getVerificationStatus, isCurrentIdentityVerified, shouldRequireOtpVerification, markCurrentIdentityVerified } from '@utils/identityVerification';
 
 interface OtpFlowProps {
   purpose?: 'cod_verification' | 'phone_update' | 'cancel' | 'replacement';

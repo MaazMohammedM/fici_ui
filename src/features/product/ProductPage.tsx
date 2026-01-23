@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import ProductCard from "./components/ProductCard";
 import UltraEmptyState from "./components/UltraEmptyState"; // Import the new component
 import { Search, X, ArrowUpDown, SlidersHorizontal } from "lucide-react";
-import { getAllFilterSizes } from "../../utils/sizeUtils";
+import { getAllFilterSizes } from "@utils/sizeUtils";
 import { CATEGORY_CONFIG } from "../admin/components/constants/productConfig";
 import FiciLoader from "../../components/ui/FiciLoader";
 

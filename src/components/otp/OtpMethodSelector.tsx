@@ -7,7 +7,7 @@ import {
   validateOtpIdentity,
   getOtpContact,
   type Identity
-} from '../../utils/identitySource';
+} from '@utils/identitySource';
 import { InfoBanner } from '../ui/InfoBanner';
 
 interface OtpMethodSelectorProps {

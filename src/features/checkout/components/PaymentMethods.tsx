@@ -4,7 +4,7 @@ import {
   isCurrentIdentityVerified, 
   shouldRequireOtpVerification,
   getVerificationStatus 
-} from '../../../utils/identityVerification';
+} from '@utils/identityVerification';
 
 export type PaymentMethodOption = {
   id: PaymentMethodType;

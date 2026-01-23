@@ -8,7 +8,7 @@ import PincodeInput from '@components/ui/PincodeInput';
 import { useAuthStore } from '@store/authStore';
 import type { Address } from './AddressForm';
 import type { GuestContactInfo } from '../../../types/guest';
-import { getIdentity, isGuestIdentityLocked, getLockedIdentityFields, getGuestLockedHelperText } from '../../../utils/identitySource';
+import { getIdentity, isGuestIdentityLocked, getLockedIdentityFields, getGuestLockedHelperText } from '@utils/identitySource';
 
 // Schema for form validation
 const GuestAddressSchema = z.object({

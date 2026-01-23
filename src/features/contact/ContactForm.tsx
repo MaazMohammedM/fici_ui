@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { contactSchema } from './schema/contactSchema';
 import type { ContactFormData } from './types/contactTypes';
 import { useContactStore } from '@store/contactStore';
-import { EmailService } from '../../utils/emailService';
+import { EmailService } from '@utils/emailService';
 import { FaFacebook, FaInstagram, FaWhatsapp } from 'react-icons/fa';
 import { FaX } from 'react-icons/fa6';
 import { MapPin } from 'lucide-react';

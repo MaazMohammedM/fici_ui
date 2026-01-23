@@ -29,13 +29,13 @@ import {
   getOtpContact,
   type OtpIdentity,
   type IdentityFields 
-} from "../../utils/otpIdentity";
+} from "@utils/otpIdentity";
 import { 
   isCurrentIdentityVerified, 
   shouldRequireOtpVerification,
   getVerificationStatus, 
   markCurrentIdentityVerified
-} from "../../utils/identityVerification";
+} from "@utils/identityVerification";
 import type { Address } from "./components/AddressForm";
 import type { GuestContactInfo } from "../../types/guest";
 import razorpayPayments from "../../assets/razorpay-with-all-cards-upi-seeklogo.png";
@@ -54,7 +54,7 @@ import { usePaymentStore } from "@store/paymentStore";
 import { useThemeStore } from "@store/themeStore";
 import { useWishlistStore } from "@store/wishlistStore";
 import AlertModal from "@components/ui/AlertModal";
-import { clearIdentityVerification } from "../../utils/identityVerification";
+import { clearIdentityVerification } from "@utils/identityVerification";
 import { validateCartItemStock } from "@lib/stock/stockValidator";
 
 // Payment method type for consistency
