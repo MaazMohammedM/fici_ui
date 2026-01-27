@@ -1,5 +1,5 @@
-import React from "react";
-import { Ruler } from "lucide-react";
+import React, { useState, useEffect, useRef } from "react";
+import { Ruler, ChevronDown } from "lucide-react";
 import { FaWhatsapp } from "react-icons/fa";
 import { hasValidSizePrices } from '@lib/productAvailability';
 
@@ -40,11 +40,27 @@ const ProductSizeSelector: React.FC<Props> = ({
   currentQuantity = 1,
   onQuantityChange,
 }) => {
-  // Determine which sizes to display
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  
+  // Determine which sizes to display - use fullSizeRange to show all sizes
   const displaySizeRange = originalFullSizeRange.length > 0 ? originalFullSizeRange : availableSizes;
-  const isFootwear = category === 'footwear' || category === 'shoes' || category === 'sneakers';
+  const isFootwear = category?.toLowerCase() === 'footwear' || category?.toLowerCase() === 'shoes' || category?.toLowerCase() === 'sneakers';
   const shouldShowSizeGuide = isFootwear || subCategory?.toLowerCase() === 'shoes' || subCategory?.toLowerCase() === 'sandals';
 
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   const getSizePrice = (size: string): number | null => {
     // Only show size-specific prices if size_prices has valid values
@@ -62,17 +78,24 @@ const ProductSizeSelector: React.FC<Props> = ({
   const handleSizeChange = (size: string) => {
     const availableStockForSize = availableQuantities[size] || 0;
     
-    // Clamp quantity to available stock if needed
-    if (currentQuantity > availableStockForSize && availableStockForSize > 0 && onQuantityChange) {
+    // Reset quantity to 1 if size has no stock, or clamp to available stock
+    if (availableStockForSize === 0) {
+      onQuantityChange(1); // Reset to 1 for out of stock sizes
+    } else if (currentQuantity > availableStockForSize && onQuantityChange) {
       onQuantityChange(availableStockForSize);
     }
     
     // Call the original size change handler
     onSizeChange(size);
+    setIsDropdownOpen(false);
   };
 
   // Check if we should show size-specific prices
   const shouldShowSizePrices = hasValidSizePrices(sizePrices);
+
+  // Check if selected size is available
+  const isSelectedSizeAvailable = selectedSize && availableSizes.includes(selectedSize);
+  const selectedSizeStock = selectedSize ? (availableQuantities[selectedSize] || 0) : 0;
 
   return (
     <div className="min-h-[120px]">
@@ -113,49 +136,114 @@ const ProductSizeSelector: React.FC<Props> = ({
           </div>
         </div>
       ) : displaySizeRange && displaySizeRange.length > 0 ? (
-        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 dark:scrollbar-thumb-gray-600 dark:scrollbar-track-gray-800">
-          {displaySizeRange.map((size) => {
-            const isAvailable = availableSizes.includes(size);
-            const isSelected = selectedSize === size;
-            const availableQty = availableQuantities[size] || 0;
-            const sizePrice = getSizePrice(size);
-
-            return (
-              <button
-                key={size}
-                onClick={() => isAvailable ? handleSizeChange(size) : onWhatsAppContact(size)}
-                className={`relative flex flex-col items-center justify-center p-2 rounded-lg border-2 transition-all min-w-[60px] sm:min-w-[70px] ${
-                  isSelected && isAvailable
-                    ? "border-accent bg-accent text-white"
-                    : isAvailable
-                    ? "border-gray-300 dark:border-gray-600 hover:border-accent text-gray-900 dark:text-white bg-white dark:bg-dark2"
-                    : "border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400 cursor-pointer"
-                }`}
-                title={
-                  !isAvailable
-                    ? `Size ${size} is currently unavailable. Would you like to inquire about this size on WhatsApp? We'll notify you as soon as it's back in stock.`
-                    : shouldShowSizePrices && sizePrice ? `Price: ₹${sizePrice.toLocaleString('en-IN')}` : 'Select this size'
-                }
-              >
-                <span className="text-sm font-medium">{size}</span>
-                {shouldShowSizePrices && sizePrice && (
-                  <span className={`text-xs mt-0.5 ${
-                    isSelected && isAvailable
-                      ? "text-white/90"
-                      : isAvailable
-                      ? "text-gray-600 dark:text-gray-400"
-                      : "text-red-600 dark:text-red-400"
-                  }`}>
-                    ₹{sizePrice.toLocaleString('en-IN')}
+        isFootwear ? (
+          // Dropdown for footwear categories
+          <div className="relative" ref={dropdownRef}>
+            <div className="flex items-center justify-between gap-2">
+              {/* Custom Dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                  className="w-32 flex items-center justify-between p-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-dark2 hover:border-accent transition-colors"
+                >
+                  <span className="text-gray-900 dark:text-white font-medium">
+                    {selectedSize || 'Select Size'}
                   </span>
+                  <ChevronDown 
+                    className={`w-5 h-5 text-gray-500 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} 
+                  />
+                </button>
+                
+                {/* Dropdown Options */}
+                {isDropdownOpen && (
+                  <div className="absolute z-10 w-32 mt-1 bg-white dark:bg-dark2 border-2 border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                    {displaySizeRange.map((size) => {
+                      const isSelected = selectedSize === size;
+                      const sizePrice = getSizePrice(size);
+
+                      return (
+                        <button
+                          key={size}
+                          onClick={() => handleSizeChange(size)}
+                          className={`w-full flex items-center justify-center px-2 py-2 border-b border-gray-100 dark:border-gray-700 last:border-b-0 transition-colors ${
+                            isSelected
+                              ? 'bg-accent text-white'
+                              : 'hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-900 dark:text-white'
+                          }`}
+                        >
+                          <span className="text-sm font-medium">{size}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 )}
-                {!isAvailable && (
-                  <FaWhatsapp className="absolute -top-1 -right-1 w-4 h-4 text-green-500 bg-white dark:bg-dark2 rounded-full" />
-                )}
-              </button>
-            );
-          })}
-        </div>
+              </div>
+
+              {/* Stock unavailable message - pushed to right */}
+              {selectedSize && !availableSizes.includes(selectedSize) && (
+                <div className="flex-shrink-0">
+                  <div className="inline-flex items-center space-x-2 px-3 py-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                    <span className="text-sm text-red-700 dark:text-red-300 whitespace-nowrap">
+                      Size {selectedSize} unavailable
+                    </span>
+                    <button
+                      onClick={() => onWhatsAppContact(selectedSize)}
+                      className="flex items-center space-x-1 px-2 py-1 bg-green-500 hover:bg-green-600 text-white text-xs rounded transition-colors whitespace-nowrap"
+                    >
+                      <FaWhatsapp className="w-3 h-3" />
+                      <span>Ask us</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        ) : (
+          // Original button layout for non-footwear categories
+          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 dark:scrollbar-thumb-gray-600 dark:scrollbar-track-gray-800">
+            {displaySizeRange.map((size) => {
+              const isAvailable = availableSizes.includes(size);
+              const isSelected = selectedSize === size;
+              const availableQty = availableQuantities[size] || 0;
+              const sizePrice = getSizePrice(size);
+
+              return (
+                <button
+                  key={size}
+                  onClick={() => isAvailable ? handleSizeChange(size) : onWhatsAppContact(size)}
+                  className={`relative flex flex-col items-center justify-center p-2 rounded-lg border-2 transition-all min-w-[60px] sm:min-w-[70px] ${
+                    isSelected && isAvailable
+                      ? "border-accent bg-accent text-white"
+                      : isAvailable
+                      ? "border-gray-300 dark:border-gray-600 hover:border-accent text-gray-900 dark:text-white bg-white dark:bg-dark2"
+                      : "border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400 cursor-pointer"
+                  }`}
+                  title={
+                    !isAvailable
+                      ? `Size ${size} is currently unavailable. Would you like to inquire about this size on WhatsApp? We'll notify you as soon as it's back in stock.`
+                      : shouldShowSizePrices && sizePrice ? `Price: ₹${sizePrice.toLocaleString('en-IN')}` : 'Select this size'
+                  }
+                >
+                  <span className="text-sm font-medium">{size}</span>
+                  {shouldShowSizePrices && sizePrice && (
+                    <span className={`text-xs mt-0.5 ${
+                      isSelected && isAvailable
+                        ? "text-white/90"
+                        : isAvailable
+                        ? "text-gray-600 dark:text-gray-400"
+                        : "text-red-600 dark:text-red-400"
+                    }`}>
+                      ₹{sizePrice.toLocaleString('en-IN')}
+                    </span>
+                  )}
+                  {!isAvailable && (
+                    <FaWhatsapp className="absolute -top-1 -right-1 w-4 h-4 text-green-500 bg-white dark:bg-dark2 rounded-full" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )
       ) : isBag && isOutOfStock ? (
         <div className="flex items-center justify-center py-8 text-red-500 dark:text-red-400">
           <div className="text-center">

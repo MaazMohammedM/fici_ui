@@ -18,9 +18,9 @@ export const useThemeStore = create<ThemeState>((set) => ({
   },
   initializeTheme: () => {
     const stored = localStorage.getItem('mode') as 'light' | 'dark' | null;
-    if (stored) {
-      document.documentElement.classList.toggle('dark', stored === 'dark');
-      set({ mode: stored });
-    }
+    // Default to light mode if no stored preference exists
+    const mode = stored || 'light';
+    document.documentElement.classList.toggle('dark', mode === 'dark');
+    set({ mode });
   },
 }));
