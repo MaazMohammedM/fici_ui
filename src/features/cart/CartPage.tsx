@@ -473,169 +473,180 @@ const CartPage: React.FC = () => {
 
   return (
     <main className="min-h-screen bg-white dark:bg-gray-900">
-      <section className="container mx-auto px-4 py-6 sm:py-8 lg:py-10">
-        {/* Header */}
-        <div className="w-full py-8 bg-white dark:bg-gray-900">
-          <div className="flex items-center gap-4 mb-4">
-            <button
-              onClick={() => navigate('/')}
-              className="btn-modern btn-secondary flex items-center gap-2"
-            >
-              <ArrowLeft className="w-5 h-5" />
-              Back to Home
-            </button>
-          </div>
-          <h1 className="text-3xl md:text-4xl font-bold text-center text-text-primary dark:text-text-inverse mb-2">
-            Your Shopping Cart
-          </h1>
-          <p className="text-center text-text-secondary dark:text-text-muted">
-            {filteredCartItems.length} item{filteredCartItems.length !== 1 ? 's' : ''} in your cart
-          </p>
-        </div>
-
-        {filteredCartItems.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-24">
-            <div className="card-modern p-12 max-w-md w-full text-center bg-white dark:bg-gray-900">
-              <ShoppingBag className="w-24 h-24 text-muted mx-auto mb-6" />
-              <h3 className="heading-section mb-4 text-primary dark:text-inverse">
+      {filteredCartItems.length === 0 ? (
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-800 dark:to-gray-900">
+          {/* Header integrated with empty cart */}
+          <div className="container mx-auto px-4 py-6 sm:py-8">
+            <div className="flex items-center gap-4 mb-6">
+              <button
+                onClick={() => navigate('/')}
+                className="btn-modern btn-secondary flex items-center gap-2"
+              >
+                <ArrowLeft className="w-5 h-5" />
+                Back to Home
+              </button>
+            </div>
+            <h1 className="text-3xl md:text-4xl font-bold text-center text-text-primary dark:text-text-inverse mb-2">
+              Your Shopping Cart
+            </h1>
+            <p className="text-center text-text-secondary dark:text-text-muted mb-12">
+              {filteredCartItems.length} item{filteredCartItems.length > 1 ? 's' : ''} in your cart
+            </p>
+            
+            <div className="max-w-lg mx-auto text-center">
+              {/* Animated Shopping Bag Icon */}
+              <div className="relative inline-block mb-8">
+                <div className="absolute inset-0 bg-blue-200 dark:bg-blue-800 rounded-full blur-3xl opacity-30 animate-pulse"></div>
+                <ShoppingBag className="relative w-32 h-32 text-blue-500 dark:text-blue-400 mx-auto" />
+              </div>
+              
+              <h3 className="text-3xl md:text-4xl font-bold mb-4 text-gray-900 dark:text-white">
                 Your cart is empty!
               </h3>
-              <p className="mb-8 text-secondary dark:text-muted">
-                Looks like you haven't added anything yet. Start shopping to fill your cart with amazing products!
+              <p className="text-lg md:text-xl text-gray-600 dark:text-gray-300 mb-8 max-w-md mx-auto leading-relaxed">
+                Ready to discover amazing products? Start shopping and fill your cart with items you'll love!
               </p>
-              <div className="space-y-3">
+              
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <button
                   onClick={() => navigate('/products')}
-                  className="btn-modern btn-primary w-full text-lg"
+                  className="btn-modern btn-primary px-8 py-4 text-lg font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
                 >
-                  Start Shopping
+                  <span className="flex items-center gap-2">
+                    <ShoppingBag className="w-5 h-5" />
+                    Start Shopping
+                  </span>
                 </button>
                 <button
                   onClick={() => navigate('/')}
-                  className="btn-modern btn-secondary w-full text-lg"
+                  className="btn-modern btn-secondary px-8 py-4 text-lg font-semibold"
                 >
                   Go to Homepage
                 </button>
               </div>
             </div>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Cart Items */}
-            <div className="lg:col-span-2 space-y-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-                  Cart Items
-                </h2>
-                <button
-                  onClick={handleClearCart}
-                  className="flex items-center gap-2 text-red-600 hover:text-red-700 transition-colors text-sm"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  Clear Cart
-                </button>
-              </div>
-              
-              {filteredCartItems.map(item => (
-                <CartItemCard
-                  key={item.id}
-                  item={item}
-                  onQuantityChange={handleQuantityChange}
-                  onRemove={handleRemove}
-                  onMoveToWishlist={handleMoveToWishlist}
-                  onOpenProduct={() => navigate(`/products/${item.article_id}`)}
-                  productDetails={productDetails[item.id]}
-                  validationResults={validationResults}
-                />
-              ))}
+        </div>
+      ) : (
+        <div className="min-h-screen bg-white dark:bg-gray-900">
+          <div className="container mx-auto px-4 py-6 sm:py-8 lg:py-10">
+            <div className="flex items-center gap-4 mb-6">
+              <button
+                onClick={() => navigate('/')}
+                className="btn-modern btn-secondary flex items-center gap-2"
+              >
+                <ArrowLeft className="w-5 h-5" />
+                Back to Home
+              </button>
             </div>
+            <h1 className="text-3xl md:text-4xl font-bold text-center text-text-primary dark:text-text-inverse mb-2">
+              Your Shopping Cart
+            </h1>
+            <p className="text-center text-text-secondary dark:text-text-muted mb-8">
+              {filteredCartItems.length} item{filteredCartItems.length > 1 ? 's' : ''} in your cart
+            </p>
 
-            {/* Order Summary */}
-            <div className="lg:col-span-1">
-              <div className="card-modern p-6 border-2 border-blue-200 dark:border-blue-800 sticky top-24 bg-white dark:bg-gray-900">
-                <h3 className="text-2xl font-bold text-center text-text-primary dark:text-text-inverse mb-6">
-                  Order Summary
-                </h3>
-                
-                <div className="space-y-4 mb-6">
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-secondary dark:text-muted">MRP</span>
-                      <span className="text-primary dark:text-inverse">
-                        ₹{mrpTotal.toLocaleString('en-IN')}
-                      </span>
-                    </div>
-                    {savings > 0 && (
-                      <div className="flex justify-between items-center text-success">
-                        <span>You Save</span>
-                        <span>-₹{savings.toLocaleString('en-IN')}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between items-center pt-2 border-t border-gray-200 dark:border-gray-700">
-                      <span className="text-secondary dark:text-muted">Items ({filteredCartItems.length})</span>
-                      <span className="font-semibold text-primary dark:text-inverse">
-                        ₹{subtotal.toLocaleString('en-IN')}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  {/* <div className="flex justify-between items-center py-2 border-t-2 border-gray-300 dark:border-gray-600">
-                    <span className="text-xl font-bold text-primary dark:text-inverse">Delivery</span>
-                    <span className={`font-semibold ${delivery === 0 ? 'text-success' : 'text-primary dark:text-inverse'}`}>
-                      {delivery === 0 ? 'Free' : `₹${delivery}`}
-                    </span>
-                  </div> */}
-                  
-                  <div className="flex justify-between items-center py-3 border-t-2 border-gray-300 dark:border-gray-600">
-                    <span className="text-xl font-bold text-primary dark:text-inverse">Total</span>
-                    <span className="text-2xl font-bold text-primary dark:text-inverse">
-                      ₹{total.toLocaleString('en-IN')}
-                    </span>
-                  </div>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* Cart Items */}
+              <div className="lg:col-span-2 space-y-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                    Cart Items
+                  </h2>
+                  <button
+                    onClick={handleClearCart}
+                    className="flex items-center gap-2 text-red-600 hover:text-red-700 transition-colors text-sm"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Clear Cart
+                  </button>
                 </div>
+                
+                {filteredCartItems.map(item => (
+                  <CartItemCard
+                    key={item.id}
+                    item={item}
+                    onQuantityChange={handleQuantityChange}
+                    onRemove={handleRemove}
+                    onMoveToWishlist={handleMoveToWishlist}
+                    onOpenProduct={() => navigate(`/products/${item.article_id}`)}
+                    productDetails={productDetails[item.id]}
+                    validationResults={validationResults}
+                  />
+                ))}
+              </div>
 
-                {/* {delivery > 0 && (
-                  <div className="bg-blue-50 dark:bg-gray-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3 mb-6">
-                    <p className="text-sm text-blue-800 dark:text-blue-200">
-                      Add ₹{(1000 - subtotal).toLocaleString('en-IN')} more to your cart for <strong>FREE delivery</strong>!
-                    </p>
-                  </div>
-                )} */}
-
-                {/* Checkout Unavailable Message */}
-                {isServiceabilityAvailable === false && (
-                  <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-4">
-                    <div className="flex items-start space-x-3">
-                      <div className="flex-shrink-0">
-                        <svg className="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                        </svg>
+              {/* Order Summary */}
+              <div className="lg:col-span-1">
+                <div className="card-modern p-6 border-2 border-blue-200 dark:border-blue-800 sticky top-24 bg-white dark:bg-gray-900">
+                  <h3 className="text-2xl font-bold text-center text-text-primary dark:text-text-inverse mb-6">
+                    Order Summary
+                  </h3>
+                  
+                  <div className="space-y-4 mb-6">
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <span className="text-secondary dark:text-muted">MRP</span>
+                        <span className="text-primary dark:text-inverse">
+                          ₹{mrpTotal.toLocaleString('en-IN')}
+                        </span>
                       </div>
-                      <div className="flex-1">
-                        <h3 className="text-sm font-medium text-red-800 dark:text-red-200 mb-1">
-                          Checkout Temporarily Unavailable
-                        </h3>
-                        <p className="text-sm text-red-700 dark:text-red-300">
-                          Our delivery services are temporarily unavailable. Kindly come back later or contact our customer support for assistance.
-                        </p>
+                      {savings > 0 && (
+                        <div className="flex justify-between items-center text-success">
+                          <span>You Save</span>
+                          <span>-₹{savings.toLocaleString('en-IN')}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between items-center pt-2 border-t border-gray-200 dark:border-gray-700">
+                        <span className="text-secondary dark:text-muted">Items ({filteredCartItems.length})</span>
+                        <span className="font-semibold text-primary dark:text-inverse">
+                          ₹{subtotal.toLocaleString('en-IN')}
+                        </span>
                       </div>
                     </div>
+                    
+                    <div className="flex justify-between items-center py-3 border-t-2 border-gray-300 dark:border-gray-600">
+                      <span className="text-xl font-bold text-primary dark:text-inverse">Total</span>
+                      <span className="text-2xl font-bold text-primary dark:text-inverse">
+                        ₹{total.toLocaleString('en-IN')}
+                      </span>
+                    </div>
                   </div>
-                )}
 
-<button 
-                  onClick={handleProceedToCheckout}
-                  className={`btn-modern w-full text-lg relative ${
-                    filteredCartItems.length === 0 
-                      ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed opacity-60' 
-                      : serviceabilityLoading 
-                        ? 'bg-blue-400 dark:bg-blue-600 text-white cursor-wait opacity-80' 
-                        : isServiceabilityAvailable === false 
-                          ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed opacity-60'
-                          : 'bg-blue-600 hover:bg-blue-700 text-white'
-                  }`}
-                  disabled={filteredCartItems.length === 0 || serviceabilityLoading || isServiceabilityAvailable === false}
-                >
+                  {/* Checkout Unavailable Message */}
+                  {isServiceabilityAvailable === false && (
+                    <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-4">
+                      <div className="flex items-start space-x-3">
+                        <div className="flex-shrink-0">
+                          <svg className="w-5 h-5 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                          </svg>
+                        </div>
+                        <div className="flex-1">
+                          <h3 className="text-sm font-medium text-red-800 dark:text-red-200 mb-1">
+                            Checkout Temporarily Unavailable
+                          </h3>
+                          <p className="text-sm text-red-700 dark:text-red-300">
+                            Our delivery services are temporarily unavailable. Kindly come back later or contact our customer support for assistance.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <button 
+                    onClick={handleProceedToCheckout}
+                    className={`btn-modern w-full text-lg relative ${
+                      filteredCartItems.length === 0 
+                        ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed opacity-60' 
+                        : serviceabilityLoading 
+                          ? 'bg-blue-400 dark:bg-blue-600 text-white cursor-wait opacity-80' 
+                          : isServiceabilityAvailable === false 
+                            ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed opacity-60'
+                            : 'bg-blue-600 hover:bg-blue-700 text-white'
+                    }`}
+                    disabled={filteredCartItems.length === 0 || serviceabilityLoading || isServiceabilityAvailable === false}
+                  >
                   <span className={`flex items-center justify-center gap-2 ${
                     serviceabilityLoading ? 'animate-pulse' : ''
                   }`}>
@@ -643,7 +654,7 @@ const CartPage: React.FC = () => {
                       <>
                         <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8 8 018 8 018 8 018z"></path>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8 8 818 8 018 8 018z"></path>
                         </svg>
                         Checking Availability...
                       </>
@@ -668,15 +679,18 @@ const CartPage: React.FC = () => {
                       </>
                     )}
                   </span>
-                </button>        
+                </button>
+        
                 <p className="text-xs text-muted text-center mt-3">
                   Secure checkout powered by Razorpay
                 </p>
               </div>
             </div>
           </div>
-        )}
-      </section>
+        </div>
+        </div>
+      )}
+      
       <AlertModal
         isOpen={alertModal.isOpen}
         message={alertModal.message}
