@@ -27,7 +27,7 @@ const ProductActionButtons: React.FC<ProductActionButtonsProps> = ({
   const { items } = useCartStore();
   
   // Check if Add to Cart should be disabled
-  const isAddToCartDisabled = isOutOfStock || !selectedSize || (availableQuantity > 0 && quantity > availableQuantity);
+  const isAddToCartDisabled = !selectedSize || availableQuantity <= 0 || (availableQuantity > 0 && quantity > availableQuantity);
 
   // Mandatory validation function
   const validateBeforeAction = (): boolean => {
@@ -127,36 +127,56 @@ const ProductActionButtons: React.FC<ProductActionButtonsProps> = ({
   }
 
   return (
-    <div className="flex flex-col sm:flex-row gap-3">
-      <button
-        onClick={handleAddToCart}
-        disabled={isAddToCartDisabled}
-        className={`flex-1 font-medium py-3 px-6 rounded-lg transition-colors flex items-center justify-center min-h-[44px] whitespace-nowrap ${
-          isAddToCartDisabled
-            ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
-            : 'bg-amber-500 hover:bg-amber-600 text-white'
-        }`}
-      >
-        <svg className="w-5 h-5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-        </svg>
-        Add to Cart
-      </button>
+    <div className="space-y-3">
+      {/* Messages based on stock and size selection */}
+      {!selectedSize && (
+        <div className="text-center">
+          <p className="text-sm text-amber-600 dark:text-amber-400">
+            Select a size
+          </p>
+        </div>
+      )}
+      
+      {selectedSize && availableQuantity <= 0 && (
+        <div className="text-center">
+          <p className="text-sm text-red-600 dark:text-red-400">
+            Out of stock. Select another size.
+          </p>
+        </div>
+      )}
 
-      <button
-        onClick={handleBuyNow}
-        disabled={isAddToCartDisabled}
-        className={`flex-1 font-medium py-3 px-6 rounded-lg transition-colors flex items-center justify-center min-h-[44px] whitespace-nowrap ${
-          isAddToCartDisabled
-            ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
-            : 'bg-blue-600 hover:bg-blue-700 text-white'
-        }`}
-      >
-        <svg className="w-5 h-5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-        </svg>
-        Buy Now
-      </button>
+      {/* Action Buttons */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <button
+          onClick={handleAddToCart}
+          disabled={isAddToCartDisabled}
+          className={`flex-1 font-medium py-3 px-6 rounded-lg transition-colors flex items-center justify-center min-h-[44px] whitespace-nowrap ${
+            isAddToCartDisabled
+              ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+              : 'bg-amber-500 hover:bg-amber-600 text-white'
+          }`}
+        >
+          <svg className="w-5 h-5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+          </svg>
+          Add to Cart
+        </button>
+
+        <button
+          onClick={handleBuyNow}
+          disabled={isAddToCartDisabled}
+          className={`flex-1 font-medium py-3 px-6 rounded-lg transition-colors flex items-center justify-center min-h-[44px] whitespace-nowrap ${
+            isAddToCartDisabled
+              ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
+              : 'bg-blue-600 hover:bg-blue-700 text-white'
+          }`}
+        >
+          <svg className="w-5 h-5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+          </svg>
+          Buy Now
+        </button>
+      </div>
     </div>
   );
 };

@@ -24,13 +24,31 @@ const useMediaQuery = (query: string) => {
 
   useEffect(() => {
     const media = window.matchMedia(query);
-    if (media.matches !== matches) {
-      setMatches(media.matches);
+    
+    // Set initial value
+    setMatches(media.matches);
+    
+    const listener = (event: MediaQueryListEvent) => {
+      setMatches(event.matches);
+    };
+    
+    // Add event listener
+    if (media.addEventListener) {
+      media.addEventListener('change', listener);
+    } else {
+      // Fallback for older browsers
+      media.addListener(listener);
     }
-    const listener = () => setMatches(media.matches);
-    window.addEventListener('resize', listener);
-    return () => window.removeEventListener('resize', listener);
-  }, [matches]);
+    
+    return () => {
+      if (media.removeEventListener) {
+        media.removeEventListener('change', listener);
+      } else {
+        // Fallback for older browsers
+        media.removeListener(listener);
+      }
+    };
+  }, [query]);
 
   return matches;
 };
@@ -159,7 +177,7 @@ const Header: React.FC = () => {
   }, [isMobileMenu]);
 
   const displayName = useAuthStore.getState().firstName || user?.user_metadata?.first_name || 'Account';
-  const isMobile = useMediaQuery('(max-width: 1024px)');
+  const isMobile = useMediaQuery('(max-width: 767px)');
 
   // Dedupe menu data
   const uniqueNavItems = useMemo(() => {
@@ -170,7 +188,7 @@ const Header: React.FC = () => {
 
   // Desktop Menu Component
   const DesktopMenu = () => (
-    <nav className="flex items-center flex-1 justify-between px-1" ref={desktopDropdownRef}>
+    <nav className="flex items-center justify-between flex-1 px-2 sm:px-4 md:px-6 lg:px-8" ref={desktopDropdownRef}>
       {uniqueNavItems.map(({ label, path, dropdown }) => (
         <div
           key={label}
@@ -182,11 +200,7 @@ const Header: React.FC = () => {
             <>
               <button
                 onMouseEnter={() => openDropdown(label)}
-                className={`flex items-center justify-center gap-1 px-1 md:px-2 py-2 text-[13px] sm:text-[14px] md:text-[15px] lg:text-[16px] font-bold uppercase tracking-[0.08em] transition-all duration-200 hover:scale-105 whitespace-nowrap flex-1 ${
-                  label === 'MEN' ? 'bg-blue-800 text-white border-b-2 border-blue-900 shadow-sm' : 
-                  label === 'SALE' ? 'bg-red-600 text-white shadow-sm' : 
-                  'bg-blue-900 text-white hover:bg-blue-800 shadow-sm'
-                } font-JosefinSansBold`}
+                className="flex items-center justify-center gap-1 px-2 sm:px-3 py-2 text-[11px] sm:text-[12px] md:text-[13px] lg:text-[14px] xl:text-[16px] font-bold uppercase tracking-[0.08em] transition-all duration-200 hover:scale-105 whitespace-nowrap flex-1 bg-blue-900 text-white hover:bg-blue-800 shadow-sm font-JosefinSansBold border-b border-blue-800"
                 aria-expanded={activeDropdown === label}
               >
                 {label} <ChevronDown className="w-4 h-4 transition-transform duration-200" />
@@ -218,11 +232,7 @@ const Header: React.FC = () => {
             <NavLink 
               to={path!} 
               onClick={(e) => handleProtectedNavigation(path!, e)}
-              className={`px-1 md:px-2 py-2 text-[13px] sm:text-[14px] md:text-[15px] lg:text-[16px] font-bold uppercase tracking-[0.08em] transition-all duration-200 hover:scale-105 whitespace-nowrap flex-1 ${
-                label === 'MEN' ? 'bg-blue-800 text-white border-b-2 border-blue-900 shadow-sm' : 
-                label === 'SALE' ? 'bg-red-600 text-white shadow-sm' : 
-                'bg-blue-900 text-white hover:bg-blue-800 shadow-sm'
-              } font-JosefinSansBold`}
+              className="px-2 sm:px-3 py-2 text-[11px] sm:text-[12px] md:text-[13px] lg:text-[14px] xl:text-[16px] font-bold uppercase tracking-[0.08em] transition-all duration-200 hover:scale-105 whitespace-nowrap flex-1 bg-blue-900 text-white hover:bg-blue-800 shadow-sm font-JosefinSansBold border-b border-blue-800"
               onMouseEnter={() => activeDropdown && setActiveDropdown(null)}
             >
               {label}
@@ -276,8 +286,29 @@ const Header: React.FC = () => {
             )}
           </div>
         ))}
+        
+        {/* Theme Toggle in Mobile Menu */}
+        <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+          <button 
+            onClick={() => {
+              toggleMode();
+            }} 
+            className="flex items-center justify-between w-full py-3 px-4 rounded-lg bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              {mode === 'light' ? <Sun className="w-5 h-5 text-blue-900" /> : <Moon className="w-5 h-5 text-blue-900" />}
+              <span className="font-medium text-blue-900 dark:text-white">
+                {mode === 'light' ? 'Light Mode' : 'Dark Mode'}
+              </span>
+            </div>
+            <div className="w-12 h-6 bg-gray-300 dark:bg-blue-600 rounded-full relative transition-colors">
+              <div className={`absolute top-1 ${mode === 'light' ? 'left-1' : 'left-7'} w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-sm`}></div>
+            </div>
+          </button>
+        </div>
+        
         {isAuthenticated && (
-          <div className="mt-8 pt-4 border-t border-gray-200 dark:border-gray-700">
+          <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
             <button onClick={signOut} className="w-full bg-red-500 hover:bg-red-600 text-white py-3 px-4 rounded-lg font-medium transition-colors">Sign Out</button>
           </div>
         )}
@@ -290,8 +321,8 @@ const Header: React.FC = () => {
       {/* Single Fixed Header */}
       <header className="sticky top-0 z-50 bg-white dark:bg-gray-900 text-blue-900 dark:text-blue-100 shadow-sm" style={{ fontFamily: 'var(--font-brand)' }}>
         {/* Top Bar - Logo and Icons */}
-        <div className="flex items-center justify-between px-4 md:px-8 py-2 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between px-3 sm:px-4 md:px-8 py-2 border-b border-gray-200 dark:border-gray-700">
+          <div className="flex items-center gap-2 sm:gap-3">
             <NavLink
               to="/"
               onClick={(e) => handleProtectedNavigation('/', e)}
@@ -300,24 +331,24 @@ const Header: React.FC = () => {
               <img
                 src={mode === 'dark' ? ficiDark : ficiLight}
                 alt="FICI Logo"
-                className="h-16 md:h-20 w-auto object-contain filter drop-shadow-lg transition-transform duration-300 hover:scale-105 leading-none"
+                className="h-12 sm:h-14 md:h-16 lg:h-20 w-auto object-contain filter drop-shadow-lg transition-transform duration-300 hover:scale-105 leading-none"
               />
             </NavLink>
           </div>
           {/* Icons Section */}
-          <div className="flex items-center gap-2 md:gap-3">
-            <button onClick={() => setIsSearch(!isSearch)} className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition-all duration-300 hover:scale-110 shadow-sm" aria-label="Open search">
-              <Search className="w-4 h-4 md:w-5 md:h-5 text-blue-900 dark:text-blue-100" />
+          <div className="flex items-center gap-1 sm:gap-2 md:gap-3">
+            <button onClick={() => setIsSearch(!isSearch)} className="p-1.5 sm:p-2 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition-all duration-300 hover:scale-110 shadow-sm" aria-label="Open search">
+              <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 text-blue-900 dark:text-blue-100" />
             </button>
 
             <NavLink
               to="/wishlist"
               onClick={(e) => handleProtectedNavigation('/wishlist', e)}
-              className="relative p-2 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition-all duration-300 hover:scale-110 shadow-sm"
+              className="relative p-1.5 sm:p-2 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition-all duration-300 hover:scale-110 shadow-sm"
             >
-              <Heart className="w-4 h-4 md:w-5 md:h-5 text-blue-900 dark:text-blue-100" />
+              <Heart className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 text-blue-900 dark:text-blue-100" />
               {wishlistCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] rounded-full h-4 w-4 flex items-center justify-center">
+                <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[9px] sm:text-[10px] rounded-full h-3.5 w-3.5 sm:h-4 sm:w-4 flex items-center justify-center">
                   {wishlistCount > 99 ? '99+' : wishlistCount}
                 </span>
               )}
@@ -326,11 +357,11 @@ const Header: React.FC = () => {
             <NavLink
               to="/cart"
               onClick={(e) => handleProtectedNavigation('/cart', e)}
-              className="relative p-2 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition-all duration-300 hover:scale-110 shadow-sm"
+              className="relative p-1.5 sm:p-2 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition-all duration-300 hover:scale-110 shadow-sm"
             >
-              <ShoppingCart className="w-4 h-4 md:w-5 md:h-5 text-blue-900 dark:text-blue-100" />
+              <ShoppingCart className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 text-blue-900 dark:text-blue-100" />
               {cartCount > 0 && (
-                <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-[10px] rounded-full h-4 w-4 flex items-center justify-center">
+                <span className="absolute -top-0.5 -right-0.5 bg-blue-600 text-white text-[9px] sm:text-[10px] rounded-full h-3.5 w-3.5 sm:h-4 sm:w-4 flex items-center justify-center">
                   {cartCount > 99 ? '99+' : cartCount}
                 </span>
               )}
@@ -340,8 +371,8 @@ const Header: React.FC = () => {
             <div ref={userDropdownRef} className="relative">
               {isAuthenticated ? (
                 <>
-                  <button onClick={() => setUserDropdown(!userDropdown)} className="flex items-center gap-2 px-3 py-2 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition-all duration-300 hover:scale-105 shadow-sm" aria-haspopup="true" aria-expanded={userDropdown}>
-                    <UserRound className="w-5 h-5 text-blue-900 dark:text-blue-100" /> <span className="hidden sm:inline text-sm font-medium text-blue-900 dark:text-blue-100">{displayName}</span> <ChevronDown className="w-4 h-4 text-blue-900 dark:text-blue-100 transition-transform duration-200" />
+                  <button onClick={() => setUserDropdown(!userDropdown)} className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition-all duration-300 hover:scale-105 shadow-sm" aria-haspopup="true" aria-expanded={userDropdown}>
+                    <UserRound className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 text-blue-900 dark:text-blue-100" /> <span className="hidden sm:inline text-xs sm:text-sm font-medium text-blue-900 dark:text-blue-100">{displayName}</span> <ChevronDown className="w-3 h-3 sm:w-4 sm:h-4 text-blue-900 dark:text-blue-100 transition-transform duration-200" />
                   </button>
                   {userDropdown && (
                     <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-900 rounded-xl shadow-2xl border dark:border-gray-700 py-2 z-50 animate-fade-in">
@@ -364,26 +395,26 @@ const Header: React.FC = () => {
                   )}
                 </>
               ) : (
-                <button onClick={() => handleProtectedNavigation('/auth/signin')} className="flex items-center gap-2 px-3 py-2 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition-all duration-300 hover:scale-105 shadow-sm">
-                  <UserRound className="w-5 h-5 text-blue-900 dark:text-blue-100" /> <span className="text-sm font-medium text-blue-900 dark:text-blue-100">Sign In</span>
+                <button onClick={() => handleProtectedNavigation('/auth/signin')} className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition-all duration-300 hover:scale-105 shadow-sm">
+                  <UserRound className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 text-blue-900 dark:text-blue-100" /> <span className="hidden xs:inline text-xs sm:text-sm font-medium text-blue-900 dark:text-blue-100">Sign In</span>
                 </button>
               )}
             </div>
 
-            <button onClick={toggleMode} className="rounded-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 p-2 shadow-md transition-all duration-300 hover:scale-110 hover:shadow-lg" aria-label="Toggle theme">
-              {mode === 'light' ? <Sun className="w-4 h-4 text-white" /> : <Moon className="w-4 h-4 text-white" />}
+            <button onClick={toggleMode} className="hidden md:block rounded-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 p-1.5 sm:p-2 shadow-md transition-all duration-300 hover:scale-110 hover:shadow-lg" aria-label="Toggle theme">
+              {mode === 'light' ? <Sun className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" /> : <Moon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />}
             </button>
           </div>
         </div>
 
         {/* Navigation Bar */}
         <div className="bg-blue-900 border-b border-blue-800">
-          <div className="flex items-center justify-between px-4 md:px-8 py-2">
+          <div className="flex items-center justify-between px-3 sm:px-4 md:px-8 lg:px-12 py-2">
             {/* Mobile Menu Button */}
             {isMobile && (
-              <div className="flex items-center gap-4 md:gap-6">
-                <button onClick={() => setIsMobileMenu(!isMobileMenu)} className="p-2 rounded-lg hover:bg-blue-800 transition-colors" aria-label={isMobileMenu ? 'Close menu' : 'Open menu'}>
-                  {isMobileMenu ? <X className="w-5 h-5 text-white" /> : <Menu className="w-5 h-5 text-white" />}
+              <div className="flex items-center gap-2 sm:gap-4 md:gap-6">
+                <button onClick={() => setIsMobileMenu(!isMobileMenu)} className="p-1.5 sm:p-2 rounded-lg hover:bg-blue-800 transition-colors" aria-label={isMobileMenu ? 'Close menu' : 'Open menu'}>
+                  {isMobileMenu ? <X className="w-4 h-4 sm:w-5 sm:h-5 text-white" /> : <Menu className="w-4 h-4 sm:w-5 sm:h-5 text-white" />}
                 </button>
               </div>
             )}

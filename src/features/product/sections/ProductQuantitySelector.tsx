@@ -25,19 +25,21 @@ const ProductQuantitySelector: React.FC<Props> = ({
   };
   
   const handleDecrease = () => {
-    if (quantity > 1) {
+    if (!disabled && quantity > 1) {
       onQuantityChange(quantity - 1);
     }
   };
 
   const handleIncrease = () => {
-    if (maxQuantity === 0 || quantity < maxQuantity) {
+    if (!disabled && (maxQuantity === 0 || quantity < maxQuantity)) {
       onQuantityChange(quantity + 1);
     }
   };
 
   // Handle direct input change
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (disabled) return;
+    
     const value = e.target.value;
     
     // Allow empty input (will be handled on blur)
@@ -67,6 +69,8 @@ const ProductQuantitySelector: React.FC<Props> = ({
 
   // Handle blur - reset to valid bounds
   const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    if (disabled) return;
+    
     const value = parseInt(e.target.value, 10);
     
     if (isNaN(value) || value < 1) {

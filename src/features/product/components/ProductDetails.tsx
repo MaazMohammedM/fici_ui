@@ -78,14 +78,12 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
   const handleSizeChange = (size: string) => {
     onSizeChange(size);
     // Update max quantity when size changes
-    if (availableQuantities[size]) {
-      setMaxQuantity(availableQuantities[size]);
-      // Reset quantity to 1 when size changes if needed
-      if (quantity > availableQuantities[size]) {
-        onQuantityChange(1);
-      }
-    } else {
-      setMaxQuantity(0);
+    const stockForSize = availableQuantities[size] || 0;
+    setMaxQuantity(stockForSize);
+    
+    // Reset quantity to 1 when size changes if needed
+    if (stockForSize === 0 || quantity > stockForSize) {
+      onQuantityChange(1);
     }
   };
 
@@ -473,7 +471,7 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
             quantity={quantity}
             maxQuantity={maxQuantity}
             onQuantityChange={onQuantityChange}
-            disabled={!selectedSize || isOutOfStock}
+            disabled={!selectedSize || maxQuantity <= 0}
           />
         </div>
       )}

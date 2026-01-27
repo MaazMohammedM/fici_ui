@@ -45,19 +45,19 @@ const PopularCategoriesSection: React.FC = () => {
         </div>
       </div>
 
-      {/* Tailwind grid layout - 2 mobile, 3 tablet, 4 desktop */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4 lg:gap-6">
+      {/* Responsive grid layout - 2 mobile, 2 tablet, 4 desktop */}
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 max-w-7xl mx-auto">
         {categoriesWithCount.map((category, index) => (
           <Link
             key={category.id}
             to={`/products?sub_category=${category.id}`}
-            className="animate-fade-in-up"
+            className="group animate-fade-in-up"
             style={{
               animationDelay: `${index * 150}ms` 
             }}
           >
             {/* Tech-premium glassmorphism card */}
-            <div className="relative aspect-[16/10] w-full overflow-hidden bg-gradient-to-br from-white/10 to-white/5 dark:from-black/20 dark:to-black/10 backdrop-blur-xl rounded-3xl border border-white/20 dark:border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_8px_32px_rgba(0,0,0,0.1)] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_12px_40px_rgba(0,0,0,0.15)] transition-all duration-300">
+            <div className="relative aspect-square w-full overflow-hidden bg-gradient-to-br from-white/10 to-white/5 dark:from-black/20 dark:to-black/10 backdrop-blur-xl rounded-3xl border border-white/20 dark:border-white/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.1),0_8px_32px_rgba(0,0,0,0.1)] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_12px_40px_rgba(0,0,0,0.15)] transition-all duration-300">
               {/* Image with premium loading */}
               <img
                 src={category.image}
