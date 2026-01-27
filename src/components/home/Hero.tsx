@@ -4,14 +4,14 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 
 // Import desktop images
 import pc1 from "../../assets/1000805150_pc.jpg";
-import pc2 from "../../assets/1000805146_pc.jpg";
+import pc2 from "../../assets/232139906_pc.png";
 import pc4 from "../../assets/1000805148_pc.jpg";
 import pc5 from "../../assets/1000805157_pc.jpg";
 import pc6 from "../../assets/1000805149_pc.jpg";
 
 // Import mobile images
 import mobile1 from "../../assets/1000806049_mobile.png";
-import mobile2 from "../../assets/1000806060_mobile.jpg";
+import mobile2 from "../../assets/232139906_mobile.png";
 import mobile3 from "../../assets/1000806089_mobile.jpg";
 import mobile5 from "../../assets/1000806094_mobile.jpg";
 import mobile6 from "../../assets/1000806095_mobile.jpg";
@@ -75,7 +75,7 @@ const Hero: React.FC = () => {
   return (
     <section className="relative w-full overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 dark:from-black dark:via-slate-950 dark:to-black">
       {/* Responsive container with safe height boundaries */}
-      <div className="relative w-full h-[70vh] min-h-[500px] max-h-[800px] sm:h-[75vh] sm:min-h-[550px] md:h-[80vh] md:min-h-[600px] lg:h-[85vh] lg:min-h-[650px] xl:h-[90vh] xl:min-h-[700px]">
+      <div className="relative w-full h-[50vh] min-h-[400px] max-h-[600px] sm:h-[55vh] sm:min-h-[450px] md:h-[60vh] md:min-h-[500px] lg:h-[65vh] lg:min-h-[550px] xl:h-[70vh] xl:min-h-[600px]">
         {heroSlides.map((slide, index) => (
           <div
             key={slide.id}
@@ -86,8 +86,8 @@ const Hero: React.FC = () => {
             }`}
           >
             {/* Image container */}
-            <div className="absolute inset-0 flex items-center justify-center">
-              <picture className="w-full h-full flex items-center justify-center">
+            <div className="absolute inset-0">
+              <picture className="w-full h-full">
                 <source 
                   media="(min-width: 768px)" 
                   srcSet={desktopImages[index]}
