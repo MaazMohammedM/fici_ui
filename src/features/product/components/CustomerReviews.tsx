@@ -163,11 +163,11 @@ const CustomerReviews: React.FC<CustomerReviewsProps> = ({ productId, className 
           )}
         </div>
 
-        {user && !userHasDeliveredOrder && !verifyingPurchase && (
+        {/* {user && !userHasDeliveredOrder && !verifyingPurchase && (
           <p className="text-sm text-gray-500 dark:text-gray-400 italic">
             Purchase this product to write a review
           </p>
-        )}
+        )} */}
 
         {verifyingPurchase && (
           <div className="flex items-center justify-center text-sm text-gray-500 dark:text-gray-400">

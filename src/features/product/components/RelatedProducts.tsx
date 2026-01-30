@@ -1,21 +1,32 @@
 import React, { useMemo } from 'react';
 import type { Product } from '../../../types/product';
 import ProductCard from './ProductCard';
-import { filterInStockProductsWithCount } from '@lib/utils/stockFilter';
+import { getSmartRelatedProducts, getRelatedProductsWithFallback } from '@lib/utils/stockFilter';
 
 interface RelatedProductsProps {
   products: Product[];
+  currentProduct?: Product; // Add current product for smart matching
+  allProducts?: Product[]; // Add all products for fallback logic
   className?: string;
 }
 
 const RelatedProducts: React.FC<RelatedProductsProps> = ({ 
   products,
+  currentProduct,
+  allProducts,
   className = ''
 }) => {
-  // Filter out out-of-stock products and ensure consistent count
+  // Smart related product matching with fallback logic
   const inStockProducts = useMemo(() => {
-    return filterInStockProductsWithCount(products, 4); // Always show max 4 products
-  }, [products]);
+    if (currentProduct && allProducts) {
+      // Use smart matching with fallbacks when we have current product and all products
+      const smartRelated = getSmartRelatedProducts(currentProduct, allProducts, 12);
+      return getRelatedProductsWithFallback(currentProduct, allProducts, smartRelated, 12);
+    } else {
+      // Fallback to simple filtering for backward compatibility
+      return products.slice(0, 12);
+    }
+  }, [currentProduct, allProducts, products]);
 
   if (!inStockProducts || inStockProducts.length === 0) return null;
 
@@ -23,9 +34,12 @@ const RelatedProducts: React.FC<RelatedProductsProps> = ({
     <div className={`w-full bg-gray-50 dark:bg-dark3 ${className}`}>
       <div className="max-w-screen-xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         <div className="overflow-x-auto pb-4 scrollbar-hide px-1">
-          <div className="grid grid-flow-col auto-cols-[150px] sm:auto-cols-[160px] md:grid-flow-row md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 sm:gap-4 w-max md:w-full md:px-0">
+          <div className="flex gap-4 sm:gap-6">
             {inStockProducts.map((product) => (
-              <div key={product.product_id} className="w-full h-full">
+              <div 
+                key={product.product_id} 
+                className="flex-shrink-0 w-40 sm:w-44 md:w-48 lg:w-52 xl:w-56 2xl:w-60"
+              >
                 <ProductCard 
                   product={product}
                   className="h-full"

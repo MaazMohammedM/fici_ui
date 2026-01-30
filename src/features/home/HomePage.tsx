@@ -18,18 +18,24 @@ const HomePage: React.FC = () => {
       <Hero />
       
       {/* Trust Strip - Build credibility */}
-      <TrustStrip />
+      <div className="mt-8">
+        <TrustStrip />
+      </div>
       
       {/* Top Categories - Easy navigation */}
-      <section className="bg-gray-50 dark:bg-gray-900">
+      <section className="bg-gray-50 dark:bg-gray-900 -mt-8">
         <CategoryGrid />
       </section>
       
       {/* Best Sellers - Social proof */}
-      <BestSellers />
+      <div className="-mt-20">
+        <BestSellers />
+      </div>
       
       {/* New Arrivals - Fresh content */}
-      <NewArrivals />
+      <div className="-mt-20">
+        <NewArrivals />
+      </div>
       
       {/* Why Choose Us - Value proposition */}
       {/* <WhyChooseUs /> */}

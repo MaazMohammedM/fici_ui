@@ -129,18 +129,18 @@ const ProductSizeSelector: React.FC<Props> = ({
       ) : displaySizeRange && displaySizeRange.length > 0 ? (
         isFootwear ? (
           <div className="relative" ref={dropdownRef}>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-4">
               {/* Custom Dropdown */}
               <div className="relative">
                 <button
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  className="h-10 inline-flex items-center justify-between gap-1.5 px-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-dark2 hover:border-accent transition-colors min-w-[80px] sm:min-w-[100px]"
+                  className="h-8 inline-flex items-center justify-between gap-1.5 px-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-dark2 hover:border-accent transition-colors min-w-[80px] sm:min-w-[100px]"
                 >
                   <span className="text-gray-900 dark:text-white font-medium text-sm">
                     {selectedSize || 'Size'}
                   </span>
                   <ChevronDown 
-                    className={`w-3.5 h-3.5 text-gray-500 transition-transform flex-shrink-0 ${isDropdownOpen ? 'rotate-180' : ''}`} 
+                    className={`w-3 h-3 text-gray-500 transition-transform flex-shrink-0 ${isDropdownOpen ? 'rotate-180' : ''}`} 
                   />
                 </button>
                 
@@ -155,7 +155,7 @@ const ProductSizeSelector: React.FC<Props> = ({
                         <button
                           key={size}
                           onClick={() => handleSizeChange(size)}
-                          className={`w-full flex items-center justify-center px-2 py-1.5 border-b border-gray-100 dark:border-gray-700 last:border-b-0 transition-colors ${
+                          className={`w-full flex items-center justify-center px-2 py-1 border-b border-gray-100 dark:border-gray-700 last:border-b-0 transition-colors ${
                             isSelected
                               ? 'bg-accent text-white'
                               : 'hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-900 dark:text-white'
@@ -171,8 +171,8 @@ const ProductSizeSelector: React.FC<Props> = ({
 
               {/* Stock unavailable message - inline */}
               {selectedSize && !availableSizes.includes(selectedSize) && (
-                <div className="inline-flex items-center gap-1 px-2 py-1.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex-shrink-0 max-[320px]:gap-0.5 max-[320px]:px-1.5">
-                  <span className="text-xs sm:text-sm text-red-700 dark:text-red-300 whitespace-nowrap max-[320px]:text-xs">
+                <div className="inline-flex items-center gap-1 px-2 py-1 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex-shrink-0 max-[320px]:gap-0.5 max-[320px]:px-1.5">
+                  <span className="text-xs text-red-700 dark:text-red-300 whitespace-nowrap max-[320px]:text-xs">
                     Size {selectedSize} unavailable
                   </span>
                   <button
@@ -184,51 +184,95 @@ const ProductSizeSelector: React.FC<Props> = ({
                   </button>
                 </div>
               )}
+
+              {/* Quantity Selector - when size is in stock */}
+              {isSelectedSizeAvailable && selectedSizeStock > 0 && (
+                <div className="flex-shrink-0">
+                  <ProductQuantitySelector
+                    quantity={currentQuantity}
+                    maxQuantity={selectedSizeStock}
+                    onQuantityChange={onQuantityChange ?? (() => {})}
+                    className="h-8 scale-75"
+                  />
+                </div>
+              )}
             </div>
           </div>
         ) : (
-          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 dark:scrollbar-thumb-gray-600 dark:scrollbar-track-gray-800">
-            {displaySizeRange.map((size) => {
-              const isAvailable = availableSizes.includes(size);
-              const isSelected = selectedSize === size;
-              const availableQty = availableQuantities[size] || 0;
-              const sizePrice = getSizePrice(size);
+          <div className="flex flex-wrap items-center gap-4">
+            {/* Size Buttons Container */}
+            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 dark:scrollbar-thumb-gray-600 dark:scrollbar-track-gray-800">
+              {displaySizeRange.map((size) => {
+                const isAvailable = availableSizes.includes(size);
+                const isSelected = selectedSize === size;
+                const availableQty = availableQuantities[size] || 0;
+                const sizePrice = getSizePrice(size);
 
-              return (
-                <button
-                  key={size}
-                  onClick={() => isAvailable ? handleSizeChange(size) : onWhatsAppContact(size)}
-                  className={`relative flex flex-col items-center justify-center p-2 rounded-lg border-2 transition-all min-w-[60px] sm:min-w-[70px] ${
-                    isSelected && isAvailable
-                      ? "border-accent bg-accent text-white"
-                      : isAvailable
-                      ? "border-gray-300 dark:border-gray-600 hover:border-accent text-gray-900 dark:text-white bg-white dark:bg-dark2"
-                      : "border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-800 dark:bg-red-900/20 dark:text-red-400 cursor-pointer"
-                  }`}
-                  title={
-                    !isAvailable
-                      ? `Size ${size} is currently unavailable. Would you like to inquire about this size on WhatsApp? We'll notify you as soon as it's back in stock.` 
-                      : shouldShowSizePrices && sizePrice ? `Price: ₹${sizePrice.toLocaleString('en-IN')}` : 'Select this size'
-                  }
-                >
-                  <span className="text-sm font-medium">{size}</span>
-                  {shouldShowSizePrices && sizePrice && (
-                    <span className={`text-xs mt-0.5 ${
+                return (
+                  <button
+                    key={size}
+                    onClick={() => handleSizeChange(size)}
+                    className={`relative flex flex-col items-center justify-center p-2 rounded-lg border-2 transition-all min-w-[60px] sm:min-w-[70px] h-10 ${
                       isSelected && isAvailable
-                        ? "text-white/90"
+                        ? "border-accent bg-accent text-white"
+                        : isSelected && !isAvailable
+                        ? "border-accent bg-accent text-white"
                         : isAvailable
-                        ? "text-gray-600 dark:text-gray-400"
-                        : "text-red-600 dark:text-red-400"
-                    }`}>
-                      ₹{sizePrice.toLocaleString('en-IN')}
-                    </span>
-                  )}
-                  {!isAvailable && (
-                    <FaWhatsapp className="absolute -top-1 -right-1 w-4 h-4 text-green-500 bg-white dark:bg-dark2 rounded-full" />
-                  )}
+                        ? "border-gray-300 dark:border-gray-600 hover:border-accent text-gray-900 dark:text-white bg-white dark:bg-dark2"
+                        : "border-gray-300 dark:border-gray-600 hover:border-accent text-gray-900 dark:text-white bg-white dark:bg-dark2"
+                    }`}
+                    title={
+                      !isAvailable
+                        ? `Size ${size} is currently unavailable. Select to inquire on WhatsApp` 
+                        : shouldShowSizePrices && sizePrice ? `Price: ₹${sizePrice.toLocaleString('en-IN')}` : 'Select this size'
+                    }
+                  >
+                    <span className="text-sm font-medium">{size}</span>
+                    {shouldShowSizePrices && sizePrice && (
+                      <span className={`text-xs mt-0.5 ${
+                        isSelected && isAvailable
+                          ? "text-white/90"
+                          : isSelected && !isAvailable
+                          ? "text-white/90"
+                          : isAvailable
+                          ? "text-gray-600 dark:text-gray-400"
+                          : "text-gray-600 dark:text-gray-400"
+                      }`}>
+                        ₹{sizePrice.toLocaleString('en-IN')}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Stock unavailable message - inline */}
+            {selectedSize && !availableSizes.includes(selectedSize) && (
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex-shrink-0 h-10">
+                <span className="text-sm text-red-700 dark:text-red-300 whitespace-nowrap">
+                  Size {selectedSize} unavailable
+                </span>
+                <button
+                  onClick={() => onWhatsAppContact(selectedSize)}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-500 hover:bg-green-600 text-white text-xs rounded transition-colors whitespace-nowrap"
+                >
+                  <FaWhatsapp className="w-3 h-3" />
+                  <span>Ask us</span>
                 </button>
-              );
-            })}
+              </div>
+            )}
+
+            {/* Quantity Selector - inline */}
+            {isSelectedSizeAvailable && selectedSizeStock > 0 && (
+              <div className="flex-shrink-0">
+                <ProductQuantitySelector
+                  quantity={currentQuantity}
+                  maxQuantity={selectedSizeStock}
+                  onQuantityChange={onQuantityChange ?? (() => {})}
+                  className="h-10 scale-75"
+                />
+              </div>
+            )}
           </div>
         )
       ) : isBag && isOutOfStock ? (
@@ -262,11 +306,10 @@ const ProductSizeSelector: React.FC<Props> = ({
         </div>
       )}
 
-      <div className="text-sm text-gray-600 dark:text-gray-400 flex items-start gap-2">
+      <div className="text-sm text-gray-600 dark:text-gray-400 flex items-start gap-2 mt-6">
         <FaWhatsapp className="w-4 h-4 flex-shrink-0 mt-0.5 text-green-500" />
         <span>
-          <span className="font-medium text-red-500">Size unavailable?</span> Click on the unavailable size to
-          inquire on WhatsApp
+          <span className="font-medium text-red-500">Need help?</span> Select a size to see availability or inquire on WhatsApp
         </span>
       </div>
     </div>
