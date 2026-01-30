@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import ProductQuantitySelector from "./ProductQuantitySelector";
 import { Ruler, ChevronDown } from "lucide-react";
 import { FaWhatsapp } from "react-icons/fa";
 import { hasValidSizePrices } from '@lib/productAvailability';
@@ -43,12 +44,10 @@ const ProductSizeSelector: React.FC<Props> = ({
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   
-  // Determine which sizes to display - use fullSizeRange to show all sizes
   const displaySizeRange = originalFullSizeRange.length > 0 ? originalFullSizeRange : availableSizes;
   const isFootwear = category?.toLowerCase() === 'footwear' || category?.toLowerCase() === 'shoes' || category?.toLowerCase() === 'sneakers';
   const shouldShowSizeGuide = isFootwear || subCategory?.toLowerCase() === 'shoes' || subCategory?.toLowerCase() === 'sandals';
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -63,43 +62,35 @@ const ProductSizeSelector: React.FC<Props> = ({
   }, []);
 
   const getSizePrice = (size: string): number | null => {
-    // Only show size-specific prices if size_prices has valid values
     if (hasValidSizePrices(sizePrices) && sizePrices && sizePrices[size]) {
       return sizePrices[size];
     }
-    // Fall back to discount price if no size-specific prices
     if (discountPrice && !isNaN(discountPrice)) {
       return discountPrice;
     }
     return null;
   };
 
-  // Handle size change with quantity clamping
   const handleSizeChange = (size: string) => {
     const availableStockForSize = availableQuantities[size] || 0;
     
-    // Reset quantity to 1 if size has no stock, or clamp to available stock
     if (availableStockForSize === 0) {
-      onQuantityChange(1); // Reset to 1 for out of stock sizes
+      onQuantityChange?.(1);
     } else if (currentQuantity > availableStockForSize && onQuantityChange) {
       onQuantityChange(availableStockForSize);
     }
     
-    // Call the original size change handler
     onSizeChange(size);
     setIsDropdownOpen(false);
   };
 
-  // Check if we should show size-specific prices
   const shouldShowSizePrices = hasValidSizePrices(sizePrices);
-
-  // Check if selected size is available
   const isSelectedSizeAvailable = selectedSize && availableSizes.includes(selectedSize);
   const selectedSizeStock = selectedSize ? (availableQuantities[selectedSize] || 0) : 0;
 
   return (
-    <div className="min-h-[120px]">
-      <div className="flex items-center justify-between mb-2">
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-primary dark:text-secondary">
           Size
         </h3>
@@ -137,26 +128,25 @@ const ProductSizeSelector: React.FC<Props> = ({
         </div>
       ) : displaySizeRange && displaySizeRange.length > 0 ? (
         isFootwear ? (
-          // Dropdown for footwear categories
           <div className="relative" ref={dropdownRef}>
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
               {/* Custom Dropdown */}
               <div className="relative">
                 <button
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  className="w-32 flex items-center justify-between p-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-dark2 hover:border-accent transition-colors"
+                  className="h-10 inline-flex items-center justify-between gap-1.5 px-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-dark2 hover:border-accent transition-colors min-w-[80px] sm:min-w-[100px]"
                 >
-                  <span className="text-gray-900 dark:text-white font-medium">
-                    {selectedSize || 'Select Size'}
+                  <span className="text-gray-900 dark:text-white font-medium text-sm">
+                    {selectedSize || 'Size'}
                   </span>
                   <ChevronDown 
-                    className={`w-5 h-5 text-gray-500 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} 
+                    className={`w-3.5 h-3.5 text-gray-500 transition-transform flex-shrink-0 ${isDropdownOpen ? 'rotate-180' : ''}`} 
                   />
                 </button>
                 
                 {/* Dropdown Options */}
                 {isDropdownOpen && (
-                  <div className="absolute z-10 w-32 mt-1 bg-white dark:bg-dark2 border-2 border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                  <div className="absolute z-10 top-full left-0 mt-1 bg-white dark:bg-dark2 border-2 border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-48 overflow-y-auto min-w-[80px] sm:min-w-[100px]">
                     {displaySizeRange.map((size) => {
                       const isSelected = selectedSize === size;
                       const sizePrice = getSizePrice(size);
@@ -165,7 +155,7 @@ const ProductSizeSelector: React.FC<Props> = ({
                         <button
                           key={size}
                           onClick={() => handleSizeChange(size)}
-                          className={`w-full flex items-center justify-center px-2 py-2 border-b border-gray-100 dark:border-gray-700 last:border-b-0 transition-colors ${
+                          className={`w-full flex items-center justify-center px-2 py-1.5 border-b border-gray-100 dark:border-gray-700 last:border-b-0 transition-colors ${
                             isSelected
                               ? 'bg-accent text-white'
                               : 'hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-900 dark:text-white'
@@ -179,27 +169,24 @@ const ProductSizeSelector: React.FC<Props> = ({
                 )}
               </div>
 
-              {/* Stock unavailable message - pushed to right */}
+              {/* Stock unavailable message - inline */}
               {selectedSize && !availableSizes.includes(selectedSize) && (
-                <div className="flex-shrink-0">
-                  <div className="inline-flex items-center space-x-2 px-3 py-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                    <span className="text-sm text-red-700 dark:text-red-300 whitespace-nowrap">
-                      Size {selectedSize} unavailable
-                    </span>
-                    <button
-                      onClick={() => onWhatsAppContact(selectedSize)}
-                      className="flex items-center space-x-1 px-2 py-1 bg-green-500 hover:bg-green-600 text-white text-xs rounded transition-colors whitespace-nowrap"
-                    >
-                      <FaWhatsapp className="w-3 h-3" />
-                      <span>Ask us</span>
-                    </button>
-                  </div>
+                <div className="inline-flex items-center gap-1 px-2 py-1.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg flex-shrink-0 max-[320px]:gap-0.5 max-[320px]:px-1.5">
+                  <span className="text-xs sm:text-sm text-red-700 dark:text-red-300 whitespace-nowrap max-[320px]:text-xs">
+                    Size {selectedSize} unavailable
+                  </span>
+                  <button
+                    onClick={() => onWhatsAppContact(selectedSize)}
+                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-green-500 hover:bg-green-600 text-white text-xs rounded transition-colors whitespace-nowrap max-[320px]:px-1 max-[320px]:py-0.5"
+                  >
+                    <FaWhatsapp className="w-3 h-3 max-[320px]:w-2.5 max-[320px]:h-2.5" />
+                    <span className="max-[320px]:hidden">Ask us</span>
+                  </button>
                 </div>
               )}
             </div>
           </div>
         ) : (
-          // Original button layout for non-footwear categories
           <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 dark:scrollbar-thumb-gray-600 dark:scrollbar-track-gray-800">
             {displaySizeRange.map((size) => {
               const isAvailable = availableSizes.includes(size);
@@ -220,7 +207,7 @@ const ProductSizeSelector: React.FC<Props> = ({
                   }`}
                   title={
                     !isAvailable
-                      ? `Size ${size} is currently unavailable. Would you like to inquire about this size on WhatsApp? We'll notify you as soon as it's back in stock.`
+                      ? `Size ${size} is currently unavailable. Would you like to inquire about this size on WhatsApp? We'll notify you as soon as it's back in stock.` 
                       : shouldShowSizePrices && sizePrice ? `Price: ₹${sizePrice.toLocaleString('en-IN')}` : 'Select this size'
                   }
                 >
@@ -264,11 +251,10 @@ const ProductSizeSelector: React.FC<Props> = ({
         </div>
       )}
 
-      {/* Prominent message for when no sizes are available */}
       {displaySizeRange.length === 0 && (
-        <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+        <div className="p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
           <div className="flex items-center justify-center text-blue-700 dark:text-blue-300">
-            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
             </svg>
             <span className="text-sm font-medium">Please select a color to see available sizes</span>
@@ -276,8 +262,8 @@ const ProductSizeSelector: React.FC<Props> = ({
         </div>
       )}
 
-      <div className="mt-3 text-sm text-gray-600 dark:text-gray-400 flex items-center">
-        <FaWhatsapp className="w-4 h-4 inline-block mr-2 text-green-500" />
+      <div className="text-sm text-gray-600 dark:text-gray-400 flex items-start gap-2">
+        <FaWhatsapp className="w-4 h-4 flex-shrink-0 mt-0.5 text-green-500" />
         <span>
           <span className="font-medium text-red-500">Size unavailable?</span> Click on the unavailable size to
           inquire on WhatsApp

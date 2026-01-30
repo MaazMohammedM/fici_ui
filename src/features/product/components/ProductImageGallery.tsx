@@ -506,12 +506,17 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
 
       {/* Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/90 z-40 flex items-center justify-center p-4" onClick={closeImageModal}>
+        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
+          {/* Close button positioned in the overlay */}
+          <button 
+            onClick={closeImageModal} 
+            className="absolute top-4 right-4 text-white p-3 rounded-full bg-black/50 hover:bg-black/70 transition-all duration-200 z-50 shadow-lg"
+            aria-label="Close image modal"
+          >
+            <X className="w-6 h-6 sm:w-8 sm:h-8" />
+          </button>
+          
           <div className="relative w-full max-w-4xl max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
-            <button onClick={closeImageModal} className="absolute -top-10 right-0 text-white">
-              <X className="w-8 h-8" />
-            </button>
-
             <img
               src={finalImages[modalImageIndex]}
               alt={`${productName} - ${modalImageIndex + 1}`}

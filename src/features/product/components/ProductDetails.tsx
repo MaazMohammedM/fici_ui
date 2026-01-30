@@ -461,20 +461,8 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
         </div>
       )}
 
-      {/* Pincode Search */}
-      <PincodeSearch />
 
-      {/* Quantity Selector - Only show if a size is selected */}
-      {selectedSize && (
-        <div className="pt-3 border-t border-gray-200">
-          <ProductQuantitySelector
-            quantity={quantity}
-            maxQuantity={maxQuantity}
-            onQuantityChange={onQuantityChange}
-            disabled={!selectedSize || maxQuantity <= 0}
-          />
-        </div>
-      )}
+
 
       {/* Action Buttons and Trust Badge */}
       <div className="pt-3 space-y-3">
@@ -506,6 +494,8 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
                       loading="lazy"
                     />
                   </div>
+            {/* Pincode Search */}
+      <PincodeSearch />
       {/* Product Description */}
       {currentProduct.description && (
         <ProductDescription

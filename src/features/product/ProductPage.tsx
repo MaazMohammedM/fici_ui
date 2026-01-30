@@ -238,6 +238,9 @@ const ProductPage: React.FC = () => {
     }
   }, [selectedCategories]);
 
+  // Track if this is the initial load to prevent race conditions
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+
   useEffect(() => {
     const params = new URLSearchParams(location.search);
 
@@ -246,7 +249,7 @@ const ProductPage: React.FC = () => {
     const subCategoryParams = params.getAll("sub_category");
     const sizeParams = params.getAll("size");
     const sortParam = params.get("sort") as 'price_low_to_high' | 'price_high_to_low' | null;
-    const q = params.get("q") || undefined;
+    const q = params.get("q") || "";
     const pageStr = params.get("page");
     const page = pageStr ? Math.max(1, parseInt(pageStr, 10) || 1) : 1;
 
@@ -289,8 +292,18 @@ const ProductPage: React.FC = () => {
     setSelectedSubCategories(subCategoryParams);
     setSelectedSizes(sizeParams);
     if (sortParam) setSortBy(sortParam);
-    setSearchInput(q || "");
+    setSearchInput(q);
   }, [location.search, fetchProducts]);
+
+  // Separate effect to handle initial load completion after debounced input syncs
+  useEffect(() => {
+    if (isInitialLoad && debouncedSearchInput !== "") {
+      const currentSearchParam = new URLSearchParams(location.search).get("q") || "";
+      if (debouncedSearchInput === currentSearchParam) {
+        setIsInitialLoad(false);
+      }
+    }
+  }, [debouncedSearchInput, location.search, isInitialLoad]);
 
   useEffect(() => {
     const { filteredProducts } = useProductStore.getState();
@@ -316,10 +329,17 @@ const ProductPage: React.FC = () => {
 
   useEffect(() => {
     const currentSearchParam = new URLSearchParams(location.search).get("q") || "";
+    
+    // Don't trigger search during initial load - let URL params take precedence
+    if (isInitialLoad) {
+      return;
+    }
+    
+    // Only trigger search if user has actually typed something different from URL
     if (debouncedSearchInput !== currentSearchParam) {
       handleSearch();
     }
-  }, [debouncedSearchInput, handleSearch]);
+  }, [debouncedSearchInput, handleSearch, isInitialLoad]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {

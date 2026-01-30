@@ -2,7 +2,6 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { useProductStore } from "@store/productStore";
 import type { Category } from "../../types/product";
-import { ArrowRight } from "lucide-react";
 
 // Import category images
 import shoesImage from "@/assets/1000876119.jpg";
@@ -41,11 +40,9 @@ const CategoryGrid: React.FC = () => {
           <div className="w-full flex justify-end mt-4 sm:mt-0 sm:w-auto">
             <Link
               to="/products"
-              className="inline-flex items-center gap-2 bg-black text-white px-5 sm:px-6 py-2.5 sm:py-3 rounded-lg font-semibold hover:bg-gray-800 transition-all duration-300 hover:scale-105 shadow-lg text-sm sm:text-base"
+              className="inline-flex items-center gap-2 bg-black dark:bg-white text-white dark:text-black px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 dark:hover:bg-gray-200 transition-all duration-300 hover:scale-105 shadow-lg"
             >
-              <span className="hidden sm:inline">View All Products</span>
-              <span className="sm:hidden">View All</span>
-              <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
+              See All
             </Link>
           </div>
         </div>
@@ -78,9 +75,6 @@ const CategoryGrid: React.FC = () => {
                   <div className="flex items-center justify-between text-white">
                     <div className="flex-1 min-w-0 pr-2">
                       <h3 className="text-xs sm:text-sm lg:text-base font-bold mb-1 truncate">{category.name}</h3>
-                    </div>
-                    <div className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center group-hover:bg-white/30 transition-colors flex-shrink-0">
-                      <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4 lg:w-5 lg:h-5" />
                     </div>
                   </div>
                 </div>
