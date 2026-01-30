@@ -141,19 +141,6 @@ const UltraEmptyState: React.FC<UltraEmptyStateProps> = ({
 
               {/* Action Buttons */}
               <div className="flex flex-wrap gap-3 justify-center w-full">
-                {showClearFiltersButton && onClearFilters && (
-                  <button
-                    onClick={onClearFilters}
-                    className="group relative px-8 py-3 bg-gradient-to-r from-primary to-primary/90 text-white rounded-xl font-medium transition-all duration-300 hover:scale-105 hover:shadow-xl overflow-hidden"
-                  >
-                    {/* Shimmer effect */}
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
-                    <span className="relative flex items-center gap-2">
-                      <XCircle className="w-4 h-4" />
-                      Clear All Filters
-                    </span>
-                  </button>
-                )}
 
                 {showRefreshButton && onRefresh && (
                   <button

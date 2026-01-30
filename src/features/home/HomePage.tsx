@@ -21,7 +21,9 @@ const HomePage: React.FC = () => {
       <TrustStrip />
       
       {/* Top Categories - Easy navigation */}
-      <CategoryGrid />
+      <section className="bg-gray-50 dark:bg-gray-900">
+        <CategoryGrid />
+      </section>
       
       {/* Best Sellers - Social proof */}
       <BestSellers />

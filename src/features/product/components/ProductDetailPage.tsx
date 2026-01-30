@@ -13,6 +13,7 @@ import ProductDetails from './ProductDetails';
 import CustomerReviews from './CustomerReviews';
 import RelatedProducts from './RelatedProducts';
 import AlertModal from '@components/ui/AlertModal';
+import TrustStrip from '../../../components/home/TrustStrip';
 import { useProductVariant } from '../hooks/useProductVariant';
 import { useProductActions } from '../hooks/useProductActions';
 import trustImg from '../../../assets/trust-badges.png';
@@ -203,22 +204,22 @@ const ProductDetailPage: React.FC = () => {
               : 'We couldn\'t find the product you\'re looking for. It might have been moved or no longer available.'
             }
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
             <button
               onClick={() => window.location.reload()}
-              className="px-6 py-3 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors flex-1 sm:flex-none"
+              className="px-4 sm:px-6 py-2.5 sm:py-3 bg-accent text-white rounded-lg hover:bg-accent/90 transition-colors flex-1 sm:flex-none text-sm sm:text-base font-medium"
             >
               {isNetworkError ? 'Try Again' : 'Refresh Page'}
             </button>
             <button
               onClick={() => navigate('/products')}
-              className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex-1 sm:flex-none"
+              className="px-4 sm:px-6 py-2.5 sm:py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex-1 sm:flex-none text-sm sm:text-base font-medium"
             >
               Browse Products
             </button>
             <button
               onClick={() => navigate(-1)}
-              className="px-6 py-3 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors flex-1 sm:flex-none"
+              className="px-4 sm:px-6 py-2.5 sm:py-3 border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors flex-1 sm:flex-none text-sm sm:text-base font-medium"
             >
               Go Back
             </button>
@@ -233,11 +234,11 @@ const ProductDetailPage: React.FC = () => {
       <div className="bg-white dark:bg-dark1">
         {/* Success Message */}
         {productActions.showSuccessMessage && (
-          <div className="fixed top-4 left-4 right-4 sm:left-auto sm:right-4 z-50 bg-green-500 text-white px-4 sm:px-6 py-3 rounded-lg shadow-lg flex items-center gap-3 animate-in slide-in-from-top-2 duration-300 max-w-md sm:max-w-none border border-green-400">
-            <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="fixed top-2 left-2 right-2 sm:left-auto sm:right-4 sm:top-4 z-50 bg-green-500 text-white px-3 sm:px-6 py-2 sm:py-3 rounded-lg shadow-lg flex items-center gap-2 sm:gap-3 animate-in slide-in-from-top-2 duration-300 max-w-xs sm:max-w-md border border-green-400">
+            <svg className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
             </svg>
-            <span className="text-sm sm:text-base flex-1 pr-2">
+            <span className="text-xs sm:text-sm sm:text-base flex-1 pr-1 sm:pr-2">
               {productActions.successMessageType === 'cart' && 'Product added to cart successfully!'}
               {productActions.successMessageType === 'wishlist_add' && 'Product added to wishlist successfully!'}
               {productActions.successMessageType === 'wishlist_remove' && 'Product removed from wishlist successfully!'}
@@ -247,7 +248,7 @@ const ProductDetailPage: React.FC = () => {
               className="flex-shrink-0 p-1 hover:bg-green-600 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-green-300"
               aria-label="Close success message"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>
@@ -255,10 +256,10 @@ const ProductDetailPage: React.FC = () => {
         )}
 
         {/* Main Product Section */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          <div className="lg:grid lg:grid-cols-[40%_60%] lg:gap-8 relative">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 py-6 sm:py-8">
+          <div className="grid grid-cols-1 lg:grid-cols-[40%_60%] lg:gap-6 xl:gap-8 relative">
             {/* Left Column - Product Images (40%) */}
-            <div className="mb-8 lg:mb-0">
+            <div className="mb-6 lg:mb-0">
               <ProductImageGallery
                 selectedVariant={productVariant.selectedVariant}
                 productName={currentProduct.name}
@@ -269,7 +270,7 @@ const ProductDetailPage: React.FC = () => {
             </div>
 
             {/* Right Column - Product Details (60%) */}
-            <div ref={rightColumnRef} className="sticky top-4 relative">
+            <div ref={rightColumnRef} className="sticky top-2 lg:top-4 relative">
               {/* Zoom preview overlay - fills the 60% space with dynamic viewport height constraint */}
               {zoomState.isHovering && zoomState.showLens && !zoomState.isZoomDisabled && zoomPaneMaxHeight && (
                 <div 
@@ -291,7 +292,7 @@ const ProductDetailPage: React.FC = () => {
                 </div>
               )}
 
-              <div className={`bg-white dark:bg-dark2 p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 ${zoomState.isHovering ? 'opacity-0' : 'opacity-100'} transition-opacity duration-200`}>
+              <div className={`bg-white dark:bg-dark2 p-4 sm:p-6 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 ${zoomState.isHovering ? 'opacity-0' : 'opacity-100'} transition-opacity duration-200`}>
                 <ProductDetails
                   currentProduct={currentProduct}
                   selectedVariant={productVariant.selectedVariant}
@@ -317,55 +318,8 @@ const ProductDetailPage: React.FC = () => {
               </div>
 
               {/* Trust Badges */}
-              <div className="mt-6">
-                <img
-                  src={trustImg}
-                  alt="3 Days Exchange, Made in India, Free Delivery"
-                  className="w-full max-w-md mx-auto rounded-xl shadow-sm object-contain dark:brightness-95"
-                  loading="lazy"
-                  onError={(e) => {
-                    const target = e.currentTarget as HTMLImageElement;
-                    const fallbackElement = target.nextElementSibling as HTMLElement;
-
-                    if (fallbackElement) {
-                      target.style.display = 'none';
-                      fallbackElement.style.display = 'grid';
-                    }
-                  }}
-                />
-
-                {/* Fallback UI (if image fails) */}
-                <div
-                  className="hidden grid-cols-3 gap-4 mt-6 px-4"
-                  style={{ display: 'none' }}
-                >
-                  <div className="p-4 bg-gray-50 dark:bg-dark2 rounded-xl text-center border border-gray-200 dark:border-gray-700">
-                    <p className="text-sm font-semibold text-gray-800 dark:text-white">
-                      3 Days Exchange
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Policy
-                    </p>
-                  </div>
-
-                  <div className="p-4 bg-gray-50 dark:bg-dark2 rounded-xl text-center border border-gray-200 dark:border-gray-700">
-                    <p className="text-sm font-semibold text-gray-800 dark:text-white">
-                      Made in India
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Quality Assured
-                    </p>
-                  </div>
-
-                  <div className="p-4 bg-gray-50 dark:bg-dark2 rounded-xl text-center border border-gray-200 dark:border-gray-700">
-                    <p className="text-sm font-semibold text-gray-800 dark:text-white">
-                      Free Delivery
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      3–7 Days
-                    </p>
-                  </div>
-                </div>
+              <div className="mt-6 sm:mt-8 -mx-4 sm:mx-0">
+                <TrustStrip />
               </div>
 
             </div>

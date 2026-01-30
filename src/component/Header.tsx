@@ -160,6 +160,7 @@ const Header: React.FC = () => {
     if (!searchQuery.trim()) return;
     handleProtectedNavigation(`/products?q=${encodeURIComponent(searchQuery.trim())}`);
     setIsSearch(false);
+    setSearchQuery(''); // Clear search query after submission
   };
 
   useEffect(() => {
@@ -200,7 +201,7 @@ const Header: React.FC = () => {
             <>
               <button
                 onMouseEnter={() => openDropdown(label)}
-                className="flex items-center justify-center gap-1 px-2 sm:px-3 py-2 text-[11px] sm:text-[12px] md:text-[13px] lg:text-[14px] xl:text-[16px] font-bold uppercase tracking-[0.08em] transition-all duration-200 hover:scale-105 whitespace-nowrap flex-1 bg-blue-900 text-white hover:bg-blue-800 shadow-sm font-JosefinSansBold border-b border-blue-800"
+                className="flex items-center justify-center gap-1 px-2 sm:px-3 py-2 text-[11px] sm:text-[12px] md:text-[13px] lg:text-[14px] xl:text-[16px] font-bold uppercase tracking-[0.08em] transition-all duration-200 hover:scale-105 whitespace-nowrap flex-1 bg-[#11224C] text-white hover:bg-[#0D1A3A] shadow-sm font-JosefinSansBold border-b border-[#0D1A3A]"
                 aria-expanded={activeDropdown === label}
               >
                 {label} <ChevronDown className="w-4 h-4 transition-transform duration-200" />
@@ -218,7 +219,7 @@ const Header: React.FC = () => {
                           key={d.path}
                           to={d.path} 
                           onClick={(e) => handleProtectedNavigation(d.path, e)}
-                          className="block px-4 py-2 text-sm font-dropdown text-blue-900 dark:text-white hover:bg-blue-50 dark:hover:bg-gray-700 transition-colors rounded-lg"
+                          className="block px-4 py-2 text-sm font-dropdown text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-700 transition-colors rounded-lg"
                         >
                           {d.label}
                         </NavLink>
@@ -232,7 +233,7 @@ const Header: React.FC = () => {
             <NavLink 
               to={path!} 
               onClick={(e) => handleProtectedNavigation(path!, e)}
-              className="px-2 sm:px-3 py-2 text-[11px] sm:text-[12px] md:text-[13px] lg:text-[14px] xl:text-[16px] font-bold uppercase tracking-[0.08em] transition-all duration-200 hover:scale-105 whitespace-nowrap flex-1 bg-blue-900 text-white hover:bg-blue-800 shadow-sm font-JosefinSansBold border-b border-blue-800"
+              className="px-2 sm:px-3 py-2 text-[11px] sm:text-[12px] md:text-[13px] lg:text-[14px] xl:text-[16px] font-bold uppercase tracking-[0.08em] transition-all duration-200 hover:scale-105 whitespace-nowrap flex-1 bg-[#11224C] text-white hover:bg-[#0D1A3A] shadow-sm font-JosefinSansBold border-b border-[#0D1A3A]"
               onMouseEnter={() => activeDropdown && setActiveDropdown(null)}
             >
               {label}
@@ -251,8 +252,8 @@ const Header: React.FC = () => {
           <div key={label} className="mb-2">
             {dropdown ? (
               <>
-                <button onClick={() => setMobileDropdown(mobileDropdown === label ? null : label)} className="flex justify-between w-full text-blue-900 dark:text-white font-bold py-3 px-4 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors whitespace-nowrap font-JosefinSlabSemiBold">
-                  {label}<ChevronDown className={`w-4 h-4 text-blue-900 dark:text-gray-400 ${mobileDropdown === label ? 'rotate-180' : ''} transition-transform duration-200`} />
+                <button onClick={() => setMobileDropdown(mobileDropdown === label ? null : label)} className="flex justify-between w-full text-gray-700 dark:text-gray-300 font-bold py-3 px-4 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors whitespace-nowrap font-JosefinSlabSemiBold">
+                  {label}<ChevronDown className={`w-4 h-4 text-gray-600 dark:text-gray-400 ${mobileDropdown === label ? 'rotate-180' : ''} transition-transform duration-200`} />
                 </button>
                 {mobileDropdown === label && (
                   <div className="mt-2 ml-4 space-y-2">
@@ -264,7 +265,7 @@ const Header: React.FC = () => {
                           handleProtectedNavigation(d.path, e);
                           setIsMobileMenu(false);
                         }}
-                        className="block py-2 px-4 text-sm font-dropdown text-blue-900 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900 rounded-lg transition-colors"
+                        className="block py-2 px-4 text-sm font-dropdown text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900 rounded-lg transition-colors"
                       >
                         {d.label}
                       </NavLink>
@@ -279,7 +280,7 @@ const Header: React.FC = () => {
                   handleProtectedNavigation(path!, e);
                   setIsMobileMenu(false);
                 }}
-                className="block py-3 px-4 text-sm font-bold text-blue-900 dark:text-white hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors whitespace-nowrap font-JosefinSlabSemiBold"
+                className="block py-3 px-4 text-sm font-bold text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors whitespace-nowrap font-JosefinSlabSemiBold"
               >
                 {label}
               </NavLink>
@@ -297,11 +298,11 @@ const Header: React.FC = () => {
           >
             <div className="flex items-center gap-3">
               {mode === 'light' ? <Sun className="w-5 h-5 text-blue-900" /> : <Moon className="w-5 h-5 text-blue-900" />}
-              <span className="font-medium text-blue-900 dark:text-white">
+              <span className="font-medium text-gray-700 dark:text-gray-300">
                 {mode === 'light' ? 'Light Mode' : 'Dark Mode'}
               </span>
             </div>
-            <div className="w-12 h-6 bg-gray-300 dark:bg-blue-600 rounded-full relative transition-colors">
+            <div className="w-12 h-6 bg-gray-300 dark:bg-[#1A2C49] rounded-full relative transition-colors">
               <div className={`absolute top-1 ${mode === 'light' ? 'left-1' : 'left-7'} w-4 h-4 bg-white rounded-full transition-all duration-300 shadow-sm`}></div>
             </div>
           </button>
@@ -319,7 +320,7 @@ const Header: React.FC = () => {
   return (
     <>
       {/* Single Fixed Header */}
-      <header className="sticky top-0 z-50 bg-white dark:bg-gray-900 text-blue-900 dark:text-blue-100 shadow-sm" style={{ fontFamily: 'var(--font-brand)' }}>
+      <header className="sticky top-0 z-50 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 shadow-sm" style={{ fontFamily: 'var(--font-brand)' }}>
         {/* Top Bar - Logo and Icons */}
         <div className="flex items-center justify-between px-3 sm:px-4 md:px-8 py-2 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center gap-2 sm:gap-3">
@@ -338,7 +339,7 @@ const Header: React.FC = () => {
           {/* Icons Section */}
           <div className="flex items-center gap-1 sm:gap-2 md:gap-3">
             <button onClick={() => setIsSearch(!isSearch)} className="p-1.5 sm:p-2 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition-all duration-300 hover:scale-110 shadow-sm" aria-label="Open search">
-              <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 text-blue-900 dark:text-blue-100" />
+              <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 text-gray-700 dark:text-gray-300" />
             </button>
 
             <NavLink
@@ -346,7 +347,7 @@ const Header: React.FC = () => {
               onClick={(e) => handleProtectedNavigation('/wishlist', e)}
               className="relative p-1.5 sm:p-2 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition-all duration-300 hover:scale-110 shadow-sm"
             >
-              <Heart className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 text-blue-900 dark:text-blue-100" />
+              <Heart className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 text-gray-700 dark:text-gray-300" />
               {wishlistCount > 0 && (
                 <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[9px] sm:text-[10px] rounded-full h-3.5 w-3.5 sm:h-4 sm:w-4 flex items-center justify-center">
                   {wishlistCount > 99 ? '99+' : wishlistCount}
@@ -359,9 +360,9 @@ const Header: React.FC = () => {
               onClick={(e) => handleProtectedNavigation('/cart', e)}
               className="relative p-1.5 sm:p-2 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition-all duration-300 hover:scale-110 shadow-sm"
             >
-              <ShoppingCart className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 text-blue-900 dark:text-blue-100" />
+              <ShoppingCart className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 text-gray-700 dark:text-gray-300" />
               {cartCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 bg-blue-600 text-white text-[9px] sm:text-[10px] rounded-full h-3.5 w-3.5 sm:h-4 sm:w-4 flex items-center justify-center">
+                <span className="absolute -top-0.5 -right-0.5 bg-[#1A2C49] text-white text-[9px] sm:text-[10px] rounded-full h-3.5 w-3.5 sm:h-4 sm:w-4 flex items-center justify-center">
                   {cartCount > 99 ? '99+' : cartCount}
                 </span>
               )}
@@ -372,19 +373,19 @@ const Header: React.FC = () => {
               {isAuthenticated ? (
                 <>
                   <button onClick={() => setUserDropdown(!userDropdown)} className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition-all duration-300 hover:scale-105 shadow-sm" aria-haspopup="true" aria-expanded={userDropdown}>
-                    <UserRound className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 text-blue-900 dark:text-blue-100" /> <span className="hidden sm:inline text-xs sm:text-sm font-medium text-blue-900 dark:text-blue-100">{displayName}</span> <ChevronDown className="w-3 h-3 sm:w-4 sm:h-4 text-blue-900 dark:text-blue-100 transition-transform duration-200" />
+                    <UserRound className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 text-gray-700 dark:text-gray-300" /> <span className="hidden sm:inline text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">{displayName}</span> <ChevronDown className="w-3 h-3 sm:w-4 sm:h-4 text-gray-700 dark:text-gray-300 transition-transform duration-200" />
                   </button>
                   {userDropdown && (
                     <div className="absolute right-0 mt-2 w-56 bg-white dark:bg-gray-900 rounded-xl shadow-2xl border dark:border-gray-700 py-2 z-50 animate-fade-in">
-                      <button onClick={() => { handleProtectedNavigation('/profile'); setUserDropdown(false); }} className="block w-full text-left px-4 py-1 text-sm font-dropdown text-blue-900 dark:text-white hover:bg-blue-50 dark:hover:bg-gray-700 transition-colors rounded-lg">My Profile</button>
-                      <button onClick={() => { handleProtectedNavigation('/orders'); setUserDropdown(false); }} className="block w-full text-left px-4 py-1 text-sm font-dropdown text-blue-900 dark:text-white hover:bg-blue-50 dark:hover:bg-gray-700 transition-colors rounded-lg">My Orders</button>
+                      <button onClick={() => { handleProtectedNavigation('/profile'); setUserDropdown(false); }} className="block w-full text-left px-4 py-1 text-sm font-dropdown text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-700 transition-colors rounded-lg">My Profile</button>
+                      <button onClick={() => { handleProtectedNavigation('/orders'); setUserDropdown(false); }} className="block w-full text-left px-4 py-1 text-sm font-dropdown text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-700 transition-colors rounded-lg">My Orders</button>
                       {((role?.toLowerCase() === 'admin') || (user?.user_metadata?.role?.toLowerCase() === 'admin')) && (
                         <button
                           onClick={() => {
                             handleProtectedNavigation('/admin');
                             setUserDropdown(false);
                           }}
-                          className="block w-full text-left px-4 py-1 text-sm font-dropdown text-blue-900 dark:text-white hover:bg-blue-50 dark:hover:bg-gray-700 transition-colors rounded-lg"
+                          className="block w-full text-left px-4 py-1 text-sm font-dropdown text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-700 transition-colors rounded-lg"
                         >
                           Admin Dashboard
                         </button>
@@ -396,24 +397,24 @@ const Header: React.FC = () => {
                 </>
               ) : (
                 <button onClick={() => handleProtectedNavigation('/auth/signin')} className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 sm:py-2 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition-all duration-300 hover:scale-105 shadow-sm">
-                  <UserRound className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 text-blue-900 dark:text-blue-100" /> <span className="hidden xs:inline text-xs sm:text-sm font-medium text-blue-900 dark:text-blue-100">Sign In</span>
+                  <UserRound className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 text-gray-700 dark:text-gray-300" /> <span className="hidden xs:inline text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300">Sign In</span>
                 </button>
               )}
             </div>
 
-            <button onClick={toggleMode} className="hidden md:block rounded-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 p-1.5 sm:p-2 shadow-md transition-all duration-300 hover:scale-110 hover:shadow-lg" aria-label="Toggle theme">
+            <button onClick={toggleMode} className="hidden md:block rounded-full bg-[#0D1A3A] hover:bg-[#0A1528] p-1.5 sm:p-2 shadow-md transition-all duration-300 hover:scale-110 hover:shadow-lg" aria-label="Toggle theme">
               {mode === 'light' ? <Sun className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" /> : <Moon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />}
             </button>
           </div>
         </div>
 
         {/* Navigation Bar */}
-        <div className="bg-blue-900 border-b border-blue-800">
+        <div className="bg-[#11224C] border-b border-[#0D1A3A]">
           <div className="flex items-center justify-between px-3 sm:px-4 md:px-8 lg:px-12 py-2">
             {/* Mobile Menu Button */}
             {isMobile && (
               <div className="flex items-center gap-2 sm:gap-4 md:gap-6">
-                <button onClick={() => setIsMobileMenu(!isMobileMenu)} className="p-1.5 sm:p-2 rounded-lg hover:bg-blue-800 transition-colors" aria-label={isMobileMenu ? 'Close menu' : 'Open menu'}>
+                <button onClick={() => setIsMobileMenu(!isMobileMenu)} className="p-1.5 sm:p-2 rounded-lg hover:bg-[#0D1A3A] transition-colors" aria-label={isMobileMenu ? 'Close menu' : 'Open menu'}>
                   {isMobileMenu ? <X className="w-4 h-4 sm:w-5 sm:h-5 text-white" /> : <Menu className="w-4 h-4 sm:w-5 sm:h-5 text-white" />}
                 </button>
               </div>
@@ -429,10 +430,27 @@ const Header: React.FC = () => {
       {isMobile && isMobileMenu && <MobileMenu />}
 
       {isSearch && (
-        <form onSubmit={handleSearch} className="px-4 md:px-8 lg:px-16 py-4 flex items-center gap-3 bg-white dark:bg-gray-900 border-b">
-          <input value={searchQuery} onChange={e => setSearchQuery(e.target.value)} placeholder="Search products..." className="flex-1 border rounded-lg px-3 py-2" />
-          <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg">Search</button>
-          <button type="button" onClick={() => setIsSearch(false)}><X className="w-5 h-5 text-blue-900 dark:text-gray-400" /></button>
+        <form onSubmit={handleSearch} className="px-3 sm:px-4 md:px-8 lg:px-16 py-3 sm:py-4 flex items-center gap-2 sm:gap-3 bg-white dark:bg-gray-900 border-b">
+          <input 
+            value={searchQuery} 
+            onChange={e => setSearchQuery(e.target.value)} 
+            placeholder="Search products..." 
+            className="flex-1 border rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 text-sm sm:text-base min-w-0" 
+          />
+          <button 
+            type="submit" 
+            className="px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 bg-[#11224C] text-white rounded-lg text-xs sm:text-sm md:text-base font-medium whitespace-nowrap"
+          >
+            Search
+          </button>
+          <button 
+            type="button" 
+            onClick={() => setIsSearch(false)}
+            className="p-1.5 sm:p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors flex-shrink-0"
+            aria-label="Close search"
+          >
+            <X className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600 dark:text-gray-400" />
+          </button>
         </form>
       )}
 

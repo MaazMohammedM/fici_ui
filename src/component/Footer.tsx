@@ -10,7 +10,7 @@ const Footer: React.FC = () => {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="bg-[color:var(--color-dark1)] text-white">
+    <footer className="bg-[#11224C] text-white">
       {/* Full-bleed white logo strip (all breakpoints) */}
       <div className="w-full bg-white py-3 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-center">
