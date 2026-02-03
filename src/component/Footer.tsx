@@ -1,8 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Mail, Phone, MapPin } from 'lucide-react';
-import { FaInstagram, FaWhatsapp } from 'react-icons/fa';
-import { FaFacebook, FaX } from 'react-icons/fa6';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import logo from '../assets/fici_transparent.png';
 import razorpayPayments from '../assets/razorpay-with-all-cards-upi-seeklogo.png';
 
@@ -33,36 +32,52 @@ const Footer: React.FC = () => {
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Facebook"
-              className="p-2 rounded-full bg-white/5 hover:bg-white/10 transition-colors"
+              className="p-2 rounded-full bg-white/5 hover:bg-white/10 transition-colors flex items-center justify-center"
             >
-              <FaFacebook className="w-5 h-5 text-gray-300" />
+              <FontAwesomeIcon
+                icon={["fab", "facebook"]}
+                className="w-4 h-4"
+                style={{ color: "#1877F2" }}
+              />
             </a>
             <a
               href="https://x.com/ficiShoes"
               target="_blank"
               rel="noopener noreferrer"
               aria-label="X"
-              className="p-2 rounded-full bg-white/5 hover:bg-white/10 transition-colors"
+              className="p-2 rounded-full bg-white/5 hover:bg-white/10 transition-colors flex items-center justify-center"
             >
-              <FaX className="w-5 h-5 text-gray-300" />
+              <FontAwesomeIcon
+                icon={["fab", "x-twitter"]}
+                className="w-4 h-4"
+                style={{ color: "#000000" }}
+              />
             </a>
             <a
               href="https://www.instagram.com/FICI_Shoes"
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Instagram"
-              className="p-2 rounded-full bg-white/5 hover:bg-white/10 transition-colors"
+              className="p-2 rounded-full bg-white/5 hover:bg-white/10 transition-colors flex items-center justify-center"
             >
-              <FaInstagram className="w-5 h-5 text-gray-300" />
+              <FontAwesomeIcon
+                icon={["fab", "instagram"]}
+                className="w-4 h-4"
+                style={{ color: "#E1306C" }}
+              />
             </a>
             <a
               href="https://wa.me/918122003006"
               target="_blank"
               rel="noopener noreferrer"
               aria-label="WhatsApp"
-              className="p-2 rounded-full bg-white/5 hover:bg-white/10 transition-colors"
+              className="p-2 rounded-full bg-white/5 hover:bg-white/10 transition-colors flex items-center justify-center"
             >
-              <FaWhatsapp className="w-5 h-5 text-gray-300" />
+              <FontAwesomeIcon
+                icon={["fab", "whatsapp"]}
+                className="w-4 h-4"
+                style={{ color: "#25D366" }}
+              />
             </a>
           </div>
         </div>
@@ -101,6 +116,11 @@ const Footer: React.FC = () => {
               <li>
                 <Link to="/contact" className="text-gray-300 hover:text-white text-sm sm:text-base transition-colors">
                   Contact Us
+                </Link>
+              </li>
+              <li>
+                <Link to="/faq" className="text-gray-300 hover:text-white text-sm sm:text-base transition-colors">
+                  FAQ
                 </Link>
               </li>
             </ul>
@@ -219,7 +239,11 @@ const Footer: React.FC = () => {
         </div>
         {/* Bottom Section */}
         <div className="border-t border-white/10 mt-6 sm:mt-8 pt-4 sm:pt-5 flex flex-col sm:flex-row justify-between items-center gap-3 sm:gap-4">
-          <p className="text-gray-400 text-xs sm:text-sm text-center sm:text-left">© {currentYear} FICI. All rights reserved.</p>
+          <div className="flex flex-col sm:flex-row items-center gap-2 text-center sm:text-left">
+            <p className="text-gray-400 text-xs sm:text-sm"> {currentYear} FICI. All rights reserved.</p>
+            <span className="text-gray-400 text-xs sm:text-sm hidden sm:inline">|</span>
+            <p className="text-gray-400 text-xs sm:text-sm">FiCi Shoes is a brand of NMF International, Ambur.</p>
+          </div>
         </div>
       </div>
     </footer>

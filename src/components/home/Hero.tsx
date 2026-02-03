@@ -4,14 +4,14 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 
 // Import desktop images
 import pc1 from "../../assets/1000805150_pc.jpg";
-import pc2 from "../../assets/232139906_pc.png";
+import pc2 from "../../assets/1000805146_pc.jpg";
 import pc4 from "../../assets/1000805148_pc.jpg";
 import pc5 from "../../assets/1000805157_pc.jpg";
 import pc6 from "../../assets/1000805149_pc.jpg";
 
 // Import mobile images
 import mobile1 from "../../assets/1000806049_mobile.png";
-import mobile2 from "../../assets/232139906_mobile.png";
+import mobile2 from "../../assets/1000806046_mobile.jpg";
 import mobile3 from "../../assets/1000806089_mobile.jpg";
 import mobile5 from "../../assets/1000806094_mobile.jpg";
 import mobile6 from "../../assets/1000806095_mobile.jpg";
@@ -22,7 +22,7 @@ const mobileImages = [mobile1, mobile2, mobile3, mobile5, mobile6];
 const heroSlides = [
   { 
     id: "1", 
-    ctaLink: "/products/Whoxmspr_brown",
+    ctaLink: "/products/Woxmsch265_brown",
     title: "Premium Leather Collections",
     subtitle: "Handcrafted Excellence",
     description: "Discover our curated selection of premium leather goods"
@@ -86,21 +86,32 @@ const Hero: React.FC = () => {
             }`}
           >
             {/* Image container */}
-            <div className="absolute inset-0">
-              <picture className="w-full h-full">
-                <source 
-                  media="(min-width: 768px)" 
-                  srcSet={desktopImages[index]}
-                />
-                <img
-                  src={mobileImages[index]}
-                  alt={`Featured collection ${index + 1}`}
-                  className="w-full h-full object-contain object-center bg-gray-100"
-                  loading={index === 0 ? "eager" : "lazy"}
-                  decoding="async"
-                />
-              </picture>
-            </div>
+            <Link 
+              to={slide.ctaLink}
+              className="absolute inset-0 block"
+              onClick={(e) => {
+                // Prevent navigation if clicking on navigation buttons
+                if ((e.target as HTMLElement).closest('button')) {
+                  e.preventDefault();
+                }
+              }}
+            >
+              <div className="absolute inset-0">
+                <picture className="w-full h-full">
+                  <source 
+                    media="(min-width: 768px)" 
+                    srcSet={desktopImages[index]}
+                  />
+                  <img
+                    src={mobileImages[index]}
+                    alt={`Featured collection ${index + 1}`}
+                    className="w-full h-full object-contain object-center bg-gray-100 cursor-pointer"
+                    loading={index === 0 ? "eager" : "lazy"}
+                    decoding="async"
+                  />
+                </picture>
+              </div>
+            </Link>
           </div>
         ))}
       </div>

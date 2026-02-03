@@ -218,7 +218,10 @@ const Header: React.FC = () => {
                         <NavLink 
                           key={d.path}
                           to={d.path} 
-                          onClick={(e) => handleProtectedNavigation(d.path, e)}
+                          onClick={(e) => {
+                            handleProtectedNavigation(d.path, e);
+                            setActiveDropdown(null);
+                          }}
                           className="block px-4 py-2 text-sm font-dropdown text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-700 transition-colors rounded-lg"
                         >
                           {d.label}

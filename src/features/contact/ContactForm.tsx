@@ -6,8 +6,7 @@ import { contactSchema } from './schema/contactSchema';
 import type { ContactFormData } from './types/contactTypes';
 import { useContactStore } from '@store/contactStore';
 import { EmailService } from '@utils/emailService';
-import { FaFacebook, FaInstagram, FaWhatsapp } from 'react-icons/fa';
-import { FaX } from 'react-icons/fa6';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { MapPin } from 'lucide-react';
 
 const ContactForm: React.FC = () => {
@@ -124,33 +123,49 @@ const ContactForm: React.FC = () => {
                       href="https://www.facebook.com/FICI-Shoes"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="p-2 rounded-lg bg-blue-600 text-white hover:bg-[color:var(--color-primary-hover)] transition-colors"
+                      className="p-2 rounded-full bg-white/5 hover:bg-white/10 transition-colors flex items-center justify-center border border-gray-200 dark:border-gray-600"
                     >
-                      <FaFacebook className="w-4 h-4" />
+                      <FontAwesomeIcon
+                        icon={["fab", "facebook"]}
+                        className="w-4 h-4"
+                        style={{ color: "#1877F2" }}
+                      />
                     </a>
                     <a
                       href="https://x.com/ficiShoes"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="p-2 rounded-lg bg-gray-800 text-white hover:bg-gray-900 transition-colors"
+                      className="p-2 rounded-full bg-white/5 hover:bg-white/10 transition-colors flex items-center justify-center border border-gray-200 dark:border-gray-600"
                     >
-                      <FaX className="w-4 h-4" />
+                      <FontAwesomeIcon
+                        icon={["fab", "x-twitter"]}
+                        className="w-4 h-4"
+                        style={{ color: "#000000" }}
+                      />
                     </a>
                     <a
                       href="https://www.instagram.com/FICI_Shoes"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="p-2 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:from-purple-600 hover:to-pink-600 transition-all duration-300"
+                      className="p-2 rounded-full bg-white/5 hover:bg-white/10 transition-colors flex items-center justify-center border border-gray-200 dark:border-gray-600"
                     >
-                      <FaInstagram className="w-4 h-4" />
+                      <FontAwesomeIcon
+                        icon={["fab", "instagram"]}
+                        className="w-4 h-4"
+                        style={{ color: "#E1306C" }}
+                      />
                     </a>
                     <a
                       href="https://wa.me/918122003006"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="p-2 rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors"
+                      className="p-2 rounded-full bg-white/5 hover:bg-white/10 transition-colors flex items-center justify-center border border-gray-200 dark:border-gray-600"
                     >
-                      <FaWhatsapp className="w-4 h-4" />
+                      <FontAwesomeIcon
+                        icon={["fab", "whatsapp"]}
+                        className="w-4 h-4"
+                        style={{ color: "#25D366" }}
+                      />
                     </a>
                   </div>
                 </div>

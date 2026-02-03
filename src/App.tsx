@@ -38,6 +38,7 @@ const TermsOfService = React.lazy(() => import('@features/policy/TermsOfService'
 const ShippingReturnsPolicy = React.lazy(() => import('@features/policy/ShippingReturnsPolicy'));
 const GuestOrderLookup = React.lazy(() => import('./features/orders/GuestOrderLookup'));
 const OrderDetailsPage = React.lazy(() => import('./features/orders/OrderDetailsPage'));
+const FAQPage = React.lazy(() => import('./features/faq/FAQPage'));
 
 const LoadingSpinner = () => (
   <div className="min-h-screen bg-gradient-light dark:bg-gradient-dark flex items-center justify-center px-4">
@@ -108,6 +109,7 @@ const AppContent = () => {
             <Route path="/products" element={<ProductPage />} />
             <Route path="/products/:article_id" element={<ProductDetailPage />} />
             <Route path="/shoe-care" element={<ShoeCarePage />} />
+            <Route path="/faq" element={<FAQPage />} />
             <Route
               path="/wishlist"
               element={
