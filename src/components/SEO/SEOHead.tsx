@@ -117,57 +117,120 @@ const SEOHead = ({
                 "@type": "Offer",
                 "itemOffered": {
                   "@type": "Product",
-                  "name": "Handcrafted Leather Formal Shoes",
-                  "category": "Formal Footwear",
-                  "material": "Genuine Leather"
-                }
-              },
-              {
-                "@type": "Offer", 
-                "itemOffered": {
-                  "@type": "Product",
-                  "name": "Leather Lace-Up Shoes",
-                  "category": "Formal Shoes"
+                  "name": "Lace-Up Formal Shoes",
+                  "category": "Formal Shoes",
+                  "description": "Premium handcrafted leather lace-up shoes featuring Oxford and Derby designs. Made with full-grain leather, genuine leather sole, and hand-stitched detailing. Perfect for business meetings, formal events, and professional occasions. Available in black, brown, and tan colors with sizes 6-12 including half sizes.",
+                  "brand": {
+                    "@type": "Brand",
+                    "name": "Fici Shoes"
+                  },
+                  "material": "Full-grain leather",
+                  "offers": {
+                    "@type": "Offer",
+                    "priceCurrency": "INR",
+                    "price": "2999",
+                    "availability": "https://schema.org/InStock"
+                  }
                 }
               },
               {
                 "@type": "Offer",
                 "itemOffered": {
-                  "@type": "Product", 
+                  "@type": "Product",
                   "name": "Chelsea Boots",
-                  "category": "Boots"
+                  "category": "Boots",
+                  "description": "Elegant leather Chelsea boots with elastic side panels and pull tabs. Crafted from premium leather with durable rubber sole for all-weather comfort. Features ankle-high design, sleek silhouette, and versatile styling for both formal and casual wear. Ideal for monsoon season and winter months.",
+                  "brand": {
+                    "@type": "Brand",
+                    "name": "Fici Shoes"
+                  },
+                  "material": "Premium leather with rubber sole",
+                  "offers": {
+                    "@type": "Offer",
+                    "priceCurrency": "INR",
+                    "price": "3499",
+                    "availability": "https://schema.org/InStock"
+                  }
                 }
               },
               {
                 "@type": "Offer",
                 "itemOffered": {
                   "@type": "Product",
-                  "name": "Slip-On Shoes",
-                  "category": "Formal Shoes"
+                  "name": "Slip-On Formal Shoes",
+                  "category": "Formal Shoes",
+                  "description": "Convenient yet sophisticated slip-on shoes designed for modern professionals. Features moccasin construction, cushioned insole, and flexible outsole. Easy to wear without compromising on style. Perfect for daily office wear, business travel, and formal gatherings. Available in classic black and brown shades.",
+                  "brand": {
+                    "@type": "Brand",
+                    "name": "Fici Shoes"
+                  },
+                  "material": "Genuine leather",
+                  "offers": {
+                    "@type": "Offer",
+                    "priceCurrency": "INR",
+                    "price": "2799",
+                    "availability": "https://schema.org/InStock"
+                  }
                 }
               },
               {
                 "@type": "Offer",
                 "itemOffered": {
                   "@type": "Product",
-                  "name": "Leather Chappals",
-                  "category": "Traditional Footwear"
+                  "name": "Traditional Leather Chappals",
+                  "category": "Traditional Footwear",
+                  "description": "Authentic Indian leather chappals handcrafted by skilled artisans. Made using traditional techniques passed down through generations. Features comfortable leather straps, durable sole, and breathable design. Suitable for daily wear, traditional occasions, and casual outings. Reflects rich cultural heritage of Ambur leather craftsmanship.",
+                  "brand": {
+                    "@type": "Brand",
+                    "name": "Fici Shoes"
+                  },
+                  "material": "Genuine leather with traditional sole",
+                  "offers": {
+                    "@type": "Offer",
+                    "priceCurrency": "INR",
+                    "price": "1999",
+                    "availability": "https://schema.org/InStock"
+                  }
                 }
               },
               {
                 "@type": "Offer",
                 "itemOffered": {
                   "@type": "Product",
-                  "name": "Celby Height Increasing Shoes",
-                  "category": "Specialty Shoes"
+                  "name": "Height Increasing Shoes",
+                  "category": "Specialty Shoes",
+                  "description": "Innovative height-increasing shoes with concealed elevator insole providing 2-3 inch lift. Features premium leather upper, comfortable cushioning, and discreet design that appears normal. Boosts confidence while maintaining comfort for all-day wear. Available in formal styles suitable for business and special occasions.",
+                  "brand": {
+                    "@type": "Brand",
+                    "name": "Fici Shoes"
+                  },
+                  "material": "Premium leather with elevator insole",
+                  "offers": {
+                    "@type": "Offer",
+                    "priceCurrency": "INR",
+                    "price": "3999",
+                    "availability": "https://schema.org/InStock"
+                  }
                 }
               },
               {
                 "@type": "Offer",
                 "itemOffered": {
                   "@type": "Product",
-                  "name": "Tassel Shoes",
-                  "category": "Formal Shoes"
+                  "name": "Tassel Loafers",
+                  "category": "Formal Shoes",
+                  "description": "Sophisticated tassel loafers combining classic elegance with modern comfort. Features decorative tassels, moccasin toe design, and premium leather construction. Perfect for business casual events, formal dinners, and sophisticated gatherings. Hand-polished finish with attention to every detail for the discerning gentleman.",
+                  "brand": {
+                    "@type": "Brand",
+                    "name": "Fici Shoes"
+                  },
+                  "material": "Premium leather with tassel details",
+                  "offers": {
+                    "@type": "Offer",
+                    "priceCurrency": "INR",
+                    "price": "3299",
+                    "availability": "https://schema.org/InStock"
+                  }
                 }
               }
             ]
@@ -176,7 +239,8 @@ const SEOHead = ({
             "https://www.facebook.com/FICI-shoes",
             "https://www.instagram.com/FICI_shoes",
             "https://www.justdial.com/Ambur/FICI-Shoes-by-NMF-International",
-            "https://www.indiamart.com/nmf-international"
+            "https://www.indiamart.com/nmf-international",
+            "https://maps.app.goo.gl/zN1S7K3zKaLyTiCo6"
           ]
         })}
       </script>

@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+
+# Block admin routes
+Disallow: /admin/
+Disallow: /auth/callback
+Disallow: /orders/
+Disallow: /guest/orders/
+
+# Sitemap location
+Sitemap: https://ficishoes.com/sitemap.xml

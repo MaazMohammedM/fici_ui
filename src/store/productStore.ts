@@ -183,7 +183,8 @@ export const useProductStore = create<ProductState>((set, get) => ({
       // Apply pagination to globally sorted results
       const paginatedProducts = paginateProducts(globallySortedProducts, page, get().itemsPerPage);
 
-      const totalPages = Math.ceil((count || 0) / get().itemsPerPage);
+      // Calculate totalPages based on filtered products count, not total database count
+      const totalPages = Math.ceil(globallySortedProducts.length / get().itemsPerPage);
 
       set({
         products: paginatedProducts,
