@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
+import { Link } from 'react-router-dom';
 import { ChevronDown, ChevronUp, Phone, Mail, MapPin, Clock, Truck, Shield, RefreshCw } from 'lucide-react';
 
 interface FAQItem {
   question: string;
-  answer: string;
+  answer: React.ReactNode;
   category: string;
 }
 
@@ -15,47 +16,79 @@ const FAQPage: React.FC = () => {
   const faqData: FAQItem[] = [
     // General Questions
     {
-      question: "What is Fici Shoes?",
-      answer: "Fici Shoes is a premium brand of NMF International, crafting quality leather footwear since 2018. Based in Ambur, Tamil Nadu, we specialize in handcrafted leather formal shoes, sandals, and accessories that combine traditional craftsmanship with contemporary design.",
+      question: "Where can I find the best genuine leather shoes?",
+      answer: (
+        <>
+          The best genuine leather footwear can be found at the Fici Shoes showroom located at No.20, 1st Floor, Broad Bazaar, Ambur. As a direct-from-workshop brand by NMF International, we offer premium quality leather shoes at factory-direct prices. <Link to='/products' className='text-blue-400 hover:text-blue-300 underline'>Shop our collection online</Link> or visit us in person.
+        </>
+      ),
       category: "general"
     },
     {
-      question: "Where is Fici Shoes located?",
-      answer: "Our showroom is located at No.20, 1st Floor, Broad Bazaar, Flower Bazaar Lane, Ambur - 635802, Tirupattur District, Tamilnadu, India. You can visit us in person or shop online at ficishoes.com.",
+      question: "Are Fici Shoes made in an authentic leather workshop?",
+      answer: "Yes! Every pair of Fici Shoes is handcrafted in our Ambur manufacturing unit. We leverage Ambur's rich heritage in leather craftsmanship to produce shoes that meet global export standards for durability and style.",
       category: "general"
     },
     {
-      question: "How long has Fici Shoes been in business?",
-      answer: "NMF International (our parent company) was established in 2015, and we launched the Fici Shoes brand in August 2018. We have over 8 years of experience in leather footwear manufacturing.",
+      question: "Can I order custom-made leather shoes?",
+      answer: (
+        <>
+          Yes! We offer tailor-made leather shoes for specific size requirements or design preferences. Our skilled Ambur craftsmen can customize the fit to your needs. <Link to='/contact' className='text-blue-400 hover:text-blue-300 underline'>Contact +91 81220 03006</Link> for bespoke consultations.
+        </>
+      ),
       category: "general"
     },
 
     // Products & Quality
     {
-      question: "What materials are used in Fici Shoes?",
-      answer: "We use only premium quality genuine leather sourced from reputable tanneries. Our materials include full-grain leather, top-grain leather, and high-quality synthetic materials for specific designs. All materials undergo strict quality control.",
+      question: "Does Fici Shoes use 100% genuine full-grain leather?",
+      answer: "Absolutely! We use only 100% genuine full-grain and top-grain leather. Our workshop-to-consumer (D2C) model ensures authentic leather products with a luxury finish and long-lasting durability.",
       category: "products"
     },
     {
-      question: "Are Fici Shoes handmade?",
-      answer: "Yes, all our shoes are handcrafted by skilled artisans in Ambur, a region renowned for its leather craftsmanship. Each pair goes through multiple quality checks to ensure exceptional quality and comfort.",
+      question: "What are the most comfortable leather formal shoes for office wear?",
+      answer: (
+        <>
+          Our Leather Oxford and Derby collections are specifically designed for all-day comfort. They feature cushioned insoles and breathable leather linings, making them perfect for professionals seeking comfortable yet stylish office footwear. <Link to='/products?sub_category=Shoes' className='text-blue-400 hover:text-blue-300 underline'>View the collection</Link> at ficishoes.com.
+        </>
+      ),
       category: "products"
     },
     {
-      question: "What types of shoes do you offer?",
-      answer: "We offer a comprehensive range including: Formal Lace-Up Shoes, Slip-On Shoes, Chelsea Boots, Leather Sandals, Traditional Chappals, Height-Increasing Shoes, and Tassel Shoes. We also have bags and leather accessories.",
+      question: "Are Fici Shoes lightweight and comfortable for long hours?",
+      answer: "Yes! Unlike traditional heavy leather boots, our shoes are engineered to be light on your feet. With lightweight, flexible outsoles and cushioned footbeds, they're perfect for weddings, office wear, or events where you're standing for long hours.",
       category: "products"
     },
     {
-      question: "Do you offer customization options?",
-      answer: "Yes, we offer customization options including size adjustments, color preferences, and design modifications. Contact our customer service team to discuss your specific requirements.",
+      question: "What makes Ambur leather shoes from NMF International special?",
+      answer: "Ambur is globally recognized as the leather hub of India. At NMF International, we combine this heritage with modern quality control. Every pair reflects ethical sourcing, skilled manual lasting, and premium finishing that rivals international luxury brands.",
       category: "products"
+    },
+
+    // B2B & Wholesale
+    {
+      question: "How can I contact NMF International for wholesale leather shoe supply?",
+      answer: (
+        <>
+          For bulk orders, B2B inquiries, or retail partnerships, reach our wholesale desk directly at +91 81220 03006. As a primary leather shoe manufacturer, we offer competitive wholesale rates and reliable supply chains for shops. <Link to='/contact' className='text-blue-400 hover:text-blue-300 underline'>Get in touch with our wholesale team</Link>.
+        </>
+      ),
+      category: "b2b"
+    },
+    {
+      question: "Do you offer white-label manufacturing for other footwear brands?",
+      answer: "Yes! NMF International provides private-label and white-label manufacturing services. We can produce high-quality leather footwear under your own brand name using our Ambur production unit.",
+      category: "b2b"
     },
 
     // Ordering & Payment
     {
       question: "How can I place an order?",
-      answer: "You can order through our website ficishoes.com, via phone at +91 81220 03006, through our Facebook/Instagram pages, or visit our showroom in Ambur. We also accept WhatsApp orders.",
+      answer: (
+        <>
+          You can order through our website ficishoes.com, via phone at +91 81220 03006, through our Facebook/Instagram pages, or visit our showroom in Ambur. We also accept WhatsApp orders. <Link to='/products' className='text-blue-400 hover:text-blue-300 underline'>Browse products now</Link>
+        </>
+      ),
       category: "ordering"
     },
     {
@@ -71,6 +104,11 @@ const FAQPage: React.FC = () => {
 
     // Shipping & Delivery
     {
+      question: "How soon can I expect delivery for an online order from ficishoes.com?",
+      answer: "We deliver orders as soon as possible! Typically, delivery takes 2–7 business days. Orders to metro cities are often delivered faster via premium courier partners. You'll receive tracking details once your order ships.",
+      category: "shipping"
+    },
+    {
       question: "Do you ship nationwide?",
       answer: "We ship across India based on serviceable pincodes. Shipping availability and rates vary by location. Enter your pincode at checkout to check if we deliver to your area and see applicable shipping charges.",
       category: "shipping"
@@ -81,17 +119,25 @@ const FAQPage: React.FC = () => {
       category: "shipping"
     },
     {
-      question: "How long does delivery take?",
-      answer: "Delivery time varies by pincode and typically ranges from 2-7 business days. Exact delivery timelines are shown at checkout based on your location. Metro cities usually receive faster delivery. You'll receive tracking details once your order ships.",
-      category: "shipping"
-    },
-    {
-      question: "Is Cash on Delivery available?",
-      answer: "COD availability depends on your pincode. Some locations support COD while others may require prepaid payment. COD charges may apply for certain pincodes. Check COD availability at checkout.",
+      question: "Does Fici Shoes provide Cash on Delivery (COD) across India?",
+      answer: (
+        <>
+          Yes! Cash on Delivery (COD) is offered for most pincodes across India. Verify COD availability for your specific location by entering your pincode on the <Link to='/products' className='text-blue-400 hover:text-blue-300 underline'>checkout page</Link> at ficishoes.com.
+        </>
+      ),
       category: "shipping"
     },
 
     // Returns & Exchanges
+    {
+      question: "How do I exchange my shoes if the size doesn't fit?",
+      answer: (
+        <>
+          We offer a hassle-free 3-day replacement policy! If the shoes don't fit perfectly, you can initiate a size exchange directly through the 'My Orders' section on ficishoes.com or visit our Ambur store for an immediate swap. <Link to='/orders' className='text-blue-400 hover:text-blue-300 underline'>Go to My Orders</Link>
+        </>
+      ),
+      category: "returns"
+    },
     {
       question: "What is your replacement policy?",
       answer: "We offer 3-day replacement policy for unused items in original packaging. Only exchanges are available - no refunds. Customized items cannot be exchanged unless there's a manufacturing defect. Replacement is subject to product availability.",
@@ -99,12 +145,11 @@ const FAQPage: React.FC = () => {
     },
     {
       question: "How do I initiate a replacement?",
-      answer: "You can easily initiate a replacement yourself through your order details page. Go to 'My Orders' → click on your order → find the item → click 'Request Replacement'. Select the reason and preferred size, then submit. Our team will review and process your replacement request.",
-      category: "returns"
-    },
-    {
-      question: "Where can I find the replacement option?",
-      answer: "The replacement option is available in your order details page. After your order is delivered, visit your account, click on the specific order, and you'll see a 'Request Replacement' button next to each eligible item. This option appears only for delivered items within the 3-day window.",
+      answer: (
+        <>
+          You can easily initiate a replacement yourself through your order details page. Go to 'My Orders' → click on your order → find the item → click 'Request Replacement'. Select the reason and preferred size, then submit. Our team will review and process your replacement request. <Link to='/orders' className='text-blue-400 hover:text-blue-300 underline'>Access My Orders</Link>
+        </>
+      ),
       category: "returns"
     },
     {
@@ -115,13 +160,21 @@ const FAQPage: React.FC = () => {
 
     // Shoe Care & Maintenance
     {
-      question: "How should I care for my leather shoes?",
-      answer: "Clean regularly with a soft cloth, use leather conditioner monthly, avoid water exposure, store in a cool dry place, use shoe trees to maintain shape, and polish regularly for formal shoes. Detailed care guide available on our website.",
+      question: "How do I maintain and clean my Fici leather shoes?",
+      answer: (
+        <>
+          To keep genuine leather shoes looking new, wipe them with a soft cloth after use and apply a high-quality leather cream monthly. Avoid wearing them in heavy rain to protect the hand-stitched soles. For detailed tips, check our <Link to='/shoe-care' className='text-blue-400 hover:text-blue-300 underline'>Shoe Care Guide</Link>.
+        </>
+      ),
       category: "care"
     },
     {
       question: "Do you provide shoe care services?",
-      answer: "Yes, we offer professional shoe care services including cleaning, polishing, sole replacement, and minor repairs. Visit our showroom or contact us for service details and pricing.",
+      answer: (
+        <>
+          Yes, we offer professional shoe care services including cleaning, polishing, sole replacement, and minor repairs. Visit our showroom or <Link to='/contact' className='text-blue-400 hover:text-blue-300 underline'>contact us</Link> for service details and pricing.
+        </>
+      ),
       category: "care"
     },
     {
@@ -132,8 +185,12 @@ const FAQPage: React.FC = () => {
 
     // Sizing & Fit
     {
-      question: "How do I find the right size?",
-      answer: "Refer to our size chart on the product page. Measure your foot length and compare with our sizing guide. If between sizes, we recommend sizing up for better comfort. You can also visit our showroom for professional fitting.",
+      question: "How do I choose the correct size when ordering online?",
+      answer: (
+        <>
+          We follow standard UK/India sizing. Refer to the Size Chart on product pages to find the perfect fit. If between sizes, we recommend 'Sizing Up'. Size customization is also available by <Link to='/contact' className='text-blue-400 hover:text-blue-300 underline'>contacting us via WhatsApp</Link>.
+        </>
+      ),
       category: "sizing"
     },
     {
@@ -150,10 +207,11 @@ const FAQPage: React.FC = () => {
 
   const categories = [
     { id: 'all', name: 'All Questions', icon: '📋' },
-    { id: 'general', name: 'General', icon: 'ℹ️' },
-    { id: 'products', name: 'Products & Quality', icon: '👞' },
-    { id: 'ordering', name: 'Ordering & Payment', icon: '💳' },
-    { id: 'shipping', name: 'Shipping & Delivery', icon: '🚚' },
+    { id: 'general', name: 'Local & Manufacturing', icon: '🏭' },
+    { id: 'products', name: 'Product & Quality', icon: '👞' },
+    { id: 'b2b', name: 'B2B & Wholesale', icon: '🤝' },
+    { id: 'ordering', name: 'Online Ordering', icon: '💳' },
+    { id: 'shipping', name: 'Shipping & Trust', icon: '🚚' },
     { id: 'returns', name: 'Returns & Exchanges', icon: '↩️' },
     { id: 'care', name: 'Shoe Care', icon: '🧴' },
     { id: 'sizing', name: 'Sizing & Fit', icon: '📏' }
@@ -178,15 +236,27 @@ const FAQPage: React.FC = () => {
   const structuredData = {
     "@context": "https://schema.org",
     "@type": "FAQPage",
-    "mainEntity": filteredFAQs.map((faq, index) => ({
-      "@type": "Question",
-      "position": index + 1,
-      "name": faq.question,
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": faq.answer
+    "mainEntity": filteredFAQs.map((faq, index) => {
+      // Extract text content from ReactNode for structured data
+      let answerText = '';
+      if (typeof faq.answer === 'string') {
+        answerText = faq.answer;
+      } else if (Array.isArray(faq.answer)) {
+        answerText = faq.answer.map(child => 
+          typeof child === 'string' ? child : ''
+        ).join(' ');
       }
-    }))
+      
+      return {
+        "@type": "Question",
+        "position": index + 1,
+        "name": faq.question,
+        "acceptedAnswer": {
+          "@type": "Answer",
+          "text": answerText
+        }
+      };
+    })
   };
 
   return (
@@ -214,52 +284,73 @@ const FAQPage: React.FC = () => {
 
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
         {/* Header Section */}
-        <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white py-16">
-          <div className="max-w-4xl mx-auto px-4 text-center">
-            <h1 className="text-4xl md:text-5xl font-bold mb-4">Frequently Asked Questions</h1>
-            <p className="text-xl text-blue-100 mb-8">
+        <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white py-12 sm:py-16 lg:py-20">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4">Frequently Asked Questions</h1>
+            <p className="text-lg sm:text-xl text-blue-100 mb-8 max-w-2xl mx-auto">
               Everything you need to know about Fici Shoes premium leather footwear
             </p>
             
             {/* Quick Contact */}
-            <div className="flex flex-wrap justify-center gap-6 text-sm">
+            <div className="flex flex-wrap justify-center gap-4 sm:gap-6 text-sm sm:text-base">
               <div className="flex items-center gap-2">
-                <Phone className="w-4 h-4" />
-                <span>+91 81220 03006</span>
+                <Phone className="w-4 h-4 sm:w-5 sm:h-5" />
+                <a 
+                  href="tel:+918122003006" 
+                  className="text-blue-100 hover:text-white transition-colors underline"
+                >
+                  <span className="hidden sm:inline">+91 81220 03006</span>
+                  <span className="sm:hidden">Call</span>
+                </a>
               </div>
               <div className="flex items-center gap-2">
-                <Mail className="w-4 h-4" />
-                <span>support@ficishoes.com</span>
+                <Mail className="w-4 h-4 sm:w-5 sm:h-5" />
+                <a 
+                  href="mailto:support@ficishoes.com" 
+                  className="text-blue-100 hover:text-white transition-colors underline"
+                >
+                  <span className="hidden sm:inline">support@ficishoes.com</span>
+                  <span className="sm:hidden">Email</span>
+                </a>
               </div>
               <div className="flex items-center gap-2">
-                <MapPin className="w-4 h-4" />
-                <span>Ambur, Tamil Nadu</span>
+                <MapPin className="w-4 h-4 sm:w-5 sm:h-5" />
+                <a 
+                  href="https://maps.app.goo.gl/zN1S7K3zKaLyTiCo6?g_st=awb"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-100 hover:text-white transition-colors underline"
+                >
+                  <span className="hidden sm:inline">Ambur, Tamil Nadu</span>
+                  <span className="sm:hidden">Location</span>
+                </a>
               </div>
             </div>
           </div>
         </div>
 
         {/* Category Filter */}
-        <div className="max-w-4xl mx-auto px-4 py-8">
-          <div className="flex flex-wrap gap-2 justify-center mb-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+          <div className="flex flex-wrap gap-2 justify-center mb-6 sm:mb-8">
             {categories.map(category => (
               <button
                 key={category.id}
                 onClick={() => setSelectedCategory(category.id)}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                className={`px-3 py-2 sm:px-4 sm:py-2 rounded-full text-xs sm:text-sm font-medium transition-all ${
                   selectedCategory === category.id
                     ? 'bg-blue-600 text-white shadow-lg'
                     : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-gray-700'
                 }`}
               >
-                <span className="mr-2">{category.icon}</span>
-                {category.name}
+                <span className="mr-1 sm:mr-2">{category.icon}</span>
+                <span className="hidden sm:inline">{category.name}</span>
+                <span className="sm:hidden">{category.name.split(' ')[0]}</span>
               </button>
             ))}
           </div>
 
           {/* FAQ Items */}
-          <div className="space-y-4">
+          <div className="space-y-3 sm:space-y-4">
             {filteredFAQs.map((faq, index) => {
               const globalIndex = faqData.indexOf(faq);
               const isExpanded = expandedItems.has(globalIndex);
@@ -267,30 +358,30 @@ const FAQPage: React.FC = () => {
               return (
                 <div
                   key={globalIndex}
-                  className="bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow"
+                  className="bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-all duration-200"
                 >
                   <button
                     onClick={() => toggleExpanded(globalIndex)}
-                    className="w-full px-6 py-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                    className="w-full px-4 sm:px-6 py-3 sm:py-4 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors"
                   >
-                    <h3 className="font-semibold text-gray-900 dark:text-white pr-4">
+                    <h3 className="font-semibold text-gray-900 dark:text-white pr-2 sm:pr-4 text-sm sm:text-base">
                       {faq.question}
                     </h3>
                     <div className="flex-shrink-0">
                       {isExpanded ? (
-                        <ChevronUp className="w-5 h-5 text-blue-600" />
+                        <ChevronUp className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
                       ) : (
-                        <ChevronDown className="w-5 h-5 text-gray-400" />
+                        <ChevronDown className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
                       )}
                     </div>
                   </button>
                   
                   {isExpanded && (
-                    <div className="px-6 pb-4">
-                      <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-                        <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
+                    <div className="px-4 sm:px-6 pb-3 sm:pb-4">
+                      <div className="border-t border-gray-200 dark:border-gray-700 pt-3 sm:pt-4">
+                        <div className="text-gray-700 dark:text-gray-300 leading-relaxed text-sm sm:text-base">
                           {faq.answer}
-                        </p>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -300,49 +391,66 @@ const FAQPage: React.FC = () => {
           </div>
 
           {/* Still Need Help Section */}
-          <div className="mt-12 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900 dark:to-blue-800 rounded-2xl p-8 text-center">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+          <div className="mt-8 sm:mt-12 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900 dark:to-blue-800 rounded-2xl p-6 sm:p-8 text-center">
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-4">
               Still Need Help?
             </h2>
-            <p className="text-gray-700 dark:text-gray-300 mb-6">
+            <p className="text-gray-700 dark:text-gray-300 mb-6 text-sm sm:text-base">
               Our customer service team is here to help you with any questions or concerns.
             </p>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-              <div className="bg-white dark:bg-gray-800 rounded-lg p-4">
-                <Phone className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-                <h3 className="font-semibold text-gray-900 dark:text-white mb-1">Call Us</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400">+91 81220 03006</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-3 sm:p-4">
+                <Phone className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600 mx-auto mb-2" />
+                <h3 className="font-semibold text-gray-900 dark:text-white mb-1 text-sm sm:text-base">Call Us</h3>
+                <a 
+                  href="tel:+918122003006" 
+                  className="text-xs sm:text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors underline"
+                >
+                  +91 81220 03006
+                </a>
                 <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">Mon-Sat: 10AM-9PM</p>
               </div>
               
-              <div className="bg-white dark:bg-gray-800 rounded-lg p-4">
-                <Mail className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-                <h3 className="font-semibold text-gray-900 dark:text-white mb-1">Email Us</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400">support@ficishoes.com</p>
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-3 sm:p-4">
+                <Mail className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600 mx-auto mb-2" />
+                <h3 className="font-semibold text-gray-900 dark:text-white mb-1 text-sm sm:text-base">Email Us</h3>
+                <a 
+                  href="mailto:support@ficishoes.com" 
+                  className="text-xs sm:text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors underline"
+                >
+                  support@ficishoes.com
+                </a>
                 <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">24-48 hour response</p>
               </div>
               
-              <div className="bg-white dark:bg-gray-800 rounded-lg p-4">
-                <MapPin className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-                <h3 className="font-semibold text-gray-900 dark:text-white mb-1">Visit Us</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Ambur, Tamil Nadu</p>
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-3 sm:p-4">
+                <MapPin className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600 mx-auto mb-2" />
+                <h3 className="font-semibold text-gray-900 dark:text-white mb-1 text-sm sm:text-base">Visit Us</h3>
+                <a 
+                  href="https://maps.app.goo.gl/zN1S7K3zKaLyTiCo6?g_st=awb"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs sm:text-sm text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors underline"
+                >
+                  Ambur, Tamil Nadu
+                </a>
                 <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">Check availability and visit us</p>
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <a
-                href="/contact"
-                className="inline-flex items-center justify-center px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
+              <Link
+                to="/contact"
+                className="inline-flex items-center justify-center px-4 sm:px-6 py-2 sm:py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors text-sm sm:text-base"
               >
                 Contact Form
-              </a>
+              </Link>
               <a
                 href="https://wa.me/918122003006"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center justify-center px-6 py-3 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors"
+                className="inline-flex items-center justify-center px-4 sm:px-6 py-2 sm:py-3 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors text-sm sm:text-base"
               >
                 WhatsApp Support
               </a>
