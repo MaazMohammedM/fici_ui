@@ -148,7 +148,7 @@ const Footer: React.FC = () => {
               </li>
               <li>
                 <Link
-                  to="/products?sub_category=Bags&?sub_category=Accessories"
+                  to="/products?sub_category=Bags&sub_category=Accessories"
                   className="text-gray-300 hover:text-white text-sm sm:text-base transition-colors"
                 >
                   Bags & Accessories
