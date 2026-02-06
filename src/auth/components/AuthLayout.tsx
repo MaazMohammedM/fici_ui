@@ -12,10 +12,10 @@ export const AuthLayout = memo<AuthLayoutProps>(({ title, subtitle, children }) 
   const { mode } = useThemeStore();
   
   return (
-    <div className={`min-h-screen flex items-center justify-center px-4 py-8 ${
+    <div className={`min-h-screen px-4 pt-6 pb-8 ${
       mode === 'dark' ? 'bg-gray-900' : 'bg-gradient-light'
     }`}>
-      <div className="w-full max-w-md">
+      <div className="w-full max-w-md mx-auto">
         {/* Header */}
         <div className="text-center mb-6 sm:mb-8">
           <h1 className={`text-2xl sm:text-3xl font-bold mb-2 ${

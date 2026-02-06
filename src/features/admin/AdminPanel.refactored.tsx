@@ -2,6 +2,7 @@ import React, { useEffect, useState, lazy, Suspense } from "react";
 import { BarChart3, List, Plus, Package, Percent } from "lucide-react";
 import { supabase } from "@lib/supabase";
 import { useAdminStore } from "./store/adminStore";
+import ScrollToTop from "@components/ScrollToTop";
 
 const DashboardStats = lazy(() => import("./components/DashboardStats"));
 const TopProductsChart = lazy(() => import("./components/TopProductsChart"));
@@ -98,6 +99,7 @@ const AdminPage: React.FC = () => {
 
   // Mock functions for pagination and search
   const handlePageChange = (page: number) => {
+    window.scrollTo(0, 0);
     // Implementation would go here
   };
 
@@ -173,17 +175,29 @@ const AdminPage: React.FC = () => {
       const { data, error } = await supabase
         .from('product_visit_stats')
         .select('product_id, name, thumbnail_url, visit_count, last_visited_at')
-        .order('visit_count', { ascending: false })
+        .order('last_visited_at', { ascending: false })
         .limit(20);
       
       if (!error && data) {
         setProductVisitsData(data);
-        setTopProducts(data); // Also update topProducts for chart
+      }
+    };
+
+    const loadTopProducts = async () => {
+      const { data, error } = await supabase
+        .from('product_visit_stats')
+        .select('product_id, name, thumbnail_url, visit_count, last_visited_at')
+        .order('visit_count', { ascending: false })
+        .limit(10);
+      
+      if (!error && data) {
+        setTopProducts(data);
       }
     };
 
     loadTrafficVisits();
     loadProductVisits();
+    loadTopProducts();
   }, []);
 
   // Load comprehensive data for image generation
@@ -254,7 +268,10 @@ const AdminPage: React.FC = () => {
         <div className="mb-6 sm:mb-8">
           <div className="flex flex-wrap gap-2 sm:gap-4 justify-center sm:justify-start overflow-x-auto pb-2 sm:pb-0">
             <button
-              onClick={() => setActiveTab("dashboard")}
+              onClick={() => {
+                setActiveTab("dashboard");
+                window.scrollTo(0, 0);
+              }}
               className={`flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-3 rounded-xl shadow transition whitespace-nowrap flex-shrink-0 ${
                 activeTab === "dashboard"
                   ? "bg-blue-600 text-white"
@@ -265,7 +282,10 @@ const AdminPage: React.FC = () => {
               <span className="hidden sm:inline">Dashboard</span>
             </button>
             <button
-              onClick={() => setActiveTab("list")}
+              onClick={() => {
+                setActiveTab("list");
+                window.scrollTo(0, 0);
+              }}
               className={`flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-3 rounded-xl shadow transition whitespace-nowrap flex-shrink-0 ${
                 activeTab === "list"
                   ? "bg-blue-600 text-white"
@@ -276,7 +296,10 @@ const AdminPage: React.FC = () => {
               <span className="hidden sm:inline">Product List</span>
             </button>
             <button
-              onClick={() => setActiveTab("add")}
+              onClick={() => {
+                setActiveTab("add");
+                window.scrollTo(0, 0);
+              }}
               className={`flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-3 rounded-xl shadow transition whitespace-nowrap flex-shrink-0 ${
                 activeTab === "add"
                   ? "bg-blue-600 text-white"
@@ -287,7 +310,10 @@ const AdminPage: React.FC = () => {
               <span className="hidden sm:inline">Add Product</span>
             </button>
             <button
-              onClick={() => setActiveTab("orders")}
+              onClick={() => {
+                setActiveTab("orders");
+                window.scrollTo(0, 0);
+              }}
               className={`flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-3 rounded-xl shadow transition whitespace-nowrap flex-shrink-0 ${
                 activeTab === "orders"
                   ? "bg-blue-600 text-white"
@@ -298,7 +324,10 @@ const AdminPage: React.FC = () => {
               <span className="hidden sm:inline">Orders</span>
             </button>
             <button
-              onClick={() => setActiveTab("discounts")}
+              onClick={() => {
+                setActiveTab("discounts");
+                window.scrollTo(0, 0);
+              }}
               className={`flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-3 rounded-xl shadow transition whitespace-nowrap flex-shrink-0 ${
                 activeTab === "discounts"
                   ? "bg-blue-600 text-white"
@@ -544,9 +573,13 @@ const AdminPage: React.FC = () => {
         
         {activeTab === "add" && (
           <Suspense fallback={<div className="p-8 text-center">Loading product form...</div>}>
-            <ProductForm onCancel={() => setActiveTab("list")} onSuccess={() => {
+            <ProductForm onCancel={() => {
+              setActiveTab("list");
+              window.scrollTo(0, 0);
+            }} onSuccess={() => {
               setActiveTab("list");
               fetchProducts();
+              window.scrollTo(0, 0);
             }} />
           </Suspense>
         )}

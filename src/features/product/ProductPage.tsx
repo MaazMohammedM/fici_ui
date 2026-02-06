@@ -596,12 +596,12 @@ const ProductPage: React.FC = () => {
   const FilterButton = useCallback(({ count, onClick }: { count: number; onClick: () => void }) => (
     <button
       onClick={onClick}
-      className="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+      className="w-full flex items-center justify-center gap-1.5 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
     >
-      <SlidersHorizontal className="w-4 h-4" />
-      <span>Filters</span>
+      <SlidersHorizontal className="w-4 h-4 flex-shrink-0" />
+      <span className="truncate text-sm">Filters</span>
       {count > 0 && (
-        <span className="px-2 py-0.5 bg-primary text-white text-xs rounded-full">
+        <span className="px-1.5 py-0.5 bg-primary text-white text-xs rounded-full flex-shrink-0 min-w-[20px]">
           {count}
         </span>
       )}
@@ -632,9 +632,9 @@ const ProductPage: React.FC = () => {
         </div>
 
         {/* Search and Sort Bar */}
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-6">
+        <div className="mb-6">
           {/* Search Input */}
-          <div className="relative flex-1 sm:max-w-md">
+          <div className="relative mb-3">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
               type="text"
@@ -654,37 +654,41 @@ const ProductPage: React.FC = () => {
             )}
           </div>
 
-          {/* Sort and Filters */}
-          <div className="flex items-center gap-2">
-            {/* Sort Dropdown */}
-            <div className="flex items-center gap-2">
-              <ArrowUpDown className="w-4 h-4 text-gray-400" />
-              <select
-                value={sortBy || ''}
-                onChange={(e) => handleSortChange(e.target.value as 'price_low_to_high' | 'price_high_to_low' | null)}
-                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-              >
-                {SORT_OPTIONS.map((option) => (
-                  <option key={option.value || 'default'} value={option.value || ''}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
+          {/* Sort and Filters - Side by side on all screens */}
+          <div className="flex items-center justify-between gap-2">
+            {/* Sort Dropdown - Compact width */}
+            <div className="flex-1 max-w-[45%] sm:max-w-[200px]">
+              <div className="flex items-center gap-1">
+                <ArrowUpDown className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                <select
+                  value={sortBy || ''}
+                  onChange={(e) => handleSortChange(e.target.value as 'price_low_to_high' | 'price_high_to_low' | null)}
+                  className="w-full px-2 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent min-w-0"
+                >
+                  {SORT_OPTIONS.map((option) => (
+                    <option key={option.value || 'default'} value={option.value || ''}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
-            {/* Filter Button */}
-            <div className="lg:hidden">
+            {/* Filter Button - Compact width */}
+            <div className="flex-1 max-w-[45%]">
               <FilterButton count={activeFilterCount} onClick={() => setIsMobileFiltersOpen(true)} />
             </div>
 
             {/* Desktop Clear Filters */}
             {hasActiveFilters && (
-              <button
-                onClick={handleClearAll}
-                className="hidden lg:block px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors"
-              >
-                Clear all
-              </button>
+              <div className="hidden lg:block">
+                <button
+                  onClick={handleClearAll}
+                  className="px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors"
+                >
+                  Clear all
+                </button>
+              </div>
             )}
           </div>
         </div>
