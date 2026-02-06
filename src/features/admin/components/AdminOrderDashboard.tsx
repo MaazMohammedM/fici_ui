@@ -15,6 +15,8 @@ import { RefundActionPanel } from '../../../components/admin/orders/RefundAction
 import { ReplacementApprovalButton } from '../../../components/admin/orders/ReplacementApprovalButton';
 import { AdminOrderStatusBadge } from '../../../components/admin/orders/AdminOrderStatusBadge';
 import AlertModal from '../../../components/ui/AlertModal';
+import ShippingInvoice from '../../../components/admin/ShippingInvoice';
+import { printInvoice, type ShipmentInfo } from '../../../utils/invoiceUtils';
 import type { Order, OrderItem, OrderActionFlags, ShippingAddress, PaymentMethod, PaymentStatus, CancelOrderItemsParams } from '../../../types/order-common';
 
 /* =========================================================
@@ -356,7 +358,8 @@ const OrderCard: React.FC<{
   onRejectReplacement?: (item: OrderItem) => void;
   onShipReplacement?: (item: OrderItem) => void;
   onMarkReturned?: (item: OrderItem) => void;
-}> = ({ order, actionStates, onView, onShip, onCancel, onDeliver, onRefundItem, onRefundOrder, onDeliverReplacement, onApproveReplacement, onRejectReplacement, onShipReplacement, onMarkReturned }) => (
+  onPrintInvoice?: (order: Order) => void;
+}> = ({ order, actionStates, onView, onShip, onCancel, onDeliver, onRefundItem, onRefundOrder, onDeliverReplacement, onApproveReplacement, onRejectReplacement, onShipReplacement, onMarkReturned, onPrintInvoice }) => (
   <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6 border border-gray-200 dark:border-gray-700">
     <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
       <div className="flex-1">
@@ -663,6 +666,17 @@ const OrderCard: React.FC<{
           >
             <CheckCircle className="w-4 h-4 sm:w-4 sm:h-4" />
             <span>Deliver</span>
+          </button>
+        )}
+
+        {/* Print Invoice Button - Always show for shipped orders */}
+        {(order.status === 'shipped' || order.status === 'partially_shipped' || order.status === 'delivered' || order.status === 'partially_delivered') && (
+          <button
+            onClick={() => onPrintInvoice?.(order)}
+            className="flex items-center justify-center gap-2 text-purple-600 hover:text-purple-700 text-sm px-3 py-2 sm:px-4 sm:py-2.5 rounded border border-purple-200 hover:border-purple-300 bg-white dark:bg-gray-800 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors"
+          >
+            <Package className="w-4 h-4 sm:w-4 sm:h-4" />
+            <span>Print Invoice</span>
           </button>
         )}
       </div>
@@ -1385,6 +1399,16 @@ const AdminOrderDashboard: React.FC = () => {
   const [showDeliverModal, setShowDeliverModal] = useState(false);
   const [showRefundModal, setShowRefundModal] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showInvoiceModal, setShowInvoiceModal] = useState(false);
+  const [lastShipmentInfo, setLastShipmentInfo] = useState<{
+    orderId: string;
+    shippedItems: OrderItem[];
+    shipmentForm: {
+      shipping_partner: string;
+      tracking_id: string;
+      tracking_url: string;
+    };
+  } | null>(null);
   const [cancelReason, setCancelReason] = useState('');
   const [cancelComments, setCancelComments] = useState('');
   const [cancellingOrder] = useState(false);
@@ -1479,9 +1503,24 @@ const AdminOrderDashboard: React.FC = () => {
       return;
     }
 
+    // Store shipment info for invoice before shipping
+    const shippedItems = selectedOrder.order_items.filter(item => 
+      selectedItemsForShip.includes(item.order_item_id)
+    );
+    
+    const shipmentInfo = {
+      orderId: selectedOrder.order_id,
+      shippedItems,
+      shipmentForm: { ...shipmentForm }
+    };
+
     await handleUpdateShipment(selectedOrder.order_id, selectedItemsForShip, shipmentForm);
     
-    // Reset local state
+    // Store the shipment info and show invoice modal
+    setLastShipmentInfo(shipmentInfo);
+    setShowInvoiceModal(true);
+    
+    // Reset local state (but keep the shipment info for invoice)
     setShowShipmentModal(false);
     setSelectedOrder(null);
     setShipmentForm({ shipping_partner: '', tracking_id: '', tracking_url: '' });
@@ -1596,6 +1635,29 @@ const AdminOrderDashboard: React.FC = () => {
     } catch (error) {
       console.error('Error completing replacement:', error);
       showAlert('Failed to complete replacement', 'error');
+    }
+  };
+
+  const handlePrintInvoice = async (order: Order) => {
+    try {
+      // Get shipped items (items that have been shipped or delivered)
+      const shippedItems = order.order_items?.filter(item => 
+        ['shipped', 'delivered'].includes(item.item_status || '')
+      ) || [];
+
+      // Get shipment info from the first shipped item (or create default)
+      const firstShippedItem = shippedItems[0];
+      const shipmentInfo: ShipmentInfo = {
+        shipping_partner: firstShippedItem?.shipping_partner || 'N/A',
+        tracking_id: firstShippedItem?.tracking_id || 'N/A',
+        tracking_url: firstShippedItem?.tracking_url || undefined
+      };
+
+      await printInvoice(order, shippedItems, shipmentInfo);
+      showAlert('Invoice printed successfully', 'success');
+    } catch (error) {
+      console.error('Error printing invoice:', error);
+      showAlert('Failed to print invoice', 'error');
     }
   };
 
@@ -1803,6 +1865,7 @@ const AdminOrderDashboard: React.FC = () => {
                           setShowRefundModal(true);
                         }}
                         onDeliverReplacement={handleDeliverReplacement}
+                        onPrintInvoice={handlePrintInvoice}
                       />
                     );
                   })}
@@ -2278,6 +2341,61 @@ const AdminOrderDashboard: React.FC = () => {
                 className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancel {selectedItemsForCancel.length} Item{selectedItemsForCancel.length !== 1 ? 's' : ''}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Shipping Invoice Modal */}
+      {showInvoiceModal && lastShipmentInfo && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-gray-800 rounded-lg w-full max-w-4xl mx-4 my-8 max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                Shipping Invoice - Order #{lastShipmentInfo.orderId.slice(-8)}
+              </h3>
+              <button
+                onClick={() => {
+                  setShowInvoiceModal(false);
+                  setLastShipmentInfo(null);
+                }}
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <div className="p-4">
+              {/* Find the order from the orders list */}
+              {(() => {
+                const order = orders.find(o => o.order_id === lastShipmentInfo.orderId);
+                return order ? (
+                  <ShippingInvoice
+                    order={order}
+                    shippedItems={lastShipmentInfo.shippedItems}
+                    shipmentInfo={lastShipmentInfo.shipmentForm}
+                    onPrint={() => {
+                      console.log('Invoice printed for order:', lastShipmentInfo.orderId);
+                    }}
+                  />
+                ) : (
+                  <div className="text-center py-8">
+                    <p className="text-gray-500">Order not found</p>
+                  </div>
+                );
+              })()}
+            </div>
+            
+            <div className="sticky bottom-0 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4 flex justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowInvoiceModal(false);
+                  setLastShipmentInfo(null);
+                }}
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+              >
+                Close
               </button>
             </div>
           </div>
