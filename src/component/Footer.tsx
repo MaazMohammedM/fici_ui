@@ -119,9 +119,9 @@ const Footer: React.FC = () => {
                 </Link>
               </li>
               <li>
-                <Link to="/faq" className="text-gray-300 hover:text-white text-sm sm:text-base transition-colors">
+                {/* <Link to="/faq" className="text-gray-300 hover:text-white text-sm sm:text-base transition-colors">
                   FAQ
-                </Link>
+                </Link> */}
               </li>
             </ul>
           </div>

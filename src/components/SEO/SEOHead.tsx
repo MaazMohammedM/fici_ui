@@ -17,7 +17,7 @@ interface SEOHeadProps {
 }
 
 const DEFAULT_TITLE = 'FICI Shoes by NMF International | Handcrafted Leather Formal Shoes Ambur | Mohammed Faisal';
-const DEFAULT_DESCRIPTION = 'FICI Shoes by NMF International - Premium handcrafted leather formal shoes for men in Ambur. Traditional lace-ups, slip-ons, Chelsea boots, chappals. Milled leather, customization options. Shop online via Facebook, Instagram. GST: 33BMAPM8509H1Z4.';
+const DEFAULT_DESCRIPTION = 'FICI Shoes by NMF International - Premium handcrafted leather formal shoes for men in Ambur. Traditional lace-ups, slip-ons, Chelsea boots, chappals. Milled leather, customization options. Wholesale available. Shop online via Facebook, Instagram. GST: 33BMAPM8509H1Z4.';
 const DEFAULT_IMAGE = ficiImage;
 const SITE_URL = 'https://www.ficishoes.com';
 
@@ -31,7 +31,7 @@ const SEOHead = ({
   publishedTime,
   modifiedTime,
   author = 'Mohammed Faisal - FICI Shoes by NMF International',
-  keywords = ['FICI shoes Ambur', 'NMF International Ambur', 'handcrafted leather shoes', 'men formal shoes', 'leather lace-ups', 'Chelsea boots', 'slip-on shoes', 'leather chappals', 'milled leather', 'Mohammed Faisal shoes', 'Khaderpet Ambur shoes', 'GST 33BMAPM8509H1Z4', 'Celby height increasing shoes', 'tassel shoes', 'office footwear', 'professional shoes', 'genuine leather shoes', 'traditional footwear Ambur', 'Justdial FICI shoes', 'IndiaMART FICI shoes'],
+  keywords = ['FICI shoes Ambur', 'NMF International', 'ambur leather shoes', 'ambur shoes wholesale market', 'ambur leather shoes wholesale market', 'ambur shoe factory list', 'ambur leather manufacturers', 'leather manufacturers in ambur', 'ambur wholesale market', 'broad formal shoes for men', 'shoe manufacturers in ambur', 'ambur shoes online shopping', 'shoe manufacturer near me', 'ambur leather factory', 'ambur shoe', 'ambur leather bags', 'ambur best leather shop', 'shoes ambur', 'leather shoes ambur', 'ambur shoe factory', 'sneakers india', 'nmf international', 'nmf', 'fici shoes', 'handcrafted leather shoes', 'men formal shoes', 'leather lace-ups', 'Chelsea boots', 'slip-on shoes', 'leather chappals', 'milled leather', 'Mohammed Faisal shoes', 'Khaderpet Ambur shoes', 'GST 33BMAPM8509H1Z4', 'Celby height increasing shoes', 'tassel shoes', 'office footwear', 'professional shoes', 'genuine leather shoes', 'traditional footwear Ambur', 'Justdial FICI shoes', 'IndiaMART FICI shoes'],
 }: SEOHeadProps) => {
   const { pathname } = useLocation();
   const currentUrl = `${SITE_URL}${pathname}`;
@@ -83,10 +83,10 @@ const SEOHead = ({
           "@context": "https://schema.org",
           "@type": "LocalBusiness",
           "name": "FICI Shoes by NMF International",
-          "alternateName": "FICI Shoes",
+          "alternateName": ["FICI Shoes", "NMF International"],
+          "description": "Premium handcrafted leather formal shoes for men in Ambur. Traditional lace-ups, slip-ons, Chelsea boots, chappals. Milled leather, customization options. Wholesale available. Shop online via Facebook, Instagram. GST: 33BMAPM8509H1Z4.",
           "url": SITE_URL,
           "logo": ficiLogo,
-          "description": "Premium handcrafted leather formal shoes for men in Ambur by Mohammed Faisal. Traditional lace-ups, slip-ons, Chelsea boots, chappals with milled leather and customization options.",
           "image": ficiImage,
           "telephone": "+91-8122003006",
           "address": {
@@ -105,26 +105,46 @@ const SEOHead = ({
           "hasMap": "https://share.google/5m1q1FRfsJlHXKmo5",
           "areaServed": "Ambur",
           "paymentAccepted": ["Cash", "Credit Card", "Debit Card", "COD", "Online Transfer"],
-          "priceRange": "$$$",
+          "priceRange": "$$",
           "founder": "Mohammed Faisal",
           "legalName": "NMF International",
           "taxID": "33BMAPM8509H1Z4",
           "hasOfferCatalog": {
             "@type": "OfferCatalog",
-            "name": "Handcrafted Leather Footwear",
+            "name": ["Ambur Leather Shoes", "Wholesale Leather Shoes", "Formal Shoes", "Chelsea Boots", "Leather Chappals"],
             "itemListElement": [
               {
                 "@type": "Offer",
                 "itemOffered": {
                   "@type": "Product",
-                  "name": "Lace-Up Formal Shoes",
-                  "category": "Formal Shoes",
-                  "description": "Premium handcrafted leather lace-up shoes featuring Oxford and Derby designs. Made with full-grain leather, genuine leather sole, and hand-stitched detailing. Perfect for business meetings, formal events, and professional occasions. Available in black, brown, and tan colors with sizes 6-12 including half sizes.",
+                  "name": "Ambur Leather Shoes Wholesale Market",
+                  "category": "Wholesale Shoes",
+                  "description": "Buy premium Ambur leather shoes at wholesale prices. Direct from manufacturers with bulk ordering available.",
                   "brand": {
                     "@type": "Brand",
-                    "name": "Fici Shoes"
+                    "name": "FICI Shoes"
                   },
-                  "material": "Full-grain leather",
+                  "material": "Genuine Leather",
+                  "offers": {
+                    "@type": "Offer",
+                    "priceCurrency": "INR",
+                    "price": "1999",
+                    "availability": "https://schema.org/InStock"
+                  }
+                }
+              },
+              {
+                "@type": "Offer",
+                "itemOffered": {
+                  "@type": "Product",
+                  "name": "Ambur Leather Manufacturers",
+                  "category": "Manufacturing",
+                  "description": "Leading leather shoe manufacturers in Ambur. Quality footwear production with traditional craftsmanship and modern techniques.",
+                  "brand": {
+                    "@type": "Brand",
+                    "name": "FICI Shoes"
+                  },
+                  "material": "Premium Leather",
                   "offers": {
                     "@type": "Offer",
                     "priceCurrency": "INR",
@@ -137,18 +157,18 @@ const SEOHead = ({
                 "@type": "Offer",
                 "itemOffered": {
                   "@type": "Product",
-                  "name": "Chelsea Boots",
-                  "category": "Boots",
-                  "description": "Elegant leather Chelsea boots with elastic side panels and pull tabs. Crafted from premium leather with durable rubber sole for all-weather comfort. Features ankle-high design, sleek silhouette, and versatile styling for both formal and casual wear. Ideal for monsoon season and winter months.",
+                  "name": "Ambur Shoe Factory List",
+                  "category": "Manufacturing",
+                  "description": "Complete list of shoe factories in Ambur. Find reliable manufacturers for bulk orders and custom footwear production.",
                   "brand": {
                     "@type": "Brand",
-                    "name": "Fici Shoes"
+                    "name": "FICI Shoes"
                   },
-                  "material": "Premium leather with rubber sole",
+                  "material": "Leather",
                   "offers": {
                     "@type": "Offer",
                     "priceCurrency": "INR",
-                    "price": "3499",
+                    "price": "2499",
                     "availability": "https://schema.org/InStock"
                   }
                 }
@@ -157,38 +177,18 @@ const SEOHead = ({
                 "@type": "Offer",
                 "itemOffered": {
                   "@type": "Product",
-                  "name": "Slip-On Formal Shoes",
+                  "name": "Broad Formal Shoes for Men",
                   "category": "Formal Shoes",
-                  "description": "Convenient yet sophisticated slip-on shoes designed for modern professionals. Features moccasin construction, cushioned insole, and flexible outsole. Easy to wear without compromising on style. Perfect for daily office wear, business travel, and formal gatherings. Available in classic black and brown shades.",
+                  "description": "Stylish formal shoes for men in various designs. Perfect for business meetings, formal events, and professional occasions.",
                   "brand": {
                     "@type": "Brand",
-                    "name": "Fici Shoes"
+                    "name": "FICI Shoes"
                   },
-                  "material": "Genuine leather",
+                  "material": "Genuine Leather",
                   "offers": {
                     "@type": "Offer",
                     "priceCurrency": "INR",
-                    "price": "2799",
-                    "availability": "https://schema.org/InStock"
-                  }
-                }
-              },
-              {
-                "@type": "Offer",
-                "itemOffered": {
-                  "@type": "Product",
-                  "name": "Traditional Leather Chappals",
-                  "category": "Traditional Footwear",
-                  "description": "Authentic Indian leather chappals handcrafted by skilled artisans. Made using traditional techniques passed down through generations. Features comfortable leather straps, durable sole, and breathable design. Suitable for daily wear, traditional occasions, and casual outings. Reflects rich cultural heritage of Ambur leather craftsmanship.",
-                  "brand": {
-                    "@type": "Brand",
-                    "name": "Fici Shoes"
-                  },
-                  "material": "Genuine leather with traditional sole",
-                  "offers": {
-                    "@type": "Offer",
-                    "priceCurrency": "INR",
-                    "price": "1999",
+                    "price": "3299",
                     "availability": "https://schema.org/InStock"
                   }
                 }
@@ -202,9 +202,9 @@ const SEOHead = ({
                   "description": "Innovative height-increasing shoes with concealed elevator insole providing 2-3 inch lift. Features premium leather upper, comfortable cushioning, and discreet design that appears normal. Boosts confidence while maintaining comfort for all-day wear. Available in formal styles suitable for business and special occasions.",
                   "brand": {
                     "@type": "Brand",
-                    "name": "Fici Shoes"
+                    "name": "FICI Shoes"
                   },
-                  "material": "Premium leather with elevator insole",
+                  "material": "Premium Leather",
                   "offers": {
                     "@type": "Offer",
                     "priceCurrency": "INR",
@@ -222,9 +222,9 @@ const SEOHead = ({
                   "description": "Sophisticated tassel loafers combining classic elegance with modern comfort. Features decorative tassels, moccasin toe design, and premium leather construction. Perfect for business casual events, formal dinners, and sophisticated gatherings. Hand-polished finish with attention to every detail for the discerning gentleman.",
                   "brand": {
                     "@type": "Brand",
-                    "name": "Fici Shoes"
+                    "name": "FICI Shoes"
                   },
-                  "material": "Premium leather with tassel details",
+                  "material": "Premium Leather",
                   "offers": {
                     "@type": "Offer",
                     "priceCurrency": "INR",

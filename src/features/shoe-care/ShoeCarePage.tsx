@@ -123,7 +123,7 @@ const ShoeCarePage: React.FC = () => {
                 {/* Section 1 */}
                 <section className="group animate-[fadeInUp_0.8s_ease-out_1s_both]">
                   <div className="relative mb-6">
-                    <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold transition-all duration-300 group-hover:translate-x-2"
+                    <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold transition-all duration-300 group-hover:translate-x-2 flex items-center gap-3"
                         style={{ 
                           fontFamily: "'Cormorant Garamond', serif",
                           background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)',
@@ -131,7 +131,16 @@ const ShoeCarePage: React.FC = () => {
                           WebkitTextFillColor: 'transparent',
                           backgroundClip: 'text'
                         }}>
-                      1. Daily Care Tips
+                      <span className="font-mono font-bold text-3xl sm:text-4xl md:text-5xl" 
+                            style={{ 
+                              background: 'linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%)',
+                              WebkitBackgroundClip: 'text',
+                              WebkitTextFillColor: 'transparent',
+                              backgroundClip: 'text'
+                            }}>
+                        1.
+                      </span>
+                      Daily Care Tips
                     </h2>
                     <div className="absolute -left-4 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-500 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                   </div>
@@ -158,7 +167,7 @@ const ShoeCarePage: React.FC = () => {
                 {/* Section 2 */}
                 <section className="group animate-[fadeInUp_0.8s_ease-out_1.1s_both]">
                   <div className="relative mb-6">
-                    <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold transition-all duration-300 group-hover:translate-x-2"
+                    <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold transition-all duration-300 group-hover:translate-x-2 flex items-center gap-3"
                         style={{ 
                           fontFamily: "'Cormorant Garamond', serif",
                           background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)',
@@ -166,7 +175,16 @@ const ShoeCarePage: React.FC = () => {
                           WebkitTextFillColor: 'transparent',
                           backgroundClip: 'text'
                         }}>
-                      2. Cleaning & Conditioning
+                      <span className="font-mono font-bold text-3xl sm:text-4xl md:text-5xl" 
+                            style={{ 
+                              background: 'linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%)',
+                              WebkitBackgroundClip: 'text',
+                              WebkitTextFillColor: 'transparent',
+                              backgroundClip: 'text'
+                            }}>
+                        2.
+                      </span>
+                      Cleaning & Conditioning
                     </h2>
                     <div className="absolute -left-4 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-500 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                   </div>
@@ -193,7 +211,7 @@ const ShoeCarePage: React.FC = () => {
                 {/* Section 3 */}
                 <section className="group animate-[fadeInUp_0.8s_ease-out_1.2s_both]">
                   <div className="relative mb-6">
-                    <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold transition-all duration-300 group-hover:translate-x-2"
+                    <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold transition-all duration-300 group-hover:translate-x-2 flex items-center gap-3"
                         style={{ 
                           fontFamily: "'Cormorant Garamond', serif",
                           background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)',
@@ -201,7 +219,16 @@ const ShoeCarePage: React.FC = () => {
                           WebkitTextFillColor: 'transparent',
                           backgroundClip: 'text'
                         }}>
-                      3. Storing Shoes
+                      <span className="font-mono font-bold text-3xl sm:text-4xl md:text-5xl" 
+                            style={{ 
+                              background: 'linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%)',
+                              WebkitBackgroundClip: 'text',
+                              WebkitTextFillColor: 'transparent',
+                              backgroundClip: 'text'
+                            }}>
+                        3.
+                      </span>
+                      Storing Shoes
                     </h2>
                     <div className="absolute -left-4 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-500 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                   </div>
@@ -230,7 +257,7 @@ const ShoeCarePage: React.FC = () => {
                 {/* Section 4 */}
                 <section className="group animate-[fadeInUp_0.8s_ease-out_1.3s_both]">
                   <div className="relative mb-6">
-                    <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold transition-all duration-300 group-hover:translate-x-2"
+                    <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold transition-all duration-300 group-hover:translate-x-2 flex items-center gap-3"
                         style={{ 
                           fontFamily: "'Cormorant Garamond', serif",
                           background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)',
@@ -238,7 +265,16 @@ const ShoeCarePage: React.FC = () => {
                           WebkitTextFillColor: 'transparent',
                           backgroundClip: 'text'
                         }}>
-                      4. Weather & Moisture Care
+                      <span className="font-mono font-bold text-3xl sm:text-4xl md:text-5xl" 
+                            style={{ 
+                              background: 'linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%)',
+                              WebkitBackgroundClip: 'text',
+                              WebkitTextFillColor: 'transparent',
+                              backgroundClip: 'text'
+                            }}>
+                        4.
+                      </span>
+                      Weather & Moisture Care
                     </h2>
                     <div className="absolute -left-4 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-500 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                   </div>
@@ -265,7 +301,7 @@ const ShoeCarePage: React.FC = () => {
                 {/* Section 5 */}
                 <section className="group animate-[fadeInUp_0.8s_ease-out_1.4s_both] lg:col-span-2">
                   <div className="relative mb-6 max-w-3xl mx-auto">
-                    <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold transition-all duration-300 group-hover:translate-x-2"
+                    <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold transition-all duration-300 group-hover:translate-x-2 flex items-center gap-3"
                         style={{ 
                           fontFamily: "'Cormorant Garamond', serif",
                           background: 'linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%)',
@@ -273,7 +309,16 @@ const ShoeCarePage: React.FC = () => {
                           WebkitTextFillColor: 'transparent',
                           backgroundClip: 'text'
                         }}>
-                      5. Polishing Tips
+                      <span className="font-mono font-bold text-3xl sm:text-4xl md:text-5xl" 
+                            style={{ 
+                              background: 'linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%)',
+                              WebkitBackgroundClip: 'text',
+                              WebkitTextFillColor: 'transparent',
+                              backgroundClip: 'text'
+                            }}>
+                        5.
+                      </span>
+                      Polishing Tips
                     </h2>
                     <div className="absolute -left-4 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-500 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                   </div>

@@ -14,35 +14,35 @@ const FAQPage: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
   const faqData: FAQItem[] = [
-    // General Questions
+    // Local & Manufacturing
     {
-      question: "Where can I find the best genuine leather shoes?",
+      question: "Where can I find the best Genuine Leather shoes?",
       answer: (
         <>
-          The best genuine leather footwear can be found at the Fici Shoes showroom located at No.20, 1st Floor, Broad Bazaar, Ambur. As a direct-from-workshop brand by NMF International, we offer premium quality leather shoes at factory-direct prices. <Link to='/products' className='text-blue-400 hover:text-blue-300 underline'>Shop our collection online</Link> or visit us in person.
+          The best genuine leather footwear can be found at the FiCi Shoes store located at No.20, 1st Floor, Broad Bazaar, Ambur. As a direct-from-workshop brand by NMF International, we offer premium quality leather shoes at factory-direct prices. <Link to='/products' className='text-blue-400 hover:text-blue-300 underline'>Shop our collection online</Link> or visit us in person.
         </>
       ),
       category: "general"
     },
     {
-      question: "Are Fici Shoes made in an authentic leather workshop?",
-      answer: "Yes! Every pair of Fici Shoes is handcrafted in our Ambur manufacturing unit. We leverage Ambur's rich heritage in leather craftsmanship to produce shoes that meet global export standards for durability and style.",
+      question: "Are FiCi Shoes made in an authentic leather workshop?",
+      answer: "Yes! Every pair of FiCi Shoes is handcrafted in our Ambur manufacturing unit. We leverage Ambur's rich heritage in leather craftsmanship to produce shoes that meet global export standards for durability and style.",
       category: "general"
     },
     {
       question: "Can I order custom-made leather shoes?",
       answer: (
         <>
-          Yes! We offer tailor-made leather shoes for specific size requirements or design preferences. Our skilled Ambur craftsmen can customize the fit to your needs. <Link to='/contact' className='text-blue-400 hover:text-blue-300 underline'>Contact +91 81220 03006</Link> for bespoke consultations.
+          Yes! We offer tailor-made leather shoes for specific size requirements or design preferences. Our skilled Ambur craftsmen can customize the fit to your needs. <Link to='/contact' className='text-blue-400 hover:text-blue-300 underline'>Contact +91 81220 03006</Link>.
         </>
       ),
       category: "general"
     },
 
-    // Products & Quality
+    // Product & Quality
     {
-      question: "Does Fici Shoes use 100% genuine full-grain leather?",
-      answer: "Absolutely! We use only 100% genuine full-grain and top-grain leather. Our workshop-to-consumer (D2C) model ensures authentic leather products with a luxury finish and long-lasting durability.",
+      question: "Does FiCi Shoes use 100% Genuine full-grain leather?",
+      answer: "Absolutely! We use only 100% genuine full-grain and top-grain leather. We have more leather varieties like Corrected Grain, Oil-Pullup, Suede, Milled and Crunch. Our workshop-to-consumer (D2C) model ensures authentic leather products with a luxury finish and long-lasting durability.",
       category: "products"
     },
     {
@@ -52,11 +52,6 @@ const FAQPage: React.FC = () => {
           Our Leather Oxford and Derby collections are specifically designed for all-day comfort. They feature cushioned insoles and breathable leather linings, making them perfect for professionals seeking comfortable yet stylish office footwear. <Link to='/products?sub_category=Shoes' className='text-blue-400 hover:text-blue-300 underline'>View the collection</Link> at ficishoes.com.
         </>
       ),
-      category: "products"
-    },
-    {
-      question: "Are Fici Shoes lightweight and comfortable for long hours?",
-      answer: "Yes! Unlike traditional heavy leather boots, our shoes are engineered to be light on your feet. With lightweight, flexible outsoles and cushioned footbeds, they're perfect for weddings, office wear, or events where you're standing for long hours.",
       category: "products"
     },
     {
@@ -81,12 +76,12 @@ const FAQPage: React.FC = () => {
       category: "b2b"
     },
 
-    // Ordering & Payment
+    // Online Ordering
     {
       question: "How can I place an order?",
       answer: (
         <>
-          You can order through our website ficishoes.com, via phone at +91 81220 03006, through our Facebook/Instagram pages, or visit our showroom in Ambur. We also accept WhatsApp orders. <Link to='/products' className='text-blue-400 hover:text-blue-300 underline'>Browse products now</Link>
+          You can order through our website ficishoes.com, via phone at +91 81220 03006, through our Facebook/Instagram pages, or visit our store in Ambur. We also accept WhatsApp orders. <Link to='/products' className='text-blue-400 hover:text-blue-300 underline'>Browse products now</Link>
         </>
       ),
       category: "ordering"
@@ -102,7 +97,7 @@ const FAQPage: React.FC = () => {
       category: "ordering"
     },
 
-    // Shipping & Delivery
+    // Shipping & Trust
     {
       question: "How soon can I expect delivery for an online order from ficishoes.com?",
       answer: "We deliver orders as soon as possible! Typically, delivery takes 2–7 business days. Orders to metro cities are often delivered faster via premium courier partners. You'll receive tracking details once your order ships.",
@@ -119,7 +114,7 @@ const FAQPage: React.FC = () => {
       category: "shipping"
     },
     {
-      question: "Does Fici Shoes provide Cash on Delivery (COD) across India?",
+      question: "Does FiCi Shoes provide Cash on Delivery (COD) across India?",
       answer: (
         <>
           Yes! Cash on Delivery (COD) is offered for most pincodes across India. Verify COD availability for your specific location by entering your pincode on the <Link to='/products' className='text-blue-400 hover:text-blue-300 underline'>checkout page</Link> at ficishoes.com.
@@ -158,21 +153,12 @@ const FAQPage: React.FC = () => {
       category: "returns"
     },
 
-    // Shoe Care & Maintenance
+    // Shoe Care
     {
-      question: "How do I maintain and clean my Fici leather shoes?",
+      question: "How do I maintain and clean my FiCi leather shoes?",
       answer: (
         <>
           To keep genuine leather shoes looking new, wipe them with a soft cloth after use and apply a high-quality leather cream monthly. Avoid wearing them in heavy rain to protect the hand-stitched soles. For detailed tips, check our <Link to='/shoe-care' className='text-blue-400 hover:text-blue-300 underline'>Shoe Care Guide</Link>.
-        </>
-      ),
-      category: "care"
-    },
-    {
-      question: "Do you provide shoe care services?",
-      answer: (
-        <>
-          Yes, we offer professional shoe care services including cleaning, polishing, sole replacement, and minor repairs. Visit our showroom or <Link to='/contact' className='text-blue-400 hover:text-blue-300 underline'>contact us</Link> for service details and pricing.
         </>
       ),
       category: "care"
@@ -191,11 +177,6 @@ const FAQPage: React.FC = () => {
           We follow standard UK/India sizing. Refer to the Size Chart on product pages to find the perfect fit. If between sizes, we recommend 'Sizing Up'. Size customization is also available by <Link to='/contact' className='text-blue-400 hover:text-blue-300 underline'>contacting us via WhatsApp</Link>.
         </>
       ),
-      category: "sizing"
-    },
-    {
-      question: "Do you offer half sizes?",
-      answer: "Yes, we offer half sizes for most of our formal shoe collection. However, some traditional designs may only be available in whole sizes. Check product availability or contact us for specific size requirements.",
       category: "sizing"
     },
     {

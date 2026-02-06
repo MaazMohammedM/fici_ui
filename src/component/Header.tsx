@@ -64,6 +64,7 @@ const Header: React.FC = () => {
 
   const [isMobileMenu, setIsMobileMenu] = useState(false);
   const [isSearch, setIsSearch] = useState(false);
+  const [isDesktopSearchActive, setIsDesktopSearchActive] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [userDropdown, setUserDropdown] = useState(false);
@@ -125,35 +126,6 @@ const Header: React.FC = () => {
   }, [initializeTheme]);
 
   const isAuthenticated = getAuthenticationType() === 'user';
-  const isGuest = getAuthenticationType() === 'guest';
-
-  const navItems = [
-    { label: 'Home', path: '/' },
-    {
-      label: 'Men',
-      dropdown: [
-        { label: "All Men's Footwear", path: '/products?gender=men&category=Footwear' },
-        { label: 'Shoes', path: '/products?gender=men&sub_category=Shoes' },
-        { label: 'Sandals', path: '/products?gender=men&sub_category=Sandals' },
-        { label: 'Bags', path: '/products?gender=men&sub_category=Bags' },
-        { label: 'Accessories', path: '/products?gender=men&sub_category=Accessories' },
-      ],
-    },
-    {
-      label: 'Women',
-      dropdown: [
-        { label: "All Women's Footwear", path: '/products?gender=women' },
-        { label: 'Shoes', path: '/products?gender=women&sub_category=Shoes' },
-        { label: 'Sandals', path: '/products?gender=women&sub_category=Sandals' },
-        { label: 'Bags', path: '/products?gender=women&sub_category=Bags' },
-        { label: 'Accessories', path: '/products?gender=women&sub_category=Accessories' },
-      ],
-    },
-    { label: 'Shoe Care', path: '/shoe-care' },
-    { label: 'About', path: '/about' },
-    { label: 'Contact', path: '/contact' },
-    { label: 'Orders', path: '/orders' },
-  ];
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -176,12 +148,39 @@ const Header: React.FC = () => {
     document.addEventListener('keydown', onKey);
     return () => { document.removeEventListener('mousedown', onDoc); document.removeEventListener('keydown', onKey); };
   }, [isMobileMenu]);
-
   const displayName = useAuthStore.getState().firstName || user?.user_metadata?.first_name || 'Account';
   const isMobile = useMediaQuery('(max-width: 767px)');
 
   // Dedupe menu data
   const uniqueNavItems = useMemo(() => {
+    const navItems = [
+      { label: 'Home', path: '/' },
+      {
+        label: 'Men',
+        dropdown: [
+          { label: "All Men's Footwear", path: '/products?gender=men&category=Footwear' },
+          { label: 'Shoes', path: '/products?gender=men&sub_category=Shoes' },
+          { label: 'Sandals', path: '/products?gender=men&sub_category=Sandals' },
+          { label: 'Bags', path: '/products?gender=men&sub_category=Bags' },
+          { label: 'Accessories', path: '/products?gender=men&sub_category=Accessories' },
+        ],
+      },
+      {
+        label: 'Women',
+        dropdown: [
+          { label: "All Women's Footwear", path: '/products?gender=women' },
+          { label: 'Shoes', path: '/products?gender=women&sub_category=Shoes' },
+          { label: 'Sandals', path: '/products?gender=women&sub_category=Sandals' },
+          { label: 'Bags', path: '/products?gender=women&sub_category=Bags' },
+          { label: 'Accessories', path: '/products?gender=women&sub_category=Accessories' },
+        ],
+      },
+      { label: 'Shoe Care', path: '/shoe-care' },
+      { label: 'About', path: '/about' },
+      { label: 'Contact', path: '/contact' },
+      { label: 'Orders', path: '/orders' },
+    ];
+    
     const map = new Map();
     navItems.forEach(item => map.set(item.label, item));
     return Array.from(map.values());
@@ -341,7 +340,66 @@ const Header: React.FC = () => {
           </div>
           {/* Icons Section */}
           <div className="flex items-center gap-1 sm:gap-2 md:gap-3">
-            <button onClick={() => setIsSearch(!isSearch)} className="p-1.5 sm:p-2 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition-all duration-300 hover:scale-110 shadow-sm" aria-label="Open search">
+            {/* Desktop Search Input - Full input on large screens only */}
+            <div className="hidden lg:flex items-center gap-2 bg-gray-100 dark:bg-gray-800 rounded-lg px-3 py-2">
+              <Search className="w-4 h-4 text-gray-700 dark:text-gray-300" />
+              <input 
+                value={searchQuery} 
+                onChange={e => setSearchQuery(e.target.value)} 
+                placeholder="Search products..." 
+                className="flex-1 border rounded-lg px-2 py-1.5 text-sm text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-900 focus:ring-2 focus:ring-blue-500 focus:border-transparent min-w-0"
+                onFocus={() => setIsDesktopSearchActive(true)}
+                onBlur={() => {
+                  // Only hide if search query is empty
+                  if (!searchQuery) {
+                    setIsDesktopSearchActive(false);
+                  }
+                }}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (!searchQuery.trim()) return;
+                    handleProtectedNavigation(`/products?q=${encodeURIComponent(searchQuery.trim())}`);
+                    setIsDesktopSearchActive(false);
+                    setSearchQuery(''); // Clear search query after submission
+                  }
+                }}
+              />
+              {isDesktopSearchActive && (
+                <>
+                  <button 
+                    type="button" 
+                    onClick={() => {
+                      if (!searchQuery.trim()) return;
+                      handleProtectedNavigation(`/products?q=${encodeURIComponent(searchQuery.trim())}`);
+                      setIsDesktopSearchActive(false);
+                      setSearchQuery(''); // Clear search query after submission
+                    }}
+                    className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
+                  >
+                    Search
+                  </button>
+                  <button 
+                    type="button" 
+                    onClick={() => {
+                      setIsDesktopSearchActive(false);
+                      setSearchQuery('');
+                    }}
+                    className="p-1 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                    aria-label="Clear search"
+                  >
+                    <X className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                  </button>
+                </>
+              )}
+            </div>
+
+            {/* Tablet & Mobile Search Icon - Only icon on medium and small screens */}
+            <button 
+              onClick={() => setIsSearch(!isSearch)} 
+              className="lg:hidden p-1.5 sm:p-2 rounded-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition-all duration-300 hover:scale-110 shadow-sm" 
+              aria-label="Open search"
+            >
               <Search className="w-3.5 h-3.5 sm:w-4 sm:h-4 md:w-5 md:h-5 text-gray-700 dark:text-gray-300" />
             </button>
 

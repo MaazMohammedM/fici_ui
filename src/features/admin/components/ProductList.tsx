@@ -132,14 +132,30 @@ const ProductList: React.FC = () => {
   const totalPages = Math.ceil(filteredProducts.length / productsPerPage);
 
   // Pagination controls
-  const paginate = (pageNumber: number) => setCurrentPage(pageNumber);
-  const goToPreviousPage = () => setCurrentPage(prev => Math.max(prev - 1, 1));
-  const goToNextPage = () => setCurrentPage(prev => Math.min(prev + 1, totalPages));
+  const paginate = (pageNumber: number) => {
+    window.scrollTo(0, 0);
+    setCurrentPage(pageNumber);
+  };
+  const goToPreviousPage = () => {
+    window.scrollTo(0, 0);
+    setCurrentPage(prev => Math.max(prev - 1, 1));
+  };
+  const goToNextPage = () => {
+    window.scrollTo(0, 0);
+    setCurrentPage(prev => Math.min(prev + 1, totalPages));
+  };
 
   // Reset to page 1 when filters change
   React.useEffect(() => {
     setCurrentPage(1);
   }, [filters]);
+
+  // Scroll to top when returning from edit mode
+  React.useEffect(() => {
+    if (!editingProduct) {
+      window.scrollTo(0, 0);
+    }
+  }, [editingProduct]);
 
 
   if (editingProduct) {
@@ -295,7 +311,10 @@ const ProductList: React.FC = () => {
                   {/* Action Buttons */}
                   <div className="mt-4 flex gap-2">
                     <button
-                      onClick={() => setEditingProduct(product)}
+                      onClick={() => {
+                        window.scrollTo(0, 0);
+                        setEditingProduct(product);
+                      }}
                       className="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded text-sm transition-colors"
                     >
                       Edit

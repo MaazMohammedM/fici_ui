@@ -120,7 +120,7 @@ export const useEditProductForm = (product: AdminProduct, onSuccess?: () => void
           type: 'manual',
           message: 'No changes detected. Please make at least one change to update the product.'
         });
-        return;
+        return false; // Return false to prevent form submission
       }
 
       // Only validate sizes if they've been modified
@@ -135,10 +135,10 @@ export const useEditProductForm = (product: AdminProduct, onSuccess?: () => void
             type: 'manual',
             message: 'Please add at least one size with quantity'
           });
-          return;
+          return false; // Return false to prevent form submission
         }
 
-        // Validate the sizes JSON string
+        // Validate sizes JSON string
         try {
           const parsedSizes = JSON.parse(currentSizesJson);
           if (typeof parsedSizes !== 'object' || parsedSizes === null || Object.keys(parsedSizes).length === 0) {
@@ -146,14 +146,14 @@ export const useEditProductForm = (product: AdminProduct, onSuccess?: () => void
               type: 'manual',
               message: 'Please add at least one size with quantity'
             });
-            return;
+            return false; // Return false to prevent form submission
           }
         } catch (parseError) {
           form.setError('sizes', {
             type: 'manual',
             message: 'Invalid sizes data format'
           });
-          return;
+          return false; // Return false to prevent form submission
         }
       }
 
@@ -176,14 +176,14 @@ export const useEditProductForm = (product: AdminProduct, onSuccess?: () => void
           if (key === 'size_prices') {
             try {
               const parsed = JSON.parse(formValue as string);
-              // If empty object, don't include the field at all (database will handle null)
+              // If empty object, don't include field at all (database will handle null)
               if (Object.keys(parsed).length === 0) {
                 // Don't add to productData - let database use default null
               } else {
                 productData[key] = parsed; // Send object, not JSON string
               }
             } catch {
-              // If invalid JSON, don't include the field
+              // If invalid JSON, don't include field
             }
           } else {
             productData[key] = formValue;
@@ -196,17 +196,19 @@ export const useEditProductForm = (product: AdminProduct, onSuccess?: () => void
       if (success) {
         form.reset();
         setSizesList({});
-        // Call the success callback to close the edit form
+        // Call the success callback to close edit form
         onSuccess?.();
       } else {
         console.warn('❌ Failed to update product');
       }
+      return success; // Return the actual success status
     } catch (error) {
       console.error('💥 Error updating product:', error);
       form.setError('root', {
         type: 'manual',
         message: 'Failed to update product. Please try again.'
       });
+      return false; // Return false on error
     }
   };
 

@@ -77,8 +77,11 @@ export const EditProductForm: React.FC<EditProductFormProps> = ({
   // Handle form submission
   const handleFormSubmit = async (data: any) => {
     try {
-      await onSubmit(data);
-      if (onSuccess) onSuccess();
+      const result = await onSubmit(data);
+      if (result && onSuccess) {
+        window.scrollTo(0, 0);
+        onSuccess();
+      }
     } catch (error) {
       console.error('Error updating product:', error);
     }
