@@ -1655,8 +1655,25 @@ const AdminOrderDashboard: React.FC = () => {
         tracking_url: firstShippedItem?.tracking_url || undefined
       };
 
-      await printInvoice(order, shippedItems, shipmentInfo);
-      showAlert('Invoice printed successfully', 'success');
+      const result = await printInvoice(order, shippedItems, shipmentInfo);
+      
+      // Show appropriate message based on actual user action
+      switch (result.action) {
+        case 'printed':
+          showAlert('Invoice printed successfully', 'success');
+          break;
+        case 'cancelled':
+          showAlert('Print cancelled', 'info');
+          break;
+        case 'downloaded':
+          showAlert('Invoice downloaded successfully', 'success');
+          break;
+        case 'failed':
+          showAlert('Failed to print invoice', 'error');
+          break;
+        default:
+          showAlert('Print operation completed', 'info');
+      }
     } catch (error) {
       console.error('Error printing invoice:', error);
       showAlert('Failed to print invoice', 'error');

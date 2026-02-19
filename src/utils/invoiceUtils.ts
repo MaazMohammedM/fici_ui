@@ -507,65 +507,206 @@ export const printInvoice = (
   order: Order,
   shippedItems: OrderItem[],
   shipmentInfo: ShipmentInfo
-): void => {
-  const invoiceHTML = generateInvoiceHTML(order, shippedItems, shipmentInfo);
-  
-  // Check if mobile device
-  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-  
-  if (isMobile) {
-    // Mobile-friendly approach: create iframe and print
-    const iframe = document.createElement('iframe');
-    iframe.style.position = 'absolute';
-    iframe.style.left = '-9999px';
-    iframe.style.top = '-9999px';
-    iframe.style.width = '800px';
-    iframe.style.height = '600px';
-    iframe.style.border = 'none';
+): Promise<{ success: boolean; action: 'printed' | 'cancelled' | 'downloaded' | 'failed' }> => {
+  return new Promise((resolve) => {
+    const invoiceHTML = generateInvoiceHTML(order, shippedItems, shipmentInfo);
     
-    document.body.appendChild(iframe);
+    // Check if mobile device
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     
-    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
-    if (iframeDoc) {
-      iframeDoc.open();
-      iframeDoc.write(invoiceHTML);
-      iframeDoc.close();
+    if (isMobile) {
+      // Mobile-friendly approach: create iframe with isolated content
+      const iframe = document.createElement('iframe');
+      iframe.style.position = 'fixed';
+      iframe.style.left = '0';
+      iframe.style.top = '0';
+      iframe.style.width = '100vw';
+      iframe.style.height = '100vh';
+      iframe.style.border = 'none';
+      iframe.style.background = 'white';
+      iframe.style.zIndex = '9999';
       
-      // Wait for content to load, then print
-      setTimeout(() => {
-        try {
-          iframe.contentWindow?.print();
-        } catch (error) {
-          console.warn('Print failed, falling back to download:', error);
-          // Fallback: download as HTML file
-          downloadInvoiceAsHTML(invoiceHTML, order.order_id);
-        }
+      document.body.appendChild(iframe);
+      
+      const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+      if (iframeDoc) {
+        // Clear any existing content
+        iframeDoc.open();
+        iframeDoc.write(invoiceHTML);
+        iframeDoc.close();
         
-        // Clean up iframe
+        // Ensure styles are loaded
+        iframeDoc.head?.insertAdjacentHTML('beforeend', `
+          <style>
+            @media print {
+              body * { 
+                visibility: hidden !important; 
+              }
+              body > * { 
+                visibility: visible !important; 
+              }
+              body > :not(.invoice-header):not(.section):not(.footer) { 
+                display: none !important; 
+              }
+            }
+          </style>
+        `);
+        
+        // Wait for content to fully load, then print
         setTimeout(() => {
-          document.body.removeChild(iframe);
+          try {
+            // Focus the iframe window
+            iframe.contentWindow?.focus();
+            
+            // Listen for print events
+            const mediaQueryList = iframe.contentWindow?.matchMedia('print');
+            let printStarted = false;
+            
+            const handlePrintStart = () => {
+              printStarted = true;
+              console.log('Print started');
+            };
+            
+            const handlePrintEnd = () => {
+              console.log('Print ended, started:', printStarted);
+              
+              // Clean up iframe
+              setTimeout(() => {
+                if (document.body.contains(iframe)) {
+                  document.body.removeChild(iframe);
+                }
+              }, 500);
+              
+              // Resolve based on whether print actually started
+              if (printStarted) {
+                resolve({ success: true, action: 'printed' });
+              } else {
+                resolve({ success: false, action: 'cancelled' });
+              }
+              
+              // Clean up listeners
+              if (mediaQueryList) {
+                mediaQueryList.removeEventListener('change', handlePrintEnd);
+              }
+              iframe.contentWindow?.removeEventListener('beforeprint', handlePrintStart);
+            };
+            
+            // Add event listeners
+            if (mediaQueryList) {
+              mediaQueryList.addEventListener('change', handlePrintEnd);
+            }
+            iframe.contentWindow?.addEventListener('beforeprint', handlePrintStart);
+            
+            // Set a timeout for cases where print dialog is cancelled
+            setTimeout(() => {
+              if (mediaQueryList) {
+                mediaQueryList.removeEventListener('change', handlePrintEnd);
+              }
+              iframe.contentWindow?.removeEventListener('beforeprint', handlePrintStart);
+              
+              // Clean up iframe
+              if (document.body.contains(iframe)) {
+                document.body.removeChild(iframe);
+              }
+              
+              resolve({ success: false, action: 'cancelled' });
+            }, 10000); // 10 second timeout
+            
+            // Print the iframe content
+            iframe.contentWindow?.print();
+            
+          } catch (error) {
+            console.warn('Print failed, falling back to download:', error);
+            // Fallback: download as HTML file
+            downloadInvoiceAsHTML(invoiceHTML, order.order_id);
+            // Clean up iframe
+            if (document.body.contains(iframe)) {
+              document.body.removeChild(iframe);
+            }
+            resolve({ success: true, action: 'downloaded' });
+          }
         }, 1000);
-      }, 500);
-    }
-  } else {
-    // Desktop approach: create new window
-    const printWindow = window.open('', '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes');
-    if (printWindow) {
-      printWindow.document.write(invoiceHTML);
-      printWindow.document.close();
-      
-      // Wait for content to load, then print
-      printWindow.onload = () => {
-        setTimeout(() => {
-          printWindow.print();
-          printWindow.close();
-        }, 500);
-      };
+      } else {
+        // If iframe creation failed
+        if (document.body.contains(iframe)) {
+          document.body.removeChild(iframe);
+        }
+        downloadInvoiceAsHTML(invoiceHTML, order.order_id);
+        resolve({ success: true, action: 'downloaded' });
+      }
     } else {
-      // Fallback: create a downloadable HTML file
-      downloadInvoiceAsHTML(invoiceHTML, order.order_id);
+      // Desktop approach: create new window
+      const printWindow = window.open('', '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes');
+      if (printWindow) {
+        printWindow.document.write(invoiceHTML);
+        printWindow.document.close();
+        
+        // Wait for content to load, then print
+        printWindow.onload = () => {
+          setTimeout(() => {
+            try {
+              // Listen for print events
+              const mediaQueryList = printWindow.matchMedia('print');
+              let printStarted = false;
+              
+              const handlePrintStart = () => {
+                printStarted = true;
+                console.log('Print started');
+              };
+              
+              const handlePrintEnd = () => {
+                console.log('Print ended, started:', printStarted);
+                
+                // Clean up
+                setTimeout(() => {
+                  printWindow.close();
+                }, 500);
+                
+                // Resolve based on whether print actually started
+                if (printStarted) {
+                  resolve({ success: true, action: 'printed' });
+                } else {
+                  resolve({ success: false, action: 'cancelled' });
+                }
+                
+                // Clean up listeners
+                if (mediaQueryList) {
+                  mediaQueryList.removeEventListener('change', handlePrintEnd);
+                }
+                printWindow.removeEventListener('beforeprint', handlePrintStart);
+              };
+              
+              // Add event listeners
+              if (mediaQueryList) {
+                mediaQueryList.addEventListener('change', handlePrintEnd);
+              }
+              printWindow.addEventListener('beforeprint', handlePrintStart);
+              
+              // Set a timeout for cases where print dialog is cancelled
+              setTimeout(() => {
+                if (mediaQueryList) {
+                  mediaQueryList.removeEventListener('change', handlePrintEnd);
+                }
+                printWindow.removeEventListener('beforeprint', handlePrintStart);
+                printWindow.close();
+                resolve({ success: false, action: 'cancelled' });
+              }, 10000); // 10 second timeout
+              
+              printWindow.print();
+            } catch (error) {
+              console.error('Error during print:', error);
+              printWindow.close();
+              resolve({ success: false, action: 'failed' });
+            }
+          }, 500);
+        };
+      } else {
+        // Fallback: create a downloadable HTML file
+        downloadInvoiceAsHTML(invoiceHTML, order.order_id);
+        resolve({ success: true, action: 'downloaded' });
+      }
     }
-  }
+  });
 };
 
 // Helper function to download invoice as HTML file
