@@ -1,8 +1,8 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import type { Product } from "../../../types/product";
 import { useNavigate } from "react-router-dom";
 import CachedImage from "../../../components/ui/CachedImage";
-import { getImageForUseCase } from "../../../lib/utils/imageOptimization";
+import { getImageForUseCaseAsync } from "../../../lib/utils/imageOptimization";
 
 interface ProductCardProps {
   product: Product;
@@ -23,6 +23,24 @@ const ProductCard: React.FC<ProductCardProps> = ({
   activeSubCategories = [] 
 }) => {
   const navigate = useNavigate();
+  const [optimizedImageUrl, setOptimizedImageUrl] = useState<string>('');
+
+  // Optimize image URL on component mount
+  useEffect(() => {
+    const optimizeImage = async () => {
+      if (product.thumbnail_url) {
+        try {
+          const optimizedUrl = await getImageForUseCaseAsync(product.thumbnail_url, 'LISTING');
+          setOptimizedImageUrl(optimizedUrl);
+        } catch (error) {
+          console.warn('Failed to optimize image:', error);
+          setOptimizedImageUrl(product.thumbnail_url);
+        }
+      }
+    };
+
+    optimizeImage();
+  }, [product.thumbnail_url]);
 
   // Calculate discount percentage
   const discountPercentage = React.useMemo(() => {
@@ -54,7 +72,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
       {/* Product Image - Larger and more appealing */}
       <div className="relative aspect-[4/5] w-full bg-gray-50 dark:bg-gray-800 flex items-center justify-center overflow-hidden flex-shrink-0">
         <CachedImage
-          src={product.thumbnail_url ? getImageForUseCase(product.thumbnail_url, 'LISTING') : ''}
+          src={optimizedImageUrl || product.thumbnail_url || ''}
           alt={product.name}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           loading="lazy"

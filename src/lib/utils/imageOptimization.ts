@@ -88,13 +88,33 @@ export function getOptimizedImageUrl(
 }
 
 /**
- * Get optimized image URL for specific use case
+ * Get optimized image URL for specific use case with WebP support
+ */
+export async function getImageForUseCaseAsync(
+  originalUrl: string,
+  useCase: keyof OptimizedImageConfig
+): Promise<string> {
+  const config = IMAGE_CONFIG[useCase];
+  const optimalFormat = await getOptimalFormat();
+  
+  // Update config with optimal format
+  const finalConfig = { ...config, format: optimalFormat };
+  
+  return getOptimizedImageUrl(originalUrl, finalConfig);
+}
+
+/**
+ * Get optimized image URL for specific use case (synchronous version)
+ * Uses WebP by default, falls back to browser detection if needed
  */
 export function getImageForUseCase(
   originalUrl: string,
   useCase: keyof OptimizedImageConfig
 ): string {
   const config = IMAGE_CONFIG[useCase];
+  
+  // For now, always try WebP first - Supabase will handle fallback
+  // In production, you might want to use the async version for browser detection
   return getOptimizedImageUrl(originalUrl, config);
 }
 
