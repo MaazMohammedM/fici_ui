@@ -27,7 +27,7 @@ const CachedImage: React.FC<CachedImageProps> = ({
   }
 
   // Use the cached image URL or fallback
-  return <img src={imageUrl} {...props} onError={(e) => {
+  return <img src={imageUrl} loading={props.loading || 'eager'} {...props} onError={(e) => {
     if (fallbackSrc && e.currentTarget.src !== fallbackSrc) {
       e.currentTarget.src = fallbackSrc;
     }

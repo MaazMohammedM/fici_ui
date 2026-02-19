@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { X, Filter, Search } from 'lucide-react';
+import { Package, XCircle, Clock, CheckCircle, Truck, Ban, RefreshCw, Filter, Search, Eye, X, Upload, MapPin, Phone, Mail, User, Calendar, DollarSign, TrendingUp, ShoppingBag, Users, AlertCircle, ChevronDown, ChevronUp, ArrowUpDown } from 'lucide-react';
+import { supabase } from '@lib/supabase';
+import { getImageForUseCase } from '../../../lib/utils/imageOptimization';
 import AlertModal from '../../../components/ui/AlertModal';
 import type { Return } from '../store/adminStore';
 
@@ -278,9 +280,10 @@ const ReturnsManagementTab: React.FC<ReturnsManagementTabProps> = ({
             <div className="flex flex-col sm:flex-row gap-4">
               <div className="flex-shrink-0">
                 <img
-                  src={returnRequest.order_items?.thumbnail_url || returnRequest.thumbnail_url || '/placeholder-image.jpg'}
+                  src={getImageForUseCase(returnRequest.order_items?.thumbnail_url || returnRequest.thumbnail_url || '/placeholder-image.jpg', 'THUMBNAIL')}
                   alt={returnRequest.order_items?.product_name || returnRequest.product_name || 'Product'}
                   className="w-16 h-16 sm:w-20 sm:h-20 object-cover rounded-lg"
+                  loading="lazy"
                 />
               </div>
               <div className="flex-1 min-w-0">

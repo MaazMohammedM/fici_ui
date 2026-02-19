@@ -1,11 +1,13 @@
 User-agent: *
 Allow: /
 
-# Block admin routes
+# Block admin routes and sensitive endpoints
 Disallow: /admin/
 Disallow: /auth/callback
-Disallow: /orders/
 Disallow: /guest/orders/
+
+# Allow order pages but only for authenticated users
+# Disallow: /orders/  # Commented out to allow indexing
 
 # Sitemap location
 Sitemap: https://ficishoes.com/sitemap.xml

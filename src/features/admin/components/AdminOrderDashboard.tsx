@@ -7,6 +7,7 @@ import { useOrderStore } from '../../../store/orderStore';
 import { supabase } from '../../../lib/supabase';
 import { useOrderLevelActionStates } from '../../../hooks/useOrderActionStates';
 import ReturnsManagementTab from './ReturnsManagementTab';
+import { getImageForUseCase } from '../../../lib/utils/imageOptimization';
 
 import { canRefundOrder } from '../../../types/order-common';
 // These components are defined inline in this file
@@ -446,9 +447,10 @@ const OrderCard: React.FC<{
             {order.order_items?.slice(0, 3).map((item) => (
               <div key={item.order_item_id} className="flex items-center gap-3 text-sm">
                 <img
-                  src={item.thumbnail_url || '/placeholder-image.jpg'}
+                  src={getImageForUseCase(item.thumbnail_url || '/placeholder-image.jpg', 'THUMBNAIL')}
                   alt={item.product_name}
                   className="w-8 h-8 object-cover rounded"
+                  loading="lazy"
                   onError={(e) => {
                     e.currentTarget.src = '/placeholder-image.jpg';
                   }}

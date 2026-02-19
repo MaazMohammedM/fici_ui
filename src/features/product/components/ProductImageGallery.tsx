@@ -4,6 +4,7 @@ import type { Product } from '../../../types/product';
 import fallbackImage from '../../../assets/Fici_logo.png';
 import { ZoomIn, ZoomOut, X, Heart, Share2 } from 'lucide-react';
 import ShareModal from './ShareModal';
+import { getImageForUseCase, getOptimizedImageUrl } from '../../../lib/utils/imageOptimization';
 
 interface ProductImageGalleryProps {
   selectedVariant: Product | undefined;
@@ -435,7 +436,7 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
             )}
 
             <img
-              src={finalImages[selectedImage]}
+              src={getOptimizedImageUrl(finalImages[selectedImage], { width: 1000, quality: 85 })}
               alt={productName}
               className={`w-full h-full object-cover transition-all duration-300 ${
                 isZoomDisabled || !isDesktop ? 'cursor-default' : (isHovering ? 'cursor-crosshair' : 'cursor-default')
@@ -498,7 +499,12 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
               className={`flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden border-2 transition-transform ${idx === selectedImage ? 'border-accent scale-105 ring-2 ring-accent/50' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'}`}
               aria-label={`Thumbnail ${idx + 1}`}
             >
-              <img src={img} alt={`${productName} ${idx + 1}`} className="w-full h-full object-cover" onError={handleImageError} />
+              <img 
+                src={getImageForUseCase(img, 'GALLERY_THUMBNAIL')} 
+                alt={`${productName} ${idx + 1}`} 
+                className="w-full h-full object-cover" 
+                onError={handleImageError} 
+              />
             </button>
           ))}
         </div>
@@ -518,7 +524,7 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
           
           <div className="relative w-full max-w-4xl max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
             <img
-              src={finalImages[modalImageIndex]}
+              src={getOptimizedImageUrl(finalImages[modalImageIndex], { width: 1200, quality: 90 })}
               alt={`${productName} - ${modalImageIndex + 1}`}
               className="max-w-full max-h-[80vh] mx-auto object-contain"
               onError={handleImageError}

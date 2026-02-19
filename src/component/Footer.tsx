@@ -79,6 +79,17 @@ const Footer: React.FC = () => {
                 style={{ color: "#25D366" }}
               />
             </a>
+            <a
+              href="https://www.linkedin.com/company/fici-shoes/"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="LinkedIn"
+              className="p-2 rounded-full bg-white/5 hover:bg-white/10 transition-colors flex items-center justify-center"
+            >
+              <div className="w-5 h-5 flex items-center justify-center bg-blue-600 rounded-full">
+                <span className="text-white font-bold text-xs">in</span>
+              </div>
+            </a>
           </div>
         </div>
 
