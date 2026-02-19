@@ -2,6 +2,7 @@ import React from "react";
 import type { Product } from "../../../types/product";
 import { useNavigate } from "react-router-dom";
 import CachedImage from "../../../components/ui/CachedImage";
+import { getImageForUseCase } from "../../../lib/utils/imageOptimization";
 
 interface ProductCardProps {
   product: Product;
@@ -53,9 +54,10 @@ const ProductCard: React.FC<ProductCardProps> = ({
       {/* Product Image - Larger and more appealing */}
       <div className="relative aspect-[4/5] w-full bg-gray-50 dark:bg-gray-800 flex items-center justify-center overflow-hidden flex-shrink-0">
         <CachedImage
-          src={product.images?.[0] || ''}
+          src={product.thumbnail_url ? getImageForUseCase(product.thumbnail_url, 'LISTING') : ''}
           alt={product.name}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          loading="lazy"
           loadingFallback={
             <div className="w-full h-full bg-gray-200 dark:bg-gray-700 animate-pulse" />
           }

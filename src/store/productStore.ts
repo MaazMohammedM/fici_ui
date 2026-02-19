@@ -153,10 +153,22 @@ export const useProductStore = create<ProductState>((set, get) => ({
     set({ loading: true, error: null, abortController });
 
     try {
-      // Fetch ALL products without pagination for global sorting
+      // Fetch ONLY necessary fields for product listing (exclude gallery images to reduce egress)
       const { data, error, count } = await supabase
         .from('products')
-        .select('*', { count: 'exact' })
+        .select(`
+          article_id,
+          name,
+          category,
+          sub_category,
+          gender,
+          mrp_price,
+          discount_price,
+          thumbnail_url,
+          sizes,
+          is_active,
+          created_at
+        `, { count: 'exact' })
         .eq('is_active', true);
 
       if (error) throw error;
@@ -164,7 +176,7 @@ export const useProductStore = create<ProductState>((set, get) => ({
       const processedProducts: Product[] = (data || []).map((product: any) => ({
         ...product,
         sizes: safeParseSizes(product.sizes),
-        images: parseImages(product.images),
+        images: [], // Empty array since we don't fetch gallery images for listing
         thumbnail_url: product.thumbnail_url || null,
         discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price),
         mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0

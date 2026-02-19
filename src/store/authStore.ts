@@ -17,6 +17,7 @@ interface AuthState extends AuthenticationState {
   firstName: string | null;
   userProfile: any | null;
   loading: boolean;
+  initialized: boolean;
   error: string | null;
 
   authType: 'guest' | 'user' | null;
@@ -33,6 +34,7 @@ interface AuthState extends AuthenticationState {
 
   setRole: (role: string | null) => void;
   setFirstName: (name: string | null) => void;
+  setInitialized: (initialized: boolean) => void;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (userData: { firstName: string; lastName: string; email: string; mobile?: string; password: string }) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
@@ -73,6 +75,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       role: null,
       firstName: null,
       loading: false,
+      initialized: false,
       error: null,
       authType: null,
 
@@ -94,6 +97,7 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       setUserProfile: (userProfile) => set({ userProfile }),
       setRole: (role) => set({ role }),
       setFirstName: (name) => set({ firstName: name }),
+      setInitialized: (initialized) => set({ initialized }),
       clearError: () => set({ error: null }),
 
       updatePhoneNumber: async (phoneNumber: string) => {
@@ -630,6 +634,8 @@ let authStoreInitialized = false;
           useAuthStore.getState().setUser(undefined);
         }
       });
+      // Mark as initialized for callback scenarios
+      useAuthStore.getState().setInitialized(true);
       return;
     }
 
@@ -661,5 +667,8 @@ let authStoreInitialized = false;
     console.error('Auth store initialization failed:', err);
     // Ensure we have a clean state on failure
     useAuthStore.getState().setUser(undefined);
+  } finally {
+    // Mark initialization as complete
+    useAuthStore.getState().setInitialized(true);
   }
 })();

@@ -7,6 +7,7 @@ import { useCartStore } from "@store/cartStore";
 import { isProductAvailable, parseProductSizes } from '@lib/productAvailability';
 import { getAvailableSizes, isProductOutOfStock, isSizeInStock } from '@lib/utils/productValidation';
 import { validateCartItemStock } from '@lib/stock/stockValidator';
+import { getImageForUseCase } from '../../../lib/utils/imageOptimization';
 
 interface CartItemCardProps {
   item: CartItem;
@@ -116,9 +117,10 @@ const CartItemCard: React.FC<CartItemCardProps> = ({ item, onQuantityChange, onR
     <div className="relative w-24 h-24 flex-shrink-0">
       {renderInfoOverlay()}
       <img
-        src={item.image}
+        src={getImageForUseCase(item.image || item.thumbnail_url || '', 'THUMBNAIL')}
         alt={item.name}
         className="w-full h-full object-cover rounded-lg"
+        loading="lazy"
       />
 
       {(!overlayDismissed && (isCurrentSizeOutOfStock || isInactive || isCompletelyOutOfStock)) && (

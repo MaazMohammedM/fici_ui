@@ -3,6 +3,7 @@
 // ==========================================
 
 import React from 'react';
+import SEOHead from '@lib/components/SEOHead';
 import Hero from '../../components/home/Hero';
 import TrustStrip from '../../components/home/TrustStrip';
 import CategoryGrid from '../../components/home/CategoryGrid';
@@ -13,7 +14,14 @@ import NewArrivals from '../../components/home/NewArrivals';
 
 const HomePage: React.FC = () => {
   return (
-    <main className="min-h-screen bg-white dark:bg-gray-900">
+    <>
+      <SEOHead 
+        title="FICI Shoes - Premium Leather Footwear | Handcrafted Quality"
+        description="Discover premium leather shoes, sandals, and accessories at FICI Shoes. Handcrafted quality with modern style. Free shipping on orders above ₹999."
+        keywords="fici shoes, leather footwear, premium shoes, handcrafted shoes, men shoes, women shoes, sandals, boots"
+        url="https://ficishoes.com"
+      />
+      <main className="min-h-screen bg-white dark:bg-gray-900">
       {/* Hero Section - Premium first impression */}
       <Hero />
       
@@ -44,6 +52,7 @@ const HomePage: React.FC = () => {
       {/* <Testimonials /> */}
       
     </main>
+    </>
   );
 };
 
