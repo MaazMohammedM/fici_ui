@@ -490,7 +490,7 @@ const ShippingInvoice: React.FC<ShippingInvoiceProps> = ({
         <div className="footer">
           <div>This is a computer-generated invoice and does not require a signature</div>
           <div>© 2024 FiCi Shoes. All rights reserved.</div>
-          <div>For any queries, contact our customer support at support@fici.com</div>
+          <div>For any queries, contact our customer support at support@ficishoes.com</div>
         </div>
       </div>
     </div>

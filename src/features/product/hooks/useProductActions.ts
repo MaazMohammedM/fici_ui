@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useCartStore } from '@store/cartStore';
 import { useWishlistStore } from '@store/wishlistStore';
-import { useProductStore } from '@store/productStore';
+import { useCartStore } from '@store/cartStore';
+import { useAuthStore } from '@store/authStore';
+import { validateCartItemStock } from '@lib/stock/stockValidator';
+import { showAlert } from '@lib/utils/alertUtils';
 import type { ProductDetail } from '../../../types/product';
 
 interface UseProductActionsOptions {

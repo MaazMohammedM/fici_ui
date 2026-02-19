@@ -1,5 +1,6 @@
 import type { Order, OrderItem } from '../types/order-common';
 import type { AdminOrder } from '../types/order';
+import { showAlert } from '../lib/utils/alertUtils';
 
 export interface ShipmentInfo {
   shipping_partner: string;
@@ -29,6 +30,21 @@ export const generateInvoiceHTML = (
       return `${address.name || 'N/A'}, ${address.address || 'N/A'}, ${address.city || 'N/A'}, ${address.district ? address.district + ', ' : ''}${address.state || 'N/A'} - ${address.pincode || 'N/A'}`;
     }
     return address;
+  };
+
+  const extractCustomerName = (order: Order | AdminOrder, address: any) => {
+    // Try to get name from shipping address first
+    if (isShippingAddress(address) && address.name) {
+      return address.name;
+    }
+    
+    // Fallback to guest email name extraction
+    if (order.guest_email) {
+      const emailName = order.guest_email.split('@')[0];
+      return emailName.charAt(0).toUpperCase() + emailName.slice(1).toLowerCase();
+    }
+    
+    return 'Guest Customer';
   };
 
   return `
@@ -241,6 +257,64 @@ export const generateInvoiceHTML = (
             body {
               padding: 10px;
             }
+            
+            .info-grid {
+              grid-template-columns: 1fr;
+              gap: 10px;
+            }
+            
+            .items-table {
+              font-size: 12px;
+            }
+            
+            .items-table th,
+            .items-table td {
+              padding: 8px;
+            }
+          }
+          
+          @media (max-width: 768px) {
+            body {
+              padding: 10px;
+              font-size: 14px;
+            }
+            
+            .info-grid {
+              grid-template-columns: 1fr;
+              gap: 10px;
+            }
+            
+            .items-table {
+              font-size: 12px;
+            }
+            
+            .items-table th,
+            .items-table td {
+              padding: 8px;
+              font-size: 11px;
+            }
+            
+            .company-name {
+              font-size: 20px;
+            }
+            
+            .invoice-title {
+              font-size: 18px;
+            }
+            
+            .section-title {
+              font-size: 14px;
+            }
+            
+            .total-label,
+            .total-value {
+              font-size: 14px;
+            }
+            
+            .grand-total .total-label,
+            .grand-total .total-value {
+              font-size: 16px;
+            }
           }
         </style>
       </head>
@@ -248,10 +322,10 @@ export const generateInvoiceHTML = (
         <!-- Header -->
         <div class="invoice-header">
           <div class="company-info">
-            <div class="company-name">FiCi Shoes</div>
-            <div class="company-tagline">Premium Leather Footwear</div>
+            <div class="company-name">FICI Shoes by NMF International</div>
+            <div class="company-tagline">Handcrafted Leather Formal Shoes</div>
             <div class="text-sm text-gray-600 mt-2">
-              GST: 27AAAPF1234C1ZV | Email: info@fici.com | Phone: +91 98765 43210
+              GST: 33BMAPM8509H1Z4 | Email: support@ficishoes.com | Phone: +91 81220 03006
             </div>
           </div>
           <div class="invoice-title">SHIPPING INVOICE</div>
@@ -312,11 +386,7 @@ export const generateInvoiceHTML = (
             <div>
               <div class="info-item">
                 <span class="info-label">Customer Name:</span>
-                <span class="info-value">
-                  ${order.user_id
-                    ? `User ID: ${order.user_id}`
-                    : order.guest_email || 'N/A'}
-                </span>
+                <span class="info-value">${extractCustomerName(order, order.shipping_address)}</span>
               </div>
               <div class="info-item">
                 <span class="info-label">Email:</span>
@@ -424,8 +494,9 @@ export const generateInvoiceHTML = (
         <!-- Footer -->
         <div class="footer">
           <div>This is a computer-generated invoice and does not require a signature</div>
-          <div>© 2024 FiCi Shoes. All rights reserved.</div>
-          <div>For any queries, contact our customer support at support@fici.com</div>
+          <div> 2024 FICI Shoes by NMF International. All rights reserved.</div>
+          <div>For any queries, contact our customer support at info@ficishoes.com or call +91 99527 22675</div>
+          <div>Khaderpet, Ambur - 635802, Tirupathur District, Tamil Nadu</div>
         </div>
       </body>
     </html>
@@ -439,29 +510,84 @@ export const printInvoice = (
 ): void => {
   const invoiceHTML = generateInvoiceHTML(order, shippedItems, shipmentInfo);
   
-  // Create a new window for printing
-  const printWindow = window.open('', '_blank');
-  if (printWindow) {
-    printWindow.document.write(invoiceHTML);
-    printWindow.document.close();
+  // Check if mobile device
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  
+  if (isMobile) {
+    // Mobile-friendly approach: create iframe and print
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'absolute';
+    iframe.style.left = '-9999px';
+    iframe.style.top = '-9999px';
+    iframe.style.width = '800px';
+    iframe.style.height = '600px';
+    iframe.style.border = 'none';
     
-    // Wait for content to load, then print
-    printWindow.onload = () => {
+    document.body.appendChild(iframe);
+    
+    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (iframeDoc) {
+      iframeDoc.open();
+      iframeDoc.write(invoiceHTML);
+      iframeDoc.close();
+      
+      // Wait for content to load, then print
       setTimeout(() => {
-        printWindow.print();
-        printWindow.close();
+        try {
+          iframe.contentWindow?.print();
+        } catch (error) {
+          console.warn('Print failed, falling back to download:', error);
+          // Fallback: download as HTML file
+          downloadInvoiceAsHTML(invoiceHTML, order.order_id);
+        }
+        
+        // Clean up iframe
+        setTimeout(() => {
+          document.body.removeChild(iframe);
+        }, 1000);
       }, 500);
-    };
+    }
   } else {
-    // Fallback: create a downloadable HTML file
+    // Desktop approach: create new window
+    const printWindow = window.open('', '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes');
+    if (printWindow) {
+      printWindow.document.write(invoiceHTML);
+      printWindow.document.close();
+      
+      // Wait for content to load, then print
+      printWindow.onload = () => {
+        setTimeout(() => {
+          printWindow.print();
+          printWindow.close();
+        }, 500);
+      };
+    } else {
+      // Fallback: create a downloadable HTML file
+      downloadInvoiceAsHTML(invoiceHTML, order.order_id);
+    }
+  }
+};
+
+// Helper function to download invoice as HTML file
+const downloadInvoiceAsHTML = (invoiceHTML: string, orderId: string): void => {
+  try {
     const blob = new Blob([invoiceHTML], { type: 'text/html' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `invoice-${order.order_id.slice(-8)}.html`;
+    a.download = `invoice-${orderId.slice(-8)}.html`;
+    a.style.display = 'none';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  } catch (error) {
+    console.error('Failed to download invoice:', error);
+    // Last resort: copy to clipboard
+    navigator.clipboard.writeText(invoiceHTML).then(() => {
+      showAlert('Invoice copied to clipboard! You can paste it into a text editor and save as HTML.', 'info');
+    }).catch(() => {
+      showAlert('Unable to print or download invoice. Please try again on desktop.', 'error');
+    });
   }
 };
