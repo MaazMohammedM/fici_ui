@@ -172,24 +172,294 @@ export const downloadInvoice = (invoice: InvoiceData): void => {
   }
 };
 
-export const printInvoice = (invoice: InvoiceData): void => {
-  try {
-    const html = generateInvoiceHTML(invoice);
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(html);
-      printWindow.document.close();
-      printWindow.print();
-      printWindow.close();
+export const printInvoice = (invoice: InvoiceData): Promise<{ success: boolean; action: 'printed' | 'cancelled' | 'downloaded' | 'failed' | 'share_intent' }> => {
+  return new Promise((resolve) => {
+    const invoiceHTML = generateInvoiceHTML(invoice);
+    
+    // Detect device type
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isAndroid = /Android/.test(navigator.userAgent);
+    
+    // Mobile-specific strategies
+    if (isMobile) {
+      // Strategy 1: iOS - Use share menu for printing
+      if (isIOS) {
+        try {
+          // Create a blob and use Web Share API for iOS
+          const blob = new Blob([invoiceHTML], { type: 'text/html' });
+          const file = new File([blob], `invoice-${invoice.invoiceNumber}.html`, { type: 'text/html' });
+          
+          if (navigator.share && navigator.canShare({ files: [file] })) {
+            navigator.share({
+              title: `Invoice - ${invoice.invoiceNumber}`,
+              text: 'FICI Shoes Invoice',
+              files: [file]
+            }).then(() => {
+              resolve({ success: true, action: 'share_intent' });
+            }).catch((error) => {
+              downloadInvoice(invoice);
+              resolve({ success: true, action: 'downloaded' });
+            });
+            return;
+          }
+        } catch (error) {
+          // iOS share failed, falling back to iframe
+        }
+      }
       
-      showSuccessAlert('Invoice sent to printer');
+      // Strategy 2: Android - Try share intent first, then iframe
+      if (isAndroid) {
+        try {
+          const blob = new Blob([invoiceHTML], { type: 'text/html' });
+          const file = new File([blob], `invoice-${invoice.invoiceNumber}.html`, { type: 'text/html' });
+          
+          if (navigator.share && navigator.canShare({ files: [file] })) {
+            navigator.share({
+              title: `Invoice - ${invoice.invoiceNumber}`,
+              text: 'FICI Shoes Invoice - Open in browser to print',
+              files: [file]
+            }).then(() => {
+              resolve({ success: true, action: 'share_intent' });
+            }).catch((error) => {
+              // Android share failed, trying iframe
+            });
+          }
+        } catch (error) {
+          // Android share failed, trying iframe
+        }
+      }
+      
+      // Strategy 3: Mobile iframe approach (works on most mobile browsers)
+      const iframe = document.createElement('iframe');
+      iframe.style.position = 'fixed';
+      iframe.style.left = '0';
+      iframe.style.top = '0';
+      iframe.style.width = '100vw';
+      iframe.style.height = '100vh';
+      iframe.style.border = 'none';
+      iframe.style.background = 'white';
+      iframe.style.zIndex = '9999';
+      iframe.style.overflow = 'hidden';
+      
+      document.body.appendChild(iframe);
+      
+      const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+      if (iframeDoc) {
+        // Write the invoice content
+        iframeDoc.open();
+        iframeDoc.write(invoiceHTML);
+        iframeDoc.close();
+        
+        // Add mobile-specific print styles
+        const mobilePrintStyles = iframeDoc.createElement('style');
+        mobilePrintStyles.textContent = `
+          @media print {
+            body { 
+              margin: 0 !important; 
+              padding: 10px !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            @page {
+              margin: 0.5in;
+              size: A4;
+            }
+            * {
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+          }
+          
+          @media screen {
+            body {
+              zoom: 0.8;
+              -webkit-transform: scale(0.8);
+              transform: scale(0.8);
+              -webkit-transform-origin: 0 0;
+              transform-origin: 0 0;
+            }
+          }
+          
+          .mobile-print-hint {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: #007AFF;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 14px;
+            z-index: 10000;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+          }
+          
+          @media print {
+            .mobile-print-hint {
+              display: none !important;
+            }
+          }
+        `;
+        iframeDoc.head.appendChild(mobilePrintStyles);
+        
+        // Add mobile print hint button
+        const printHint = iframeDoc.createElement('div');
+        printHint.className = 'mobile-print-hint';
+        printHint.textContent = '🖨️ Print';
+        printHint.onclick = () => {
+          try {
+            iframe.contentWindow?.print();
+          } catch (error) {
+            console.error('Print failed:', error);
+            alert('Please use your browser\'s menu: Share → Print');
+          }
+        };
+        iframeDoc.body.appendChild(printHint);
+        
+        // Wait for content to fully load
+        setTimeout(() => {
+          try {
+            // Focus the iframe
+            iframe.contentWindow?.focus();
+            
+            // Add print event listeners
+            let printStarted = false;
+            
+            const handlePrintStart = () => {
+              printStarted = true;
+            };
+            
+            const handlePrintEnd = () => {
+              setTimeout(() => {
+                if (document.body.contains(iframe)) {
+                  document.body.removeChild(iframe);
+                }
+              }, 1000);
+              
+              if (printStarted) {
+                resolve({ success: true, action: 'printed' });
+              } else {
+                resolve({ success: false, action: 'cancelled' });
+              }
+            };
+            
+            // Set timeout for cancellation
+            const printTimeout = setTimeout(() => {
+              if (document.body.contains(iframe)) {
+                document.body.removeChild(iframe);
+              }
+              resolve({ success: false, action: 'cancelled' });
+            }, 15000); // 15 second timeout for mobile
+            
+            // Add event listeners
+            iframe.contentWindow?.addEventListener('beforeprint', handlePrintStart);
+            
+            // For mobile browsers that don't support beforeprint
+            const mediaQueryList = iframe.contentWindow?.matchMedia('print');
+            if (mediaQueryList) {
+              mediaQueryList.addEventListener('change', (e) => {
+                if (e.matches) {
+                  handlePrintStart();
+                } else {
+                  handlePrintEnd();
+                }
+              });
+            }
+            
+            // Try to print automatically
+            try {
+              iframe.contentWindow?.print();
+            } catch (error) {
+              // Auto print failed on mobile, showing manual hint
+              // The print hint button is already visible, so user can print manually
+              setTimeout(() => {
+                if (document.body.contains(iframe)) {
+                  document.body.removeChild(iframe);
+                }
+                resolve({ success: false, action: 'cancelled' });
+              }, 20000); // Longer timeout for manual interaction
+            }
+            
+          } catch (error) {
+            // Mobile print setup failed
+            // Fallback to download
+            if (document.body.contains(iframe)) {
+              document.body.removeChild(iframe);
+            }
+            downloadInvoice(invoice);
+            resolve({ success: true, action: 'downloaded' });
+          }
+        }, 1500); // Longer wait for mobile rendering
+      } else {
+        // If iframe creation failed
+        if (document.body.contains(iframe)) {
+          document.body.removeChild(iframe);
+        }
+        downloadInvoice(invoice);
+        resolve({ success: true, action: 'downloaded' });
+      }
     } else {
-      showErrorAlert('Failed to open print window');
+      // Desktop approach - create data URL to avoid about:blank
+      const dataUrl = `data:text/html;charset=utf-8,${encodeURIComponent(invoiceHTML)}`;
+      const printWindow = window.open(dataUrl, '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes');
+      if (printWindow) {
+        printWindow.onload = () => {
+          setTimeout(() => {
+            try {
+              let printStarted = false;
+              
+              const handlePrintStart = () => {
+                printStarted = true;
+              };
+              
+              const handlePrintEnd = () => {
+                setTimeout(() => {
+                  printWindow.close();
+                }, 500);
+                
+                if (printStarted) {
+                  resolve({ success: true, action: 'printed' });
+                } else {
+                  resolve({ success: false, action: 'cancelled' });
+                }
+              };
+              
+              const mediaQueryList = printWindow.matchMedia('print');
+              if (mediaQueryList) {
+                mediaQueryList.addEventListener('change', (e) => {
+                  if (e.matches) {
+                    handlePrintStart();
+                  } else {
+                    handlePrintEnd();
+                  }
+                });
+              }
+              
+              printWindow.addEventListener('beforeprint', handlePrintStart);
+              
+              setTimeout(() => {
+                if (mediaQueryList) {
+                  mediaQueryList.removeEventListener('change', handlePrintEnd);
+                }
+                printWindow.removeEventListener('beforeprint', handlePrintStart);
+                printWindow.close();
+                resolve({ success: false, action: 'cancelled' });
+              }, 10000);
+              
+              printWindow.print();
+            } catch (error) {
+              printWindow.close();
+              resolve({ success: false, action: 'failed' });
+            }
+          }, 500);
+        };
+      } else {
+        downloadInvoice(invoice);
+        resolve({ success: true, action: 'downloaded' });
+      }
     }
-  } catch (error) {
-    console.error('Error printing invoice:', error);
-    showErrorAlert('Failed to print invoice');
-  }
+  });
 };
 
 export const validateInvoice = (invoice: Partial<InvoiceData>): { isValid: boolean; errors: string[] } => {

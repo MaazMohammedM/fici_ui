@@ -228,3 +228,37 @@ export const getPresetImageUrl = (
 ): string => {
   return getOptimizedImageUrl(imageUrl, IMAGE_SIZES[preset]);
 };
+
+/**
+ * Gets optimized image URL based on use case
+ * @param imageUrl Original image URL
+ * @param useCase Use case for the image (THUMBNAIL, LISTING, DETAIL, HERO)
+ * @returns Optimized image URL
+ */
+export const getImageForUseCase = (
+  imageUrl: string | null | undefined,
+  useCase: 'THUMBNAIL' | 'LISTING' | 'DETAIL' | 'HERO' | 'thumbnail' | 'listing' | 'detail' | 'hero'
+): string => {
+  // Handle lowercase variants
+  const normalizedUseCase = useCase.toUpperCase() as keyof typeof IMAGE_SIZES;
+  
+  if (normalizedUseCase in IMAGE_SIZES) {
+    return getPresetImageUrl(imageUrl, normalizedUseCase);
+  }
+  
+  // Fallback to LISTING if use case is not recognized
+  return getPresetImageUrl(imageUrl, 'LISTING');
+};
+
+/**
+ * Async version of getImageForUseCase for compatibility
+ * @param imageUrl Original image URL
+ * @param useCase Use case for the image
+ * @returns Promise that resolves to optimized image URL
+ */
+export const getImageForUseCaseAsync = async (
+  imageUrl: string | null | undefined,
+  useCase: 'THUMBNAIL' | 'LISTING' | 'DETAIL' | 'HERO' | 'thumbnail' | 'listing' | 'detail' | 'hero'
+): Promise<string> => {
+  return getImageForUseCase(imageUrl, useCase);
+};

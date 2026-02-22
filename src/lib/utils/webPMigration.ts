@@ -30,7 +30,7 @@ export async function migrateComponentImagesToWebP() {
       const baseUrl = currentSrc.split('?')[0];
       
       // Try different use cases to find the best fit
-      const useCases = ['THUMBNAIL', 'LISTING', 'DETAIL', 'GALLERY_THUMBNAIL'] as const;
+      const useCases = ['THUMBNAIL', 'LISTING', 'DETAIL'] as const;
       
       for (const useCase of useCases) {
         try {
