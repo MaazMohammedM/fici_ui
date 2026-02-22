@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { Helmet } from "react-helmet-async";
+import SEOHead from "@lib/components/SEOHead";
 import ficiLogo from "../../assets/Fici_logo.png";
 import showroomDesktop from "../../assets/showroom_desktop.jpg";
 import showroomMobile from "../../assets/showroom_mobile.jpg";
@@ -11,17 +11,12 @@ const AboutPage: React.FC = () => {
 
   return (
     <>
-      <Helmet>
-        <title>About Fici Shoes - A Brand of NMF International | Premium Leather Footwear</title>
-        <meta name="description" content="Fici Shoes is a premium brand of NMF International, crafting quality leather footwear since 2018. Discover our story of craftsmanship, comfort, and style from Ambur, Tamil Nadu." />
-        <meta name="keywords" content="Fici Shoes, NMF International, leather footwear, premium shoes, Ambur Tamil Nadu, quality craftsmanship, leather shoes, footwear brand" />
-        <meta property="og:title" content="About Fici Shoes - A Brand of NMF International" />
-        <meta property="og:description" content="Learn about Fici Shoes, a premium brand of NMF International crafting quality leather footwear since 2018." />
-        <meta property="og:type" content="website" />
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="About Fici Shoes - A Brand of NMF International" />
-        <meta name="twitter:description" content="Fici Shoes is a premium brand of NMF International, crafting quality leather footwear since 2018." />
-      </Helmet>
+      <SEOHead 
+        title="About Fici Shoes - A Brand of NMF International | Premium Leather Footwear"
+        description="Fici Shoes is a premium brand of NMF International, crafting quality leather footwear since 2018. Discover our story of craftsmanship, comfort, and style from Ambur, Tamil Nadu."
+        keywords="Fici Shoes, NMF International, leather footwear, premium shoes, Ambur Tamil Nadu, quality craftsmanship, leather shoes, footwear brand"
+        url="https://ficishoes.com/about"
+      />
     <div className="flex-1 bg-[color:var(--color-light1)] dark:bg-[color:var(--color-dark1)]">
       <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Hero Section - Mobile Layout */}

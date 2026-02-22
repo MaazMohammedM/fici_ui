@@ -345,7 +345,7 @@ const AdminPage: React.FC = () => {
         {activeTab === "dashboard" && (
           <div>
             {/* Comprehensive Dashboard Content for Image Generation - Hidden */}
-            <div id="comprehensive-dashboard-content" className="bg-white p-6 rounded-lg shadow-lg mb-8" style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: '1200px', minHeight: '800px' }}>
+            <div id="comprehensive-dashboard-content" className="bg-white p-6 rounded-lg shadow-lg mb-8" style={{ position: 'absolute', left: '-9999px', top: '-9999px', width: '1200px', maxWidth: '1200px', minWidth: '1200px', minHeight: '1600px', overflow: 'hidden' }}>
               {/* Header */}
               <div className="text-center mb-6">
                 <h2 className="text-2xl font-bold text-gray-800 mb-2">FiCi Shoes - Complete Dashboard</h2>
@@ -353,39 +353,39 @@ const AdminPage: React.FC = () => {
               </div>
 
               {/* Two Column Layout */}
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-2 gap-4">
                 {/* Left Column */}
-                <div className="space-y-6">
+                <div className="space-y-4">
                   {/* Key Metrics */}
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-800 mb-3">🔥 Key Metrics</h3>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="bg-blue-50 p-3 rounded text-center border border-blue-200">
-                        <div className="text-xl font-bold text-blue-600">{(stats.totalVisits || 0).toLocaleString()}</div>
+                    <h3 className="text-sm font-semibold text-gray-800 mb-2">🔥 Key Metrics</h3>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="bg-blue-50 p-2 rounded text-center border border-blue-200">
+                        <div className="text-sm font-bold text-blue-600">{(stats.totalVisits || 0).toLocaleString()}</div>
                         <div className="text-xs text-gray-600">Total Visits</div>
                       </div>
-                      <div className="bg-indigo-50 p-3 rounded text-center border border-indigo-200">
-                        <div className="text-xl font-bold text-indigo-600">{trafficVisits.toLocaleString()}</div>
+                      <div className="bg-indigo-50 p-2 rounded text-center border border-indigo-200">
+                        <div className="text-sm font-bold text-indigo-600">{trafficVisits.toLocaleString()}</div>
                         <div className="text-xs text-gray-600">Traffic Visits</div>
                       </div>
-                      <div className="bg-green-50 p-3 rounded text-center border border-green-200">
-                        <div className="text-xl font-bold text-green-600">{(stats.totalOrders || 0).toLocaleString()}</div>
+                      <div className="bg-green-50 p-2 rounded text-center border border-green-200">
+                        <div className="text-sm font-bold text-green-600">{(stats.totalOrders || 0).toLocaleString()}</div>
                         <div className="text-xs text-gray-600">Total Orders</div>
                       </div>
-                      <div className="bg-purple-50 p-3 rounded text-center border border-purple-200">
-                        <div className="text-xl font-bold text-purple-600">{(stats.totalUsers || 0).toLocaleString()}</div>
+                      <div className="bg-purple-50 p-2 rounded text-center border border-purple-200">
+                        <div className="text-sm font-bold text-purple-600">{(stats.totalUsers || 0).toLocaleString()}</div>
                         <div className="text-xs text-gray-600">Total Users</div>
                       </div>
-                      <div className="bg-emerald-50 p-3 rounded text-center border border-emerald-200">
-                        <div className="text-xl font-bold text-emerald-600">₹{(stats.totalRevenue || 0).toLocaleString('en-IN')}</div>
+                      <div className="bg-emerald-50 p-2 rounded text-center border border-emerald-200">
+                        <div className="text-sm font-bold text-emerald-600">₹{(stats.totalRevenue || 0).toLocaleString('en-IN')}</div>
                         <div className="text-xs text-gray-600">Total Revenue</div>
                       </div>
-                      <div className="bg-orange-50 p-3 rounded text-center border border-orange-200">
-                        <div className="text-xl font-bold text-orange-600">{(stats.conversionRate || 0).toFixed(2)}%</div>
+                      <div className="bg-orange-50 p-2 rounded text-center border border-orange-200">
+                        <div className="text-sm font-bold text-orange-600">{(stats.conversionRate || 0).toFixed(2)}%</div>
                         <div className="text-xs text-gray-600">Conversion Rate</div>
                       </div>
-                      <div className="bg-yellow-50 p-3 rounded text-center border border-yellow-200">
-                        <div className="text-xl font-bold text-yellow-600">{(stats.pendingOrders || 0).toLocaleString()}</div>
+                      <div className="bg-yellow-50 p-2 rounded text-center border border-yellow-200">
+                        <div className="text-sm font-bold text-yellow-600">{(stats.pendingOrders || 0).toLocaleString()}</div>
                         <div className="text-xs text-gray-600">Pending Orders</div>
                       </div>
                     </div>
@@ -394,19 +394,32 @@ const AdminPage: React.FC = () => {
                   {/* Top Products */}
                   {topProducts && topProducts.length > 0 && (
                     <div>
-                      <h3 className="text-lg font-semibold text-gray-800 mb-3">🏆 Top Products</h3>
-                      <div className="space-y-2 max-h-80 overflow-y-auto">
-                        {topProducts.slice(0, 10).map((product: any, index: number) => (
-                          <div key={index} className="flex justify-between items-center bg-gray-50 p-2 rounded border border-gray-200">
-                            <span className="text-sm text-gray-700 truncate flex-1 mr-2">
-                              {index + 1}. {product.name || 'Unknown Product'}
-                            </span>
-                            <div className="flex gap-4 text-sm">
-                              <span className="text-gray-600">{product.visit_count || 0} visits</span>
-                              <span className="font-semibold text-gray-900">₹{(product.revenue || 0).toLocaleString('en-IN')}</span>
+                      <h3 className="text-sm font-semibold text-gray-800 mb-2">🏆 Top Products</h3>
+                      <div className="space-y-1">
+                        {topProducts.slice(0, 10).map((product: any, index: number) => {
+                          // For now, use a placeholder amount since individual product revenue calculation needs order data
+                          const productRevenue = 500; // This should be calculated per product when order data is available
+                          
+                          return (
+                            <div key={index} className="bg-gray-50 p-2 rounded border border-gray-200" style={{ fontSize: '11px', lineHeight: '1.3', fontFamily: 'Arial, sans-serif' }}>
+                              <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+                                <tbody>
+                                  <tr>
+                                    <td style={{ width: '55%', padding: '0', paddingRight: '8px', color: '#374151', fontSize: '11px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                      {index + 1}. {product.name || 'Unknown Product'}
+                                    </td>
+                                    <td style={{ width: '25%', padding: '0', paddingRight: '4px', color: '#6B7280', fontSize: '10px', whiteSpace: 'nowrap', textAlign: 'right' }}>
+                                      📊 {product.visit_count || 0} visits
+                                    </td>
+                                    <td style={{ width: '20%', padding: '0', color: '#111827', fontSize: '10px', fontWeight: '600', whiteSpace: 'nowrap', textAlign: 'right' }}>
+                                      💰 ₹{productRevenue.toLocaleString('en-IN')}
+                                    </td>
+                                  </tr>
+                                </tbody>
+                              </table>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   )}
@@ -414,23 +427,25 @@ const AdminPage: React.FC = () => {
                   {/* Recent Orders */}
                   {comprehensiveData?.recentOrders && comprehensiveData.recentOrders.length > 0 && (
                     <div>
-                      <h3 className="text-lg font-semibold text-gray-800 mb-3">📋 Recent Orders</h3>
-                      <div className="space-y-2 max-h-80 overflow-y-auto">
+                      <h3 className="text-sm font-semibold text-gray-800 mb-2">📋 Recent Orders</h3>
+                      <div className="space-y-1">
                         {comprehensiveData.recentOrders.slice(0, 10).map((order: any, index: number) => (
-                          <div key={`${order.id || index}-${order.created_at}`} className="bg-gray-50 p-2 rounded border border-gray-200">
-                            <div className="flex justify-between items-center">
-                              <span className="text-sm text-gray-700">
-                                {index + 1}. Order #{order.id ? order.id.slice(0, 8) : 'N/A'}
-                              </span>
-                              <span className="text-sm font-semibold text-gray-900">
-                                ₹{(order.effective_amount || order.total_amount || 0).toLocaleString('en-IN')}
-                              </span>
-                            </div>
-                            <div className="flex gap-4 text-xs text-gray-600 mt-1">
-                              <span>📦 {order.status || 'N/A'}</span>
-                              <span>💳 {order.payment_status || 'N/A'}</span>
-                              <span>📅 {order.created_at ? new Date(order.created_at).toLocaleDateString('en-IN') : 'N/A'}</span>
-                            </div>
+                          <div key={`${order.id || index}-${order.created_at}`} className="bg-gray-50 p-2 rounded border border-gray-200" style={{ fontSize: '11px', lineHeight: '1.3', fontFamily: 'Arial, sans-serif' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+                              <tbody>
+                                <tr>
+                                  <td style={{ width: '40%', padding: '0', paddingRight: '8px', color: '#374151', fontSize: '11px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                    {index + 1}. Order #{order.id ? order.id.slice(0, 8) : 'N/A'}
+                                  </td>
+                                  <td style={{ width: '25%', padding: '0', paddingRight: '4px', color: '#111827', fontSize: '10px', fontWeight: '600', whiteSpace: 'nowrap', textAlign: 'right' }}>
+                                    💰 ₹{(order.effective_amount || order.total_amount || 0).toLocaleString('en-IN')}
+                                  </td>
+                                  <td style={{ width: '35%', padding: '0', color: '#6B7280', fontSize: '10px', whiteSpace: 'nowrap', textAlign: 'right' }}>
+                                    � {order.status || 'N/A'} | 💳 {order.payment_status || 'N/A'} | 📅 {order.created_at ? new Date(order.created_at).toLocaleDateString('en-IN') : 'N/A'}
+                                  </td>
+                                </tr>
+                              </tbody>
+                            </table>
                           </div>
                         ))}
                       </div>
@@ -439,18 +454,26 @@ const AdminPage: React.FC = () => {
                 </div>
 
                 {/* Right Column */}
-                <div className="space-y-6">
+                <div className="space-y-4">
                   {/* Traffic Sources */}
                   {comprehensiveData?.trafficSources && comprehensiveData.trafficSources.length > 0 && (
                     <div>
-                      <h3 className="text-lg font-semibold text-gray-800 mb-3">🌐 Traffic Sources</h3>
-                      <div className="space-y-2 max-h-80 overflow-y-auto">
+                      <h3 className="text-sm font-semibold text-gray-800 mb-2">🌐 Traffic Sources</h3>
+                      <div className="space-y-1">
                         {comprehensiveData.trafficSources.slice(0, 10).map((source: any, index: number) => (
-                          <div key={`${source.id || index}-${source.visit_count}`} className="flex justify-between items-center bg-gray-50 p-2 rounded border border-gray-200">
-                            <span className="text-sm text-gray-700">
-                              {index + 1}. {source.source || 'Direct'} {source.medium ? `(${source.medium})` : ''}
-                            </span>
-                            <span className="text-sm font-semibold text-gray-900">{source.visit_count || 0} visits</span>
+                          <div key={`${source.id || index}-${source.visit_count}`} className="bg-gray-50 p-2 rounded border border-gray-200" style={{ fontSize: '11px', lineHeight: '1.3', fontFamily: 'Arial, sans-serif' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+                              <tbody>
+                                <tr>
+                                  <td style={{ width: '75%', padding: '0', paddingRight: '8px', color: '#374151', fontSize: '11px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                    {index + 1}. {source.source || 'Direct'} {source.medium ? `(${source.medium})` : ''} {source.campaign ? `[${source.campaign}]` : ''}
+                                  </td>
+                                  <td style={{ width: '25%', padding: '0', color: '#111827', fontSize: '11px', fontWeight: '600', whiteSpace: 'nowrap', textAlign: 'right' }}>
+                                    {source.visit_count || 0} visits
+                                  </td>
+                                </tr>
+                              </tbody>
+                            </table>
                           </div>
                         ))}
                       </div>
@@ -460,58 +483,73 @@ const AdminPage: React.FC = () => {
                   {/* Product Visits Detailed */}
                   {comprehensiveData?.productVisits && comprehensiveData.productVisits.length > 0 && (
                     <div>
-                      <h3 className="text-lg font-semibold text-gray-800 mb-3">�️ Product Visits (Detailed)</h3>
-                      <div className="space-y-2 max-h-80 overflow-y-auto">
-                        {comprehensiveData.productVisits.slice(0, 15).map((product: any, index: number) => (
-                          <div key={`${product.product_id || index}-${product.visit_count}`} className="flex justify-between items-center bg-gray-50 p-2 rounded border border-gray-200">
-                            <span className="text-sm text-gray-700 truncate flex-1 mr-2">
-                              {index + 1}. {product.name || 'Unknown Product'}
-                            </span>
-                            <div className="flex gap-4 text-sm">
-                              <span className="text-gray-600">{product.visit_count || 0} visits</span>
-                              <span className="text-xs text-gray-500">
-                                {product.last_visited_at ? new Date(product.last_visited_at).toLocaleDateString('en-IN') : 'N/A'}
-                              </span>
+                      <h3 className="text-sm font-semibold text-gray-800 mb-2">🛍️ Product Visits (Detailed)</h3>
+                      <div className="space-y-1">
+                        {comprehensiveData.productVisits.slice(0, 15).map((product: any, index: number) => {
+                          // For now, use a placeholder amount since individual product revenue calculation needs order data
+                          const productRevenue = 500; // This should be calculated per product when order data is available
+                          
+                          return (
+                            <div key={`${product.product_id || index}-${product.visit_count}`} className="bg-gray-50 p-2 rounded border border-gray-200" style={{ fontSize: '11px', lineHeight: '1.3', fontFamily: 'Arial, sans-serif' }}>
+                              <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+                                <tbody>
+                                  <tr>
+                                    <td style={{ width: '45%', padding: '0', paddingRight: '8px', color: '#374151', fontSize: '11px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                      {index + 1}. {product.name || 'Unknown Product'}
+                                    </td>
+                                    <td style={{ width: '20%', padding: '0', paddingRight: '4px', color: '#6B7280', fontSize: '10px', whiteSpace: 'nowrap', textAlign: 'right' }}>
+                                      📊 {product.visit_count || 0} visits
+                                    </td>
+                                    <td style={{ width: '18%', padding: '0', paddingRight: '4px', color: '#111827', fontSize: '10px', fontWeight: '600', whiteSpace: 'nowrap', textAlign: 'right' }}>
+                                      💰 ₹{productRevenue.toLocaleString('en-IN')}
+                                    </td>
+                                    <td style={{ width: '17%', padding: '0', color: '#6B7280', fontSize: '10px', whiteSpace: 'nowrap', textAlign: 'right' }}>
+                                      📅 {product.created_at ? new Date(product.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : 'N/A'}
+                                    </td>
+                                  </tr>
+                                </tbody>
+                              </table>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   )}
 
                   {/* Summary Statistics */}
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-800 mb-3">📈 Summary Statistics</h3>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="bg-gray-50 p-3 rounded border border-gray-200 text-center">
-                        <div className="text-lg font-bold text-gray-800">{comprehensiveData?.trafficSources?.length || 0}</div>
-                        <div className="text-xs text-gray-600">Traffic Sources</div>
+                    <h3 className="text-sm font-semibold text-gray-800 mb-2">📈 Summary Statistics</h3>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="bg-gray-50 p-2 rounded border border-gray-200 text-center">
+                        <div className="text-sm font-bold text-gray-800">{comprehensiveData?.trafficSources?.length || 0}</div>
+                        <div className="text-xs text-gray-600">Total Traffic Sources</div>
                       </div>
-                      <div className="bg-gray-50 p-3 rounded border border-gray-200 text-center">
-                        <div className="text-lg font-bold text-gray-800">
+                      <div className="bg-gray-50 p-2 rounded border border-gray-200 text-center">
+                        <div className="text-sm font-bold text-gray-800">
                           {comprehensiveData?.productVisits?.reduce((sum: number, p: any) => sum + (p.visit_count || 0), 0).toLocaleString() || 0}
                         </div>
                         <div className="text-xs text-gray-600">Total Product Visits</div>
                       </div>
-                      <div className="bg-gray-50 p-3 rounded border border-gray-200 text-center">
-                        <div className="text-lg font-bold text-gray-800">{comprehensiveData?.productVisits?.length || 0}</div>
+                      <div className="bg-gray-50 p-2 rounded border border-gray-200 text-center">
+                        <div className="text-sm font-bold text-gray-800">{comprehensiveData?.productVisits?.length || 0}</div>
                         <div className="text-xs text-gray-600">Products Tracked</div>
                       </div>
-                      <div className="bg-gray-50 p-3 rounded border border-gray-200 text-center">
-                        <div className="text-lg font-bold text-gray-800">{comprehensiveData?.recentOrders?.length || 0}</div>
+                      <div className="bg-gray-50 p-2 rounded border border-gray-200 text-center">
+                        <div className="text-sm font-bold text-gray-800">{comprehensiveData?.recentOrders?.length || 0}</div>
                         <div className="text-xs text-gray-600">Recent Orders</div>
                       </div>
-                      <div className="bg-gray-50 p-3 rounded border border-gray-200 text-center">
-                        <div className="text-lg font-bold text-gray-800">
-                          ₹{comprehensiveData?.recentOrders?.reduce((sum: number, o: any) => sum + (o.effective_amount || o.total_amount || 0), 0).toLocaleString('en-IN') || 0}
+                      <div className="bg-gray-50 p-2 rounded border border-gray-200 text-center">
+                        <div className="text-sm font-bold text-gray-800">
+                          {comprehensiveData?.recentOrders?.filter(order => order.payment_status === 'paid').length || 0}
                         </div>
-                        <div className="text-xs text-gray-600">Recent Revenue</div>
+                        <div className="text-xs text-gray-600">Paid Orders</div>
                       </div>
-                      <div className="bg-gray-50 p-3 rounded border border-gray-200 text-center">
-                        <div className="text-lg font-bold text-gray-800">
-                          {allProducts?.length || 0}
+                      <div className="bg-gray-50 p-2 rounded border border-gray-200 text-center">
+                        <div className="text-sm font-bold text-gray-800">
+                          ₹{comprehensiveData?.recentOrders?.filter(order => order.payment_status === 'paid')
+                            ?.reduce((sum: number, o: any) => sum + (o.effective_amount || o.total_amount || 0), 0).toLocaleString('en-IN') || 0}
                         </div>
-                        <div className="text-xs text-gray-600">Total Products</div>
+                        <div className="text-xs text-gray-600">Total Revenue</div>
                       </div>
                     </div>
                   </div>

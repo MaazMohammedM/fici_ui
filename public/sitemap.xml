@@ -147,7 +147,8 @@
     <priority>0.5</priority>
   </url>
 
-  <!-- Authentication Pages -->
+  <!-- Authentication pages removed from sitemap - should not be indexed -->
+  <!-- 
   <url>
     <loc>https://ficishoes.com/auth/signin</loc>
     <lastmod>2025-02-04</lastmod>
@@ -161,5 +162,6 @@
     <changefreq>monthly</changefreq>
     <priority>0.3</priority>
   </url>
+  -->
 
 </urlset>

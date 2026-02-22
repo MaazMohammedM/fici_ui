@@ -26,6 +26,12 @@ const SEOHead: React.FC<SEOHeadProps> = ({
 }) => {
   const siteName = 'FiCi Shoes';
   const fullTitle = title.includes(siteName) ? title : `${title} ${siteName}`;
+  
+  // Fix canonical URL: ensure HTTPS and non-WWW
+  const canonicalUrl = url
+    .replace(/^http:/, 'https:')
+    .replace(/^https?:\/\/www\./, 'https://')
+    .split('?')[0]; // Remove query parameters for canonical
 
   return (
     <Helmet>
@@ -35,13 +41,13 @@ const SEOHead: React.FC<SEOHeadProps> = ({
       <meta name="keywords" content={keywords} />
       <meta name="author" content="FICI Shoes" />
       <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      <link rel="canonical" href={url} />
+      <link rel="canonical" href={canonicalUrl} />
 
       {/* Open Graph Tags */}
       <meta property="og:title" content={fullTitle} />
       <meta property="og:description" content={description} />
       <meta property="og:image" content={image} />
-      <meta property="og:url" content={url} />
+      <meta property="og:url" content={canonicalUrl} />
       <meta property="og:type" content={type} />
       <meta property="og:site_name" content={siteName} />
       <meta property="og:locale" content="en_IN" />
@@ -87,10 +93,10 @@ const SEOHead: React.FC<SEOHeadProps> = ({
             "@type": "WebSite",
             "name": siteName,
             "description": description,
-            "url": url,
+            "url": canonicalUrl,
             "potentialAction": {
               "@type": "SearchAction",
-              "target": `${window.location.origin}/search?q={search_term_string}`,
+              "target": `${canonicalUrl}/search?q={search_term_string}`,
               "query-input": "required name=search_term_string"
             }
           })}

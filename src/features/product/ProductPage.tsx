@@ -7,6 +7,7 @@ import { Search, X, ArrowUpDown, SlidersHorizontal } from "lucide-react";
 import { getAllFilterSizes } from "@utils/sizeUtils";
 import { CATEGORY_CONFIG } from "../admin/components/constants/productConfig";
 import FiciLoader from "../../components/ui/FiciLoader";
+import SEOHead from "@lib/components/SEOHead";
 
 const CATEGORY_OPTIONS = Object.entries(CATEGORY_CONFIG).map(([key, config]) => ({
   value: key,
@@ -538,7 +539,7 @@ const ProductPage: React.FC = () => {
       >
         {filteredProducts.map((product) => (
           <ProductCard 
-            key={product.product_id} 
+            key={`${product.product_id}-${product.article_id}`} 
             product={product}
             activeSizes={selectedSizes}
             activeCategories={selectedCategories}
@@ -609,7 +610,14 @@ const ProductPage: React.FC = () => {
   ), []);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <>
+      <SEOHead 
+        title="All Products - FICI Shoes | Premium Leather Footwear Collection"
+        description="Browse our complete collection of premium leather shoes, sandals, and accessories for men and women. Quality craftsmanship meets modern style."
+        keywords="fici shoes products, leather footwear, men shoes, women shoes, sandals, bags, accessories"
+        url="https://ficishoes.com/products"
+      />
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="py-6 sm:py-8">
@@ -1246,6 +1254,7 @@ const ProductPage: React.FC = () => {
         </div>
       )}
       </div>
+    </>
   );
 };
 

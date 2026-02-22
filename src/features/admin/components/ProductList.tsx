@@ -7,6 +7,7 @@ import ProductFilters from '../../../components/shared/ProductFilters';
 import fallbackImage from '../../../assets/Fici_logo.png';
 import CachedImage from '../../../components/ui/CachedImage';
 import { getStockStatus, getActiveStatus, getStatusBadgeProps } from '../../../lib/admin/productStatus';
+import { getImageForUseCase } from '../../../lib/utils/imageOptimization';
 
 const ProductList: React.FC = () => {
   const { 
@@ -250,7 +251,7 @@ const ProductList: React.FC = () => {
                   {/* Product Image */}
                   <div className="mb-4">
                     <CachedImage
-                      src={product.thumbnail_url || ''}
+                      src={getImageForUseCase(product.thumbnail_url || '', 'LISTING')}
                       fallbackSrc={fallbackImage}
                       alt={product.name}
                       className="w-full h-48 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity"

@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { supabase } from '@lib/supabase';
 import { parseProductSizes } from '@lib/productAvailability';
 import { validateCartItemStock } from '@lib/stock/stockValidator';
+import { getImageForUseCase } from '../../lib/utils/imageOptimization';
 
 export const WishlistPage: React.FC = () => {
   const { items: wishlist, removeFromWishlist, addToWishlist, updateProductDetails, clearWishlist } = useWishlistStore();
@@ -237,9 +238,10 @@ export const WishlistPage: React.FC = () => {
                 <div className="aspect-square w-full overflow-hidden rounded-t-lg bg-gray-200 dark:bg-gray-700 relative">
                   <Link to={`/products/${product.article_id}`} className="block h-full w-full relative z-10">
                     <img
-                      src={product.thumbnail_url || product.images?.[0] || '/placeholder-product.jpg'}
+                      src={getImageForUseCase(product.thumbnail_url || product.images?.[0] || '/placeholder-product.jpg', 'LISTING')}
                       alt={product.name}
                       className={`h-full w-full object-cover object-center ${isOutOfStock ? 'opacity-40' : 'group-hover:opacity-75'}`}
+                      loading="lazy"
                     />
                   </Link>
 
