@@ -2,6 +2,7 @@ import React from "react";
 import type { Product } from "../../../types/product";
 import { useNavigate } from "react-router-dom";
 import CachedImage from "../../../components/ui/CachedImage";
+import { getListingImageUrl, getThumbnailUrl } from "../../../lib/utils/imageOptimization";
 
 interface ProductCardProps {
   product: Product;
@@ -36,6 +37,13 @@ const ProductCard: React.FC<ProductCardProps> = ({
     return 0;
   }, [product.discount_percentage, product.mrp_price, product.discount_price]);
 
+  // Get optimized image URL - prioritize thumbnail_url for listing pages
+  const optimizedImageUrl = React.useMemo(() => {
+    // Use thumbnail_url first (optimized for listing), fallback to first image
+    const imageUrl = product.thumbnail_url || product.images?.[0] || '';
+    return getListingImageUrl(imageUrl);
+  }, [product.thumbnail_url, product.images]);
+
   // Check if product attributes match active filters
   const isSubCategoryActive = React.useMemo(() => {
     return product.sub_category && activeSubCategories.includes(product.sub_category);
@@ -53,9 +61,11 @@ const ProductCard: React.FC<ProductCardProps> = ({
       {/* Product Image - Larger and more appealing */}
       <div className="relative aspect-[4/5] w-full bg-gray-50 dark:bg-gray-800 flex items-center justify-center overflow-hidden flex-shrink-0">
         <CachedImage
-          src={product.images?.[0] || ''}
+          src={optimizedImageUrl}
           alt={product.name}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          loading="lazy"
+          decoding="async"
           loadingFallback={
             <div className="w-full h-full bg-gray-200 dark:bg-gray-700 animate-pulse" />
           }

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { ChevronLeft, ChevronRight, Search, Eye } from 'lucide-react';
+import { getThumbnailUrl } from '@lib/utils/imageOptimization';
 
 interface ProductVisit {
   product_id: string;
@@ -107,9 +108,11 @@ const ProductVisitsTable: React.FC<ProductVisitsTableProps> = ({
                   <div className="flex items-center">
                     {product.thumbnail_url && (
                       <img
-                        src={product.thumbnail_url}
+                        src={getThumbnailUrl(product.thumbnail_url)}
                         alt={product.name}
                         className="w-10 h-10 object-cover rounded-lg mr-4"
+                        loading="lazy"
+                        decoding="async"
                       />
                     )}
                     <div>

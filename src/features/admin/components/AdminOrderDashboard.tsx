@@ -7,6 +7,8 @@ import { useOrderStore } from '../../../store/orderStore';
 import { supabase } from '../../../lib/supabase';
 import { useOrderLevelActionStates } from '../../../hooks/useOrderActionStates';
 import ReturnsManagementTab from './ReturnsManagementTab';
+import { getThumbnailUrl } from '../../../lib/utils/imageOptimization';
+import { printInvoice, generateInvoiceNumber, type InvoiceData, type InvoiceItem } from '../../../utils/invoiceUtils';
 
 import { canRefundOrder } from '../../../types/order-common';
 // These components are defined inline in this file
@@ -356,7 +358,8 @@ const OrderCard: React.FC<{
   onRejectReplacement?: (item: OrderItem) => void;
   onShipReplacement?: (item: OrderItem) => void;
   onMarkReturned?: (item: OrderItem) => void;
-}> = ({ order, actionStates, onView, onShip, onCancel, onDeliver, onRefundItem, onRefundOrder, onDeliverReplacement, onApproveReplacement, onRejectReplacement, onShipReplacement, onMarkReturned }) => (
+  onPrintInvoice?: (order: Order) => void;
+}> = ({ order, actionStates, onView, onShip, onCancel, onDeliver, onRefundItem, onRefundOrder, onDeliverReplacement, onApproveReplacement, onRejectReplacement, onShipReplacement, onMarkReturned, onPrintInvoice }) => (
   <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6 border border-gray-200 dark:border-gray-700">
     <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
       <div className="flex-1">
@@ -443,9 +446,11 @@ const OrderCard: React.FC<{
             {order.order_items?.slice(0, 3).map((item) => (
               <div key={item.order_item_id} className="flex items-center gap-3 text-sm">
                 <img
-                  src={item.thumbnail_url || '/placeholder-image.jpg'}
+                  src={getThumbnailUrl(item.thumbnail_url || '/placeholder-image.jpg')}
                   alt={item.product_name}
                   className="w-8 h-8 object-cover rounded"
+                  loading="lazy"
+                  decoding="async"
                   onError={(e) => {
                     e.currentTarget.src = '/placeholder-image.jpg';
                   }}
@@ -663,6 +668,18 @@ const OrderCard: React.FC<{
           >
             <CheckCircle className="w-4 h-4 sm:w-4 sm:h-4" />
             <span>Deliver</span>
+          </button>
+        )}
+
+        {/* Show Print Invoice for delivered orders */}
+        {order.status === 'delivered' && onPrintInvoice && (
+          <button
+            onClick={() => onPrintInvoice(order)}
+            className="flex items-center justify-center gap-2 text-indigo-600 hover:text-indigo-700 text-sm px-3 py-2 sm:px-4 sm:py-2.5 rounded border border-indigo-200 hover:border-indigo-300 bg-white dark:bg-gray-800 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors"
+            title="Print Invoice"
+          >
+            <Upload className="w-4 h-4 sm:w-4 sm:h-4" />
+            <span>Print Invoice</span>
           </button>
         )}
       </div>
@@ -965,9 +982,11 @@ const DeliverModal: React.FC<{
                     className="w-4 h-4 text-green-600 rounded focus:ring-green-500"
                   />
                   <img
-                    src={item.thumbnail_url}
+                    src={getThumbnailUrl(item.thumbnail_url)}
                     alt={item.product_name}
                     className="w-10 h-10 rounded object-cover"
+                    loading="lazy"
+                    decoding="async"
                   />
                   <div className="flex-1">
                     <p className="text-sm font-medium text-gray-900 dark:text-white">
@@ -1248,9 +1267,11 @@ const OrderDetailsModal: React.FC<{
                     className="flex items-center gap-3 p-3 border rounded-lg"
                   >
                     <img
-                      src={item.thumbnail_url}
+                      src={getThumbnailUrl(item.thumbnail_url)}
                       alt={item.product_name}
                       className="w-10 h-10 sm:w-12 sm:h-12 rounded object-cover flex-shrink-0"
+                      loading="lazy"
+                      decoding="async"
                     />
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm sm:text-base truncate">
@@ -1725,6 +1746,82 @@ const AdminOrderDashboard: React.FC = () => {
     if (activeTab === 'returns') fetchReturns();
   };
 
+  // Generate invoice data from order
+  const generateInvoiceFromOrder = (order: Order): InvoiceData => {
+    const invoiceItems: InvoiceItem[] = order.order_items.map((item, index) => {
+      // Extract article ID from thumbnail URL or use a fallback
+      const articleId = item.thumbnail_url ? 
+        item.thumbnail_url.split('/').slice(-2)[0] : 
+        item.product_id?.slice(0, 8) || 'N/A';
+      
+      return {
+        id: item.order_item_id || index.toString(),
+        name: item.product_name || 'Product',
+        description: `Article ID: ${articleId}${item.size ? ` | Size: ${item.size}` : ''}${(item as any).color ? ` | Color: ${(item as any).color}` : ''}`,
+        quantity: item.quantity || 1,
+        price: parseFloat(item.price_at_purchase?.toString() || '0'),
+        total: (parseFloat(item.price_at_purchase?.toString() || '0') * (item.quantity || 1))
+      };
+    });
+
+    const subtotal = invoiceItems.reduce((sum, item) => sum + item.total, 0);
+    
+    return {
+      id: order.order_id,
+      invoiceNumber: generateInvoiceNumber(),
+      date: order.order_date || '',
+      customer: {
+        name: (() => {
+          // Try to get name from shipping address first
+          if (order.shipping_address) {
+            // If it's a string, parse it as JSON
+            if (typeof order.shipping_address === 'string') {
+              try {
+                const address = JSON.parse(order.shipping_address);
+                if (address && address.name) {
+                  return address.name;
+                }
+              } catch (e) {
+                console.warn('Failed to parse shipping address:', e);
+              }
+            } 
+            // If it's already an object (ShippingAddress type)
+            else if (typeof order.shipping_address === 'object' && order.shipping_address.name) {
+              return order.shipping_address.name;
+            }
+          }
+          // Fallback to email-based name
+          return order.guest_email?.split('@')[0] || 'Customer';
+        })(),
+        email: order.guest_email || '',
+        phone: order.guest_phone || '',
+        address: order.shipping_address ? 
+          (isShippingAddress(order.shipping_address) ? 
+            `${order.shipping_address.address || ''}, ${order.shipping_address.city || ''}, ${order.shipping_address.state || ''} - ${order.shipping_address.pincode || ''}` :
+            order.shipping_address) : 
+          ''
+      },
+      items: invoiceItems,
+      subtotal,
+      tax: 0, // No tax for now
+      discount: 0, // No discount for now
+      total: subtotal,
+      status: order.payment_status === 'paid' ? 'paid' : 'pending',
+      notes: `Order ID: ${order.order_id}\nPayment Method: ${order.payment_method}\nPayment Status: ${order.payment_status}`
+    };
+  };
+
+  // Handle print invoice for delivered orders
+  const handlePrintInvoice = (order: Order) => {
+    try {
+      const invoice = generateInvoiceFromOrder(order);
+      printInvoice(invoice);
+    } catch (error) {
+      console.error('Error printing invoice:', error);
+      showAlert('Failed to print invoice', 'error');
+    }
+  };
+
   return (
     <>
       <div className="min-h-screen bg-gray-50 dark:bg-dark1">
@@ -1803,6 +1900,7 @@ const AdminOrderDashboard: React.FC = () => {
                           setShowRefundModal(true);
                         }}
                         onDeliverReplacement={handleDeliverReplacement}
+                        onPrintInvoice={handlePrintInvoice}
                       />
                     );
                   })}
@@ -1927,9 +2025,11 @@ const AdminOrderDashboard: React.FC = () => {
                         className="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg"
                       >
                         <img
-                          src={item.thumbnail_url || item.product_thumbnail_url || ''}
+                          src={getThumbnailUrl(item.thumbnail_url || item.product_thumbnail_url || '')}
                           alt={item.product_name}
                           className="w-12 h-12 rounded object-cover"
+                          loading="lazy"
+                          decoding="async"
                         />
                         <div className="flex-1">
                           <p className="font-medium text-sm text-gray-900 dark:text-white">{item.product_name}</p>
@@ -2159,7 +2259,7 @@ const AdminOrderDashboard: React.FC = () => {
                         disabled={isDisabled}
                         className="w-4 h-4 text-red-600 rounded"
                       />
-                      <img src={item.thumbnail_url || item.product_thumbnail_url || ''} alt={item.product_name || item.name || 'Product'} className="w-12 h-12 rounded-md object-cover border border-gray-200 dark:border-gray-600" />
+                      <img src={getThumbnailUrl(item.thumbnail_url || item.product_thumbnail_url || '')} alt={item.product_name || item.name || 'Product'} className="w-12 h-12 rounded-md object-cover border border-gray-200 dark:border-gray-600" loading="lazy" decoding="async" />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{item.product_name || item.name || 'Product'}</p>
                         <p className="text-xs text-gray-500 dark:text-gray-400">

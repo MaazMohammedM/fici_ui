@@ -154,9 +154,23 @@ export const useProductStore = create<ProductState>((set, get) => ({
 
     try {
       // Fetch ALL products without pagination for global sorting
+      // Only fetch essential fields for listing page - exclude full images array
       const { data, error, count } = await supabase
         .from('products')
-        .select('*', { count: 'exact' })
+        .select(`
+          product_id,
+          article_id,
+          name,
+          category,
+          sub_category,
+          gender,
+          thumbnail_url,
+          mrp_price,
+          discount_price,
+          sizes,
+          is_active,
+          created_at
+        `, { count: 'exact' })
         .eq('is_active', true);
 
       if (error) throw error;
@@ -164,10 +178,11 @@ export const useProductStore = create<ProductState>((set, get) => ({
       const processedProducts: Product[] = (data || []).map((product: any) => ({
         ...product,
         sizes: safeParseSizes(product.sizes),
-        images: parseImages(product.images),
+        images: [], // Empty array for listing pages - images fetched only when needed
         thumbnail_url: product.thumbnail_url || null,
         discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price),
-        mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0
+        mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0,
+        color: product.article_id?.split('_')[1] || 'default' // Extract color from article_id
       }));
 
       // Apply global sorting (stock first, then price)
@@ -241,9 +256,22 @@ export const useProductStore = create<ProductState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       // Fetch more products to account for out-of-stock filtering
+      // Only fetch essential fields for listing page
       const { data, error } = await supabase
         .from('products_with_discount')
-        .select('*')
+        .select(`
+          product_id,
+          article_id,
+          name,
+          category,
+          gender,
+          thumbnail_url,
+          mrp_price,
+          discount_price,
+          discount_percentage,
+          sizes,
+          created_at
+        `)
         .order('created_at', { ascending: false })
         .limit(20); // Fetch more to ensure we have enough after filtering
 
@@ -257,9 +285,11 @@ export const useProductStore = create<ProductState>((set, get) => ({
         return {
           ...product,
           sizes: safeParseSizes(product.sizes),
-          images: parseImages(product.images),
+          images: [], // Empty array for listing pages - images fetched only when needed
+          thumbnail_url: product.thumbnail_url || null,
           discount_percentage: product.discount_percentage || calculateDiscountPercentage(product.mrp_price, product.discount_price),
-          mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0
+          mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0,
+          color: product.article_id?.split('_')[1] || 'default' // Extract color from article_id
         };
       });
 

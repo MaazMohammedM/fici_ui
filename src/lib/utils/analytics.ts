@@ -343,12 +343,35 @@ export const trackTrafficSourceOnce = async (url: string, userAgent: string, ref
   // Track traffic source
   const tracked = await updateTrafficSource(url, userAgent, referrer);
   
-  if (tracked) {
-    // Mark as tracked in this session
-    if (typeof window !== 'undefined') {
-      sessionStorage.setItem(sessionKey, 'true');
+  // Only mark as tracked if actual tracking occurred (not skipped for admin)
+  if (tracked && typeof window !== 'undefined') {
+    // Check if tracking was actually skipped by checking if we're in admin/preview environment
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const isNetlifyPreview = window.location.hostname.includes('netlify.app');
+    
+    let isAdmin = false;
+    try {
+      const authState = useAuthStore.getState();
+      const storeRole = authState?.role;
+      const storeUser = authState?.user;
+      
+      isAdmin = storeRole?.toLowerCase() === 'admin' || 
+                storeUser?.user_metadata?.role?.toLowerCase() === 'admin';
+      
+      if (!isAdmin) {
+        isAdmin = localStorage.getItem('userRole') === 'admin';
+      }
+    } catch (error) {
+      isAdmin = localStorage.getItem('userRole') === 'admin';
     }
-    console.log('Traffic source tracked for first time in session');
+    
+    // Only mark as tracked if not admin/preview environment
+    if (!isAdmin && !isLocalhost && !isNetlifyPreview) {
+      sessionStorage.setItem(sessionKey, 'true');
+      console.log('Traffic source tracked for first time in session');
+    } else {
+      console.log('Traffic source tracking skipped for admin/preview environment - not marking as tracked');
+    }
   }
   
   return tracked;

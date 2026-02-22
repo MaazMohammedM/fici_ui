@@ -1,6 +1,7 @@
 import React from 'react';
-import { Eye, TruckIcon, Ban, CheckCircle } from 'lucide-react';
+import { Eye, TruckIcon, Ban, CheckCircle, Upload } from 'lucide-react';
 import type { Order, OrderActionFlags } from '../../../types/order-common';
+import { printInvoice, generateInvoiceNumber, type InvoiceData, type InvoiceItem } from '../../../utils/invoiceUtils';
 
 interface AdminOrderRowProps {
   order: Order;
@@ -11,6 +12,7 @@ interface AdminOrderRowProps {
   onDeliver: (order: Order) => void;
   onRefundItem: (item: any) => void;
   onApproveReplacement: (item: any) => void;
+  onPrintInvoice?: (order: Order) => void;
 }
 
 export const AdminOrderRow: React.FC<AdminOrderRowProps> = ({
@@ -22,6 +24,7 @@ export const AdminOrderRow: React.FC<AdminOrderRowProps> = ({
   onDeliver,
   onRefundItem,
   onApproveReplacement,
+  onPrintInvoice,
 }) => {
   const isShippingAddress = (address: any): address is any => {
     return typeof address === 'object' && address !== null;
@@ -258,6 +261,18 @@ export const AdminOrderRow: React.FC<AdminOrderRowProps> = ({
             >
               <CheckCircle className="w-4 h-4 sm:w-4 sm:h-4" />
               <span>Deliver</span>
+            </button>
+          )}
+
+          {/* Show Print Invoice for delivered orders */}
+          {order.status === 'delivered' && onPrintInvoice && (
+            <button
+              onClick={() => onPrintInvoice(order)}
+              className="flex items-center justify-center gap-2 text-indigo-600 hover:text-indigo-700 text-sm px-3 py-2 sm:px-4 sm:py-2.5 rounded border border-indigo-200 hover:border-indigo-300 bg-white dark:bg-gray-800 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors"
+              title="Print Invoice"
+            >
+              <Upload className="w-4 h-4 sm:w-4 sm:h-4" />
+              <span>Print Invoice</span>
             </button>
           )}
         </div>

@@ -1,5 +1,6 @@
 import React from 'react';
 import { BarChart3, TrendingUp } from 'lucide-react';
+import { getThumbnailUrl } from '@lib/utils/imageOptimization';
 
 interface TopProduct {
   product_id: string;
@@ -59,9 +60,11 @@ const TopProductsChart: React.FC<TopProductsChartProps> = ({ products, loading }
               
               {product.thumbnail_url && (
                 <img
-                  src={product.thumbnail_url}
+                  src={getThumbnailUrl(product.thumbnail_url)}
                   alt={product.name}
                   className="w-12 h-12 object-cover rounded-lg"
+                  loading="lazy"
+                  decoding="async"
                 />
               )}
               

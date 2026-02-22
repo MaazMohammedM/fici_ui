@@ -4,6 +4,7 @@ import type { Product } from '../../../types/product';
 import fallbackImage from '../../../assets/Fici_logo.png';
 import { ZoomIn, ZoomOut, X, Heart, Share2 } from 'lucide-react';
 import ShareModal from './ShareModal';
+import { getDetailImageUrl, getThumbnailUrl } from '../../../lib/utils/imageOptimization';
 
 interface ProductImageGalleryProps {
   selectedVariant: Product | undefined;
@@ -170,8 +171,12 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
       imgs = [selectedVariant.thumbnail_url];
     }
 
-    const result = imgs.length ? imgs : [fallbackImage];
-    return result;
+    // Optimize images for detail page
+    const optimizedImages = imgs.length 
+      ? imgs.map(img => getDetailImageUrl(img))
+      : [fallbackImage];
+
+    return optimizedImages;
   }, [selectedVariant, parseImages]);
 
   useEffect(() => {
@@ -491,16 +496,22 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
       {/* Thumbnails */}
       {finalImages.length > 1 && (
         <div className="flex space-x-2 overflow-x-auto pb-2 scrollbar-hide">
-          {finalImages.map((img, idx) => (
-            <button
-              key={idx}
-              onClick={() => setSelectedImage(idx)}
-              className={`flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden border-2 transition-transform ${idx === selectedImage ? 'border-accent scale-105 ring-2 ring-accent/50' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'}`}
-              aria-label={`Thumbnail ${idx + 1}`}
-            >
-              <img src={img} alt={`${productName} ${idx + 1}`} className="w-full h-full object-cover" onError={handleImageError} />
-            </button>
-          ))}
+          {finalImages.map((img, idx) => {
+            // Get original image for thumbnail optimization
+            const originalImage = parseImages(selectedVariant?.images)?.[idx] || selectedVariant?.thumbnail_url || fallbackImage;
+            const thumbnailUrl = getThumbnailUrl(originalImage);
+            
+            return (
+              <button
+                key={idx}
+                onClick={() => setSelectedImage(idx)}
+                className={`flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden border-2 transition-transform ${idx === selectedImage ? 'border-accent scale-105 ring-2 ring-accent/50' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'}`}
+                aria-label={`Thumbnail ${idx + 1}`}
+              >
+                <img src={thumbnailUrl} alt={`${productName} ${idx + 1}`} className="w-full h-full object-cover" onError={handleImageError} loading="lazy" decoding="async" />
+              </button>
+            );
+          })}
         </div>
       )}
 

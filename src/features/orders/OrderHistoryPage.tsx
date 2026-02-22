@@ -540,16 +540,54 @@ const OrderHistoryPage: React.FC = () => {
         )}
 
         {/* Grid Layout - One card per row */}
-        <div className="grid grid-cols-1 gap-6">
-          {orders
-            .filter(order => {
-              // Filter out pending Razorpay orders
-              if (order.payment_method === 'razorpay' && order.payment_status !== 'paid') {
-                return false;
-              }
-              return true;
-            })
-            .map((order) => (
+        {(() => {
+          // Filter out pending Razorpay orders
+          const filteredOrders = orders.filter(order => {
+            if (order.payment_method === 'razorpay' && order.payment_status !== 'paid') {
+              return false;
+            }
+            return true;
+          });
+
+          // If no orders after filtering, show empty state
+          if (filteredOrders.length === 0) {
+            return (
+              <div className="text-center py-12">
+                <Package className="mx-auto h-16 w-16 text-gray-300 dark:text-gray-600" />
+                <h2 className="mt-4 text-xl font-medium text-gray-900 dark:text-white">
+                  {orders.length === 0 ? 'No orders yet' : 'No orders to display'}
+                </h2>
+                <p className="mt-2 text-gray-600 dark:text-gray-400">
+                  {orders.length === 0 
+                    ? 'Your order history will appear here once you place an order.'
+                    : 'No orders match your current filter criteria.'
+                  }
+                </p>
+                {(orders.length === 0 || statusFilter === 'all') && (
+                  <Link
+                    to="/products"
+                    className="mt-6 inline-flex items-center px-4 py-2 text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+                  >
+                    Start Shopping
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Link>
+                )}
+                {statusFilter !== 'all' && (
+                  <button
+                    onClick={() => setStatusFilter('all')}
+                    className="mt-4 inline-flex items-center px-4 py-2 text-sm font-medium rounded-md text-gray-700 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                  >
+                    Clear Filter
+                  </button>
+                )}
+              </div>
+            );
+          }
+
+          return (
+            <>
+              <div className="grid grid-cols-1 gap-6">
+                {filteredOrders.map((order) => (
             <Link
               key={order.id}
               to={`/orders/${order.id}`}
@@ -686,8 +724,8 @@ const OrderHistoryPage: React.FC = () => {
           ))}
         </div>
 
-        {/* Pagination */}
-        {pagination.totalPages > 1 && (
+        {/* Pagination - Only show if there are filtered orders */}
+        {filteredOrders.length > 0 && pagination.totalPages > 1 && (
           <div className="flex justify-center items-center mt-8 space-x-2">
             <button
               onClick={() => {
@@ -734,10 +772,15 @@ const OrderHistoryPage: React.FC = () => {
           </div>
         )}
 
-        {/* Page Info */}
-        <div className="text-center text-sm text-gray-600 dark:text-gray-400 mt-4">
-          Showing {orders.length} of {pagination.total} orders (Page {pagination.page} of {pagination.totalPages})
-        </div>
+        {/* Page Info - Only show if there are filtered orders */}
+        {filteredOrders.length > 0 && (
+          <div className="text-center text-sm text-gray-600 dark:text-gray-400 mt-4">
+            Showing {filteredOrders.length} of {pagination.total} orders (Page {pagination.page} of {pagination.totalPages})
+          </div>
+        )}
+            </>
+          );
+        })()}
       </div>
     </div>
   );
