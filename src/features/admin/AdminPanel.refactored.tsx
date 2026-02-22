@@ -3,6 +3,7 @@ import { BarChart3, List, Plus, Package, Percent } from "lucide-react";
 import { supabase } from "@lib/supabase";
 import { useAdminStore } from "./store/adminStore";
 import ScrollToTop from "@components/ScrollToTop";
+import { getThumbnailUrl } from "@lib/utils/imageOptimization";
 
 const DashboardStats = lazy(() => import("./components/DashboardStats"));
 const TopProductsChart = lazy(() => import("./components/TopProductsChart"));

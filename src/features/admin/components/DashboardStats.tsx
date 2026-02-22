@@ -8,6 +8,7 @@ import {
   DollarSign,
   Package
 } from 'lucide-react';
+import { getThumbnailUrl } from '@lib/utils/imageOptimization';
 
 interface DashboardStatsProps {
   totalVisits: number;

@@ -1,171 +1,126 @@
 /**
- * Image Optimization Utility for Supabase Storage
- * Reduces storage egress by applying optimal transforms and caching strategies
+ * Image Optimization Utilities
+ * Handles Supabase image transformations, WebP conversion, and sizing
  */
 
-export interface ImageOptions {
-  width?: number;
-  height?: number;
-  quality?: number;
-  format?: 'webp' | 'jpg' | 'png';
-  loading?: 'lazy' | 'eager';
-}
+// Supabase storage URL pattern
+const SUPABASE_STORAGE_URL = 'https://project.supabase.co/storage/v1/object/public';
 
-export interface OptimizedImageConfig {
-  // Predefined sizes for different use cases
-  THUMBNAIL: ImageOptions;
-  LISTING: ImageOptions;
-  DETAIL: ImageOptions;
-  GALLERY_THUMBNAIL: ImageOptions;
-  MODAL: ImageOptions;
-}
+// Cache for optimized URLs to prevent duplicate processing
+const optimizedUrlCache = new Map<string, string>();
 
-// Configuration for different image sizes
-export const IMAGE_CONFIG: OptimizedImageConfig = {
-  THUMBNAIL: {
-    width: 300,
-    quality: 75,
-    format: 'webp',
-    loading: 'lazy'
-  },
-  LISTING: {
-    width: 600,
-    quality: 80,
-    format: 'webp',
-    loading: 'lazy'
-  },
-  DETAIL: {
-    width: 1000,
-    quality: 85,
-    format: 'webp',
-    loading: 'eager'
-  },
-  GALLERY_THUMBNAIL: {
-    width: 100,
-    quality: 70,
-    format: 'webp',
-    loading: 'lazy'
-  },
-  MODAL: {
-    width: 1200,
-    quality: 90,
-    format: 'webp',
-    loading: 'eager'
+/**
+ * Gets optimized image URL with Supabase transformations
+ * @param imageUrl Original image URL
+ * @param options Optimization options
+ * @returns Optimized image URL
+ */
+export const getOptimizedImageUrl = (
+  imageUrl: string | null | undefined,
+  options: {
+    width?: number;
+    height?: number;
+    quality?: number;
+    format?: 'webp' | 'jpg' | 'png';
+    isThumbnail?: boolean;
+  } = {}
+): string => {
+  if (!imageUrl) {
+    return '';
   }
+
+  // If it's not a Supabase URL, return as-is
+  if (!imageUrl.includes(SUPABASE_STORAGE_URL)) {
+    return imageUrl;
+  }
+
+  // Create cache key for this specific optimization
+  const cacheKey = `${imageUrl}-${JSON.stringify(options)}`;
+  
+  // Return cached URL if available
+  if (optimizedUrlCache.has(cacheKey)) {
+    return optimizedUrlCache.get(cacheKey)!;
+  }
+
+  const {
+    width,
+    height,
+    quality = 80,
+    format = 'webp',
+    isThumbnail = false
+  } = options;
+
+  // Default sizes based on usage
+  const targetWidth = width || (isThumbnail ? 300 : 600);
+  const targetHeight = height || (isThumbnail ? 300 : 600);
+
+  // Build transformation parameters
+  const params = new URLSearchParams();
+  
+  if (targetWidth) params.set('width', targetWidth.toString());
+  if (targetHeight) params.set('height', targetHeight.toString());
+  params.set('quality', quality.toString());
+  params.set('format', format);
+
+  // Check if URL already has parameters
+  const urlWithParams = imageUrl.includes('?') 
+    ? `${imageUrl}&${params.toString()}`
+    : `${imageUrl}?${params.toString()}`;
+
+  // Cache the result
+  optimizedUrlCache.set(cacheKey, urlWithParams);
+  
+  return urlWithParams;
 };
 
-// Supabase storage URL for ficishoesimages bucket
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://your-project.supabase.co';
-const STORAGE_URL = `${SUPABASE_URL}/storage/v1/object/public/ficishoesimages`;
-
 /**
- * Generate optimized image URL with Supabase transforms
+ * Gets thumbnail URL optimized for listing pages
+ * @param imageUrl Original image URL
+ * @returns Optimized thumbnail URL (300px, WebP)
  */
-export function getOptimizedImageUrl(
-  originalUrl: string, 
-  options: ImageOptions = {}
-): string {
-  if (!originalUrl) return '';
-
-  // If it's already a Supabase URL, add transforms
-  if (originalUrl.includes('ficishoesimages') || originalUrl.includes('storage/v1/object/public')) {
-    const baseUrl = originalUrl.split('?')[0];
-    const params = new URLSearchParams();
-    
-    if (options.width) params.set('width', options.width.toString());
-    if (options.height) params.set('height', options.height.toString());
-    if (options.quality) params.set('quality', options.quality.toString());
-    if (options.format && options.format !== 'jpg') {
-      params.set('format', options.format);
-    }
-    
-    const paramString = params.toString();
-    return paramString ? `${baseUrl}?${paramString}` : baseUrl;
-  }
-  
-  // For non-Supabase URLs, return as-is (or implement CDN transforms)
-  return originalUrl;
-}
-
-/**
- * Get optimized image URL for specific use case with WebP support
- */
-export async function getImageForUseCaseAsync(
-  originalUrl: string,
-  useCase: keyof OptimizedImageConfig
-): Promise<string> {
-  const config = IMAGE_CONFIG[useCase];
-  const optimalFormat = await getOptimalFormat();
-  
-  // Update config with optimal format
-  const finalConfig = { ...config, format: optimalFormat };
-  
-  return getOptimizedImageUrl(originalUrl, finalConfig);
-}
-
-/**
- * Get optimized image URL for specific use case (synchronous version)
- * Uses WebP by default, falls back to browser detection if needed
- */
-export function getImageForUseCase(
-  originalUrl: string,
-  useCase: keyof OptimizedImageConfig
-): string {
-  const config = IMAGE_CONFIG[useCase];
-  
-  // For now, always try WebP first - Supabase will handle fallback
-  // In production, you might want to use the async version for browser detection
-  return getOptimizedImageUrl(originalUrl, config);
-}
-
-/**
- * Generate responsive image srcset for different screen sizes
- */
-export function generateSrcSet(
-  originalUrl: string,
-  sizes: number[] = [300, 600, 900, 1200]
-): string {
-  return sizes
-    .map(width => `${getOptimizedImageUrl(originalUrl, { width })} ${width}w`)
-    .join(', ');
-}
-
-/**
- * Generate sizes attribute for responsive images
- */
-export function generateSizes(
-  breakpoints: { [key: string]: string } = {
-    '(max-width: 640px)': '100vw',
-    '(max-width: 1024px)': '50vw',
-    '1024px': '33vw'
-  }
-): string {
-  return Object.entries(breakpoints)
-    .map(([breakpoint, size]) => `${breakpoint} ${size}`)
-    .join(', ');
-}
-
-/**
- * Preload critical images
- */
-export function preloadImage(url: string, options: ImageOptions = {}): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const link = document.createElement('link');
-    link.rel = 'preload';
-    link.as = 'image';
-    link.href = getOptimizedImageUrl(url, options);
-    
-    link.onload = () => resolve();
-    link.onerror = () => reject(new Error(`Failed to preload image: ${url}`));
-    
-    document.head.appendChild(link);
+export const getThumbnailUrl = (imageUrl: string | null | undefined): string => {
+  return getOptimizedImageUrl(imageUrl, {
+    width: 300,
+    height: 300,
+    quality: 75,
+    format: 'webp',
+    isThumbnail: true
   });
-}
+};
 
 /**
- * Check if WebP is supported by the browser
+ * Gets listing image URL optimized for product cards
+ * @param imageUrl Original image URL
+ * @returns Optimized listing URL (600px, WebP)
  */
-export function supportsWebP(): Promise<boolean> {
+export const getListingImageUrl = (imageUrl: string | null | undefined): string => {
+  return getOptimizedImageUrl(imageUrl, {
+    width: 600,
+    height: 600,
+    quality: 80,
+    format: 'webp'
+  });
+};
+
+/**
+ * Gets detail page image URL optimized for product galleries
+ * @param imageUrl Original image URL
+ * @returns Optimized detail URL (1000px, WebP)
+ */
+export const getDetailImageUrl = (imageUrl: string | null | undefined): string => {
+  return getOptimizedImageUrl(imageUrl, {
+    width: 1000,
+    height: 1000,
+    quality: 85,
+    format: 'webp'
+  });
+};
+
+/**
+ * Checks if browser supports WebP format
+ * @returns Promise that resolves to true if WebP is supported
+ */
+export const checkWebPSupport = (): Promise<boolean> => {
   return new Promise((resolve) => {
     const webP = new Image();
     webP.onload = webP.onerror = () => {
@@ -173,97 +128,137 @@ export function supportsWebP(): Promise<boolean> {
     };
     webP.src = 'data:image/webp;base64,UklGRjoAAABXRUJQVlA4IC4AAACyAgCdASoCAAIALmk0mk0iIiIiIgBoSygABc6WWgAA/veff/0PP8bA//LwYAAA';
   });
-}
+};
 
 /**
- * Get the best format for the current browser
+ * Gets the best image format based on browser support
+ * @param imageUrl Original image URL
+ * @param options Optimization options
+ * @returns Optimized image URL with appropriate format
  */
-export async function getOptimalFormat(): Promise<'webp' | 'jpg'> {
-  try {
-    const webPSupported = await supportsWebP();
-    return webPSupported ? 'webp' : 'jpg';
-  } catch {
-    return 'jpg'; // Fallback
-  }
-}
-
-/**
- * Create a complete optimized image configuration
- */
-export async function createOptimizedImageConfig(
-  originalUrl: string,
-  useCase: keyof OptimizedImageConfig
-): Promise<{
-  src: string;
-  srcSet: string;
-  sizes: string;
-  loading: 'lazy' | 'eager';
-  alt?: string;
-}> {
-  const config = IMAGE_CONFIG[useCase];
-  const optimalFormat = await getOptimalFormat();
+export const getBestFormatImageUrl = async (
+  imageUrl: string | null | undefined,
+  options: {
+    width?: number;
+    height?: number;
+    quality?: number;
+    isThumbnail?: boolean;
+  } = {}
+): Promise<string> => {
+  const supportsWebP = await checkWebPSupport();
   
-  // Update config with optimal format
-  const finalConfig = { ...config, format: optimalFormat };
-  
-  return {
-    src: getOptimizedImageUrl(originalUrl, finalConfig),
-    srcSet: generateSrcSet(originalUrl, [300, 600, 900, 1200]),
-    sizes: generateSizes(),
-    loading: finalConfig.loading || 'lazy'
-  };
-}
-
-/**
- * Utility to convert existing image URLs to optimized versions
- */
-export function optimizeExistingImages(
-  container: HTMLElement | Document = document
-): void {
-  const images = container.querySelectorAll('img[data-optimize="true"]');
-  
-  images.forEach((img) => {
-    const imgElement = img as HTMLImageElement;
-    const originalSrc = imgElement.getAttribute('data-original-src');
-    const useCase = imgElement.getAttribute('data-use-case') as keyof OptimizedImageConfig;
-    
-    if (originalSrc && useCase) {
-      const optimizedSrc = getImageForUseCase(originalSrc, useCase);
-      imgElement.src = optimizedSrc;
-    }
+  return getOptimizedImageUrl(imageUrl, {
+    ...options,
+    format: supportsWebP ? 'webp' : 'jpg'
   });
-}
+};
 
 /**
- * Intersection Observer for lazy loading with optimized images
+ * Preloads an image with optimization
+ * @param imageUrl Original image URL
+ * @param options Optimization options
+ * @returns Promise that resolves when image is loaded
  */
-export function createLazyImageObserver(): IntersectionObserver {
-  const observer = new IntersectionObserver(
-    (entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          const img = entry.target as HTMLImageElement;
-          const originalSrc = img.getAttribute('data-src');
-          const useCase = img.getAttribute('data-use-case') as keyof OptimizedImageConfig;
-          
-          if (originalSrc && useCase) {
-            const optimizedSrc = getImageForUseCase(originalSrc, useCase);
-            img.src = optimizedSrc;
-            img.removeAttribute('data-src');
-            img.removeAttribute('data-use-case');
-            observer.unobserve(img);
-          }
-        }
-      });
-    },
-    {
-      rootMargin: '50px 0px', // Start loading 50px before entering viewport
-      threshold: 0.1
-    }
-  );
+export const preloadOptimizedImage = (
+  imageUrl: string | null | undefined,
+  options: {
+    width?: number;
+    height?: number;
+    quality?: number;
+    isThumbnail?: boolean;
+  } = {}
+): Promise<void> => {
+  const optimizedUrl = getOptimizedImageUrl(imageUrl, options);
   
-  return observer;
-}
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve();
+    img.onerror = reject;
+    img.src = optimizedUrl;
+  });
+};
 
-// Export a singleton observer instance
-export const lazyImageObserver = createLazyImageObserver();
+/**
+ * Generates srcset for responsive images
+ * @param imageUrl Original image URL
+ * @param breakpoints Array of widths
+ * @param options Optimization options
+ * @returns srcset string
+ */
+export const generateSrcSet = (
+  imageUrl: string | null | undefined,
+  breakpoints: number[] = [300, 600, 1000],
+  options: {
+    quality?: number;
+    format?: 'webp' | 'jpg' | 'png';
+  } = {}
+): string => {
+  if (!imageUrl) return '';
+
+  return breakpoints
+    .map(width => {
+      const optimizedUrl = getOptimizedImageUrl(imageUrl, {
+        width,
+        ...options
+      });
+      return `${optimizedUrl} ${width}w`;
+    })
+    .join(', ');
+};
+
+/**
+ * Image size presets for different use cases
+ */
+export const IMAGE_SIZES = {
+  THUMBNAIL: { width: 300, height: 300, quality: 75 },
+  LISTING: { width: 600, height: 600, quality: 80 },
+  DETAIL: { width: 1000, height: 1000, quality: 85 },
+  HERO: { width: 1200, height: 600, quality: 90 }
+} as const;
+
+/**
+ * Gets optimized URL using preset sizes
+ * @param imageUrl Original image URL
+ * @param preset Size preset
+ * @returns Optimized image URL
+ */
+export const getPresetImageUrl = (
+  imageUrl: string | null | undefined,
+  preset: keyof typeof IMAGE_SIZES
+): string => {
+  return getOptimizedImageUrl(imageUrl, IMAGE_SIZES[preset]);
+};
+
+/**
+ * Gets optimized image URL based on use case
+ * @param imageUrl Original image URL
+ * @param useCase Use case for the image (THUMBNAIL, LISTING, DETAIL, HERO)
+ * @returns Optimized image URL
+ */
+export const getImageForUseCase = (
+  imageUrl: string | null | undefined,
+  useCase: 'THUMBNAIL' | 'LISTING' | 'DETAIL' | 'HERO' | 'thumbnail' | 'listing' | 'detail' | 'hero'
+): string => {
+  // Handle lowercase variants
+  const normalizedUseCase = useCase.toUpperCase() as keyof typeof IMAGE_SIZES;
+  
+  if (normalizedUseCase in IMAGE_SIZES) {
+    return getPresetImageUrl(imageUrl, normalizedUseCase);
+  }
+  
+  // Fallback to LISTING if use case is not recognized
+  return getPresetImageUrl(imageUrl, 'LISTING');
+};
+
+/**
+ * Async version of getImageForUseCase for compatibility
+ * @param imageUrl Original image URL
+ * @param useCase Use case for the image
+ * @returns Promise that resolves to optimized image URL
+ */
+export const getImageForUseCaseAsync = async (
+  imageUrl: string | null | undefined,
+  useCase: 'THUMBNAIL' | 'LISTING' | 'DETAIL' | 'HERO' | 'thumbnail' | 'listing' | 'detail' | 'hero'
+): Promise<string> => {
+  return getImageForUseCase(imageUrl, useCase);
+};

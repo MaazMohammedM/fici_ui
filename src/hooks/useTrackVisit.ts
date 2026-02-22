@@ -1,38 +1,41 @@
 // src/hooks/useTrackVisit.ts
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { updateTrafficSource } from '../lib/utils/analytics';
 import { useAuthStore } from '../store/authStore';
 
 export const useTrackVisit = () => {
   const location = useLocation();
-  const [authChecked, setAuthChecked] = useState(false);
-  const { user, role, loading, initialized } = useAuthStore();
 
   useEffect(() => {
-    // Wait for auth store to be initialized
-    if (!initialized) return;
-
-    // Mark auth as checked
-    if (!authChecked) {
-      setAuthChecked(true);
-    }
-  }, [initialized, authChecked]);
-
-  useEffect(() => {
-    // Only proceed with tracking if auth is checked
-    if (!authChecked) return;
-
     if (typeof window === 'undefined') return;
 
-    // Check if user is admin before tracking
-    const isAdmin = role?.toLowerCase() === 'admin' || 
-                    user?.user_metadata?.role?.toLowerCase() === 'admin' ||
-                    localStorage.getItem('userRole') === 'admin';
-
-    // Skip tracking for admin users
-    if (isAdmin) {
-      console.log('Skipping traffic source tracking for admin user');
+    // Check if user is admin or in development/preview environment
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const isNetlifyPreview = window.location.hostname.includes('netlify.app');
+    
+    // Check admin role from auth store
+    let isAdmin = false;
+    try {
+      const authState = useAuthStore.getState();
+      const storeRole = authState?.role;
+      const storeUser = authState?.user;
+      
+      isAdmin = storeRole?.toLowerCase() === 'admin' || 
+                storeUser?.user_metadata?.role?.toLowerCase() === 'admin';
+      
+      // Fallback to localStorage check
+      if (!isAdmin) {
+        isAdmin = localStorage.getItem('userRole') === 'admin';
+      }
+    } catch (error) {
+      // Fallback to localStorage if store access fails
+      isAdmin = localStorage.getItem('userRole') === 'admin';
+    }
+    
+    // Don't track traffic sources for admin users or development/preview environments
+    if (isAdmin || isLocalhost || isNetlifyPreview) {
+      console.log('Skipping traffic source tracking for admin/preview environment in useTrackVisit');
       return;
     }
 
@@ -45,5 +48,5 @@ export const useTrackVisit = () => {
     sessionStorage.setItem(key, '1');
 
     updateTrafficSource(url, userAgent, referrer);
-  }, [location.search, authChecked, user, role, initialized]);
+  }, [location.search]);
 };
