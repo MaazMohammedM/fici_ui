@@ -1,8 +1,9 @@
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getStorage } from 'firebase-admin/storage';
+import { getFirestore } from 'firebase-admin/firestore';
 import { readFileSync } from 'fs';
-import { parse } from 'csv-parse/sync';
 import https from 'https';
+import http from 'http';
 import { URL } from 'url';
 
 // Initialize Firebase Admin SDK
@@ -14,244 +15,240 @@ const app = initializeApp({
 });
 
 const storage = getStorage(app);
+const db = getFirestore(app);
 const bucket = storage.bucket();
 
-// Supabase storage configuration
-const SUPABASE_URL = 'https://qegaebazravcwofibtry.storage.supabase.co/storage/v1/s3/ap-south-1';
-const SUPABASE_ACCESS_KEY = '1c985edfd78dc1e123065242e43a2bde';
-const SUPABASE_SECRET = '1c985edfd78dc1e123065242e43a2bde';
+// Supabase configuration
+const SUPABASE_URL = 'https://qegaebazravcwofibtry.supabase.co/storage/v1';
+const SUPABASE_BUCKET = 'ficishoesimages';
 
-// Helper function to download image from Supabase
+// Helper function to download image from URL
 function downloadImage(url) {
   return new Promise((resolve, reject) => {
-    const request = https.get(url, (response) => {
+    const protocol = url.startsWith('https') ? https : http;
+    
+    protocol.get(url, (response) => {
       if (response.statusCode !== 200) {
-        reject(new Error(`Failed to download image: ${response.statusCode}`));
+        reject(new Error(`HTTP ${response.statusCode} for ${url}`));
         return;
       }
 
       const chunks = [];
       response.on('data', (chunk) => chunks.push(chunk));
       response.on('end', () => resolve(Buffer.concat(chunks)));
-    });
-
-    request.on('error', reject);
-    request.setTimeout(30000, () => {
-      request.destroy();
-      reject(new Error('Download timeout'));
-    });
+    }).on('error', reject);
   });
 }
 
 // Helper function to extract file path from Supabase URL
 function extractSupabasePath(url) {
-  if (!url) return null;
+  if (!url || !url.includes('ficishoesimages')) return null;
   
   try {
-    // Extract path from Supabase URL
-    // Example: https://qegaebazravcwofibtry.supabase.co/storage/v1/object/public/ficishoesimages/casl01_dk.tan/casl01_dk.tan_1.png
-    const match = url.match(/\/ficishoesimages\/(.+)/);
-    return match ? match[1] : null;
-  } catch (error) {
-    console.error('Error extracting path:', error);
+    const urlObj = new URL(url);
+    // Extract path after /ficishoesimages/
+    const pathParts = urlObj.pathname.split('/ficishoesimages/');
+    return pathParts.length > 1 ? pathParts[1] : null;
+  } catch {
     return null;
   }
 }
 
-// Helper function to generate Firebase Storage path
-function generateFirebasePath(supabasePath, productId, index = 0) {
-  if (!supabasePath) return null;
-  
-  // Extract filename from path
-  const filename = supabasePath.split('/').pop();
-  const extension = filename.split('.').pop();
-  
-  // Create organized folder structure
-  return `products/${productId}/${filename}`;
+// Helper function to get Firebase Storage public URL
+function getFirebasePublicUrl(filePath) {
+  return `https://firebasestorage.googleapis.com/v0/b/fici-shoes.firebasestorage.app/o/${encodeURIComponent(filePath)}?alt=media`;
 }
 
-// Parse products CSV to get image URLs
-function parseProductsCSV() {
+// Migrate single image
+async function migrateImage(supabaseUrl, firebasePath) {
   try {
-    const fileContent = readFileSync('./tables_data/products_rows (1).csv', 'utf8');
-    const records = parse(fileContent, {
-      columns: true,
-      skip_empty_lines: true,
-      cast: (value, context) => {
-        if (value === 'true') return true;
-        if (value === 'false') return false;
-        if (value === '' || value === null || value === 'NULL') return null;
-        if (!isNaN(value) && value !== '') {
-          const num = parseFloat(value);
-          if (!isNaN(num)) return num;
-        }
-        return value;
+    // Check if image already exists in Firebase
+    const file = bucket.file(firebasePath);
+    const [exists] = await file.exists();
+    
+    if (exists) {
+      console.log(`✅ Image already exists: ${firebasePath}`);
+      return getFirebasePublicUrl(firebasePath);
+    }
+
+    // Extract path from Supabase URL
+    const supabasePath = extractSupabasePath(supabaseUrl);
+    if (!supabasePath) {
+      console.log(`⚠️  Could not extract path from: ${supabaseUrl}`);
+      return supabaseUrl; // Return original URL if we can't extract path
+    }
+
+    // Download from Supabase
+    const supabaseFullUrl = `${SUPABASE_URL}/object/public/${SUPABASE_BUCKET}/${supabasePath}`;
+    console.log(`📥 Downloading: ${supabaseFullUrl}`);
+    
+    const imageBuffer = await downloadImage(supabaseFullUrl);
+    
+    // Upload to Firebase
+    console.log(`📤 Uploading to Firebase: ${firebasePath}`);
+    await file.save(imageBuffer, {
+      metadata: {
+        contentType: 'image/jpeg', // Default content type
+        cacheControl: 'public, max-age=31536000', // 1 year cache
       }
     });
-    return records;
+
+    // Make file public
+    await file.makePublic();
+    
+    console.log(`✅ Uploaded: ${firebasePath}`);
+    return getFirebasePublicUrl(firebasePath);
+    
   } catch (error) {
-    console.error('Error parsing products CSV:', error);
-    return [];
+    console.error(`❌ Error migrating ${supabaseUrl}:`, error);
+    return supabaseUrl; // Return original URL on error
   }
 }
 
-// Migrate images for a single product
-async function migrateProductImages(product) {
-  const { product_id, images, thumbnail_url } = product;
-  console.log(`📥 Migrating images for product: ${product.name} (${product_id})`);
-  
-  let successCount = 0;
-  let errorCount = 0;
-  const migratedUrls = [];
+// Migrate product images
+async function migrateProductImages() {
+  console.log('🔥 Starting product image migration...');
   
   try {
-    // Migrate thumbnail URL first
-    if (thumbnail_url) {
-      const supabasePath = extractSupabasePath(thumbnail_url);
-      if (supabasePath) {
-        const firebasePath = generateFirebasePath(supabasePath, product_id, 0);
-        if (firebasePath) {
-          try {
-            const supabaseUrl = `${SUPABASE_URL}/ficishoesimages/${supabasePath}`;
-            const imageBuffer = await downloadImage(supabaseUrl);
-            
-            const file = bucket.file(firebasePath);
-            await file.save(imageBuffer, {
-              metadata: {
-                contentType: `image/${supabasePath.split('.').pop()}`,
-                cacheControl: 'public, max-age=31536000',
-              }
-            });
-            
-            // Make file publicly readable
-            await file.makePublic();
-            const publicUrl = `https://storage.googleapis.com/${bucket.name}/${firebasePath}`;
-            migratedUrls.push(publicUrl);
-            successCount++;
-            
-            console.log(`  ✅ Thumbnail migrated: ${firebasePath}`);
-          } catch (error) {
-            console.error(`  ❌ Thumbnail migration failed:`, error.message);
-            errorCount++;
-          }
-        }
-      }
-    }
+    // Get all products from Firebase
+    const productsSnapshot = await db.collection('products').get();
     
-    // Migrate product images
-    if (images && typeof images === 'string') {
-      const imageUrls = images.split(',').map(url => url.trim());
+    let totalImages = 0;
+    let migratedImages = 0;
+    let skippedImages = 0;
+    
+    for (const productDoc of productsSnapshot.docs) {
+      const product = productDoc.data();
+      const productId = productDoc.id;
       
-      for (let i = 0; i < imageUrls.length; i++) {
-        const imageUrl = imageUrls[i];
-        const supabasePath = extractSupabasePath(imageUrl);
+      console.log(`\n📦 Processing product: ${product.name} (${productId})`);
+      
+      const updatedImages = [];
+      const updatedThumbnail = product.thumbnail_url;
+      
+      // Migrate thumbnail
+      if (product.thumbnail_url && product.thumbnail_url.includes('supabase')) {
+        const thumbnailPath = `products/thumbnails/${productId}_thumbnail.jpg`;
+        const newThumbnailUrl = await migrateImage(product.thumbnail_url, thumbnailPath);
         
-        if (supabasePath) {
-          const firebasePath = generateFirebasePath(supabasePath, product_id, i + 1);
-          if (firebasePath) {
-            try {
-              const supabaseUrl = `${SUPABASE_URL}/ficishoesimages/${supabasePath}`;
-              const imageBuffer = await downloadImage(supabaseUrl);
-              
-              const file = bucket.file(firebasePath);
-              await file.save(imageBuffer, {
-                metadata: {
-                  contentType: `image/${supabasePath.split('.').pop()}`,
-                  cacheControl: 'public, max-age=31536000',
-                }
-              });
-              
-              // Make file publicly readable
-              await file.makePublic();
-              const publicUrl = `https://storage.googleapis.com/${bucket.name}/${firebasePath}`;
-              migratedUrls.push(publicUrl);
-              successCount++;
-              
-              console.log(`  ✅ Image ${i + 1} migrated: ${firebasePath}`);
-            } catch (error) {
-              console.error(`  ❌ Image ${i + 1} migration failed:`, error.message);
-              errorCount++;
+        if (newThumbnailUrl !== product.thumbnail_url) {
+          migratedImages++;
+        }
+        
+        // Update thumbnail URL
+        await db.collection('products').doc(productId).update({
+          thumbnail_url: newThumbnailUrl
+        });
+      } else {
+        skippedImages++;
+      }
+      
+      // Migrate gallery images
+      if (product.images && Array.isArray(product.images)) {
+        for (let i = 0; i < product.images.length; i++) {
+          const imageUrl = product.images[i];
+          totalImages++;
+          
+          if (imageUrl && imageUrl.includes('supabase')) {
+            const galleryPath = `products/gallery/${productId}_image_${i}.jpg`;
+            const newImageUrl = await migrateImage(imageUrl, galleryPath);
+            
+            if (newImageUrl !== imageUrl) {
+              migratedImages++;
+              updatedImages[i] = newImageUrl;
+            } else {
+              updatedImages[i] = imageUrl;
             }
+          } else {
+            updatedImages[i] = imageUrl;
+            skippedImages++;
           }
         }
+        
+        // Update images array if any were migrated
+        if (updatedImages.some((img, i) => img !== product.images[i])) {
+          await db.collection('products').doc(productId).update({
+            images: updatedImages
+          });
+        }
       }
+      
+      totalImages++; // Count thumbnail
     }
     
-    // Update product in Firestore with new Firebase URLs
-    if (migratedUrls.length > 0) {
-      const { getFirestore, doc, updateDoc } = await import('firebase-admin/firestore');
-      const db = getFirestore(app);
-      
-      const updateData = {};
-      if (migratedUrls.length > 0) {
-        updateData.thumbnail_url = migratedUrls[0]; // First image as thumbnail
-        updateData.images = migratedUrls.join(',');
-      }
-      
-      await updateDoc(doc(db, 'products', product_id), updateData);
-      console.log(`  🔄 Product URLs updated in Firestore`);
-    }
+    console.log('\n🎉 Product image migration completed!');
+    console.log(`📊 Summary:`);
+    console.log(`- Total images processed: ${totalImages}`);
+    console.log(`- Images migrated to Firebase: ${migratedImages}`);
+    console.log(`- Images skipped (already Firebase/external): ${skippedImages}`);
     
   } catch (error) {
-    console.error(`❌ Product migration failed:`, error);
-    errorCount++;
+    console.error('❌ Error in product image migration:', error);
   }
+}
+
+// Migrate order item images
+async function migrateOrderItemImages() {
+  console.log('\n🔥 Starting order item image migration...');
   
-  return { success: successCount, errors: errorCount, urls: migratedUrls };
+  try {
+    const orderItemsSnapshot = await db.collection('order_items').get();
+    
+    let migratedImages = 0;
+    
+    for (const itemDoc of orderItemsSnapshot.docs) {
+      const item = itemDoc.data();
+      const itemId = itemDoc.id;
+      
+      // Migrate product_thumbnail_url
+      if (item.product_thumbnail_url && item.product_thumbnail_url.includes('supabase')) {
+        const thumbnailPath = `order-items/${itemId}_product_thumbnail.jpg`;
+        const newThumbnailUrl = await migrateImage(item.product_thumbnail_url, thumbnailPath);
+        
+        if (newThumbnailUrl !== item.product_thumbnail_url) {
+          migratedImages++;
+          await db.collection('order_items').doc(itemId).update({
+            product_thumbnail_url: newThumbnailUrl
+          });
+        }
+      }
+      
+      // Migrate thumbnail_url
+      if (item.thumbnail_url && item.thumbnail_url.includes('supabase')) {
+        const thumbnailPath = `order-items/${itemId}_thumbnail.jpg`;
+        const newThumbnailUrl = await migrateImage(item.thumbnail_url, thumbnailPath);
+        
+        if (newThumbnailUrl !== item.thumbnail_url) {
+          migratedImages++;
+          await db.collection('order_items').doc(itemId).update({
+            thumbnail_url: newThumbnailUrl
+          });
+        }
+      }
+    }
+    
+    console.log(`✅ Order item image migration completed!`);
+    console.log(`📊 Images migrated: ${migratedImages}`);
+    
+  } catch (error) {
+    console.error('❌ Error in order item image migration:', error);
+  }
 }
 
 // Main migration function
 async function migrateAllImages() {
-  console.log('🔥 Starting image migration from Supabase to Firebase Storage...');
+  console.log('🚀 Starting complete image migration from Supabase to Firebase...');
   
-  try {
-    const products = parseProductsCSV();
-    console.log(`📊 Found ${products.length} products to process`);
-    
-    let totalSuccess = 0;
-    let totalErrors = 0;
-    let totalProducts = 0;
-    
-    // Process products in batches to avoid overwhelming the system
-    const batchSize = 5;
-    for (let i = 0; i < products.length; i += batchSize) {
-      const batch = products.slice(i, i + batchSize);
-      console.log(`\n📦 Processing batch ${Math.floor(i / batchSize) + 1}/${Math.ceil(products.length / batchSize)}`);
-      
-      for (const product of batch) {
-        const result = await migrateProductImages(product);
-        totalSuccess += result.success;
-        totalErrors += result.errors;
-        totalProducts++;
-        
-        // Small delay between products to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
-    }
-    
-    console.log('\n🎉 Image migration completed!');
-    console.log('\n📊 Summary:');
-    console.log(`- Products processed: ${totalProducts}`);
-    console.log(`- Images migrated: ${totalSuccess}`);
-    console.log(`- Migration errors: ${totalErrors}`);
-    
-    if (totalErrors > 0) {
-      console.log('\n⚠️  Some images failed to migrate. Check the error messages above.');
-    } else {
-      console.log('\n✅ All images migrated successfully!');
-    }
-    
-    console.log('\n🔗 Firebase Storage: https://console.firebase.google.com/project/fici-shoes/storage/fici-shoes.firebasestorage.app/files/products');
-    
-  } catch (error) {
-    console.error('❌ Fatal error during migration:', error);
-    process.exit(1);
-  }
+  await migrateProductImages();
+  await migrateOrderItemImages();
+  
+  console.log('\n🎉 Complete image migration finished!');
+  console.log('🔗 Firebase Storage: https://console.firebase.google.com/project/fici-shoes/storage/fici-shoes.firebasestorage.app/files');
 }
 
 // Run the migration
 migrateAllImages().then(() => {
-  console.log('\n🚀 Image migration complete! Your images are now in Firebase Storage.');
+  console.log('\n✅ Image migration complete!');
   process.exit(0);
 }).catch((error) => {
   console.error('❌ Migration failed:', error);
