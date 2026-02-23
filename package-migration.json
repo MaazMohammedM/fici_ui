@@ -1,0 +1,22 @@
+{
+  "name": "fici-firebase-migration",
+  "version": "1.0.0",
+  "description": "Firebase migration scripts for FICI database",
+  "main": "import-data.js",
+  "scripts": {
+    "migrate": "node import-data.js",
+    "deploy-rules": "firebase deploy --only firestore:rules",
+    "deploy-indexes": "firebase deploy --only firestore:indexes",
+    "deploy-all": "firebase deploy --only firestore"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.0.0",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "firebase-tools": "^13.0.0"
+  },
+  "keywords": ["firebase", "migration", "firestore", "fici"],
+  "author": "FICI Team",
+  "license": "MIT"
+}
