@@ -1,16 +1,16 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import type { User } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase';
+import type { User, UserCredential } from '../lib/firebase';
+import { auth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signInWithPopup, signOut, onAuthStateChanged, googleProvider, db, doc, getDoc } from '../lib/firebase';
 
 interface AuthContextType {
   user: User | null;
   role: string | null;
   loading: boolean;
-  signIn: (email: string, password: string) => ReturnType<typeof supabase.auth.signInWithPassword>;
-  signUp: (email: string, password: string, fullName: string) => ReturnType<typeof supabase.auth.signUp>;
-  signInWithGoogle: () => ReturnType<typeof supabase.auth.signInWithOAuth>;
-  signOut: () => ReturnType<typeof supabase.auth.signOut>;
+  signIn: (email: string, password: string) => Promise<UserCredential>;
+  signUp: (email: string, password: string, fullName: string) => Promise<UserCredential>;
+  signInWithGoogle: () => Promise<UserCredential>;
+  signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -22,41 +22,44 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const init = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        setUser(session.user);
-        fetchUserRole(session.user.id);
+      const currentUser = auth.currentUser;
+      if (currentUser) {
+        setUser(currentUser);
+        fetchUserRole(currentUser.uid);
       }
       setLoading(false);
     };
     init();
 
-    const { data: subscription } = supabase.auth.onAuthStateChange((_, session) => {
-      setUser(session?.user || null);
-      if (session?.user) fetchUserRole(session.user.id);
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user);
+      if (user) fetchUserRole(user.uid);
     });
 
-    return () => subscription?.subscription.unsubscribe();
+    return () => unsubscribe();
   }, []);
 
   const fetchUserRole = async (userId: string) => {
-    const { data, error } = await supabase.from('user_profiles').select('role').eq('user_id', userId).single();
-    if (!error) setRole(data.role);
+    const docRef = doc(db, 'user_profiles', userId);
+    const docSnap = await getDoc(docRef);
+    if (docSnap.exists()) {
+      setRole(docSnap.data().role);
+    }
   };
 
   const signIn = (email: string, password: string) =>
-    supabase.auth.signInWithPassword({ email, password });
+    signInWithEmailAndPassword(auth, email, password);
 
-  const signUp = (email: string, password: string, fullName: string) =>
-    supabase.auth.signUp({ email, password, options: { data: { full_name: fullName } } });
+  const signUp = (email: string, password: string, _fullName: string) =>
+    createUserWithEmailAndPassword(auth, email, password);
 
   const signInWithGoogle = () =>
-    supabase.auth.signInWithOAuth({ provider: 'google' });
+    signInWithPopup(auth, googleProvider);
 
-  const signOut = () => supabase.auth.signOut();
+  const signOutUser = () => signOut(auth);
 
   return (
-    <AuthContext.Provider value={{ user, role, loading, signIn, signUp, signOut, signInWithGoogle }}>
+    <AuthContext.Provider value={{ user, role, loading, signIn, signUp, signOut: signOutUser, signInWithGoogle }}>
       {children}
     </AuthContext.Provider>
   );

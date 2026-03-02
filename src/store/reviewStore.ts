@@ -1,10 +1,11 @@
 import { create } from 'zustand';
-import { supabase } from '@lib/supabase';
+import { db, collection, query, where, orderBy, getDocs, addDoc, serverTimestamp, doc, getDoc, updateDoc, deleteDoc } from '@/lib/firebase';
+import { useAuthStore } from './authStore';
 
 interface Review {
-  review_id: string;
-  user_id: string;
+  id: string;
   product_id: string;
+  user_id?: string;
   rating: number;
   comment: string;
   title?: string;
@@ -36,21 +37,44 @@ export const useReviewStore = create<ReviewState>((set, get) => ({
   fetchProductReviews: async (productId: string) => {
     set({ loading: true, error: null });
     try {
-      const { data, error } = await supabase
-        .from('reviews')
-        .select(`
-          *,
-          user:user_profiles(first_name, last_name)
-        `)
-        .eq('product_id', productId)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Fetch reviews error:', error);
-        set({ error: 'Failed to fetch reviews' });
-      } else {
-        set({ reviews: data || [] });
+      const q = query(
+        collection(db, 'reviews'),
+        where('product_id', '==', productId),
+        orderBy('created_at', 'desc')
+      );
+      
+      const snapshot = await getDocs(q);
+      const reviews: Review[] = [];
+      
+      for (const docSnap of snapshot.docs) {
+        const reviewData = docSnap.data() as any;
+        let userData = null;
+        
+        if (reviewData.user_id) {
+          const userDocRef = doc(db, 'user_profiles', reviewData.user_id);
+          const userDocSnap = await getDoc(userDocRef);
+          if (userDocSnap.exists()) {
+            userData = userDocSnap.data();
+          }
+        }
+        
+        reviews.push({
+          id: docSnap.id,
+          product_id: reviewData.product_id,
+          user_id: reviewData.user_id,
+          rating: reviewData.rating,
+          comment: reviewData.comment,
+          title: reviewData.title,
+          created_at: reviewData.created_at?.toDate?.()?.toISOString() || reviewData.created_at,
+          updated_at: reviewData.updated_at?.toDate?.()?.toISOString() || reviewData.updated_at,
+          user: userData ? {
+            first_name: userData.first_name,
+            last_name: userData.last_name
+          } : undefined
+        });
       }
+      
+      set({ reviews });
     } catch (error) {
       console.error('Error fetching reviews:', error);
       set({ error: 'Failed to fetch reviews' });
@@ -62,28 +86,24 @@ export const useReviewStore = create<ReviewState>((set, get) => ({
   addReview: async (productId: string, rating: number, comment: string) => {
     set({ loading: true, error: null });
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { user } = useAuthStore.getState();
       
       if (!user) {
         set({ error: 'User not authenticated' });
         return;
       }
 
-      const { error } = await supabase
-        .from('reviews')
-        .insert({
-          product_id: productId,
-          user_id: user.id,
-          rating,
-          comment
-        });
+      const reviewData = {
+        product_id: productId,
+        user_id: user.uid,
+        rating,
+        comment,
+        created_at: serverTimestamp(),
+        updated_at: serverTimestamp()
+      };
 
-      if (error) {
-        console.error('Add review error:', error);
-        set({ error: 'Failed to add review' });
-      } else {
-        await get().fetchProductReviews(productId);
-      }
+      await addDoc(collection(db, 'reviews'), reviewData);
+      await get().fetchProductReviews(productId);
     } catch (error) {
       console.error('Error adding review:', error);
       set({ error: 'Failed to add review' });
@@ -95,20 +115,18 @@ export const useReviewStore = create<ReviewState>((set, get) => ({
   updateReview: async (reviewId: string, rating: number, comment: string, title?: string) => {
     set({ loading: true, error: null });
     try {
-      const { error } = await supabase
-        .from('reviews')
-        .update({ rating, comment, title, updated_at: new Date().toISOString() })
-        .eq('review_id', reviewId);
+      const reviewRef = doc(db, 'reviews', reviewId);
+      await updateDoc(reviewRef, {
+        rating,
+        comment,
+        title,
+        updated_at: serverTimestamp()
+      });
 
-      if (error) {
-        console.error('Update review error:', error);
-        set({ error: 'Failed to update review' });
-      } else {
-        // Refresh reviews for the product
-        const review = get().reviews.find(r => r.review_id === reviewId);
-        if (review) {
-          await get().fetchProductReviews(review.product_id);
-        }
+      // Refresh reviews for the product
+      const review = get().reviews.find(r => r.id === reviewId);
+      if (review) {
+        await get().fetchProductReviews(review.product_id);
       }
     } catch (error) {
       console.error('Error updating review:', error);
@@ -121,20 +139,13 @@ export const useReviewStore = create<ReviewState>((set, get) => ({
   deleteReview: async (reviewId: string) => {
     set({ loading: true, error: null });
     try {
-      const { error } = await supabase
-        .from('reviews')
-        .delete()
-        .eq('review_id', reviewId);
+      const reviewRef = doc(db, 'reviews', reviewId);
+      await deleteDoc(reviewRef);
 
-      if (error) {
-        console.error('Delete review error:', error);
-        set({ error: 'Failed to delete review' });
-      } else {
-        // Refresh reviews for the product
-        const review = get().reviews.find(r => r.review_id === reviewId);
-        if (review) {
-          await get().fetchProductReviews(review.product_id);
-        }
+      // Refresh reviews for the product
+      const review = get().reviews.find(r => r.id === reviewId);
+      if (review) {
+        await get().fetchProductReviews(review.product_id);
       }
     } catch (error) {
       console.error('Error deleting review:', error);
@@ -145,4 +156,4 @@ export const useReviewStore = create<ReviewState>((set, get) => ({
   },
 
   clearError: () => set({ error: null })
-})); 
+}));

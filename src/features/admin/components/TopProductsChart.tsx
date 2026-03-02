@@ -1,6 +1,7 @@
 import React from 'react';
 import { BarChart3, TrendingUp } from 'lucide-react';
-import { getThumbnailUrl } from '@lib/utils/imageOptimization';
+import { getThumbnailUrl, getThumbnailUrlSync } from '../../../lib/utils/imageOptimization';
+import fallbackImage from '../../../assets/Fici_logo.png';
 
 interface TopProduct {
   product_id: string;
@@ -52,21 +53,39 @@ const TopProductsChart: React.FC<TopProductsChartProps> = ({ products, loading }
         {products.map((product, index) => {
           const percentage = (product.visit_count / maxVisits) * 100;
           
+          // Handle image URL with fallback to FICI logo
+          let imageSrc = fallbackImage;
+          if (product.thumbnail_url && product.thumbnail_url.trim() !== '') {
+            try {
+              const optimizedUrl = getThumbnailUrlSync(product.thumbnail_url);
+              if (optimizedUrl && optimizedUrl.trim() !== '') {
+                imageSrc = optimizedUrl;
+              }
+            } catch (error) {
+              // Keep fallback image if optimization fails
+              console.warn('Failed to optimize thumbnail URL:', error);
+            }
+          }
+          
           return (
             <div key={product.product_id} className="flex items-center space-x-4">
               <div className="flex-shrink-0 w-8 text-center">
                 <span className="text-sm font-medium text-gray-500">#{index + 1}</span>
               </div>
               
-              {product.thumbnail_url && (
+              <div className="relative flex-shrink-0">
                 <img
-                  src={getThumbnailUrl(product.thumbnail_url)}
+                  src={imageSrc}
                   alt={product.name}
                   className="w-12 h-12 object-cover rounded-lg"
                   loading="lazy"
                   decoding="async"
+                  onError={(e) => {
+                    // Fallback to FICI logo if image fails to load
+                    e.currentTarget.src = fallbackImage;
+                  }}
                 />
-              )}
+              </div>
               
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between mb-1">

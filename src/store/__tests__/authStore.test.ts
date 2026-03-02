@@ -2,7 +2,7 @@ import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { create } from 'zustand';
 import type { StoreApi, UseBoundStore } from 'zustand';
-import type { User } from '@supabase/supabase-js';
+import type { User } from 'firebase/auth';
 import { devtools } from 'zustand/middleware';
 
 // Define the AuthState type
@@ -28,28 +28,36 @@ type AuthState = {
   setLoading: (loading: boolean) => void;
 };
 
-// Mock the supabase client
+// Mock Firebase auth functions
 const mockSignInWithPassword = vi.fn();
 const mockSignUp = vi.fn();
 const mockSignOut = vi.fn();
 const mockOnAuthStateChange = vi.fn();
 const mockGetSession = vi.fn();
 
-// Mock the supabase module
-vi.mock('../../lib/supabase', () => ({
-  supabase: {
-    auth: {
-      signInWithPassword: mockSignInWithPassword,
-      signUp: mockSignUp,
-      signOut: mockSignOut,
-      onAuthStateChange: mockOnAuthStateChange,
-      getSession: mockGetSession,
-    },
-    from: vi.fn().mockReturnThis(),
-    select: vi.fn().mockReturnThis(),
-    eq: vi.fn().mockReturnThis(),
-    single: vi.fn().mockResolvedValue({ data: null, error: null }),
+// Mock Firebase module
+vi.mock('../../lib/firebase', () => ({
+  auth: {
+    signInWithEmailAndPassword: mockSignInWithPassword,
+    createUserWithEmailAndPassword: mockSignUp,
+    signOut: mockSignOut,
+    onAuthStateChanged: mockOnAuthStateChange,
   },
+  db: {
+    collection: vi.fn().mockReturnThis(),
+    doc: vi.fn().mockReturnThis(),
+    addDoc: vi.fn().mockReturnThis(),
+    updateDoc: vi.fn().mockReturnThis(),
+    getDoc: vi.fn().mockReturnThis(),
+    getDocs: vi.fn().mockReturnThis(),
+    query: vi.fn().mockReturnThis(),
+    where: vi.fn().mockReturnThis(),
+    orderBy: vi.fn().mockReturnThis(),
+    limit: vi.fn().mockReturnThis(),
+  },
+  functions: {
+    httpsCallable: vi.fn().mockReturnThis(),
+  }
 }));
 
 // Mock the logger
@@ -75,15 +83,23 @@ vi.mock('../../services/guestService', () => ({
 
 // Test data
 const mockUser: User = {
-  id: 'test-user-id',
+  uid: 'test-user-id',
   email: 'test@example.com',
-  user_metadata: {
-    first_name: 'Test',
-    last_name: 'User',
-  },
-  app_metadata: { provider: 'email' },
-  aud: 'authenticated',
-  created_at: new Date().toISOString(),
+  displayName: 'Test User',
+  photoURL: null,
+  emailVerified: true,
+  isAnonymous: false,
+  metadata: {},
+  tenantId: null,
+  providerData: null,
+  refreshToken: 'mock-refresh-token',
+  delete: vi.fn(),
+  getIdToken: vi.fn().mockResolvedValue({ token: 'mock-token' }),
+  getIdTokenResult: {} as any,
+  reload: vi.fn(),
+  toJSON: vi.fn(),
+  phoneNumber: null,
+  providerId: 'email'
 };
 
 const mockSession = {

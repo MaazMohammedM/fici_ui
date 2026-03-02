@@ -14,7 +14,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   redirectTo = '/auth/signin',
   requiredRole
 }) => {
-  const { user, loading } = useAuth()
+  const { user, loading, role } = useAuth()
   const location = useLocation()
 
   if (loading) {
@@ -43,7 +43,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   }
 
   // Check role if required
-  if (requiredRole && user.role !== requiredRole) {
+  if (requiredRole && role !== requiredRole) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-light dark:bg-gradient-dark">
         <div className="text-center">

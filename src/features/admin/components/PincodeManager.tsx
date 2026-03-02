@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { usePincodeStore, type PincodeDetails, type BulkPincodeUpdateRequest } from '@/store/pincodeStore';
+import { usePincodeStore, type PincodeDetails, type BulkPincodeUpdateRequest, type LegacyBulkPincodeUpdateRequest } from '@/store/pincodeStore';
 import { Search, Plus, Pencil, Trash2, Check, X, ChevronLeft, ChevronRight, Edit3, Play } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -9,7 +9,7 @@ import { Switch } from '@/components/ui/SwitchSimple';
 import { Label } from '@/components/ui/LabelSimple';
 import { PincodeModal, type PincodeFormValues } from './PincodeModal';
 import { toast } from 'sonner';
-import { supabase } from '@lib/supabase';
+import { db, collection, doc, getDoc, getDocs, query, where, orderBy, limit, addDoc, updateDoc, deleteDoc, serverTimestamp, Timestamp } from '@lib/firebase';
 
 // Canonical list of Indian states/UTs (uppercased) used as fallback to ensure visibility in dropdown
 const ALL_INDIAN_STATES = [
@@ -71,12 +71,12 @@ export const PincodeManager = () => {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingPincode, setEditingPincode] = useState<string | null>(null);
+  const [editingPincode, setEditingPincode] = useState<number | null>(null);
   
   // New bulk update state
   const [showBulkUpdate, setShowBulkUpdate] = useState(false);
-  const [selectedField, setSelectedField] = useState<BulkPincodeUpdateRequest['field']>('is_serviceable');
-  const [selectedScope, setSelectedScope] = useState<BulkPincodeUpdateRequest['scope']>('all');
+  const [selectedField, setSelectedField] = useState<LegacyBulkPincodeUpdateRequest['field']>('is_serviceable');
+  const [selectedScope, setSelectedScope] = useState<LegacyBulkPincodeUpdateRequest['scope']>('all');
   const [fieldValue, setFieldValue] = useState<boolean | string | number>(true);
   const [scopeValue, setScopeValue] = useState('');
   const [multiplePincodes, setMultiplePincodes] = useState('');
@@ -84,7 +84,7 @@ export const PincodeManager = () => {
   
   // Reset field value when field type changes
   useEffect(() => {
-    if (selectedField === 'is_serviceable' || selectedField === 'cod_allowed' || selectedField === 'active') {
+    if (selectedField === 'is_serviceable' || selectedField === 'cod_allowed' || selectedField === 'active' || selectedField === 'is_exchangeable' || selectedField === 'is_returnable') {
       setFieldValue(true); // Default boolean fields to true
     } else if (selectedField === 'delivery_time') {
       setFieldValue(''); // Default text fields to empty string
@@ -99,7 +99,7 @@ export const PincodeManager = () => {
   const [loadingBulkPreview, setLoadingBulkPreview] = useState(false);
   
   // Legacy bulk edit state (keeping for compatibility)
-  const [selectedPincodes, setSelectedPincodes] = useState<Set<string>>(new Set());
+  const [selectedPincodes, setSelectedPincodes] = useState<Set<number>>(new Set());
   const [showBulkEdit, setShowBulkEdit] = useState(false);
   const [selectAllMode, setSelectAllMode] = useState<'none' | 'page' | 'all'>('none');
   const [bulkEditData, setBulkEditData] = useState({
@@ -116,31 +116,29 @@ export const PincodeManager = () => {
   const [selectedState, setSelectedState] = useState('');
   const [selectedCity, setSelectedCity] = useState('');
   const [searchPincodes, setSearchPincodes] = useState('');
-  const [previewPincodes, setPreviewPincodes] = useState<string[]>([]);
+  const [previewPincodes, setPreviewPincodes] = useState<number[]>([]);
 
   // Function declarations
   const fetchStatesAndCities = async () => {
     try {
-      // Fetch DISTINCT states and cities with generous limits to avoid default server caps
-      // Get distinct states
-      const { data: statesData, error: statesErr } = await supabase
-        .from('pincodes')
-        .select('state', { count: 'exact' })
-        .not('state', 'is', null)
-        .order('state', { ascending: true })
-        .limit(100000);
+      // Fetch DISTINCT states and cities within Firebase limits
+      // Get distinct states - use a reasonable limit and process in batches if needed
+      const statesSnapshot = await getDocs(query(collection(db, 'pincodes'),
+        where('city', '!=', null),
+        orderBy('city'),
+        limit(5000) // Reduced to stay within Firebase limits
+      ));
 
-      if (statesErr) throw statesErr;
+      const statesData = statesSnapshot.docs.map(doc => doc.data());
 
-      // Get distinct cities
-      const { data: citiesData, error: citiesErr } = await supabase
-        .from('pincodes')
-        .select('city', { count: 'exact' })
-        .not('city', 'is', null)
-        .order('city', { ascending: true })
-        .limit(100000);
+      // Get distinct cities - use a reasonable limit
+      const citiesSnapshot = await getDocs(query(collection(db, 'pincodes'),
+        where('city', '!=', null),
+        orderBy('city'),
+        limit(5000) // Reduced to stay within Firebase limits
+      ));
 
-      if (citiesErr) throw citiesErr;
+      const citiesData = citiesSnapshot.docs.map(doc => doc.data());
 
       // Normalize states to uppercase, trim, and merge with canonical list to ensure visibility
       const dbStates = (statesData || [] as Array<{ state: string }>)
@@ -150,10 +148,10 @@ export const PincodeManager = () => {
 
       // Cities: keep original casing but trim and de-dup
       const uniqueCities = Array.from(
-        new Set((citiesData || [] as Array<{ city: string }>)
+        new Set((citiesData || [] as any[])
           .map(p => String(p.city).trim())
           .filter(Boolean))
-      ).sort((a: string, b: string) => a.localeCompare(b));
+      ).sort((a: string, b: string) => a.localeCompare(b)) as string[];
 
       setAvailableStates(mergedStates);
       setAvailableCities(uniqueCities);
@@ -165,22 +163,21 @@ export const PincodeManager = () => {
 
   const fetchCitiesByState = async (state: string) => {
     try {
-      // Get distinct cities for the selected state
-      const { data, error } = await supabase
-        .from('pincodes')
-        .select('city', { count: 'exact' })
-        .ilike('state', state)
-        .not('city', 'is', null)
-        .order('city', { ascending: true })
-        .limit(100000);
+      // Get distinct cities for the selected state with reasonable limit
+      const citiesSnapshot = await getDocs(query(collection(db, 'pincodes'),
+        where('state', '==', state),
+        where('city', '!=', null),
+        orderBy('city'),
+        limit(5000) // Reduced to stay within Firebase limits
+      ));
 
-      if (error) throw error;
+      const data = citiesSnapshot.docs.map(doc => doc.data());
 
       const uniqueCities = Array.from(
-        new Set((data || [] as Array<{ city: string }>)
+        new Set((data || [] as any[])
           .map(p => String(p.city).trim())
           .filter(Boolean))
-      ).sort((a: string, b: string) => a.localeCompare(b));
+      ).sort((a: string, b: string) => a.localeCompare(b)) as string[];
       setAvailableCities(uniqueCities);
     } catch (error) {
       console.error('Error fetching cities:', error);
@@ -195,87 +192,126 @@ export const PincodeManager = () => {
       let count = 0;
       let sample: string[] = [];
       
-      // Build request based on scope
-      const request: any = { 
-        scope: selectedScope,
-        field: selectedField,
-        isNullCondition: isNullCondition
-      };
+      // Build filters based on scope
+      const filters: any = {};
       
-      if (selectedScope === 'state' && scopeValue) {
-        request.state = scopeValue;
-        count = await getBulkUpdateCount(request);
+      if (selectedScope === 'all') {
+        // For 'all' scope, get sample pincodes
+        const sampleSnapshot = await getDocs(query(collection(db, 'pincodes'), limit(50)));
+        const sampleNumbers = sampleSnapshot.docs.map(doc => Number(doc.data().pincode));
+        sample = sampleNumbers.map(String);
         
-        // Get sample pincodes for display with field condition
-        let sampleQuery = supabase
-          .from('pincodes')
-          .select('pincode')
-          .eq('state', scopeValue);
-        
-        // Apply field condition
-        if (isNullCondition) {
-          sampleQuery = sampleQuery.is(selectedField, null);
-        } else {
-          sampleQuery = sampleQuery.not(selectedField, 'is', null);
+        // Apply field condition if specified
+        if (selectedField && !isNullCondition) {
+          if (selectedField === 'is_serviceable') {
+            filters.is_serviceable = false;
+          } else if (selectedField === 'cod_allowed') {
+            filters.cod_allowed = false;
+          } else if (selectedField === 'active') {
+            filters.active = false;
+          }
         }
         
-        const { data } = await sampleQuery.limit(50);
-        sample = data?.map(p => p.pincode) || [];
+      } else if (selectedScope === 'state' && scopeValue) {
+        filters.state = scopeValue;
+        
+        // Get sample pincodes for display
+        let baseQuery = query(collection(db, 'pincodes'), where('state', '==', scopeValue));
+        
+        // Apply field condition for preview
+        if (isNullCondition && selectedField) {
+          baseQuery = query(baseQuery, where(selectedField, '==', null));
+        } else if (!isNullCondition && selectedField) {
+          baseQuery = query(baseQuery, where(selectedField, '!=', null));
+        }
+        
+        const sampleSnapshot = await getDocs(query(baseQuery, limit(50)));
+        const sampleNumbers = sampleSnapshot.docs.map(doc => Number(doc.data().pincode));
+        sample = sampleNumbers.map(String);
+        
+        // Apply field condition to filters for count
+        if (selectedField && !isNullCondition) {
+          if (selectedField === 'is_serviceable') {
+            filters.is_serviceable = false;
+          } else if (selectedField === 'cod_allowed') {
+            filters.cod_allowed = false;
+          } else if (selectedField === 'active') {
+            filters.active = false;
+          }
+        }
         
       } else if (selectedScope === 'city' && scopeValue) {
-        request.city = scopeValue;
-        count = await getBulkUpdateCount(request);
+        filters.city = scopeValue;
         
-        // Get sample pincodes for display with field condition
-        let sampleQuery = supabase
-          .from('pincodes')
-          .select('pincode')
-          .eq('city', scopeValue);
+        // Get sample pincodes for display
+        const citySnapshot = await getDocs(query(collection(db, 'pincodes'), 
+          where('city', '==', scopeValue), 
+          limit(50)));
+        const cityPincodes = citySnapshot.docs.map(doc => Number(doc.data().pincode));
+        sample = cityPincodes.map(String);
         
-        // Apply field condition
-        if (isNullCondition) {
-          sampleQuery = sampleQuery.is(selectedField, null);
-        } else {
-          sampleQuery = sampleQuery.not(selectedField, 'is', null);
+        // Apply field condition to filters for count
+        if (selectedField && !isNullCondition) {
+          if (selectedField === 'is_serviceable') {
+            filters.is_serviceable = false;
+          } else if (selectedField === 'cod_allowed') {
+            filters.cod_allowed = false;
+          } else if (selectedField === 'active') {
+            filters.active = false;
+          }
         }
         
-        const { data } = await sampleQuery.limit(50);
-        sample = data?.map(p => p.pincode) || [];
-        
       } else if (selectedScope === 'single_pincode' && scopeValue) {
-        request.pincode = scopeValue.trim();
-        count = await getBulkUpdateCount(request);
-        sample = count > 0 ? [scopeValue.trim()] : [];
+        filters.pincode = Number(scopeValue.trim());
+        sample = [Number(scopeValue.trim()).toString()];
         
       } else if (selectedScope === 'multiple_pincodes' && multiplePincodes) {
         const pincodeList = multiplePincodes.split(/[\s,]+/).map(p => p.trim()).filter(p => p);
         if (pincodeList.length > 0) {
-          request.pincodes = pincodeList;
-          count = await getBulkUpdateCount(request);
-          sample = pincodeList.slice(0, 50);
+          filters.pincodes = pincodeList.map(p => Number(p)).slice(0, 10); // Limit to 10 for preview
+          sample = pincodeList.slice(0, 50).map(p => Number(p).toString());
+        }
+      }
+      
+      console.log('Sending filters to getBulkUpdateCount:', filters);
+      
+      try {
+        const result = await getBulkUpdateCount(filters);
+        console.log('Received result from getBulkUpdateCount:', result);
+        
+        count = result.totalMatched || 0;
+      } catch (cloudFunctionError) {
+        console.error('Cloud Function failed, falling back to direct count:', cloudFunctionError);
+        
+        // Fallback: count documents directly based on filters
+        let baseQuery: any = collection(db, 'pincodes');
+        
+        if (filters.state) {
+          baseQuery = query(baseQuery, where('state', '==', filters.state));
+        }
+        if (filters.city) {
+          baseQuery = query(baseQuery, where('city', '==', filters.city));
+        }
+        if (filters.pincode) {
+          baseQuery = query(baseQuery, where('pincode', '==', filters.pincode));
+        }
+        if (filters.pincodes && filters.pincodes.length > 0) {
+          baseQuery = query(baseQuery, where('pincode', 'in', filters.pincodes));
+        }
+        if (filters.is_serviceable !== undefined) {
+          baseQuery = query(baseQuery, where('is_serviceable', '==', filters.is_serviceable));
+        }
+        if (filters.cod_allowed !== undefined) {
+          baseQuery = query(baseQuery, where('cod_allowed', '==', filters.cod_allowed));
+        }
+        if (filters.active !== undefined) {
+          baseQuery = query(baseQuery, where('active', '==', filters.active));
         }
         
-      } else if (selectedScope === 'all') {
-        count = await getBulkUpdateCount({ 
-          scope: 'all',
-          field: selectedField,
-          isNullCondition: isNullCondition
-        });
+        const countSnapshot = await getDocs(baseQuery);
+        count = countSnapshot.size;
         
-        // Get sample pincodes for display with field condition
-        let sampleQuery = supabase
-          .from('pincodes')
-          .select('pincode');
-        
-        // Apply field condition
-        if (isNullCondition) {
-          sampleQuery = sampleQuery.is(selectedField, null);
-        } else {
-          sampleQuery = sampleQuery.not(selectedField, 'is', null);
-        }
-        
-        const { data } = await sampleQuery.limit(50);
-        sample = data?.map(p => p.pincode) || [];
+        console.log('Fallback count result:', count);
       }
       
       setBulkPreviewCount(count);
@@ -294,33 +330,34 @@ export const PincodeManager = () => {
   const previewLegacyBulkEdit = async () => {
     try {
       if (bulkSelectionMode === 'state' && selectedState) {
-        const { data } = await supabase
-          .from('pincodes')
-          .select('pincode')
-          .eq('state', selectedState)
-          .limit(20000);
-        setPreviewPincodes(data?.map(p => p.pincode) || []);
+        const snapshot = await getDocs(query(collection(db, 'pincodes'),
+          where('state', '==', selectedState),
+          limit(5000) // Reduced to stay within Firebase limits
+        ));
+        const previewPincodesNumbers = snapshot.docs.map(doc => Number(doc.data().pincode));
+        setPreviewPincodes(previewPincodesNumbers);
       } else if (bulkSelectionMode === 'city' && selectedCity) {
-        const { data } = await supabase
-          .from('pincodes')
-          .select('pincode')
-          .eq('city', selectedCity)
-          .limit(20000);
-        setPreviewPincodes(data?.map(p => p.pincode) || []);
+        const snapshot = await getDocs(query(collection(db, 'pincodes'),
+          where('city', '==', selectedCity),
+          limit(5000) // Reduced to stay within Firebase limits
+        ));
+        const previewPincodesNumbers = snapshot.docs.map(doc => Number(doc.data().pincode));
+        setPreviewPincodes(previewPincodesNumbers);
       } else if (bulkSelectionMode === 'search' && searchPincodes) {
-        const pincodeList = searchPincodes.split(',').map(p => p.trim()).filter(p => p);
+        const pincodeList = searchPincodes.split(/[,\s]+/).map(p => p.trim()).filter(p => /^\d{6}$/.test(p));
         if (pincodeList.length > 0) {
-          const { data } = await supabase
-            .from('pincodes')
-            .select('pincode')
-            .in('pincode', pincodeList)
-            .limit(20000);
-          setPreviewPincodes(data?.map(p => p.pincode) || []);
+          const snapshot = await getDocs(query(collection(db, 'pincodes'),
+            where('pincode', 'in', pincodeList.slice(0, 10).map(p => Number(p))), // Limit to 10 pincodes for 'in' queries
+            limit(5000) // Reduced to stay within Firebase limits
+          ));
+          const previewPincodesNumbers = snapshot.docs.map(doc => Number(doc.data().pincode));
+          setPreviewPincodes(previewPincodesNumbers);
         } else {
           setPreviewPincodes([]);
         }
       } else if (bulkSelectionMode === 'selected') {
-        setPreviewPincodes(Array.from(selectedPincodes));
+        const previewPincodesNumbers = Array.from(selectedPincodes);
+        setPreviewPincodes(previewPincodesNumbers);
       } else {
         setPreviewPincodes([]);
       }
@@ -394,7 +431,11 @@ export const PincodeManager = () => {
 
   const handleCreate = async (data: PincodeFormValues) => {
     try {
-      await createPincode(data as Omit<PincodeDetails, 'created_at' | 'updated_at'>);
+      const pincodeData = {
+        ...data,
+        pincode: Number(data.pincode)
+      };
+      await createPincode(pincodeData as Omit<PincodeDetails, 'created_at' | 'updated_at'>);
       toast.success('Pincode created successfully');
       setIsModalOpen(false);
     } catch (error) {
@@ -402,9 +443,13 @@ export const PincodeManager = () => {
     }
   };
 
-  const handleUpdate = async (pincode: string, data: PincodeFormValues) => {
+  const handleUpdate = async (pincode: number | string, data: PincodeFormValues) => {
     try {
-      await updatePincode(pincode, data as Partial<PincodeDetails>);
+      const updateData = {
+        ...data,
+        pincode: Number(data.pincode)
+      };
+      await updatePincode(Number(pincode), updateData as Partial<PincodeDetails>);
       toast.success('Pincode updated successfully');
       setEditingPincode(null);
     } catch (error) {
@@ -412,27 +457,29 @@ export const PincodeManager = () => {
     }
   };
 
-  const handleDelete = async (pincode: string) => {
+  const handleDelete = async (pincode: number) => {
     if (window.confirm('Are you sure you want to delete this pincode?')) {
       try {
         await deletePincode(pincode);
         toast.success('Pincode deleted successfully');
       } catch (error) {
         toast.error('Failed to delete pincode');
+      } finally {
+        setEditingPincode(null);
       }
     }
   };
 
-  const toggleStatus = async (pincode: string, currentStatus: boolean) => {
+  const toggleStatus = async (pincode: number, currentStatus: boolean) => {
     try {
       await updatePincode(pincode, { active: !currentStatus });
       toast.success(`Pincode ${!currentStatus ? 'activated' : 'deactivated'}`);
     } catch (error) {
-      toast.error('Failed to update pincode status');
-    }
+      console.error('Error toggling pincode status:', error);
+    } 
   };
 
-  const handleSelectPincode = (pincode: string) => {
+  const handleSelectPincode = (pincode: number) => {
     const newSelected = new Set(selectedPincodes);
     if (newSelected.has(pincode)) {
       newSelected.delete(pincode);
@@ -446,13 +493,14 @@ export const PincodeManager = () => {
     if (selectAllMode === 'none' || selectAllMode === 'page') {
       // Select all pincodes across all pages
       try {
-        const { data: allPincodes } = await supabase
-          .from('pincodes')
-          .select('pincode')
-          .eq('active', true); // You can modify this filter as needed
+        const snapshot = await getDocs(query(collection(db, 'pincodes'),
+          where('active', '==', true)
+        ));
+        const allPincodes = snapshot.docs.map(doc => doc.data());
         
         if (allPincodes) {
-          setSelectedPincodes(new Set(allPincodes.map(p => p.pincode)));
+          const allPincodesNumbers = allPincodes.map(p => Number(p.pincode));
+          setSelectedPincodes(new Set(allPincodesNumbers));
           setSelectAllMode('all');
         }
       } catch (error) {
@@ -471,7 +519,8 @@ export const PincodeManager = () => {
       setSelectedPincodes(new Set());
       setSelectAllMode('none');
     } else {
-      setSelectedPincodes(new Set(pincodes.map(p => p.pincode)));
+      const pincodesNumbers = pincodes.map(p => Number(p.pincode));
+      setSelectedPincodes(new Set(pincodesNumbers));
       setSelectAllMode('page');
     }
   };
@@ -498,17 +547,33 @@ export const PincodeManager = () => {
       }
       
       try {
+        // Build filters based on scope
+        const filters: any = {};
+        
+        if (selectedScope === 'state' && scopeValue) {
+          filters.state = scopeValue;
+        } else if (selectedScope === 'city' && scopeValue) {
+          // For city, we need to handle it differently since we filter by city in the query
+          const citySnapshot = await getDocs(query(collection(db, 'pincodes'), 
+            where('city', '==', scopeValue)));
+          const cityPincodes = citySnapshot.docs.map(doc => Number(doc.data().pincode));
+          filters.pincodes = cityPincodes.slice(0, 10); // Limit to 10 per request
+        } else if (selectedScope === 'single_pincode' && scopeValue) {
+          filters.pincode = Number(scopeValue.trim());
+        } else if (selectedScope === 'multiple_pincodes' && multiplePincodes) {
+          const pincodeList = multiplePincodes.split(/[\s,]+/).map(p => p.trim()).filter(p => p);
+          if (pincodeList.length > 0) {
+            filters.pincodes = pincodeList.map(p => Number(p)).slice(0, 10); // Limit to 10 per request
+          }
+        }
+        
+        // Build update data
+        const updateData: any = {};
+        updateData[selectedField] = fieldValue;
+        
         const result = await bulkUpdatePincodes({
-          field: selectedField,
-          value: fieldValue,
-          scope: selectedScope,
-          isNullCondition: isNullCondition,
-          ...(selectedScope === 'state' && { state: scopeValue }),
-          ...(selectedScope === 'city' && { city: scopeValue }),
-          ...(selectedScope === 'single_pincode' && { pincode: scopeValue.trim() }),
-          ...(selectedScope === 'multiple_pincodes' && { 
-            pincodes: multiplePincodes.split(/[\s,]+/).map(p => p.trim()).filter(p => p) 
-          })
+          filters,
+          updateData
         });
         
         if (result.error) {
@@ -516,7 +581,7 @@ export const PincodeManager = () => {
           return;
         }
         
-        toast.success(`Updated ${result.updatedCount} pincodes successfully`);
+        toast.success(`Updated ${result.totalUpdated} pincodes successfully`);
         
         // Refetch current page data
         await fetchPincodes(currentPage, searchTerm);
@@ -539,7 +604,7 @@ export const PincodeManager = () => {
     }
     
     // Handle legacy bulk edit
-    let pincodesToUpdate: string[] = [];
+    let pincodesToUpdate: number[] = [];
     const updateData: any = {};
     
     if (bulkSelectionMode === 'selected') {
@@ -747,7 +812,7 @@ export const PincodeManager = () => {
                       </td>
                       <td className="p-2 sm:p-4 align-middle font-medium hidden sm:table-cell">{pincode.pincode}</td>
                       <td className="p-2 sm:p-4 align-middle">
-                        <div className="font-medium text-sm sm:text-base">{pincode.city}</div>
+                        <div className="font-medium text-sm sm:text-base">{pincode.city || 'N/A'}</div>
                         <div className="text-xs sm:text-sm text-muted-foreground">{pincode.state}</div>
                         <div className="text-xs sm:text-sm text-muted-foreground sm:hidden">{pincode.pincode}</div>
                         {pincode.districts?.length > 0 && (
@@ -787,7 +852,7 @@ export const PincodeManager = () => {
                             variant="ghost"
                             size="icon"
                             onClick={() => {
-                              setEditingPincode(pincode.pincode);
+                              setEditingPincode(Number(pincode.pincode));
                               setIsModalOpen(true);
                             }}
                             title="Edit"
@@ -854,7 +919,7 @@ export const PincodeManager = () => {
           setIsModalOpen(false);
           setEditingPincode(null);
         }}
-        pincode={editingPincode}
+        pincode={editingPincode?.toString()}
         onSubmit={editingPincode ? (data) => handleUpdate(editingPincode, data) : handleCreate}
       />
 
@@ -881,7 +946,7 @@ export const PincodeManager = () => {
                 <Label className="text-sm font-medium">Field to Update</Label>
                 <select
                   value={selectedField}
-                  onChange={(e) => setSelectedField(e.target.value as BulkPincodeUpdateRequest['field'])}
+                  onChange={(e) => setSelectedField(e.target.value as LegacyBulkPincodeUpdateRequest['field'])}
                   className="w-full border rounded-lg p-2 bg-white dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-gray-100"
                 >
                   <option value="is_serviceable">Serviceable Status</option>
@@ -891,6 +956,10 @@ export const PincodeManager = () => {
                   <option value="shipping_fee">Shipping Fee</option>
                   <option value="cod_fee">COD Fee</option>
                   <option value="free_shipping_threshold">Free Shipping Threshold</option>
+                  <option value="exchange_window_days">Exchange Window Days</option>
+                  <option value="is_exchangeable">Exchange Allowed</option>
+                  <option value="is_returnable">Return Allowed</option>
+                  <option value="return_window_days">Return Window Days</option>
                 </select>
               </div>
 
@@ -911,7 +980,7 @@ export const PincodeManager = () => {
                 <Label className="text-sm font-medium">Scope</Label>
                 <select
                   value={selectedScope}
-                  onChange={(e) => setSelectedScope(e.target.value as BulkPincodeUpdateRequest['scope'])}
+                  onChange={(e) => setSelectedScope(e.target.value as LegacyBulkPincodeUpdateRequest['scope'])}
                   className="w-full border rounded-lg p-2 bg-white dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-gray-100"
                 >
                   <option value="all">All pincodes</option>
@@ -987,7 +1056,7 @@ export const PincodeManager = () => {
               {/* Value Input */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium">New Value</Label>
-                {(selectedField === 'is_serviceable' || selectedField === 'cod_allowed' || selectedField === 'active') ? (
+                {(selectedField === 'is_serviceable' || selectedField === 'cod_allowed' || selectedField === 'active' || selectedField === 'is_exchangeable' || selectedField === 'is_returnable') ? (
                   <div className="flex items-center space-x-4">
                     <label className="flex items-center">
                       <input

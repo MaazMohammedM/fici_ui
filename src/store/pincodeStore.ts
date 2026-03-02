@@ -1,10 +1,10 @@
 // src/store/pincodeStore.ts
 import { create } from 'zustand';
-import { supabase } from '@lib/supabase';
+import { db, collection, doc, addDoc, updateDoc, deleteDoc, getDoc, getDocs, query, where, orderBy, limit, serverTimestamp } from '../lib/firebase';
 
 export interface PincodeDetails {
-  pincode: string;
-  city: string;
+  pincode: number;
+  city: string | null;
   state: string;
   districts: string[];
   active: boolean;
@@ -13,13 +13,42 @@ export interface PincodeDetails {
   min_order_amount: number;
   shipping_fee: number;
   cod_fee: number;
-  free_shipping_threshold: number | null;
+  free_shipping_threshold: number;
   delivery_time: string;
-  created_at?: string;
-  updated_at?: string;
+  exchange_window_days: number;
+  is_exchangeable: boolean;
+  is_returnable: boolean;
+  return_window_days: number;
+  created_at?: string | null;
+  updated_at?: string | null;
 }
 
 export type BulkPincodeUpdateRequest = {
+  filters?: {
+    is_serviceable?: boolean;
+    state?: string;
+    active?: boolean;
+    pincode?: number;
+    pincodes?: number[];
+  };
+  updateData: {
+    is_serviceable?: boolean;
+    cod_allowed?: boolean;
+    active?: boolean;
+    delivery_time?: string;
+    min_order_amount?: number;
+    shipping_fee?: number;
+    cod_fee?: number;
+    free_shipping_threshold?: number;
+    exchange_window_days?: number;
+    is_exchangeable?: boolean;
+    is_returnable?: boolean;
+    return_window_days?: number;
+  };
+};
+
+// Legacy type for backward compatibility
+export type LegacyBulkPincodeUpdateRequest = {
   field:
     | 'is_serviceable'
     | 'cod_allowed'
@@ -28,21 +57,25 @@ export type BulkPincodeUpdateRequest = {
     | 'min_order_amount'
     | 'shipping_fee'
     | 'cod_fee'
-    | 'free_shipping_threshold';
+    | 'free_shipping_threshold'
+    | 'exchange_window_days'
+    | 'is_exchangeable'
+    | 'is_returnable'
+    | 'return_window_days';
   value: boolean | string | number;
   scope: 'all' | 'state' | 'city' | 'single_pincode' | 'multiple_pincodes';
   state?: string;
   city?: string;
-  pincode?: string;
-  pincodes?: string[];
+  pincode?: number;
+  pincodes?: number[];
   isNullCondition?: boolean;
 };
 
 interface PincodeState {
   // Basic state
   loaded: boolean;
-  validPincodes: Set<string>;
-  detailsCache: Record<string, PincodeDetails | null>;
+  validPincodes: Set<number>;
+  detailsCache: Record<number, PincodeDetails | null>;
 
   // List state
   pincodes: PincodeDetails[];
@@ -55,8 +88,8 @@ interface PincodeState {
 
   // Single pincode helpers
   loadPincodes: () => Promise<void>;
-  isValidPincode: (pin: string) => boolean;
-  fetchDetails: (pin: string) => Promise<PincodeDetails | null>;
+  isValidPincode: (pin: number | string) => boolean;
+  fetchDetails: (pin: number | string) => Promise<PincodeDetails | null>;
 
   // CRUD
   fetchPincodes: (page?: number, search?: string) => Promise<void>;
@@ -64,16 +97,16 @@ interface PincodeState {
     data: Omit<PincodeDetails, 'created_at' | 'updated_at'>
   ) => Promise<PincodeDetails>;
   updatePincode: (
-    pincode: string,
+    pincode: number | string,
     data: Partial<PincodeDetails>
   ) => Promise<PincodeDetails>;
-  deletePincode: (pincode: string) => Promise<boolean>;
+  deletePincode: (pincode: number | string) => Promise<boolean>;
 
   // Bulk operations
   bulkUpdatePincodes: (
     request: BulkPincodeUpdateRequest
-  ) => Promise<{ updatedCount: number; error?: string; message?: string }>;
-  getBulkUpdateCount: (request: Omit<BulkPincodeUpdateRequest, 'value'>) => Promise<number>;
+  ) => Promise<{ success: boolean; totalMatched: number; totalUpdated: number; error?: string; message?: string }>;
+  getBulkUpdateCount: (filters: { is_serviceable?: boolean; state?: string; active?: boolean; pincode?: number; pincodes?: number[] }) => Promise<{ success: boolean; totalMatched: number }>;
 
   // Serviceability check
   checkServiceabilityAvailable: () => Promise<boolean>;
@@ -86,7 +119,7 @@ interface PincodeState {
 export const usePincodeStore = create<PincodeState>((set, get) => ({
   // Initial state
   loaded: false,
-  validPincodes: new Set<string>(),
+  validPincodes: new Set<number>(),
   detailsCache: {},
   pincodes: [],
   loading: false,
@@ -104,9 +137,9 @@ export const usePincodeStore = create<PincodeState>((set, get) => ({
       if (!res.ok) {
         throw new Error(`Failed to load pincodes.json: ${res.status}`);
       }
-      const data = (await res.json()) as string[];
+      const data = (await res.json()) as number[];
       set({
-        validPincodes: new Set(data.map((p) => String(p).trim())),
+        validPincodes: new Set(data.map((p) => Number(p))),
         loaded: true,
       });
     } catch (error) {
@@ -115,16 +148,16 @@ export const usePincodeStore = create<PincodeState>((set, get) => ({
     }
   },
 
-  isValidPincode: (pin: string) => {
+  // Fetch single pincode details from Firebase and cache
+  isValidPincode: (pin: number | string) => {
     if (!pin) return false;
-    const cleaned = String(pin).trim();
+    const cleaned = Number(String(pin).trim());
     return get().validPincodes.has(cleaned);
   },
 
-  // Fetch single pincode details from Supabase and cache
-  fetchDetails: async (pin: string) => {
+  fetchDetails: async (pin: number | string) => {
     if (!pin) return null;
-    const cleaned = String(pin).trim();
+    const cleaned = Number(String(pin).trim());
     const { detailsCache } = get();
 
     if (detailsCache[cleaned] !== undefined) {
@@ -132,15 +165,14 @@ export const usePincodeStore = create<PincodeState>((set, get) => ({
     }
 
     try {
-      const { data, error } = await supabase
-        .from('pincodes')
-        .select('*')
-        .eq('pincode', cleaned)
-        .single();
+      const docRef = doc(db, 'pincodes', String(cleaned));
+      const docSnap = await getDoc(docRef);
 
-      if (error) throw error;
+      if (!docSnap.exists()) {
+        throw new Error('Pincode not found');
+      }
 
-      const details = data as PincodeDetails;
+      const details = docSnap.data() as PincodeDetails;
       set({
         detailsCache: {
           ...detailsCache,
@@ -165,31 +197,91 @@ export const usePincodeStore = create<PincodeState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       const { itemsPerPage, detailsCache } = get();
-      const from = (page - 1) * itemsPerPage;
-      const to = from + itemsPerPage - 1;
 
-      let query = supabase.from('pincodes').select('*', { count: 'exact' });
+      let pincodesQuery: any = collection(db, 'pincodes');
 
+      // Add search filters if provided
       if (search) {
-        query = query.or(
-          `pincode.ilike.%${search}%,city.ilike.%${search}%,state.ilike.%${search}%`
-        );
+        // Note: Firebase doesn't support multiple 'OR' conditions like Supabase
+        // We'll need to fetch all and filter client-side for search,
+        // or implement a more complex search solution
+        console.log('Search functionality limited in Firebase - fetching all pincodes');
       }
 
-      const { data, error, count } = await query
-        .order('created_at', { ascending: false })
-        .range(from, to);
+      // Build base query
+      pincodesQuery = query(pincodesQuery, orderBy('created_at', 'desc'));
 
-      if (error) throw error;
+      // Add pagination
+      if (page > 1) {
+        // For pagination, we need to track last document from previous page
+        // This is a simplified approach - in production, you'd want to store last document
+        const offset = (page - 1) * itemsPerPage;
+        // Firebase doesn't have native offset, so we'll fetch more and skip
+        const allQuery = query(collection(db, 'pincodes'), orderBy('created_at', 'desc'));
+        const allSnapshot = await getDocs(allQuery);
+        const startIndex = offset;
+        const endIndex = Math.min(startIndex + itemsPerPage, allSnapshot.size);
 
+        const pincodes: PincodeDetails[] = [];
+        const newCache = { ...detailsCache };
+
+        for (let i = startIndex; i < endIndex; i++) {
+          const doc = allSnapshot.docs[i];
+          const pincodeData = { ...(doc.data() as Record<string, unknown>), pincode: Number(doc.id) } as PincodeDetails;
+          pincodes.push(pincodeData);
+          newCache[Number(doc.id)] = pincodeData;
+        }
+
+        // Get total count
+        const totalCount = allSnapshot.size;
+
+        set({
+          pincodes,
+          totalCount,
+          detailsCache: newCache,
+          currentPage: page,
+          searchQuery: search,
+          loading: false,
+        });
+        return;
+      }
+
+      // For page 1, just limit results
+      pincodesQuery = query(pincodesQuery, limit(itemsPerPage));
+
+      const querySnapshot = await getDocs(pincodesQuery);
+
+      const pincodes: PincodeDetails[] = [];
       const newCache = { ...detailsCache };
-      (data || []).forEach((pincode) => {
-        newCache[pincode.pincode] = pincode as PincodeDetails;
+
+      querySnapshot.forEach((doc) => {
+        const pincodeData = { ...(doc.data() as Record<string, unknown>), pincode: Number(doc.id) } as PincodeDetails;
+
+        // Apply search filter client-side if needed
+        if (search) {
+          const searchLower = search.toLowerCase();
+          const pincodeStr = String(pincodeData.pincode);
+          if (
+            pincodeStr.includes(searchLower) ||
+            pincodeData.city.toLowerCase().includes(searchLower) ||
+            pincodeData.state.toLowerCase().includes(searchLower)
+          ) {
+            pincodes.push(pincodeData);
+          }
+        } else {
+          pincodes.push(pincodeData);
+        }
+
+        newCache[Number(doc.id)] = pincodeData;
       });
 
+      // Get total count (simplified - in production you'd want a separate count collection)
+      const countSnapshot = await getDocs(collection(db, 'pincodes'));
+      const totalCount = countSnapshot.size;
+
       set({
-        pincodes: (data || []) as PincodeDetails[],
-        totalCount: count || 0,
+        pincodes,
+        totalCount,
         detailsCache: newCache,
         currentPage: page,
         searchQuery: search,
@@ -208,18 +300,25 @@ export const usePincodeStore = create<PincodeState>((set, get) => ({
   createPincode: async (data) => {
     set({ loading: true, error: null });
     try {
-      const { data: newPincode, error } = await supabase
-        .from('pincodes')
-        .insert([{ ...data, updated_at: new Date().toISOString() }])
-        .select()
-        .single();
+      const pincodeData = {
+        ...data,
+        created_at: serverTimestamp(),
+        updated_at: serverTimestamp(),
+      };
 
-      if (error) throw error;
+      const docRef = await addDoc(collection(db, 'pincodes'), pincodeData);
+
+      const newPincode = { 
+        ...pincodeData, 
+        pincode: Number(docRef.id),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      } as PincodeDetails;
 
       const { pincodes, detailsCache } = get();
       const updatedCache = {
         ...detailsCache,
-        [newPincode.pincode]: newPincode as PincodeDetails,
+        [Number(docRef.id)]: newPincode,
       };
 
       set({
@@ -228,7 +327,7 @@ export const usePincodeStore = create<PincodeState>((set, get) => ({
         loading: false,
       });
 
-      return newPincode as PincodeDetails;
+      return newPincode;
     } catch (error) {
       console.error('Error creating pincode:', error);
       set({
@@ -243,30 +342,33 @@ export const usePincodeStore = create<PincodeState>((set, get) => ({
   updatePincode: async (pincode, updates) => {
     set({ loading: true, error: null });
     try {
-      const { data: updatedPincode, error } = await supabase
-        .from('pincodes')
-        .update({ ...updates, updated_at: new Date().toISOString() })
-        .eq('pincode', pincode)
-        .select()
-        .single();
+      const docRef = doc(db, 'pincodes', String(pincode));
+      const updateData = {
+        ...updates,
+        updated_at: serverTimestamp(),
+      };
 
-      if (error) throw error;
+      await updateDoc(docRef, updateData);
+
+      // Get updated document
+      const updatedDoc = await getDoc(docRef);
+      const updatedPincode = { ...updatedDoc.data(), pincode: Number(updatedDoc.id) } as PincodeDetails;
 
       const { pincodes, detailsCache } = get();
       const updatedCache = {
         ...detailsCache,
-        [pincode]: updatedPincode as PincodeDetails,
+        [Number(pincode)]: updatedPincode,
       };
 
       set({
         pincodes: pincodes.map((p) =>
-          p.pincode === pincode ? (updatedPincode as PincodeDetails) : p
+          p.pincode === Number(pincode) ? updatedPincode : p
         ),
         detailsCache: updatedCache,
         loading: false,
       });
 
-      return updatedPincode as PincodeDetails;
+      return updatedPincode;
     } catch (error) {
       console.error('Error updating pincode:', error);
       set({
@@ -281,16 +383,13 @@ export const usePincodeStore = create<PincodeState>((set, get) => ({
   deletePincode: async (pincode) => {
     set({ loading: true, error: null });
     try {
-      const { error } = await supabase.from('pincodes').delete().eq('pincode', pincode);
-
-      if (error) throw error;
+      await deleteDoc(doc(db, 'pincodes', String(pincode)));
 
       const { pincodes, detailsCache } = get();
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const { [pincode]: _removed, ...updatedCache } = detailsCache;
+      const { [Number(pincode)]: _removed, ...updatedCache } = detailsCache;
 
       set({
-        pincodes: pincodes.filter((p) => p.pincode !== pincode),
+        pincodes: pincodes.filter((p) => p.pincode !== Number(pincode)),
         detailsCache: updatedCache,
         loading: false,
       });
@@ -306,159 +405,92 @@ export const usePincodeStore = create<PincodeState>((set, get) => ({
     }
   },
 
-  // Bulk update pincodes
+  // Bulk update pincodes using Cloud Function for optimal performance
   bulkUpdatePincodes: async (request: BulkPincodeUpdateRequest) => {
     set({ loading: true, error: null });
 
     try {
-      type UpdatableFields = Pick<
-        PincodeDetails,
-        | 'is_serviceable'
-        | 'cod_allowed'
-        | 'active'
-        | 'delivery_time'
-        | 'min_order_amount'
-        | 'shipping_fee'
-        | 'cod_fee'
-        | 'free_shipping_threshold'
-      >;
-
-      type UpdateData = Partial<UpdatableFields> & { updated_at: string };
-
-      const updateData: UpdateData = {
-        updated_at: new Date().toISOString(),
-      };
-
-      // --- 1) Normalize value to correct JS type ---
-      let processedValue: boolean | string | number | null =
-        request.value as boolean | string | number;
-
-      if (['is_serviceable', 'cod_allowed', 'active'].includes(request.field)) {
-        if (typeof processedValue === 'string') {
-          processedValue = processedValue.toLowerCase() === 'true';
-        }
-      } else if (
-        ['min_order_amount', 'shipping_fee', 'cod_fee', 'free_shipping_threshold'].includes(
-          request.field
-        )
-      ) {
-        if (typeof processedValue === 'string') {
-          const parsed = parseFloat(processedValue);
-          processedValue = Number.isNaN(parsed) ? null : parsed;
-        }
-      }
-
-      (updateData as any)[request.field] = processedValue;
-
-      // --- 2) Helper: add IS NULL / IS NOT NULL filter when requested ---
-      const buildWhereClause = (
-        baseQuery: any,
-        field: string,
-        isNullCondition?: boolean
-      ) => {
-        if (isNullCondition === true) {
-          // WHERE field IS NULL
-          return baseQuery.is(field, null);
-        }
-        if (isNullCondition === false) {
-          // WHERE field IS NOT NULL
-          return baseQuery.not(field, 'is', null);
-        }
-        // No null-related condition
-        return baseQuery;
-      };
-
-      // --- 3) Build UPDATE query by scope ---
-      let updateQuery: any;
-
-      switch (request.scope) {
-        case 'all':
-          updateQuery = buildWhereClause(
-            supabase.from('pincodes').update(updateData),
-            request.field,
-            request.isNullCondition
-          );
-          break;
-
-        case 'state':
-          if (!request.state) {
-            throw new Error('State is required for state scope');
-          }
-          updateQuery = buildWhereClause(
-            supabase.from('pincodes').update(updateData).eq('state', request.state),
-            request.field,
-            request.isNullCondition
-          );
-          break;
-
-        case 'city':
-          if (!request.city) {
-            throw new Error('City is required for city scope');
-          }
-          updateQuery = buildWhereClause(
-            supabase.from('pincodes').update(updateData).eq('city', request.city),
-            request.field,
-            request.isNullCondition
-          );
-          break;
-
-        case 'single_pincode':
-          if (!request.pincode) {
-            throw new Error('Pincode is required for single_pincode scope');
-          }
-          updateQuery = buildWhereClause(
-            supabase.from('pincodes').update(updateData).eq('pincode', request.pincode),
-            request.field,
-            request.isNullCondition
-          );
-          break;
-
-        case 'multiple_pincodes':
-          if (!request.pincodes || request.pincodes.length === 0) {
-            throw new Error('Pincodes are required for multiple_pincodes scope');
-          }
-          updateQuery = buildWhereClause(
-            supabase.from('pincodes').update(updateData).in('pincode', request.pincodes),
-            request.field,
-            request.isNullCondition
-          );
-          break;
-
-        default:
-          throw new Error('Invalid scope specified');
-      }
-
-      // --- 4) Execute update (one round-trip) ---
-      const { data, error } = await updateQuery.select('pincode').throwOnError();
-
-      if (error) throw error;
-
-      const updatedCount = data ? data.length : 0;
-
-      // --- 5) Update local cache for affected pincodes ---
-      const { detailsCache } = get();
-      const updatedCache = { ...detailsCache };
-
-      if (data) {
-        data.forEach((row: { pincode: string }) => {
-          const pin = row.pincode;
-          if (updatedCache[pin]) {
-            updatedCache[pin] = {
-              ...updatedCache[pin]!,
-              ...(updateData as Partial<PincodeDetails>),
-            };
-          }
+      // Try new format first
+      try {
+        const response = await fetch('https://asia-south1-fici-shoes.cloudfunctions.net/bulkUpdatePincodes', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(request),
         });
+
+        if (response.ok) {
+          const result = await response.json();
+          
+          // Update local cache for affected pincodes if we know which ones were updated
+          if (!request.filters || Object.keys(request.filters || {}).length === 0) {
+            set({ detailsCache: {} });
+          } else {
+            const { detailsCache } = get();
+            set({
+              detailsCache: { ...detailsCache }, // Trigger reactivity
+            });
+          }
+
+          set({ loading: false });
+
+          return {
+            success: result.success || false,
+            totalMatched: result.totalMatched || 0,
+            totalUpdated: result.totalUpdated || 0,
+            message: result.message || `Updated ${result.totalUpdated || 0} pincodes`,
+            error: result.error,
+          };
+        }
+      } catch (newFormatError) {
+        console.log('New format failed, trying legacy format:', newFormatError.message);
       }
 
-      set({
-        detailsCache: updatedCache,
-        loading: false,
+      // Fallback to legacy format for backward compatibility
+      const legacyRequest = {
+        field: 'is_serviceable',
+        value: true,
+        scope: 'all',
+        ...request.filters,
+        ...Object.keys(request.updateData || {}).reduce((acc, key) => {
+          if (key === 'is_serviceable') {
+            acc.field = key;
+            acc.value = request.updateData[key];
+          }
+          return acc;
+        }, {} as any)
+      };
+      
+      const response = await fetch('https://asia-south1-fici-shoes.cloudfunctions.net/bulkUpdatePincodes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(legacyRequest),
       });
 
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      
+      // Update local cache
+      const { detailsCache } = get();
+      set({
+        detailsCache: { ...detailsCache }, // Trigger reactivity
+      });
+
+      set({ loading: false });
+
       return {
-        updatedCount,
-        message: `Successfully updated ${updatedCount} pincodes`,
+        success: true,
+        totalMatched: result.updatedCount || 0,
+        totalUpdated: result.updatedCount || 0,
+        message: result.message || `Updated ${result.updatedCount || 0} pincodes`,
+        error: result.error,
       };
     } catch (error) {
       console.error('Error in bulk update:', error);
@@ -468,105 +500,79 @@ export const usePincodeStore = create<PincodeState>((set, get) => ({
       });
 
       return {
-        updatedCount: 0,
+        success: false,
+        totalMatched: 0,
+        totalUpdated: 0,
         error: error instanceof Error ? error.message : 'Failed to update pincodes',
       };
     }
   },
 
-  // Get count for bulk update preview
-  getBulkUpdateCount: async (request: Omit<BulkPincodeUpdateRequest, 'value'>) => {
+  // Get count for bulk update preview using Cloud Function for optimal performance
+  getBulkUpdateCount: async (filters) => {
     try {
-      const buildWhereClause = (
-        baseQuery: any,
-        field: string,
-        isNullCondition?: boolean
-      ) => {
-        if (isNullCondition === true) {
-          return baseQuery.is(field, null);
+      console.log('Calling getBulkUpdateCount with filters:', filters);
+      
+      // Try new format first
+      try {
+        const response = await fetch('https://asia-south1-fici-shoes.cloudfunctions.net/getBulkUpdateCount', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ filters }),
+        });
+
+        console.log('Response status:', response.status);
+        const result = await response.json();
+        console.log('Raw response from Cloud Function:', result);
+
+        if (response.ok) {
+          // Handle different response formats
+          const totalMatched = result.totalMatched || result.count || result.total || 0;
+          console.log('Extracted totalMatched:', totalMatched);
+          
+          return {
+            success: result.success !== false,
+            totalMatched: Number(totalMatched),
+          };
+        } else {
+          console.error('Cloud Function returned error:', result);
+          throw new Error(result.error || `HTTP ${response.status}: ${response.statusText}`);
         }
-        if (isNullCondition === false) {
-          return baseQuery.not(field, 'is', null);
-        }
-        return baseQuery;
-      };
-
-      let query: any;
-
-      switch (request.scope) {
-        case 'all':
-          query = buildWhereClause(
-            supabase.from('pincodes').select('*', { count: 'exact', head: true }),
-            request.field,
-            request.isNullCondition
-          );
-          break;
-
-        case 'state':
-          if (!request.state) {
-            throw new Error('State is required for state scope');
-          }
-          query = buildWhereClause(
-            supabase
-              .from('pincodes')
-              .select('*', { count: 'exact', head: true })
-              .eq('state', request.state),
-            request.field,
-            request.isNullCondition
-          );
-          break;
-
-        case 'city':
-          if (!request.city) {
-            throw new Error('City is required for city scope');
-          }
-          query = buildWhereClause(
-            supabase
-              .from('pincodes')
-              .select('*', { count: 'exact', head: true })
-              .eq('city', request.city),
-            request.field,
-            request.isNullCondition
-          );
-          break;
-
-        case 'single_pincode':
-          if (!request.pincode) {
-            throw new Error('Pincode is required for single_pincode scope');
-          }
-          query = buildWhereClause(
-            supabase
-              .from('pincodes')
-              .select('*', { count: 'exact', head: true })
-              .eq('pincode', request.pincode),
-            request.field,
-            request.isNullCondition
-          );
-          break;
-
-        case 'multiple_pincodes':
-          if (!request.pincodes || request.pincodes.length === 0) {
-            throw new Error('Pincodes are required for multiple_pincodes scope');
-          }
-          query = buildWhereClause(
-            supabase
-              .from('pincodes')
-              .select('*', { count: 'exact', head: true })
-              .in('pincode', request.pincodes),
-            request.field,
-            request.isNullCondition
-          );
-          break;
-
-        default:
-          throw new Error('Invalid scope specified');
+      } catch (newFormatError) {
+        console.log('New format failed, trying legacy format:', newFormatError.message);
       }
 
-      const { count, error } = await query;
+      // Fallback to legacy format for backward compatibility
+      const legacyRequest = {
+        field: 'is_serviceable',
+        scope: 'all',
+        ...filters
+      };
+      
+      console.log('Trying legacy format with request:', legacyRequest);
+      const response = await fetch('https://asia-south1-fici-shoes.cloudfunctions.net/getBulkUpdateCount', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(legacyRequest),
+      });
 
-      if (error) throw error;
+      const result = await response.json();
+      console.log('Legacy format response:', result);
 
-      return count || 0;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const totalMatched = result.totalMatched || result.count || result.total || 0;
+      return {
+        success: true,
+        totalMatched: Number(totalMatched),
+      };
     } catch (error) {
       console.error('Error getting bulk update count:', error);
       throw error;
@@ -576,17 +582,16 @@ export const usePincodeStore = create<PincodeState>((set, get) => ({
   // Serviceability check
   checkServiceabilityAvailable: async () => {
     try {
-      // Use limit(1) instead of head:true for better Supabase compatibility
-      const { data, error, count } = await supabase
-        .from('pincodes')
-        .select('pincode', { count: 'exact' })
-        .eq('is_serviceable', true)
-        .limit(1);
+      const serviceableQuery = query(
+        collection(db, 'pincodes'),
+        where('is_serviceable', '==', true),
+        limit(1)
+      );
 
-      if (error) throw error;
+      const querySnapshot = await getDocs(serviceableQuery);
 
-      // Check if we have any results or count > 0
-      return (count !== null && count > 0) || (data && data.length > 0);
+      // Check if we have any results
+      return !querySnapshot.empty;
     } catch (error) {
       console.error('Error checking serviceability availability:', error);
       // On error, assume serviceability is available to avoid blocking users unnecessarily

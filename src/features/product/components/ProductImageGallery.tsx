@@ -4,7 +4,7 @@ import type { Product } from '../../../types/product';
 import fallbackImage from '../../../assets/Fici_logo.png';
 import { ZoomIn, ZoomOut, X, Heart, Share2 } from 'lucide-react';
 import ShareModal from './ShareModal';
-import { getDetailImageUrl, getThumbnailUrl } from '../../../lib/utils/imageOptimization';
+import { getDetailImageUrl, getThumbnailUrl, getThumbnailUrlSync } from '../../../lib/utils/imageOptimization';
 
 interface ProductImageGalleryProps {
   selectedVariant: Product | undefined;
@@ -499,7 +499,7 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
           {finalImages.map((img, idx) => {
             // Get original image for thumbnail optimization
             const originalImage = parseImages(selectedVariant?.images)?.[idx] || selectedVariant?.thumbnail_url || fallbackImage;
-            const thumbnailUrl = getThumbnailUrl(originalImage);
+            const thumbnailUrl = getThumbnailUrlSync(originalImage);
             
             return (
               <button

@@ -1,4 +1,6 @@
-import { supabase } from '@/lib/supabase';
+import { db, collection, getDoc, getDocs, query, where, doc as docRef, updateDoc, writeBatch } from '@/lib/firebase';
+import { httpsCallable, functions } from '@/lib/firebase';
+import { getAuth } from 'firebase/auth';
 
 export type OrderAction = 'cancel_item' | 'ship_item' | 'deliver_item' | 'refund_item' | 'request_replacement' | 'approve_replacement' | 'reject_replacement' | 'ship_replacement' | 'deliver_replacement' | 'mark_replacement_returned' | 'request_return' | 'cancel_order';
 
@@ -56,13 +58,15 @@ export async function updateOrderItemStatus({
     // Only get session for admin actions
     let session = null;
     if (isAdmin) {
-      const { data: { session: adminSession }, error: sessionError } = await supabase.auth.getSession();
+      const auth = getAuth();
+      const user = auth.currentUser;
       
-      if (sessionError) {
-        console.error('❌ Session error:', sessionError.message);
+      if (!user) {
         throw new Error('Authentication error. Please sign in again.');
       }
-      session = adminSession;
+      
+      // Get ID token for Firebase auth
+      session = await user.getIdToken();
     }
 
     // Prepare request headers (let Supabase set Content-Type automatically)
@@ -113,41 +117,30 @@ export async function updateOrderItemStatus({
     }
 
     // Add admin auth if applicable
-    if (isAdmin && session?.access_token) {
-      headers['Authorization'] = `Bearer ${session.access_token}`;
+    if (isAdmin && session) {
+      headers['Authorization'] = `Bearer ${session}`;
       if (adminUserId) {
         body.admin_user_id = adminUserId;
       }
     }
 
 
-    console.log('🚀 Calling edge function update-item-status with:', {
+    console.log('🚀 Calling Firebase callable function update-item-status with:', {
       action,
       body: JSON.stringify(body, null, 2),
       guestSessionId,
       headers: Object.keys(headers)
     });
 
-    const response = await supabase.functions.invoke('update-item-status', {
-      headers,
-      body
+    const updateItemStatus = httpsCallable(functions, 'update-item-status');
+    const result = await updateItemStatus(body);
+
+    console.log('📥 Firebase function response:', {
+      status: result.data ? 'success' : 'error',
+      body: result.data
     });
 
-    console.log('📥 Edge function response:', {
-      status: response.data ? 'success' : 'error',
-      error: response.error,
-      body: response.data
-    });
-
-    // Handle response
-    if (response.error) {
-      console.error('❌ Error response:', {
-        message: response.error.message
-      });
-      throw new Error(response.error.message || 'Failed to update order status');
-    }
-
-    return response.data;
+    return result.data;
 
   } catch (error) {
     console.error('❌ Error in updateOrderItemStatus:', error);
@@ -166,8 +159,14 @@ export function getGuestSessionId(): string | undefined {
  */
 export async function getAdminAuthToken(): Promise<string | null> {
   try {
-    const { data: { session } } = await supabase.auth.getSession();
-    return session?.access_token || null;
+    const auth = getAuth();
+    const user = auth.currentUser;
+    
+    if (!user) {
+      return null;
+    }
+    
+    return await user.getIdToken();
   } catch (error) {
     console.error('Error getting admin auth token:', error);
     return null;

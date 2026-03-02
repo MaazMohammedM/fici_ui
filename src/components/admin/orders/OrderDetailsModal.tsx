@@ -1,7 +1,7 @@
 import React from 'react';
 import { XCircle } from 'lucide-react';
 import type { Order, OrderItem, PaymentMethod, PaymentStatus } from '../../../types/order-common';
-import { getThumbnailUrl } from '../../../lib/utils/imageOptimization';
+import { getThumbnailUrl, getThumbnailUrlSync } from '../../../lib/utils/imageOptimization';
 import { canRefundOrder } from '../../../types/order-common';
 import { useOrderLevelActionStates } from '../../../hooks/useOrderActionStates';
 import { isShippingAddress, canCancelOrderItem } from '../../../utils/adminOrderUtils';
@@ -155,7 +155,7 @@ export const OrderDetailsModal: React.FC<OrderDetailsModalProps> = ({
                 {order.order_items.map((item) => (
                   <div key={item.order_item_id} className="flex items-center gap-3 p-3 border rounded-lg">
                     <img
-                      src={getThumbnailUrl(item.thumbnail_url)}
+                      src={getThumbnailUrlSync(item.thumbnail_url)}
                       alt={item.product_name}
                       className="w-10 h-10 sm:w-12 sm:h-12 rounded object-cover flex-shrink-0"
                       loading="lazy"

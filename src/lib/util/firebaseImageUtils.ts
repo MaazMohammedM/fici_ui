@@ -1,6 +1,6 @@
 // ✅ Firebase Image Utils - Central image handling utilities for Firebase Storage
 import { getStorage, ref, getDownloadURL } from 'firebase/storage';
-import { app } from './firebase';
+import { app } from '../firebase';
 
 const storage = getStorage(app);
 const fallbackImage = '/src/assets/Fici Logo.png'; // Update path as needed
@@ -14,11 +14,35 @@ export const getFirebaseImageUrl = (path: string): string => {
   // If it's already a complete HTTP URL, return as-is
   if (path.startsWith('http')) return path;
   
-  // If it's a Firebase Storage path, construct the URL
+  // If it's a Firebase Storage path, construct the proper URL
   if (path.startsWith('products/') || path.startsWith('order-items/')) {
-    const storageRef = ref(storage, path);
-    // For now, construct the URL manually. In production, you might want to use getDownloadURL
+    // Use the correct Firebase Storage URL format
     return `https://firebasestorage.googleapis.com/v0/b/fici-shoes.firebasestorage.app/o/${encodeURIComponent(path)}?alt=media`;
+  }
+  
+  // For any other case, return as-is
+  return path;
+};
+
+export const getFirebaseImageUrlAsync = async (path: string): Promise<string> => {
+  if (!path || typeof path !== 'string') return fallbackImage;
+  
+  // If it's already a Firebase URL, return as-is
+  if (path.includes('firebasestorage.googleapis.com')) return path;
+  
+  // If it's already a complete HTTP URL, return as-is
+  if (path.startsWith('http')) return path;
+  
+  // If it's a Firebase Storage path, use getDownloadURL for proper URL generation
+  if (path.startsWith('products/') || path.startsWith('order-items/')) {
+    try {
+      const storageRef = ref(storage, path);
+      const url = await getDownloadURL(storageRef);
+      return url;
+    } catch (error) {
+      console.error('Error getting Firebase download URL:', error);
+      return fallbackImage;
+    }
   }
   
   // For any other case, return as-is

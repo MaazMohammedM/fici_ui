@@ -38,21 +38,12 @@ export async function requestOtp(
   message?: string;
 }> {
   try {
-    // Use direct fetch to call the specific endpoint with correct path
-    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-verify-otp/send`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
-      },
-      body: JSON.stringify({
-        identifier,
-        channel
-      })
-    });
+    // Import orderService dynamically to avoid circular dependencies
+    const { orderService } = await import('@/services/orderService');
+    
+    const result = await orderService.sendOtp(identifier, channel, purpose);
 
-    if (response.ok) {
+    if (result.success) {
       // Log successful request for analytics
       if (typeof window !== 'undefined' && 'gtag' in window && typeof window.gtag === 'function') {
         const gtag = window.gtag as (...args: unknown[]) => void;
@@ -63,40 +54,38 @@ export async function requestOtp(
         });
       }
 
-      return { success: true, message: 'OTP sent successfully' };
+      return { success: true, message: result.message || 'OTP sent successfully' };
     }
 
-    // Handle specific error responses
-    if (response.status === 429) {
-      return { success: false, error: 'RATE_LIMIT_EXCEEDED', message: 'Too many OTP requests, try again later' };
+    // Map error messages to OTP error types
+    let otpError: OtpError = 'UNKNOWN_ERROR';
+    if (result.error) {
+      const errorLower = result.error.toLowerCase();
+      if (errorLower.includes('rate limit') || errorLower.includes('too many requests')) {
+        otpError = 'RATE_LIMIT_EXCEEDED';
+      } else if (errorLower.includes('email send failed')) {
+        otpError = 'EMAIL_SEND_FAILED';
+      } else if (errorLower.includes('sms send failed')) {
+        otpError = 'SMS_SEND_FAILED';
+      } else if (errorLower.includes('mobile otp not supported')) {
+        otpError = 'MOBILE_OTP_NOT_SUPPORTED';
+      } else if (errorLower.includes('invalid contact')) {
+        otpError = 'INVALID_CONTACT';
+      }
     }
 
-    // Try to parse error response
-    const errorData = await response.json().catch(() => ({}));
-    const errorMessage = errorData.error || 'Unknown error occurred';
-    console.error('OTP request backend error:', errorMessage);
-
-    // Map common errors to generic messages
-    if (response.status === 400) {
-      if (errorData.error === 'rate_limited') {
-        return { success: false, error: 'RATE_LIMIT_EXCEEDED', message: 'Too many requests, please wait before trying again' };
-      }
-      if (errorData.error === 'email_send_failed') {
-        return { success: false, error: 'EMAIL_SEND_FAILED', message: 'Failed to send verification email' };
-      }
-      if (errorData.error === 'sms_send_failed') {
-        return { success: false, error: 'SMS_SEND_FAILED', message: 'Failed to send verification SMS' };
-      }
-      if (errorData.error === 'mobile_otp_not_supported') {
-        return { success: false, error: 'MOBILE_OTP_NOT_SUPPORTED', message: 'OTP via mobile number is not supported yet. Please use email OTP.' };
-      }
-      return { success: false, error: 'INVALID_CONTACT', message: errorMessage };
-    }
-
-    return { success: false, error: 'NETWORK_ERROR', message: errorMessage };
-  } catch (err) {
+    return { 
+      success: false, 
+      error: otpError, 
+      message: result.message || OTP_ERROR_MESSAGES[otpError]
+    };
+  } catch (err: any) {
     console.error('OTP request failed:', err);
-    return { success: false, error: 'NETWORK_ERROR', message: 'Connection error. Please check your internet and try again.' };
+    return { 
+      success: false, 
+      error: 'NETWORK_ERROR', 
+      message: 'Connection error. Please check your internet and try again.' 
+    };
   }
 }
 
@@ -113,69 +102,46 @@ export async function verifyOtp(
   message?: string;
 }> {
   try {
-    // Use direct fetch to call the specific endpoint with correct path
-    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-verify-otp/verify`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
-      },
-      body: JSON.stringify({
-        identifier,
-        channel,
-        otp
-      })
-    });
+    // Import orderService dynamically to avoid circular dependencies
+    const { orderService } = await import('@/services/orderService');
+    
+    const result = await orderService.verifyOtp(identifier, channel, otp, purpose);
 
-    if (response.ok) {
-      const data = await response.json().catch(() => ({}));
+    if (result.success) {
       return {
         success: true,
-        codAuthToken: data.codAuthToken || `token_${Date.now()}`,
-        message: 'Verification successful'
+        codAuthToken: result.codAuthToken || `token_${Date.now()}`,
+        message: result.message || 'Verification successful'
       };
     }
 
-    // Handle specific error responses
-    if (response.status === 400) {
-      const errorData = await response.json().catch(() => ({}));
-      if (errorData.error === 'invalid_otp') {
-        return { success: false, error: 'INVALID_CODE', message: 'Invalid OTP' };
+    // Map error messages to OTP error types
+    let otpError: OtpError = 'UNKNOWN_ERROR';
+    if (result.error) {
+      const errorLower = result.error.toLowerCase();
+      if (errorLower.includes('invalid otp') || errorLower.includes('invalid code')) {
+        otpError = 'INVALID_CODE';
+      } else if (errorLower.includes('no active otp')) {
+        otpError = 'NO_ACTIVE_OTP';
+      } else if (errorLower.includes('otp expired')) {
+        otpError = 'CODE_EXPIRED';
+      } else if (errorLower.includes('too many attempts')) {
+        otpError = 'TOO_MANY_ATTEMPTS';
       }
-      if (errorData.error === 'no_active_otp') {
-        return { success: false, error: 'NO_ACTIVE_OTP', message: 'No active OTP session' };
-      }
-      if (errorData.error === 'otp_expired') {
-        return { success: false, error: 'CODE_EXPIRED', message: 'OTP expired' };
-      }
-      return { success: false, error: 'INVALID_CODE', message: 'Invalid OTP' };
     }
 
-    if (response.status === 429) {
-      return { success: false, error: 'TOO_MANY_ATTEMPTS', message: 'Too many attempts' };
-    }
-
-    // Try to parse error response
-    const errorData = await response.json().catch(() => ({}));
-    const errorMessage = errorData.error || 'Unknown error occurred';
-    console.error('OTP verification backend error:', errorMessage);
-
-    // Handle specific backend errors
-    if (errorData.error === 'too_many_attempts') {
-      return { success: false, error: 'TOO_MANY_ATTEMPTS', message: 'Too many attempts' };
-    }
-    if (errorData.error === 'no_active_otp') {
-      return { success: false, error: 'NO_ACTIVE_OTP', message: 'No active OTP session' };
-    }
-    if (errorData.error === 'otp_expired') {
-      return { success: false, error: 'CODE_EXPIRED', message: 'OTP expired' };
-    }
-
-    return { success: false, error: 'NETWORK_ERROR', message: errorMessage };
-  } catch (err) {
+    return { 
+      success: false, 
+      error: otpError, 
+      message: result.message || OTP_ERROR_MESSAGES[otpError]
+    };
+  } catch (err: any) {
     console.error('OTP verification failed:', err);
-    return { success: false, error: 'NETWORK_ERROR', message: 'Connection error. Please check your internet and try again.' };
+    return { 
+      success: false, 
+      error: 'NETWORK_ERROR', 
+      message: 'Connection error. Please check your internet and try again.' 
+    };
   }
 }
 

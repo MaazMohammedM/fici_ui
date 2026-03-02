@@ -5,7 +5,7 @@ import { Button } from '../../../auth/ui';
 import StarComponent from '@lib/util/StarComponent';
 import type { Review } from '../../../services/reviewService';
 import { fetchProductReviews } from '../../../services/reviewService';
-import { supabase } from '../../../lib/supabase';
+import { db, collection, getDocs, query, where, orderBy, limit as limitFn } from '../../../lib/firebase';
 import ReviewModal from '../../orders/components/ReviewModal';
 import type { OrderItem } from '../../../types/order';
 import { createPortal } from 'react-dom'; 
@@ -72,29 +72,33 @@ const CustomerReviews: React.FC<CustomerReviewsProps> = ({ productId, className 
     if (!user?.id || !productId) return;
     setVerifyingPurchase(true);
     try {
-      const { data: orders, error: ordersError } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('status', 'delivered');
+      const ordersQuery = query(
+        collection(db, 'orders'),
+        where('user_id', '==', user.id),
+        where('status', '==', 'delivered')
+      );
+      
+      const ordersSnapshot = await getDocs(ordersQuery);
+      const orders = ordersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-      if (ordersError || !orders?.length) {
-        if (ordersError) console.error('Error fetching user orders:', ordersError);
+      if (!orders?.length) {
         setUserHasDeliveredOrder(false);
         setUserOrderItem(null);
         return;
       }
 
-      const orderIds = orders.map(o => o.order_id);
-      const { data: orderItems, error: itemsError } = await supabase
-        .from('order_items')
-        .select('*')
-        .in('order_id', orderIds)
-        .eq('product_id', productId)
-        .eq('item_status', 'delivered');
+      const orderIds = orders.map(o => (o as any).order_id || o.id);
+      const orderItemsQuery = query(
+        collection(db, 'order_items'),
+        where('order_id', 'in', orderIds),
+        where('product_id', '==', productId),
+        where('item_status', '==', 'delivered')
+      );
+      
+      const orderItemsSnapshot = await getDocs(orderItemsQuery);
+      const orderItems = orderItemsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-      if (itemsError || !orderItems?.length) {
-        if (itemsError) console.error('Error fetching order items:', itemsError);
+      if (!orderItems?.length) {
         setUserHasDeliveredOrder(false);
         setUserOrderItem(null);
         return;

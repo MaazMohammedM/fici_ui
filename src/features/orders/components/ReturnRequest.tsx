@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { supabase } from '@lib/supabase';
+import { httpsCallable, getFunctions } from 'firebase/functions';
 import { useAuthStore } from '@store/authStore';
 import { X, AlertCircle, CheckCircle } from 'lucide-react';
 
@@ -63,24 +63,23 @@ const ReturnRequest: React.FC<ReturnRequestProps> = ({ order, onClose, onSuccess
       setError(null);
 
       // Create return requests for selected items
+      const manageReturnsFunction = httpsCallable(getFunctions(), 'manageReturns');
       const returnPromises = Array.from(selectedItems).map(itemId =>
-        supabase.functions.invoke('manage-returns', {
-          body: {
-            order_id: order.order_id,
-            order_item_id: itemId,
-            reason: reason.trim(),
-            user_id: user?.id,
-            guest_session_id: guestSession?.guest_session_id
-          }
+        manageReturnsFunction({
+          order_id: order.order_id,
+          order_item_id: itemId,
+          reason: reason.trim(),
+          user_id: user?.uid,
+          guest_session_id: guestSession?.guest_session_id
         })
       );
 
       const results = await Promise.all(returnPromises);
 
       // Check if any failed
-      const failures = results.filter(result => result.error);
+      const failures = results.filter(result => !result.data);
       if (failures.length > 0) {
-        throw new Error(failures[0].error.message || 'Some return requests failed');
+        throw new Error('Some return requests failed');
       }
 
       alert(`Return request(s) submitted successfully! Our team will review within 24-48 hours.`);

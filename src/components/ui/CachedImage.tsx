@@ -1,5 +1,6 @@
 import React from 'react';
 import { useCachedImage } from '@lib/utils/imageCached';
+import { useFirebaseImageSimple } from '@lib/utils/firebaseImageSimple';
 interface CachedImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   src: string;
   fallbackSrc?: string;
@@ -18,7 +19,11 @@ const CachedImage: React.FC<CachedImageProps> = ({
   decoding = 'async',
   ...props
 }) => {
-  const { imageUrl, isLoading, error } = useCachedImage(src, fallbackSrc);
+  // Use Firebase image hook for Firebase Storage URLs, regular hook for others
+  const isFirebaseUrl = src && src.includes('firebasestorage.googleapis.com');
+  const { imageUrl, isLoading, error } = isFirebaseUrl 
+    ? useFirebaseImageSimple(src, fallbackSrc)
+    : useCachedImage(src, fallbackSrc);
 
   // Show loading fallback while image is loading
   if (isLoading && loadingFallback) {
@@ -30,13 +35,32 @@ const CachedImage: React.FC<CachedImageProps> = ({
     return <>{errorFallback}</>;
   }
 
-  // Use the cached image URL or fallback
+  // If no image URL is available, show fallback or nothing
+  if (!imageUrl && fallbackSrc) {
+    return <img 
+      src={fallbackSrc} 
+      loading={loading}
+      decoding={decoding}
+      {...props} 
+      onError={(e) => {
+        console.warn('Fallback image also failed to load:', fallbackSrc);
+      }} 
+    />;
+  }
+
+  // If no image URL and no fallback, render nothing
+  if (!imageUrl) {
+    return null;
+  }
+
+  // Use the optimized image URL
   return <img 
     src={imageUrl} 
     loading={loading}
     decoding={decoding}
     {...props} 
     onError={(e) => {
+      console.warn('Image failed to load, trying fallback:', imageUrl);
       if (fallbackSrc && e.currentTarget.src !== fallbackSrc) {
         e.currentTarget.src = fallbackSrc;
       }

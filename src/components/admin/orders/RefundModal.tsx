@@ -1,7 +1,7 @@
 import React from 'react';
 import { DollarSign, X } from 'lucide-react';
 import type { Order, OrderItem } from '../../../types/order-common';
-import { getThumbnailUrl } from '../../../lib/utils/imageOptimization';
+import { getThumbnailUrl, getThumbnailUrlSync } from '../../../lib/utils/imageOptimization';
 import { RefundActionPanel } from './RefundActionPanel';
 
 interface RefundModalProps {
@@ -89,7 +89,7 @@ export const RefundModal: React.FC<RefundModalProps> = ({
                   className="flex items-center gap-3 p-3 border border-gray-200 dark:border-gray-700 rounded-lg"
                 >
                   <img
-                    src={getThumbnailUrl(item.thumbnail_url || item.product_thumbnail_url || '')}
+                    src={getThumbnailUrlSync(item.thumbnail_url || item.product_thumbnail_url || '')}
                     alt={item.product_name}
                     className="w-12 h-12 rounded object-cover"
                     loading="lazy"

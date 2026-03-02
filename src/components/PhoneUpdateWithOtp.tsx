@@ -5,7 +5,9 @@ import { z } from 'zod';
 import { Phone, Mail, X, Check, AlertCircle, Loader2 } from 'lucide-react';
 import { Button, Input } from '../auth/ui';
 import { requestOtp, verifyOtp, validateContact, OTP_ERROR_MESSAGES, type OtpError } from '../lib/otpApi';
-import { supabase } from '../lib/supabase';
+import { updateDoc, doc } from 'firebase/firestore';
+import { db } from '../lib/firebase';
+import { auth } from '../lib/firebase';
 
 const PhoneUpdateSchema = z.object({
   phone: z.string().min(10, 'Phone number must be at least 10 digits')
@@ -135,18 +137,12 @@ const PhoneUpdateWithOtp: React.FC<PhoneUpdateWithOtpProps> = ({
         setSuccess('Phone number verified successfully!');
         
         // Update user_profiles table
-        const { data: { user } } = await supabase.auth.getUser();
+        const user = auth.currentUser;
         if (user) {
-          const { error: updateError } = await supabase
-            .from('user_profiles')
-            .update({ phone_number: phoneNumber })
-            .eq('user_id', user.id);
-
-          if (updateError) {
-            console.error('Error updating phone number:', updateError);
-            setError('Failed to update phone number. Please try again.');
-            return;
-          }
+          const userDocRef = doc(db, 'user_profiles', user.uid);
+          await updateDoc(userDocRef, {
+            phone_number: phoneNumber
+          });
         }
 
         onSuccess(phoneNumber);

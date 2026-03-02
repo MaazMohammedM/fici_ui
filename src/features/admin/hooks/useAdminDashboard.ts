@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@lib/supabase";
+import { db, collection, getDocs, query, where, orderBy, limit } from "@lib/firebase";
 
 interface DashboardStats {
   totalVisits: number;
@@ -57,37 +57,47 @@ export const useAdminDashboard = () => {
       setError(null);
 
       // Get total visits from product_visit_stats
-      const { data: visitData, error: visitError } = await supabase
-        .from("product_visit_stats")
-        .select("visit_count");
+      const visitQuery = query(
+        collection(db, 'product_visit_stats'),
+        orderBy('visit_count', 'desc'),
+        limit(1000)
+      );
+      const visitSnapshot = await getDocs(visitQuery);
+      const visitData = visitSnapshot.docs.map(doc => doc.data());
 
-      if (visitError) throw visitError;
-
-      const totalVisits = visitData?.reduce((sum, item) => sum + item.visit_count, 0) || 0;
+      const totalVisits = visitData?.reduce((sum: number, item: any) => sum + (item.visit_count || 0), 0) || 0;
 
       // Get total orders and revenue
-      const { data: ordersData, error: ordersError } = await supabase
-        .from("orders")
-        .select("effective_amount, status, payment_status");
+      const ordersQuery = query(
+        collection(db, 'orders'),
+        orderBy('order_date', 'desc'),
+        limit(1000)
+      );
+      const ordersSnapshot = await getDocs(ordersQuery);
+      const ordersData = ordersSnapshot.docs.map(doc => doc.data());
 
-      if (ordersError) throw ordersError;
+      // Filter out Razorpay orders with pending payment status
+      const validOrders = ordersData?.filter((order: any) => 
+        !(order.payment_method === 'razorpay' && order.payment_status === 'pending')
+      ) || [];
 
-      const totalOrders = ordersData?.length || 0;
-      const totalRevenue = ordersData?.reduce((sum, order) =>
+      const totalOrders = validOrders.length;
+      const totalRevenue = validOrders.reduce((sum: number, order: any) =>
         order.payment_status === 'paid' ? sum + (order.effective_amount || 0) : sum, 0) || 0;
-      const pendingOrders = ordersData?.filter(order =>
+      const pendingOrders = validOrders.filter((order: any) =>
         order.payment_status === 'paid' && order.status !== 'shipped' && order.status !== 'delivered'
       ).length || 0;
 
       // Get total users - only count registered users (excluding guests)
-      const { data: usersData, error: usersError } = await supabase
-        .from("user_profiles")
-        .select("user_id")
-        .eq("is_guest", false); 
-            
-      if (usersError) throw usersError;
+      const usersQuery = query(
+        collection(db, 'user_profiles'),
+        where('is_guest', '==', false),
+        limit(1000)
+      );
+      const usersSnapshot = await getDocs(usersQuery);
+      const usersData = usersSnapshot.docs.map(doc => doc.data());
       
-      const totalUsers = usersData?.length || 0;
+      const totalUsers = usersData.length || 0;
 
       const conversionRate = totalVisits && totalOrders ? (totalOrders / totalVisits) * 100 : 0;
 
@@ -112,15 +122,15 @@ export const useAdminDashboard = () => {
     try {
       setError(null);
 
-      const { data, error } = await supabase
-        .from("product_visit_stats")
-        .select("product_id, name, thumbnail_url, visit_count, last_visited_at")
-        .order("visit_count", { ascending: false })
-        .limit(10);
+      const productsQuery = query(
+        collection(db, 'product_visit_stats'),
+        orderBy('visit_count', 'desc'),
+        limit(10)
+      );
+      const productsSnapshot = await getDocs(productsQuery);
+      const data = productsSnapshot.docs.map(doc => doc.data());
 
-      if (error) throw error;
-
-      const topProductsData: TopProduct[] = (data || []).map(item => ({
+      const topProductsData: TopProduct[] = (data || []).map((item: any) => ({
         product_id: item.product_id,
         name: item.name,
         visit_count: item.visit_count,
@@ -143,14 +153,16 @@ export const useAdminDashboard = () => {
 
       // For now, we'll aggregate visits by date from product_visit_stats
       // In a real scenario, you might want a separate daily_visits table
-      const { data, error } = await supabase
-        .from("product_visit_stats")
-        .select("last_visited_at");
-
-      if (error) throw error;
+      const visitsQuery = query(
+        collection(db, 'product_visit_stats'),
+        orderBy('last_visited_at', 'desc'),
+        limit(1000)
+      );
+      const visitsSnapshot = await getDocs(visitsQuery);
+      const data = visitsSnapshot.docs.map(doc => doc.data());
 
       const visitsByDate = (data || []).reduce(
-        (acc: Record<string, number>, visit) => {
+        (acc: Record<string, number>, visit: any) => {
           if (visit.last_visited_at) {
             const date = new Date(visit.last_visited_at).toISOString().split("T")[0];
             acc[date] = (acc[date] || 0) + 1;
@@ -186,24 +198,34 @@ export const useAdminDashboard = () => {
       try {
         setError(null);
         const pageSize = 20;
-        const from = (page - 1) * pageSize;
-        const to = from + pageSize - 1;
-
-        let query = supabase
-          .from("product_visit_stats")
-          .select("product_id, name, thumbnail_url, visit_count, last_visited_at");
+        
+        let productsQuery = query(
+          collection(db, 'product_visit_stats'),
+          orderBy('last_visited_at', 'desc'),
+          limit(pageSize)
+        );
 
         if (search) {
-          query = query.ilike("name", `%${search}%`);
+          // Firebase doesn't have ilike, so we'll filter in JavaScript
+          productsQuery = query(
+            collection(db, 'product_visit_stats'),
+            where('name', '>=', search),
+            orderBy('last_visited_at', 'desc'),
+            limit(pageSize)
+          );
         }
 
-        const { data, error, count } = await query
-          .range(from, to)
-          .order("last_visited_at", { ascending: false });
+        const productsSnapshot = await getDocs(productsQuery);
+        let data = productsSnapshot.docs.map(doc => doc.data());
 
-        if (error) throw error;
+        // If there's a search term, filter the results
+        if (search) {
+          data = data.filter((item: any) => 
+            item.name && item.name.toLowerCase().includes(search.toLowerCase())
+          );
+        }
 
-        const productVisits: ProductVisit[] = (data || []).map(item => ({
+        const productVisits: ProductVisit[] = (data || []).map((item: any) => ({
           product_id: item.product_id,
           name: item.name,
           visit_count: item.visit_count,
@@ -212,7 +234,8 @@ export const useAdminDashboard = () => {
         }));
 
         setAllProducts(productVisits);
-        setTotalPages(Math.ceil((count || 0) / pageSize));
+        // For Firebase, we'll estimate total pages based on the data we have
+        setTotalPages(Math.ceil(data.length / pageSize));
       } catch (err) {
         console.error("Error fetching all products:", err);
         setError("Failed to fetch all products");

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { supabase } from '@lib/supabase';
+import { productService } from '@/services/productService';
 import type { Product, ProductDetail, Rating } from "../types/product";
 import { applyGlobalSorting, paginateProducts } from '@lib/globalSorting';
 import { hasAnyStock } from '@lib/utils/stockFilter';
@@ -7,6 +7,7 @@ import { hasAnyStock } from '@lib/utils/stockFilter';
 interface ProductState {
   products: Product[];
   filteredProducts: Product[];
+  totalFilteredCount: number;
   topDeals: Product[];
   relatedProducts: Product[];
   currentProduct: ProductDetail | null;
@@ -40,7 +41,7 @@ interface ProductState {
 
 interface ProductFilters {
   category?: string | string[];
-  sub_category?: string | string[];
+  sub_category?: string | string[] | null;
   gender?: string | string[];
   size?: string[];
   search?: string;
@@ -123,6 +124,7 @@ const calculateDiscountPercentage = (mrpPrice: string, discountPrice: string): n
 export const useProductStore = create<ProductState>((set, get) => ({
   products: [],
   filteredProducts: [],
+  totalFilteredCount: 0,
   topDeals: [],
   relatedProducts: [],
   highlightProducts: [],
@@ -142,7 +144,6 @@ export const useProductStore = create<ProductState>((set, get) => ({
 
   fetchProducts: async (page = 1, filters = {}, retryCount = 0) => {
     const maxRetries = 3;
-    const timeoutMs = 30000;
 
     // Cancel any ongoing request
     if (get().abortController) {
@@ -153,59 +154,16 @@ export const useProductStore = create<ProductState>((set, get) => ({
     set({ loading: true, error: null, abortController });
 
     try {
-      // Fetch ALL products without pagination for global sorting
-      // Only fetch essential fields for listing page - exclude full images array
-      const { data, error, count } = await supabase
-        .from('products')
-        .select(`
-          product_id,
-          article_id,
-          name,
-          category,
-          sub_category,
-          gender,
-          thumbnail_url,
-          mrp_price,
-          discount_price,
-          sizes,
-          is_active,
-          created_at
-        `, { count: 'exact' })
-        .eq('is_active', true);
-
-      if (error) throw error;
-
-      const processedProducts: Product[] = (data || []).map((product: any) => ({
-        ...product,
-        sizes: safeParseSizes(product.sizes),
-        images: [], // Empty array for listing pages - images fetched only when needed
-        thumbnail_url: product.thumbnail_url || null,
-        discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price),
-        mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0,
-        color: product.article_id?.split('_')[1] || 'default' // Extract color from article_id
-      }));
-
-      // Apply global sorting (stock first, then price)
-      const globallySortedProducts = applyGlobalSorting(processedProducts, {
-        sortBy: filters.sortBy,
-        search: filters.search,
-        category: Array.isArray(filters.category) ? filters.category : (filters.category ? [filters.category] : undefined),
-        gender: Array.isArray(filters.gender) ? filters.gender : (filters.gender ? [filters.gender] : undefined),
-        subCategory: Array.isArray(filters.sub_category) ? filters.sub_category : (filters.sub_category ? [filters.sub_category] : undefined),
-        sizeFilters: (filters as any)._sizeFilters
-      });
-
-      // Apply pagination to globally sorted results
-      const paginatedProducts = paginateProducts(globallySortedProducts, page, get().itemsPerPage);
-
-      // Calculate totalPages based on filtered products count, not total database count
-      const totalPages = Math.ceil(globallySortedProducts.length / get().itemsPerPage);
-
+      const result = await productService.fetchProducts(page, get().itemsPerPage, filters);
+      
+      // Use the paginated result directly from productService
+      // productService already handles all filtering, sorting, and pagination
       set({
-        products: paginatedProducts,
-        filteredProducts: paginatedProducts,
-        currentPage: page,
-        totalPages,
+        products: result.products,
+        filteredProducts: result.products,
+        totalFilteredCount: result.totalFilteredCount,
+        currentPage: result.currentPage,
+        totalPages: result.totalPages,
         loading: false,
         abortController: null,
         sortBy: filters.sortBy || null
@@ -255,54 +213,12 @@ export const useProductStore = create<ProductState>((set, get) => ({
   fetchTopDeals: async () => {
     set({ loading: true, error: null });
     try {
-      // Fetch more products to account for out-of-stock filtering
-      // Only fetch essential fields for listing page
-      const { data, error } = await supabase
-        .from('products_with_discount')
-        .select(`
-          product_id,
-          article_id,
-          name,
-          category,
-          gender,
-          thumbnail_url,
-          mrp_price,
-          discount_price,
-          discount_percentage,
-          sizes,
-          created_at
-        `)
-        .order('created_at', { ascending: false })
-        .limit(20); // Fetch more to ensure we have enough after filtering
-
-      if (error) {
-        console.error('Fetch top deals error:', error);
-        set({ error: 'Failed to fetch top deals' });
-        return;
-      }
-
-      const parsedProducts = (data || []).map(product => {
-        return {
-          ...product,
-          sizes: safeParseSizes(product.sizes),
-          images: [], // Empty array for listing pages - images fetched only when needed
-          thumbnail_url: product.thumbnail_url || null,
-          discount_percentage: product.discount_percentage || calculateDiscountPercentage(product.mrp_price, product.discount_price),
-          mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0,
-          color: product.article_id?.split('_')[1] || 'default' // Extract color from article_id
-        };
-      });
-
-      // Filter products with discount percentage > 10% for top deals
-      const topDeals = parsedProducts
-        .filter(product => product.discount_percentage > 10)
-        .sort((a, b) => b.discount_percentage - a.discount_percentage)
-        .slice(0, 12); // Take more to account for stock filtering
-
+      const topDeals = await productService.fetchTopDeals();
       set({ topDeals });
     } catch (error) {
       console.error('Error fetching top deals:', error);
       set({ error: 'Failed to fetch top deals' });
+    } finally {
       set({ loading: false });
     }
   },
@@ -311,81 +227,11 @@ export const useProductStore = create<ProductState>((set, get) => ({
     set({ loading: true, error: null, currentProduct: null });
 
     try {
-      // Always extract base article ID to fetch ALL variants
-      // This ensures all colors are shown regardless of which specific color URL is accessed
-      const baseArticleId = articleId.split('_')[0];
+      const productDetail = await productService.fetchProductByArticleId(articleId);
       
-      const { data: productsData, error: productsError } = await supabase
-        .from('products')
-        .select('*')
-        .eq('is_active', true)
-        .like('article_id', `${baseArticleId}_%`);
-
-      if (productsError) throw productsError;
-
-      if (productsData && productsData.length > 0) {
-        // Get the product_id from the first variant to fetch reviews
-        const productId = productsData[0].product_id;
-
-        // Fetch average rating from reviews table instead of product_ratings
-        const { data: reviewsData, error: reviewsError } = await supabase
-          .from('reviews')
-          .select('rating')
-          .eq('product_id', productId);
-
-        let rating: Rating | undefined;
-        if (!reviewsError && reviewsData && reviewsData.length > 0) {
-          // Calculate average rating
-          const totalReviews = reviewsData.length;
-          const sumOfRatings = reviewsData.reduce((sum, review) => sum + (review.rating || 0), 0);
-          const averageRating = totalReviews > 0 ? sumOfRatings / totalReviews : 0;
-
-          // Calculate rating distribution
-          const distribution = reviewsData.reduce((dist, review) => {
-            const ratingValue = review.rating || 0;
-            dist[ratingValue] = (dist[ratingValue] || 0) + 1;
-            return dist;
-          }, { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 });
-
-          rating = {
-            average: Math.round(averageRating * 10) / 10, // Round to 1 decimal place
-            count: totalReviews,
-            distribution
-          };
-        }
-
-        const processedProducts = productsData.map(product => ({
-          ...product,
-          sizes: safeParseSizes(product.sizes),
-          images: parseImages(product.images),
-          thumbnail_url: product.thumbnail_url || null,
-          discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price),
-          rating: rating
-        }));
-
-        const firstProduct = processedProducts[0];
-        const baseId = firstProduct.article_id.split('_')[0];
-
-        const variantsWithColors = processedProducts.map(product => {
-          return {
-            ...product,
-            color: product.article_id.split('_')[1] || 'default',
-            mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0
-          };
-        });
-
+      if (productDetail) {
         set({
-          currentProduct: {
-            article_id: baseId,
-            name: firstProduct.name,
-            description: firstProduct.description,
-            sub_category: firstProduct.sub_category,
-            variants: variantsWithColors,
-            category: firstProduct.category,
-            gender: firstProduct.gender,
-            rating: rating,
-            total_reviews: rating?.count || 0
-          },
+          currentProduct: productDetail,
           loading: false
         });
       } else {
@@ -402,82 +248,9 @@ export const useProductStore = create<ProductState>((set, get) => ({
     set({ loading: true, error: null, currentProduct: null });
 
     try {
-      // Check if this is a full article ID (contains underscore) or base ID
-      const isFullArticleId = articleId.includes('_');
+      const productDetail = await productService.fetchSingleProductByArticleId(articleId);
       
-      let query = supabase
-        .from('products')
-        .select('*')
-        .eq('is_active', true);
-
-      if (isFullArticleId) {
-        // Fetch the specific variant
-        query = query.eq('article_id', articleId);
-      } else {
-        // Fetch all variants for the base article ID
-        query = query.like('article_id', `${articleId}_%`);
-      }
-
-      const { data: variantsData, error: variantsError } = await query;
-
-      if (variantsError) throw variantsError;
-
-      if (variantsData && variantsData.length > 0) {
-        const productData = variantsData[0];
-        
-        // Fetch average rating from reviews table instead of product_ratings
-        const { data: reviewsData, error: reviewsError } = await supabase
-          .from('reviews')
-          .select('rating')
-          .eq('product_id', productData.product_id);
-
-        let rating: Rating | undefined;
-        if (!reviewsError && reviewsData && reviewsData.length > 0) {
-          // Calculate average rating
-          const totalReviews = reviewsData.length;
-          const sumOfRatings = reviewsData.reduce((sum, review) => sum + (review.rating || 0), 0);
-          const averageRating = totalReviews > 0 ? sumOfRatings / totalReviews : 0;
-
-          // Calculate rating distribution
-          const distribution = reviewsData.reduce((dist, review) => {
-            const ratingValue = review.rating || 0;
-            dist[ratingValue] = (dist[ratingValue] || 0) + 1;
-            return dist;
-          }, { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 });
-
-          rating = {
-            average: Math.round(averageRating * 10) / 10, // Round to 1 decimal place
-            count: totalReviews,
-            distribution
-          };
-        }
-        
-        const processedProducts = variantsData.map(product => {
-          return {
-            ...product,
-            sizes: safeParseSizes(product.sizes),
-            images: parseImages(product.images),
-            thumbnail_url: product.thumbnail_url || null,
-            discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price),
-            rating: rating,
-            mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0
-          };
-        });
-
-        const baseArticleId = processedProducts[0].article_id.split('_')[0];
-
-        const productDetail: ProductDetail = {
-          article_id: baseArticleId,
-          name: productData.name,
-          description: productData.description,
-          sub_category: productData.sub_category,
-          variants: processedProducts,
-          category: productData.category,
-          gender: productData.gender,
-          rating: rating,
-          total_reviews: rating?.count || 0
-        };
-
+      if (productDetail) {
         set({ 
           currentProduct: productDetail,
           loading: false
@@ -489,7 +262,6 @@ export const useProductStore = create<ProductState>((set, get) => ({
           loading: false
         });
       }
-
     } catch (error) {
       console.error('Error fetching product:', error);
       set({ error: 'Failed to fetch product details', loading: false });
@@ -500,72 +272,11 @@ export const useProductStore = create<ProductState>((set, get) => ({
     set({ loading: true, error: null });
     
     try {
-      let query = supabase
-        .from('products')
-        .select('*')
-        .eq('is_active', true)
-        .neq('product_id', currentProductId)
-        .limit(8); // Fetch more to ensure we have enough after filtering
-
-      // Try to get products from same category first
-      if (category) {
-        query = query.eq('category', category);
-      }
-
-      const { data, error } = await query;
-
-      if (error) {
-        console.error('Fetch related products error:', error);
-        set({ error: 'Failed to fetch related products' });
-        return;
-      }
-
-      // If not enough products from same category, get random products
-      if (!data || data.length < 8) {
-        const { data: randomData, error: randomError } = await supabase
-          .from('products')
-          .select('*')
-          .eq('is_active', true)
-          .neq('product_id', currentProductId)
-          .limit(8 - (data?.length || 0));
-
-        if (!randomError && randomData) {
-          const allProducts = [...(data || []), ...randomData];
-          const processedProducts = allProducts.map(product => {
-            return {
-              ...product,
-              sizes: safeParseSizes(product.sizes),
-              images: parseImages(product.images), // Use the new parseImages function
-              thumbnail_url: product.thumbnail_url || null,
-              discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price),
-              mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0  // ✅ Fallback to discount_price if mrp_price is missing
-            };
-          });
-
-          set({ 
-            relatedProducts: processedProducts,
-            loading: false
-          });
-          return;
-        }
-      }
-
-      const processedProducts = (data || []).map(product => {
-        return {
-          ...product,
-          sizes: safeParseSizes(product.sizes),
-          images: parseImages(product.images), // Use the new parseImages function
-          thumbnail_url: product.thumbnail_url || null,
-          discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price),
-          mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0  // ✅ Fallback to discount_price if mrp_price is missing
-        };
-      });
-
+      const relatedProducts = await productService.fetchRelatedProducts(category, currentProductId);
       set({ 
-        relatedProducts: processedProducts,
+        relatedProducts,
         loading: false
       });
-
     } catch (error) {
       console.error('Error fetching related products:', error);
       set({ error: 'Failed to fetch related products', loading: false });
@@ -588,76 +299,15 @@ export const useProductStore = create<ProductState>((set, get) => ({
     }
 
     try {
-      // Get more products to account for out-of-stock filtering
-      const { data: products, error } = await supabase
-        .from('products')
-        .select('*')
-        .eq('is_active', true)
-        .in('sub_category', ['Shoes', 'Sandals', 'Bags'])
-        .limit(30); // Fetch more to ensure we have enough after filtering
-
-      if (error) throw error;
-
-      // Shuffle function
-      const shuffleArray = (array: any[]) => {
-        const newArray = [...array];
-        for (let i = newArray.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
-        }
-        return newArray;
-      };
-
-      // Shuffle products within each category
-      const shuffledShoes = shuffleArray(products.filter((p: Product) => p.sub_category === 'Shoes'));
-      const shuffledSandals = shuffleArray(products.filter((p: Product) => p.sub_category === 'Sandals'));
-      const shuffledBags = shuffleArray(products.filter((p: Product) => p.sub_category === 'Bags'));
-
-      // Check if sandals and bags have in-stock products
-      const sandalsInStock = products.filter((p: Product) => p.sub_category === 'Sandals' && hasAnyStock(p)).length > 0;
-      const bagsInStock = products.filter((p: Product) => p.sub_category === 'Bags' && hasAnyStock(p)).length > 0;
-      
-      // Select products with priority logic
-      let selectedProducts = [];
-      if (!sandalsInStock && !bagsInStock) {
-        // Both sandals and bags out of stock, prioritize shoes
-        const shuffledShoes = shuffleArray(products.filter((p: Product) => p.sub_category === 'Shoes'));
-        selectedProducts = [
-          ...shuffledShoes.slice(0, 12), // Take more shoes to ensure 5 products
-          ...shuffledSandals.slice(0, 4), // Take some sandals
-          ...shuffledBags.slice(0, 2) // Take some bags
-        ];
-      } else {
-        // Normal logic: take more products from each category
-        selectedProducts = [
-          ...shuffledShoes.slice(0, 8), // Take more shoes to account for out-of-stock
-          ...shuffledSandals.slice(0, 8), // Take more sandals to account for out-of-stock
-          ...shuffledBags.slice(0, 6) // Take more bags to account for out-of-stock
-        ];
-      }
-
-      // Shuffle the final selection to mix categories
-      const shuffledSelection = shuffleArray(selectedProducts);
-
-      // Process products with proper image parsing and discount calculation
-      const processedProducts = shuffledSelection.map(product => {
-        return {
-          ...product,
-          sizes: safeParseSizes(product.sizes),
-          images: parseImages(product.images), // Use the new parseImages function
-          thumbnail_url: product.thumbnail_url || null,
-          discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price),
-          mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0  // ✅ Fallback to discount_price if mrp_price is missing
-        };
-      });
+      const highlightProducts = await productService.fetchHighlightProducts();
 
       // Cache the results with timestamp
-      localStorage.setItem('highlightProducts', JSON.stringify(processedProducts));
+      localStorage.setItem('highlightProducts', JSON.stringify(highlightProducts));
       localStorage.setItem('highlightProductsLastFetched', now);
       localStorage.setItem('highlightProductsCacheTimestamp', Date.now().toString());
 
       // Set the highlight products state
-      set({ highlightProducts: processedProducts });
+      set({ highlightProducts });
     } catch (error) {
       console.error('Error fetching highlight products:', error);
     }

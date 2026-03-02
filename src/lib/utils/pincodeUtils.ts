@@ -1,4 +1,4 @@
-import { supabase } from '../supabase';
+import { db, collection, getDocs, query, where, limit } from '../firebase';
 
 export interface PincodeDetails {
   pincode: string;
@@ -25,41 +25,36 @@ export interface LocalPincode {
 }
 
 /**
- * Fetch pincode details from Supabase database
+ * Fetch pincode details from Firebase Firestore database
  */
 export const fetchPincodeDetails = async (pincode: string): Promise<PincodeDetails | null> => {
   try {
     
     // Try to get exact match first
-    const { data, error } = await supabase
-      .from('pincodes')
-      .select('pincode, city, state, active, is_serviceable, cod_allowed, min_order_amount, shipping_fee, cod_fee, free_shipping_threshold, created_at, updated_at, delivery_time, districts')
-      .eq('pincode', pincode)
-      .limit(1); // Use limit(1) instead of maybeSingle to handle multiple rows
+    const pincodesRef = collection(db, 'pincodes');
+    const q = query(pincodesRef, where('pincode', '==', pincode), limit(1));
+    const querySnapshot = await getDocs(q);
 
-
-    if (error) {
-      console.error('Error fetching pincode details:', error);
-      // Try with ilike for case-insensitive match
-      const { data: caseInsensitiveData, error: caseInsensitiveError } = await supabase
-        .from('pincodes')
-        .select('pincode, city, state, active, is_serviceable, cod_allowed, min_order_amount, shipping_fee, cod_fee, free_shipping_threshold, created_at, updated_at, delivery_time, districts')
-        .ilike('pincode', pincode)
-        .limit(1);
-
-      if (caseInsensitiveError) {
-        console.error('Error with case-insensitive search:', caseInsensitiveError);
-        return null;
-      }
-
-      return caseInsensitiveData && caseInsensitiveData.length > 0 ? caseInsensitiveData[0] : null;
+    if (!querySnapshot.empty) {
+      const doc = querySnapshot.docs[0];
+      return doc.data() as PincodeDetails;
     }
 
-    // Return the first result if found
-    const result = data && data.length > 0 ? data[0] : null;
-    return result;
-  } catch (error) {
-    console.error('Error fetching pincode details:', error);
+    // Try case-insensitive match by getting all pincodes and filtering
+    const allPincodesQuery = query(pincodesRef, limit(1000)); // Limit to prevent excessive reads
+    const allSnapshot = await getDocs(allPincodesQuery);
+    
+    const matchingDoc = allSnapshot.docs.find(doc => 
+      doc.data().pincode?.toLowerCase() === pincode.toLowerCase()
+    );
+
+    if (matchingDoc) {
+      return matchingDoc.data() as PincodeDetails;
+    }
+
+    return null;
+  } catch {
+    console.error('Error fetching pincode details');
     return null;
   }
 };
@@ -72,8 +67,8 @@ export const getLocalPincodes = async (): Promise<string[] | LocalPincode[]> => 
     const response = await fetch('/pincodes.json');
     const pincodes = await response.json();
     return pincodes;
-  } catch (error) {
-    console.error('Error loading local pincodes:', error);
+  } catch {
+    console.error('Error loading local pincodes');
     return [];
   }
 };
@@ -119,8 +114,8 @@ export const searchPincodes = async (query: string): Promise<LocalPincode[]> => 
         })
         .slice(0, 10);
     }
-  } catch (error) {
-    console.error('Error searching pincodes:', error);
+  } catch {
+    console.error('Error searching pincodes');
     return [];
   }
 };
@@ -133,7 +128,7 @@ export const isPincodeServiceable = async (pincode: string): Promise<boolean> =>
     const details = await fetchPincodeDetails(pincode);
     if (!details) return true; // Default to serviceable if no data found
     return details.is_serviceable !== false && details.active !== false;
-  } catch (error) {
+  } catch {
     return true; // Default to serviceable on error
   }
 };
@@ -146,7 +141,7 @@ export const getShippingFee = async (pincode: string): Promise<number> => {
     const details = await fetchPincodeDetails(pincode);
     if (!details) return 0; // Default to free shipping if no data found
     return details.shipping_fee || 0;
-  } catch (error) {
+  } catch {
     return 0; // Default to free shipping on error
   }
 };
@@ -159,7 +154,7 @@ export const isCODAvailable = async (pincode: string): Promise<boolean> => {
     const details = await fetchPincodeDetails(pincode);
     if (!details) return true; // Default to COD available if no data found
     return details.cod_allowed !== false;
-  } catch (error) {
+  } catch {
     return true; // Default to COD available on error
   }
 };
@@ -172,7 +167,7 @@ export const getDeliveryTime = async (pincode: string): Promise<string | null> =
     const details = await fetchPincodeDetails(pincode);
     if (!details) return null; // No delivery time if no data found
     return details.delivery_time || null;
-  } catch (error) {
+  } catch {
     return null; // No delivery time on error
   }
 };
@@ -185,7 +180,7 @@ export const getMinOrderAmount = async (pincode: string): Promise<number> => {
     const details = await fetchPincodeDetails(pincode);
     if (!details) return 0; // Default to no minimum if no data found
     return details.min_order_amount || 0;
-  } catch (error) {
+  } catch {
     return 0; // Default to no minimum on error
   }
 };
@@ -198,7 +193,7 @@ export const getFreeShippingThreshold = async (pincode: string): Promise<number>
     const details = await fetchPincodeDetails(pincode);
     if (!details) return 999; // Default to 999 if no data found
     return details.free_shipping_threshold || 999;
-  } catch (error) {
+  } catch {
     return 999; // Default to 999 on error
   }
 };

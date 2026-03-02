@@ -4,10 +4,11 @@ import { useNavigate } from 'react-router-dom';
 import { useAdminStore } from '../store/adminStore';
 import EditProductForm from './EditProductForm';
 import ProductFilters from '../../../components/shared/ProductFilters';
+import AlertModal from '../../../components/ui/AlertModal';
 import fallbackImage from '../../../assets/Fici_logo.png';
 import CachedImage from '../../../components/ui/CachedImage';
 import { getStockStatus, getActiveStatus, getStatusBadgeProps } from '../../../lib/admin/productStatus';
-import { getImageForUseCase } from '../../../lib/utils/imageOptimization';
+import { getListingImageUrl } from '../../../lib/utils/imageOptimization';
 
 const ProductList: React.FC = () => {
   const { 
@@ -23,6 +24,10 @@ const ProductList: React.FC = () => {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const productsPerPage = 12;
+
+  // Delete confirmation modal state
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<any>(null);
 
   // Filter state
   const [filters, setFilters] = useState({
@@ -158,6 +163,31 @@ const ProductList: React.FC = () => {
     }
   }, [editingProduct]);
 
+  const handleDeleteClick = useCallback((product: any) => {
+    setProductToDelete(product);
+    setDeleteModalOpen(true);
+  }, []);
+
+  // Handle delete confirmation
+  const handleDeleteConfirm = useCallback(async () => {
+    if (productToDelete) {
+      try {
+        const success = await deleteProduct(productToDelete.product_id);
+        if (success) {
+          setDeleteModalOpen(false);
+          setProductToDelete(null);
+        }
+      } catch (error) {
+        console.error('Error deleting product:', error);
+      }
+    }
+  }, [productToDelete, deleteProduct]);
+
+  // Handle delete cancellation
+  const handleDeleteCancel = useCallback(() => {
+    setDeleteModalOpen(false);
+    setProductToDelete(null);
+  }, []);
 
   if (editingProduct) {
     return (
@@ -246,138 +276,183 @@ const ProductList: React.FC = () => {
                   const stockBadgeProps = getStatusBadgeProps(stockStatus.status, stockStatus.statusColor);
                   const activeBadgeProps = getStatusBadgeProps(activeStatus.status, activeStatus.statusColor);
                   
-                  return (
-                  <div key={product.product_id} className='border border-gray-200 dark:border-gray-700 p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow'>
-                  {/* Product Image */}
-                  <div className="mb-4">
-                    <CachedImage
-                      src={getImageForUseCase(product.thumbnail_url || '', 'LISTING')}
-                      fallbackSrc={fallbackImage}
-                      alt={product.name}
-                      className="w-full h-48 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
-                      loadingFallback={
-                        <div className="w-full h-48 bg-gray-200 dark:bg-gray-700 animate-pulse rounded-lg" />
-                      }
-                      onClick={() => navigate(`/products/${product.article_id}`)}
-                    />
-                  </div>
+                  // Get optimized image URL like ProductCard does - NO HOOK INSIDE MAP
+                  const imageUrl = product.thumbnail_url || product.images?.[0] || '';
+                  let optimizedImageUrl = imageUrl;
                   
-                  {/* Product Info */}
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-start">
-                      <h3 className='text-lg font-semibold text-gray-900 dark:text-white flex-1'>
-                        {product.name}
-                      </h3>
-                      {/* Status Badges */}
-                      <div className="flex gap-1 flex-wrap">
-                        <span className={stockBadgeProps.className}>
-                          {stockBadgeProps.text}
-                        </span>
-                        <span className={activeBadgeProps.className}>
-                          {activeBadgeProps.text}
-                        </span>
+                  // Only try to optimize if we have a valid URL
+                  if (imageUrl && imageUrl.trim() !== '') {
+                    try {
+                      optimizedImageUrl = getListingImageUrl(imageUrl);
+                      // If the optimized URL is invalid or empty, use fallback
+                      if (!optimizedImageUrl || optimizedImageUrl.trim() === '') {
+                        optimizedImageUrl = fallbackImage;
+                      }
+                    } catch (error) {
+                      // If optimization fails, use fallback
+                      optimizedImageUrl = fallbackImage;
+                    }
+                  } else {
+                    // No image URL available, use fallback
+                    optimizedImageUrl = fallbackImage;
+                  }
+                  
+                  return (
+                    <div key={product.product_id} className='border border-gray-200 dark:border-gray-700 p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow'>
+                      {/* Product Image */}
+                      <div className="mb-4">
+                        <CachedImage
+                          src={optimizedImageUrl}
+                          fallbackSrc={fallbackImage}
+                          alt={product.name}
+                          className="w-full h-48 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
+                          loadingFallback={
+                            <div className="w-full h-48 bg-gray-200 dark:bg-gray-700 animate-pulse rounded-lg flex items-center justify-center">
+                              <span className="text-gray-500 text-sm">Loading...</span>
+                            </div>
+                          }
+                          errorFallback={
+                            <div className="w-full h-48 bg-gray-200 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+                              <img 
+                                src={fallbackImage} 
+                                alt={product.name}
+                                className="w-full h-full object-cover rounded-lg"
+                                onError={(e) => {
+                                  console.error('Fallback image also failed:', fallbackImage);
+                                }}
+                              />
+                            </div>
+                          }
+                          onClick={() => navigate(`/products/${product.article_id}`)}
+                        />
+                      </div>
+                      
+                      {/* Product Info */}
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-start">
+                          <h3 className='text-lg font-semibold text-gray-900 dark:text-white flex-1'>
+                            {product.name}
+                          </h3>
+                          {/* Status Badges */}
+                          <div className="flex gap-1 flex-wrap">
+                            <span className={stockBadgeProps.className}>
+                              {stockBadgeProps.text}
+                            </span>
+                            <span className={activeBadgeProps.className}>
+                              {activeBadgeProps.text}
+                            </span>
+                          </div>
+                        </div>
+                        
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm text-gray-500">MRP: ₹{product.mrp_price}</span>
+                          <span className="text-lg font-bold text-primary">₹{product.discount_price}</span>
+                        </div>
+                        
+                        {product.sub_category && (
+                          <p className="text-sm text-gray-600 dark:text-gray-400">Brand: {product.sub_category}</p>
+                        )}
+                        
+                        <div className="flex gap-2">
+                          <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
+                            {product.category}
+                          </span>
+                          <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded">
+                            {product.gender}
+                          </span>
+                        </div>
+                        
+                        {product.description && (
+                          <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
+                            {product.description}
+                          </p>
+                        )}
+                        
+                        <div className="text-sm text-gray-500">
+                          <p>Article ID: {product.article_id}</p>
+                          <p>Sizes: {Object.entries(product.sizes || {}).map(([size, qty]) => `${size}: ${qty}`).join(', ')}</p>
+                        </div>
+                      </div>
+                      
+                      {/* Action Buttons */}
+                      <div className="mt-4 flex gap-2">
+                        <button
+                          onClick={() => {
+                            window.scrollTo(0, 0);
+                            setEditingProduct(product);
+                          }}
+                          className="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded text-sm transition-colors"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteClick(product)}
+                          className="flex-1 bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded text-sm transition-colors"
+                        >
+                          Delete
+                        </button>
                       </div>
                     </div>
-                    
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-500">MRP: ₹{product.mrp_price}</span>
-                      <span className="text-lg font-bold text-primary">₹{product.discount_price}</span>
-                    </div>
-                    
-                    {product.sub_category && (
-                      <p className="text-sm text-gray-600 dark:text-gray-400">Brand: {product.sub_category}</p>
-                    )}
-                    
-                    <div className="flex gap-2">
-                      <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
-                        {product.category}
-                      </span>
-                      <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded">
-                        {product.gender}
-                      </span>
-                    </div>
-                    
-                    {product.description && (
-                      <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
-                        {product.description}
-                      </p>
-                    )}
-                    
-                    <div className="text-sm text-gray-500">
-                      <p>Article ID: {product.article_id}</p>
-                      <p>Sizes: {Object.entries(product.sizes || {}).map(([size, qty]) => `${size}: ${qty}`).join(', ')}</p>
-                    </div>
-                  </div>
-                  
-                  {/* Action Buttons */}
-                  <div className="mt-4 flex gap-2">
-                    <button
-                      onClick={() => {
-                        window.scrollTo(0, 0);
-                        setEditingProduct(product);
-                      }}
-                      className="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded text-sm transition-colors"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => {
-                        if (confirm('Are you sure you want to delete this product?')) {
-                          deleteProduct(product.product_id);
-                        }
-                      }}
-                      className="flex-1 bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded text-sm transition-colors"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-                );
-              })}
-          </div>
-
-          {/* Pagination Controls */}
-          {totalPages > 1 && (
-            <div className="flex justify-center items-center space-x-2 mt-8">
-              <button
-                onClick={goToPreviousPage}
-                disabled={currentPage === 1}
-                className="px-3 py-2 rounded-md bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Previous
-              </button>
-
-              <div className="flex space-x-1">
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNumber) => (
-                  <button
-                    key={pageNumber}
-                    onClick={() => paginate(pageNumber)}
-                    className={`px-3 py-2 rounded-md text-sm font-medium ${
-                      currentPage === pageNumber
-                        ? 'bg-primary text-white'
-                        : 'bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-                    }`}
-                  >
-                    {pageNumber}
-                  </button>
-                ))}
+                  );
+                })}
               </div>
+              
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="flex justify-center items-center space-x-2 mt-8">
+                  <button
+                    onClick={goToPreviousPage}
+                    disabled={currentPage === 1}
+                    className="px-3 py-2 rounded-md bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Previous
+                  </button>
 
-              <button
-                onClick={goToNextPage}
-                disabled={currentPage === totalPages}
-                className="px-3 py-2 rounded-md bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Next
-              </button>
-            </div>
-          )}
-          </>
+                  <div className="flex space-x-1">
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNumber) => (
+                      <button
+                        key={pageNumber}
+                        onClick={() => paginate(pageNumber)}
+                        className={`px-3 py-2 rounded-md text-sm font-medium ${
+                          currentPage === pageNumber
+                            ? 'bg-primary text-white'
+                            : 'bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                        }`}
+                      >
+                        {pageNumber}
+                      </button>
+                    ))}
+                  </div>
+
+                  <button
+                    onClick={goToNextPage}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-2 rounded-md bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Next
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      <AlertModal
+        isOpen={deleteModalOpen}
+        title="Delete Product"
+        message={`Are you sure you want to delete "${productToDelete?.name}"? This action cannot be undone and will also remove all associated images.`}
+        type="warning"
+        showCancel={true}
+        onConfirm={handleDeleteConfirm}
+        onClose={handleDeleteCancel}
+        confirmText="Delete Product"
+        cancelText="Cancel"
+      />
     </div>
   );
+
 };
 
 export default ProductList;

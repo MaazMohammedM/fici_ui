@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { supabase } from './supabase';
+import { httpsCallable, functions } from './firebase';
 
 export interface GuestSession {
   guest_session_id: string;
@@ -38,12 +38,11 @@ export const useGuestSession = create<GuestSessionStore>()(
 
       createSession: async (contactInfo) => {
         try {
-          const { data, error } = await supabase.functions.invoke('create-guest-session', {
-            body: contactInfo
-          });
+          const createGuestSessionFunction = httpsCallable(functions, 'create-guest-session');
+          const { data } = await createGuestSessionFunction(contactInfo);
 
-          if (error || !data) {
-            console.error('Failed to create guest session:', error);
+          if (!data) {
+            console.error('Failed to create guest session');
             return null;
           }
 
@@ -87,10 +86,9 @@ export const useGuestSession = create<GuestSessionStore>()(
         if (!session) return false;
 
         try {
-          const { data } = await supabase.functions.invoke('validate-guest-session', {
-            body: { session_id: session.guest_session_id }
-          });
-          return data?.is_valid === true;
+          const validateGuestSessionFunction = httpsCallable(functions, 'validate-guest-session');
+          const { data } = await validateGuestSessionFunction({ session_id: session.guest_session_id });
+          return (data as any)?.is_valid === true;
         } catch (error) {
           console.error('Error validating session:', error);
           return false;

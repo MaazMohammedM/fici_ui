@@ -1,4 +1,4 @@
-import { supabase } from "./supabase";
+import { db, collection, getDocs, query, where, doc, updateDoc, addDoc } from "./firebase";
 
 export type CheckoutRule = {
   rule_id?: string;
@@ -48,25 +48,20 @@ export const calculateCheckoutDiscount = (
 
 export const getActiveCheckoutRule = async (): Promise<CheckoutRule | null> => {
   try {
-    const { data, error } = await supabase
-      .from("checkout_discount_rules")
-      .select("*")
-      .eq("active", true)
-      .limit(1);
-
-    if (error || !data || !data.length) return null;
-
-    const rule = data[0] as CheckoutRule;
-    const now = new Date();
-    const startsAt = rule.starts_at ? new Date(rule.starts_at) : null;
-    const endsAt = rule.ends_at ? new Date(rule.ends_at) : null;
-
-    if (startsAt && now < startsAt) return null;
-    if (endsAt && now > endsAt) return null;
-
-    return rule;
-  } catch (_) {
-    // Table might not exist yet
+    const q = query(
+      collection(db, "checkout_discount_rules"),
+      where("active", "==", true)
+    );
+    
+    const querySnapshot = await getDocs(q);
+    const rules = querySnapshot.docs.map(doc => ({ 
+      rule_id: doc.id, 
+      ...doc.data() 
+    } as CheckoutRule));
+    
+    return rules.length > 0 ? rules[0] : null;
+  } catch (error: any) {
+    console.error('Error fetching checkout rule:', error);
     return null;
   }
 };
@@ -92,44 +87,43 @@ export const getActiveProductDiscountsForProducts = async (
   productIds: string[]
 ): Promise<Record<string, ProductDiscountRule>> => {
   if (!productIds.length) return {};
-
+  
   try {
-    const { data, error } = await supabase
-      .from("product_discounts")
-      .select(
-        "product_id, mode, value, base, starts_at, ends_at, active, max_discount_cap"
-      )
-      .in("product_id", productIds)
-      .eq("active", true);
-
-    if (error || !data) return {};
-
-    const now = new Date();
-    const map: Record<string, ProductDiscountRule> = {};
-
-    for (const row of data as any[]) {
-      const startsAt = row.starts_at ? new Date(row.starts_at) : null;
-      const endsAt = row.ends_at ? new Date(row.ends_at) : null;
-
-      if (startsAt && now < startsAt) continue;
-      if (endsAt && now > endsAt) continue;
-
-      map[row.product_id] = {
-        product_id: row.product_id,
-        mode: (row.mode || "amount") as "percent" | "amount",
-        value: Number(row.value) || 0,
-        base: (row.base || "price") as "mrp" | "price",
-        starts_at: row.starts_at || null,
-        ends_at: row.ends_at || null,
-        active: true,
-        max_discount_cap:
-          row.max_discount_cap != null ? Number(row.max_discount_cap) : null,
-      };
+    // Firebase supports 'in' queries but with a limit of 10 items
+    const chunks = [];
+    for (let i = 0; i < productIds.length; i += 10) {
+      chunks.push(productIds.slice(i, i + 10));
     }
-
-    return map;
-  } catch (_) {
-    // Table might not exist yet
+    
+    const allDiscounts: ProductDiscountRule[] = [];
+    
+    for (const chunk of chunks) {
+      const q = query(
+        collection(db, "product_discounts"),
+        where("product_id", "in", chunk),
+        where("active", "==", true)
+      );
+      
+      const querySnapshot = await getDocs(q);
+      const chunkDiscounts = querySnapshot.docs.map(doc => ({ 
+        discount_id: doc.id, 
+        ...doc.data() 
+      } as ProductDiscountRule));
+      
+      allDiscounts.push(...chunkDiscounts);
+    }
+    
+    // Convert to Record<string, ProductDiscountRule>
+    const discountsMap: Record<string, ProductDiscountRule> = {};
+    allDiscounts.forEach(discount => {
+      if (discount.product_id) {
+        discountsMap[discount.product_id] = discount;
+      }
+    });
+    
+    return discountsMap;
+  } catch (error: any) {
+    console.error('Error fetching product discounts:', error);
     return {};
   }
 };
@@ -166,57 +160,70 @@ export const applyProductDiscountToPrice = (
 // Admin helpers
 export const upsertCheckoutRule = async (rule: CheckoutRule) => {
   if (rule.active) {
-    await supabase
-      .from("checkout_discount_rules")
-      .update({ active: false })
-      .eq("active", true);
+    // Deactivate existing active rule
+    try {
+      const q = query(
+        collection(db, "checkout_discount_rules"),
+        where("active", "==", true)
+      );
+      
+      const querySnapshot = await getDocs(q);
+      const activeRules = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      
+      if (activeRules.length > 0) {
+        const activeRule = activeRules[0];
+        await updateDoc(doc(db, "checkout_discount_rules", activeRule.id), { active: false });
+      }
+    } catch (error) {
+      console.error('Error deactivating existing rule:', error);
+    }
   }
-
-  const payload: any = {
-    rule_type: rule.rule_type || rule.type,
-    percent: rule.percent ?? null,
-    amount: rule.amount ?? null,
-    min_order: rule.min_order ?? null,
-    max_discount_cap: rule.max_discount_cap ?? null,
-    active: rule.active ?? false,
-    starts_at: rule.starts_at ?? null,
-    ends_at: rule.ends_at ?? null,
-  };
-
-  if (rule.rule_id) payload.rule_id = rule.rule_id;
-
-  const { error } = await supabase
-    .from("checkout_discount_rules")
-    .upsert(payload)
-    .select("rule_id")
-    .single();
-
-  if (error) throw error;
+  
+  try {
+    const payload = {
+      rule_type: rule.rule_type || "percent",
+      type: rule.type || "percent",
+      percent: rule.percent || null,
+      amount: rule.amount || null,
+      min_order: rule.min_order || null,
+      max_discount_cap: rule.max_discount_cap || null,
+      active: rule.active ?? true,
+      starts_at: rule.starts_at || null,
+      ends_at: rule.ends_at || null
+    };
+    
+    if (rule.rule_id) {
+      // Update existing rule
+      await updateDoc(doc(db, "checkout_discount_rules", rule.rule_id), payload);
+    } else {
+      // Create new rule
+      const docRef = await addDoc(collection(db, "checkout_discount_rules"), payload);
+      return docRef.id;
+    }
+  } catch (error) {
+    console.error('Error upserting checkout rule:', error);
+    throw error;
+  }
 };
 
 export const upsertProductDiscount = async (rule: ProductDiscountRule) => {
-  const payload: any = {
-    discount_id: rule.discount_id || crypto.randomUUID(), // Generate new ID if not provided
+  const payload = {
     product_id: rule.product_id,
-    mode: rule.mode,
-    value: rule.value,
-    base: rule.base || "price",
+    mode: rule.mode || "percent",
+    value: rule.value || 0,
+    base: rule.base || 0,
+    starts_at: rule.starts_at || null,
+    ends_at: rule.ends_at || null,
     active: rule.active ?? true,
-    starts_at: rule.starts_at ?? null,
-    ends_at: rule.ends_at ?? null,
-    max_discount_cap: rule.max_discount_cap ?? null,
-    name: rule.name || null,
-    promotion_type: rule.promotion_type || "generic",
-    priority: rule.priority || 100,
-    stackable: rule.stackable || false,
-    promo_tag: rule.promo_tag || null,
+    max_discount_cap: rule.max_discount_cap || null
   };
-
-  const { error } = await supabase
-    .from("product_discounts")
-    .upsert(payload, { onConflict: "discount_id" })
-    .select("discount_id")
-    .single();
-
-  if (error) throw error;
+  
+  if (rule.discount_id) {
+    // Update existing discount
+    await updateDoc(doc(db, "product_discounts", rule.discount_id), payload);
+  } else {
+    // Create new discount
+    const docRef = await addDoc(collection(db, "product_discounts"), payload);
+    return docRef.id;
+  }
 };

@@ -39,6 +39,9 @@ const ShippingReturnsPolicy = React.lazy(() => import('@features/policy/Shipping
 const GuestOrderLookup = React.lazy(() => import('./features/orders/GuestOrderLookup'));
 const OrderDetailsPage = React.lazy(() => import('./features/orders/OrderDetailsPage'));
 const FAQPage = React.lazy(() => import('./features/faq/FAQPage'));
+const FirestoreInitializer = React.lazy(() => import('./components/FirestoreInitializer'));
+const AdminAccessFix = React.lazy(() => import('./components/AdminAccessFix'));
+const FixUserProfile = React.lazy(() => import('./components/FixUserProfile'));
 
 const LoadingSpinner = () => (
   <div className="min-h-screen bg-gradient-light dark:bg-gradient-dark flex items-center justify-center px-4">
@@ -101,7 +104,7 @@ const AppContent = () => {
             <Route
               path="/admin/*"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute requiredRole="admin">
                   <AdminPage />
                 </ProtectedRoute>
               }
@@ -136,6 +139,7 @@ const AppContent = () => {
             <Route path="/privacy" element={<PrivacyPolicy />} />
             <Route path="/terms" element={<TermsOfService />} />
             <Route path="/shipping" element={<ShippingReturnsPolicy />} />
+            <Route path="/fix-profile" element={<FixUserProfile />} />
             <Route
               path="/orders"
               element={
@@ -206,6 +210,8 @@ const AppContent = () => {
                 </ErrorBoundary>
               }
             />
+            <Route path="/init-firestore" element={<FirestoreInitializer />} />
+            <Route path="/fix-admin" element={<AdminAccessFix />} />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </Suspense>

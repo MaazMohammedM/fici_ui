@@ -1,5 +1,5 @@
 import React from 'react';
-import { supabase } from '@lib/supabase';
+import { db, collection, getDocs, orderBy, limit, query } from '@lib/firebase';
 import { MessageCircle, Instagram, Facebook, Twitter, Linkedin, Search, Globe, Mail, Youtube } from 'lucide-react';
 
 type TrafficRow = {
@@ -25,12 +25,20 @@ const TrafficSourcesWidget: React.FC = () => {
     let mounted = true;
     const load = async () => {
       try {
-        const { data, error } = await supabase
-          .from('traffic_sources')
-          .select('source, medium, campaign, visit_count, last_visited_at')
-          .limit(1000);
-        if (error) throw error;
-        const rows = (data || []) as TrafficRow[];
+        const trafficQuery = query(
+          collection(db, 'traffic_sources'),
+          orderBy('visit_count', 'desc'),
+          limit(1000)
+        );
+        const snapshot = await getDocs(trafficQuery);
+        const rows = snapshot.docs.map(doc => ({
+          source: doc.data().source,
+          medium: doc.data().medium,
+          campaign: doc.data().campaign,
+          visit_count: doc.data().visit_count,
+          last_visited_at: doc.data().last_visited_at
+        })) as TrafficRow[];
+        
         const map = new Map<string, Aggregated>();
         for (const r of rows) {
           const key = (r.source || 'direct').toLowerCase();

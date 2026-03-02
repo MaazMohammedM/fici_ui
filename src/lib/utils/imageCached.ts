@@ -1,4 +1,5 @@
 import React from 'react';
+import { getOptimizedFirebaseUrl } from './imageOptimization';
 
 // Simple in-memory cache for images
 const imageCache = new Map<string, string>();
@@ -56,21 +57,26 @@ export const getCachedImage = (url: string): string => {
  * @returns Object containing the image URL and loading state
  */
 export const useCachedImage = (url: string, fallback?: string) => {
-  const [imageUrl, setImageUrl] = React.useState<string>(fallback || '');
-  const [isLoading, setIsLoading] = React.useState<boolean>(true);
+  const [imageUrl, setImageUrl] = React.useState<string>('');
+  const [isLoading, setIsLoading] = React.useState<boolean>(false);
   const [error, setError] = React.useState<Error | null>(null);
 
   React.useEffect(() => {
-    if (!url) {
+    // Handle empty or invalid URLs
+    if (!url || url.trim() === '') {
       setImageUrl(fallback || '');
       setIsLoading(false);
+      setError(null);
       return;
     }
 
+    const trimmedUrl = url.trim();
+    
     // If image is already in cache, use it
-    if (imageCache.has(url)) {
-      setImageUrl(imageCache.get(url)!);
+    if (imageCache.has(trimmedUrl)) {
+      setImageUrl(imageCache.get(trimmedUrl)!);
       setIsLoading(false);
+      setError(null);
       return;
     }
 
@@ -78,12 +84,28 @@ export const useCachedImage = (url: string, fallback?: string) => {
     const loadImage = async () => {
       try {
         setIsLoading(true);
-        await cacheImage(url);
-        setImageUrl(url);
+        setError(null);
+        
+        // Preload the image to validate it
+        await cacheImage(trimmedUrl);
+        setImageUrl(trimmedUrl);
       } catch (err) {
-        console.error('Error loading image:', err);
+        console.warn('Image failed to load, using fallback:', trimmedUrl, err);
         setError(err as Error);
-        setImageUrl(fallback || '');
+        
+        // Try to use fallback image
+        if (fallback && fallback !== trimmedUrl) {
+          try {
+            await cacheImage(fallback);
+            setImageUrl(fallback);
+            setError(null);
+          } catch (fallbackErr) {
+            console.error('Fallback image also failed:', fallbackErr);
+            setImageUrl('');
+          }
+        } else {
+          setImageUrl('');
+        }
       } finally {
         setIsLoading(false);
       }

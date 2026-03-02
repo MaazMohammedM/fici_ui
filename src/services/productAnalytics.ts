@@ -1,4 +1,4 @@
-import { supabase } from '../lib/supabase';
+import { db, collection, getDocs, getDoc, query, where, doc, setDoc, serverTimestamp } from '../lib/firebase';
 
 export interface ProductVisitData {
   product_id: string;
@@ -9,32 +9,26 @@ export interface ProductVisitData {
 export const trackProductVisit = async (data: ProductVisitData) => {
   try {
     // First, try to get the existing record
-    const { data: existingRecord } = await supabase
-      .from('product_visit_stats')
-      .select('visit_count')
-      .eq('product_id', data.product_id)
-      .maybeSingle();
+    const productStatsRef = doc(db, 'product_visit_stats', data.product_id);
+    const existingRecord = await getDoc(productStatsRef);
 
     let newCount = 1;
-    if (existingRecord) {
-      newCount = (existingRecord.visit_count || 0) + 1;
+    if (existingRecord.exists()) {
+      const existingData = existingRecord.data();
+      newCount = (existingData?.visit_count || 0) + 1;
     }
 
-    // Upsert with the correct count
-    const { data: visitData, error } = await supabase
-      .from('product_visit_stats')
-      .upsert([{
-        product_id: data.product_id,
-        name: data.name,
-        thumbnail_url: data.thumbnail_url,
-        visit_count: newCount,
-        last_visited_at: new Date().toISOString()
-      }], {
-        onConflict: 'product_id'
-      })
-      .select();
+    // Upsert with the correct count using setDoc
+    const visitData = {
+      product_id: data.product_id,
+      name: data.name,
+      thumbnail_url: data.thumbnail_url,
+      visit_count: newCount,
+      last_visited_at: serverTimestamp()
+    };
 
-    if (error) throw error;
+    await setDoc(productStatsRef, visitData, { merge: true });
+    
     return visitData;
   } catch (error) {
     console.error('Error tracking product visit:', error);

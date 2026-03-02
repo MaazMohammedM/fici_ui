@@ -3,6 +3,7 @@ import type { Product } from "../../../types/product";
 import { useNavigate } from "react-router-dom";
 import CachedImage from "../../../components/ui/CachedImage";
 import { getListingImageUrl, getThumbnailUrl } from "../../../lib/utils/imageOptimization";
+import fallbackImage from "../../../assets/Fici_logo.png";
 
 interface ProductCardProps {
   product: Product;
@@ -37,12 +38,37 @@ const ProductCard: React.FC<ProductCardProps> = ({
     return 0;
   }, [product.discount_percentage, product.mrp_price, product.discount_price]);
 
-  // Get optimized image URL - prioritize thumbnail_url for listing pages
+  // Get optimized image URL - prioritize thumbnail_url for listing, with fallback to first image
   const optimizedImageUrl = React.useMemo(() => {
     // Use thumbnail_url first (optimized for listing), fallback to first image
     const imageUrl = product.thumbnail_url || product.images?.[0] || '';
-    return getListingImageUrl(imageUrl);
+    let optimizedUrl = imageUrl;
+    
+    // Only try to optimize if we have a valid URL
+    if (imageUrl && imageUrl.trim() !== '') {
+      try {
+        optimizedUrl = getListingImageUrl(imageUrl);
+        // If the optimized URL is invalid or empty, use fallback
+        if (!optimizedUrl || optimizedUrl.trim() === '') {
+          optimizedUrl = fallbackImage;
+        }
+      } catch (error) {
+        // If optimization fails, use fallback
+        optimizedUrl = fallbackImage;
+      }
+    } else {
+      // No image URL available, use fallback
+      optimizedUrl = fallbackImage;
+    }
+    
+    return optimizedUrl;
   }, [product.thumbnail_url, product.images]);
+
+  // Get fallback image URL - use FICI logo if primary image fails
+  const fallbackImageUrl = React.useMemo(() => {
+    // Always return the FICI logo as fallback
+    return fallbackImage;
+  }, []);
 
   // Check if product attributes match active filters
   const isSubCategoryActive = React.useMemo(() => {
@@ -62,6 +88,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
       <div className="relative aspect-[4/5] w-full bg-gray-50 dark:bg-gray-800 flex items-center justify-center overflow-hidden flex-shrink-0">
         <CachedImage
           src={optimizedImageUrl}
+          fallbackSrc={fallbackImageUrl}
           alt={product.name}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           loading="lazy"

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Package } from 'lucide-react';
 import { useAdminStore } from '../../../features/admin/store/adminStore';
 import { useAuthStore } from '../../../store/authStore';
-import { supabase } from '../../../lib/supabase';
+import { db, doc, getDoc } from '../../../lib/firebase';
 import ReturnsManagementTab from './ReturnsManagementTab';
 import { printInvoice, generateInvoiceNumber, type InvoiceData, type InvoiceItem } from '../../../utils/invoiceUtils';
 import AlertModal from '../../../components/ui/AlertModal';
@@ -291,13 +291,14 @@ const AdminOrderDashboard: React.FC = () => {
   const refreshUserProfile = async () => {
     if (!user) return;
     try {
-      const { data: profile } = await supabase
-        .from('user_profiles')
-        .select('role, first_name')
-        .eq('user_id', user.id)
-        .single();
-      if (profile) {
-        useAuthStore.getState().setRole(profile.role);
+      const profileRef = doc(db, 'user_profiles', user.uid);
+      const profileSnap = await getDoc(profileRef);
+      
+      if (profileSnap.exists()) {
+        const profile = profileSnap.data();
+        if (profile) {
+          useAuthStore.getState().setRole(profile.role);
+        }
       }
     } catch {
       // silent
@@ -388,18 +389,26 @@ const AdminOrderDashboard: React.FC = () => {
   };
 
   // ── Computed values ────────────────────────────────────────
-  const getOrderStats = () => ({
-    total: orders.length,
-    pending: orders.filter((o) => o.status === 'pending').length,
-    paid: orders.filter((o) => o.status === 'paid').length,
-    shipped: orders.filter((o) => o.status === 'shipped').length,
-    delivered: orders.filter((o) => o.status === 'delivered').length,
-    cancelled: orders.filter((o) => o.status === 'cancelled').length,
-  });
+  const getOrderStats = () => {
+    // Filter out Razorpay orders with pending payment status
+    const validOrders = orders.filter((o) => 
+      !(o.payment_method === 'razorpay' && o.payment_status === 'pending')
+    );
+    
+    return {
+      total: validOrders.length,
+      pending: validOrders.filter((o) => o.status === 'pending').length,
+      paid: validOrders.filter((o) => o.status === 'paid').length,
+      shipped: validOrders.filter((o) => o.status === 'shipped').length,
+      delivered: validOrders.filter((o) => o.status === 'delivered').length,
+      cancelled: validOrders.filter((o) => o.status === 'cancelled').length,
+    };
+  };
 
   const orderActionStates: OrderActionStateEntry[] = useMemo(() => {
     return orders.map((order) => {
-      const orderItems = (order.order_items || []).map(
+      // Handle null order_items gracefully
+      const orderItems = (order.order_items ? [...order.order_items] : []).map(
         (item) =>
           ({
             ...item,

@@ -1,0 +1,15 @@
+{
+  "name": "hosting",
+  "version": "1.0.0",
+  "main": "index.html",
+  "scripts": {
+    "build": "vite build && npm run build:firebase",
+    "build:firebase": "cp -r dist ../functions && cp -r dist ../public && npm run build:firebase:functions",
+    "build:firebase:functions": "cd ../functions && npm run build",
+    "deploy": "firebase deploy --only hosting"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.6.1",
+    "firebase-functions": "^4.2.0"
+  }
+}

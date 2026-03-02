@@ -1,4 +1,5 @@
-import { supabase } from '@lib/supabase';
+import { httpsCallable, getFunctions } from '@lib/firebase';
+import { getAuth } from '@lib/firebase';
 import type { ContactFormData } from '../features/contact/types/contactTypes';
 
 export interface EmailPayload {
@@ -13,40 +14,62 @@ export class EmailService {
   private static readonly EDGE_FUNCTION_NAME = 'send-email';
 
   /**
-   * Send email via Supabase Edge Function
+   * Send email via Firebase Cloud Function
    */
-  static async sendEmail(payload: EmailPayload): Promise<{ success: boolean; error?: string }> {
+  static async sendEmail(payload: EmailPayload, requireAuth: boolean = false): Promise<{ success: boolean; error?: string }> {
     try {
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      let headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+
+      // Only require authentication for sensitive operations
+      if (requireAuth) {
+        const auth = getAuth();
+        const user = auth.currentUser;
+        
+        if (!user) {
+          return { success: false, error: 'Authentication required' };
+        }
+
+        const token = await user.getIdToken();
+        if (!token) {
+          return { success: false, error: 'No authentication token available' };
+        }
+
+        headers.Authorization = `Bearer ${token}`;
+      }
+
+      // Get the Firebase Functions URL
+      const functions = getFunctions();
+      const functionName = 'sendEmail';
       
-      if (sessionError) {
-        console.error('Session error:', sessionError);
-        return { success: false, error: 'Authentication failed' };
-      }
+      // Use production URL (emulator disabled for now)
+      const url = `https://asia-south1-fici-shoes.cloudfunctions.net/${functionName}`;
 
-      const token = session?.access_token;
-      if (!token) {
-        return { success: false, error: 'No authentication token available' };
-      }
-
-      const { data, error } = await supabase.functions.invoke(this.EDGE_FUNCTION_NAME, {
-        body: payload,
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+      const response = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          ...payload,
+          requireAuth,
+        }),
       });
 
-      if (error) {
-        console.error('Edge function error:', error);
-        return { success: false, error: error.message || 'Failed to send email' };
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        return { 
+          success: false, 
+          error: errorData.error || `HTTP ${response.status}: ${response.statusText}` 
+        };
       }
 
-      return { success: true };
-    } catch (error) {
+      const data = await response.json();
+      return { success: data.success };
+    } catch (error: any) {
       console.error('Email service error:', error);
       return { 
         success: false, 
-        error: error instanceof Error ? error.message : 'Failed to send email' 
+        error: error.message || 'Failed to send email' 
       };
     }
   }
@@ -118,7 +141,7 @@ Submitted on: ${new Date().toLocaleString()}
       subject,
       html,
       text,
-    });
+    }, false); // No authentication required for contact forms
   }
 
   /**
@@ -128,7 +151,8 @@ Submitted on: ${new Date().toLocaleString()}
     to: string,
     subject: string,
     message: string,
-    isHtml: boolean = false
+    isHtml: boolean = false,
+    requireAuth: boolean = false
   ): Promise<{ success: boolean; error?: string }> {
     if (!to) {
       return { success: false, error: 'Recipient email is required' };
@@ -139,7 +163,7 @@ Submitted on: ${new Date().toLocaleString()}
       subject,
       html: isHtml ? message : `<p>${message}</p>`,
       text: isHtml ? this.stripHtml(message) : message,
-    });
+    }, requireAuth);
   }
 
   /**
@@ -149,7 +173,8 @@ Submitted on: ${new Date().toLocaleString()}
     to: string,
     subject: string,
     templateData: Record<string, any>,
-    template: (data: Record<string, any>) => { html: string; text: string }
+    template: (data: Record<string, any>) => { html: string; text: string },
+    requireAuth: boolean = false
   ): Promise<{ success: boolean; error?: string }> {
     const { html, text } = template(templateData);
     
@@ -158,7 +183,7 @@ Submitted on: ${new Date().toLocaleString()}
       subject,
       html,
       text,
-    });
+    }, requireAuth);
   }
 
   /**

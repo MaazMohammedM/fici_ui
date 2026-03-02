@@ -1,4 +1,5 @@
-import { supabase } from '@/lib/supabase';
+import { db, collection, addDoc, getDocs, query, where, doc, getDoc, serverTimestamp } from '../firebase';
+import { getAuth } from '../firebase';
 import { getGuestSessionId } from '@/lib/utils/guestSession';
 import { logger } from '@/lib/logger';
 
@@ -12,6 +13,7 @@ export interface PaymentData {
   payment_reference?: string;
   guest_session_id?: string;
   payment_type?: 'registered' | 'guest';
+  user_id?: string;
 }
 
 /**
@@ -19,30 +21,29 @@ export interface PaymentData {
  */
 export const savePayment = async (paymentData: Omit<PaymentData, 'payment_type' | 'guest_session_id'>) => {
   try {
-    const { data: { session } } = await supabase.auth.getSession();
+    const auth = getAuth();
+    const user = auth.currentUser;
     const guestSessionId = getGuestSessionId() || '';
     
-    const payment: PaymentData = {
+    const payment: PaymentData & { created_at?: any } = {
       ...paymentData,
-      payment_type: session?.user ? 'registered' : 'guest',
-      guest_session_id: session?.user ? undefined : guestSessionId,
+      payment_type: user ? 'registered' : 'guest',
+      guest_session_id: user ? undefined : guestSessionId,
       currency: paymentData.currency || 'INR',
+      user_id: user?.uid,
+      created_at: serverTimestamp()
     };
     
     logger.info('Saving payment:', { orderId: paymentData.order_id, paymentType: payment.payment_type });
 
-    const { data, error } = await supabase
-      .from('payments')
-      .insert([payment])
-      .select()
-      .single();
+    const docRef = await addDoc(collection(db, 'payments'), payment);
+    const savedPayment = await getDoc(docRef);
 
-    if (error) {
-      logger.error('Error saving payment:', error);
-      throw error;
+    if (!savedPayment.exists()) {
+      throw new Error('Failed to save payment');
     }
 
-    return data?.[0];
+    return { id: savedPayment.id, ...savedPayment.data() };
   } catch (error) {
     logger.error('Failed to save payment:', error);
     throw error;
@@ -54,35 +55,33 @@ export const savePayment = async (paymentData: Omit<PaymentData, 'payment_type' 
  */
 export const getPaymentByOrderId = async (orderId: string) => {
   try {
-    const { data: { session } } = await supabase.auth.getSession();
+    const auth = getAuth();
+    const user = auth.currentUser;
     const guestSessionId = getGuestSessionId();
     
-    let query = supabase
-      .from('payments')
-      .select('*')
-      .eq('order_id', orderId);
+    let q = query(collection(db, 'payments'), where('order_id', '==', orderId));
 
     // If user is authenticated, check for their payments
-    if (session?.user) {
-      query = query.eq('user_id', session.user.id);
+    if (user) {
+      q = query(q, where('user_id', '==', user.uid));
     } 
     // If guest, check for payments with their session ID
     else if (guestSessionId) {
-      query = query.eq('guest_session_id', guestSessionId);
+      q = query(q, where('guest_session_id', '==', guestSessionId));
     }
     // If no session or guest ID, return empty
     else {
       return null;
     }
 
-    const { data, error } = await query.single();
+    const querySnapshot = await getDocs(q);
 
-    if (error) {
-      logger.error('Error fetching payment:', error);
-      throw error;
+    if (querySnapshot.empty) {
+      return null;
     }
 
-    return data;
+    const paymentDoc = querySnapshot.docs[0];
+    return { id: paymentDoc.id, ...paymentDoc.data() };
   } catch (error) {
     logger.error('Failed to fetch payment:', error);
     throw error;

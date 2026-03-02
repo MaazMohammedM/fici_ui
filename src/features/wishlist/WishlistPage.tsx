@@ -4,10 +4,12 @@ import { X, ShoppingCart, Heart as HeartIcon, HeartOff, ArrowLeft } from 'lucide
 import { useWishlistStore } from '@store/wishlistStore';
 import { useCartStore } from '@store/cartStore';
 import { toast } from 'sonner';
-import { supabase } from '@lib/supabase';
+import { collection, getDocs, query, where, onSnapshot } from 'firebase/firestore';
+import { db } from '@lib/firebase';
 import { parseProductSizes } from '@lib/productAvailability';
 import { validateCartItemStock } from '@lib/stock/stockValidator';
 import { getImageForUseCase } from '../../lib/utils/imageOptimization';
+import CachedImage from '../../components/ui/CachedImage';
 
 export const WishlistPage: React.FC = () => {
   const { items: wishlist, removeFromWishlist, addToWishlist, updateProductDetails, clearWishlist } = useWishlistStore();
@@ -32,12 +34,18 @@ export const WishlistPage: React.FC = () => {
         const productIds = wishlist.map(item => item.product_id);
         
         // Fetch current product data from database
-        const { data: currentProducts, error } = await supabase
-          .from('products')
-          .select('*')
-          .in('product_id', productIds);
+        const productsQuery = query(
+          collection(db, 'products'),
+          where('product_id', 'in', productIds)
+        );
+        
+        const querySnapshot = await getDocs(productsQuery);
+        const currentProducts = querySnapshot.docs.map(doc => ({
+          ...doc.data(),
+          product_id: doc.id
+        }));
           
-        if (error) {
+        if (!currentProducts.length) {
           return;
         }
         
@@ -46,7 +54,7 @@ export const WishlistPage: React.FC = () => {
           updateProductDetails({
             ...product,
             product_id: product.product_id,
-            article_id: product.article_id
+            article_id: (product as any).article_id || product.product_id
           });
         });
         
@@ -63,33 +71,31 @@ export const WishlistPage: React.FC = () => {
     if (!wishlist.length) return;
 
     const productIds = wishlist.map(item => item.product_id);
-    const channel = supabase
-      .channel('product_updates')
-      .on('postgres_changes', 
-        { 
-          event: 'UPDATE',
-          schema: 'public',
-          table: 'products',
-          filter: `product_id=in.(${productIds.join(',')})`
-        }, 
-        (payload) => {
-          const updatedProduct = payload.new;
+    const unsubscribe = onSnapshot(
+      query(
+        collection(db, 'products'),
+        where('product_id', 'in', productIds)
+      ),
+      (snapshot) => {
+        snapshot.docChanges().forEach((change) => {
+          const updatedProduct = {
+            ...change.doc.data(),
+            product_id: change.doc.id
+          };
           
           // If product is now inactive, remove it from wishlist
-          if (updatedProduct.is_active === false) {
+          if ((updatedProduct as any).is_active === false) {
             removeFromWishlist(updatedProduct.product_id);
-            toast.error(`${updatedProduct.name} is no longer available and has been removed from your wishlist`);
+            toast.error(`${(updatedProduct as any).name} is no longer available and has been removed from your wishlist`);
           } else {
-            // Otherwise, update the product details
+            // Otherwise, update product details
             updateProductDetails(updatedProduct);
           }
-        }
-      )
-      .subscribe();
+        });
+      }
+    );
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return unsubscribe;
   }, [wishlist, removeFromWishlist, updateProductDetails]);
 
   const handleAddToCart = (product: any) => {
@@ -237,11 +243,20 @@ export const WishlistPage: React.FC = () => {
               <div key={product.article_id} className="group relative bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden">
                 <div className="aspect-square w-full overflow-hidden rounded-t-lg bg-gray-200 dark:bg-gray-700 relative">
                   <Link to={`/products/${product.article_id}`} className="block h-full w-full relative z-10">
-                    <img
+                    <CachedImage
                       src={getImageForUseCase(product.thumbnail_url || product.images?.[0] || '/placeholder-product.jpg', 'LISTING')}
+                      fallbackSrc={product.thumbnail_url ? getImageForUseCase(product.images?.[0] || '', 'LISTING') : ''}
                       alt={product.name}
                       className={`h-full w-full object-cover object-center ${isOutOfStock ? 'opacity-40' : 'group-hover:opacity-75'}`}
                       loading="lazy"
+                      loadingFallback={
+                        <div className="w-full h-full bg-gray-200 dark:bg-gray-700 animate-pulse" />
+                      }
+                      errorFallback={
+                        <div className="w-full h-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                          <span className="text-gray-400">No image</span>
+                        </div>
+                      }
                     />
                   </Link>
 

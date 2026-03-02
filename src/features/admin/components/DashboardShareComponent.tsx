@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Download, Mail, FileText, Image, Loader2, CheckCircle, AlertCircle, RefreshCw, MessageCircle } from 'lucide-react';
 import { useImageDownloader } from '../../../hooks/useImageDownloader';
-import { supabase } from '../../../lib/supabase';
+import { db, collection, deleteDoc, doc, getDocs, query, where } from '@lib/firebase';
 
 interface DashboardShareComponentProps {
   stats: any;
@@ -100,20 +100,26 @@ const downloadAsText = (content: string, filename: string) => {
 const resetTrafficData = async () => {
   try {
     // Reset traffic sources
-    const { error: trafficError } = await supabase
-      .from('traffic_sources')
-      .delete()
-      .neq('id', '00000000-0000-0000-0000-000000000000'); // Keep one dummy row
-
-    if (trafficError) throw trafficError;
+    const trafficQuery = query(collection(db, 'traffic_sources'));
+    const trafficSnapshot = await getDocs(trafficQuery);
+    
+    // Delete all documents except one dummy row
+    const deletePromises = trafficSnapshot.docs
+      .filter(doc => doc.id !== '00000000-0000-0000-0000-000000000000')
+      .map(doc => deleteDoc(doc.ref));
+    
+    await Promise.all(deletePromises);
 
     // Reset product visits
-    const { error: visitsError } = await supabase
-      .from('product_visits')
-      .delete()
-      .neq('id', '00000000-0000-0000-0000-000000000000'); // Keep one dummy row
-
-    if (visitsError) throw visitsError;
+    const visitsQuery = query(collection(db, 'product_visit_stats'));
+    const visitsSnapshot = await getDocs(visitsQuery);
+    
+    // Delete all documents except one dummy row
+    const visitsDeletePromises = visitsSnapshot.docs
+      .filter(doc => doc.id !== '00000000-0000-0000-0000-000000000000')
+      .map(doc => deleteDoc(doc.ref));
+    
+    await Promise.all(visitsDeletePromises);
 
     return { success: true };
   } catch (error) {

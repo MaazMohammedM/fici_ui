@@ -3,6 +3,53 @@ import { Eye, TruckIcon, Ban, CheckCircle, Upload } from 'lucide-react';
 import type { Order, OrderActionFlags } from '../../../types/order-common';
 import { printInvoice, generateInvoiceNumber, type InvoiceData, type InvoiceItem } from '../../../utils/invoiceUtils';
 
+// Helper function to safely format date
+const formatOrderDate = (dateInput: string | number | undefined | null): string => {
+  if (!dateInput) return 'N/A';
+  
+  try {
+    let date: Date;
+    
+    // Handle if dateInput is a timestamp number (like 1769124252)
+    if (typeof dateInput === 'number') {
+      // Convert Unix timestamp to milliseconds (if it's in seconds)
+      const timestamp = dateInput.toString().length === 10 ? dateInput * 1000 : dateInput;
+      date = new Date(timestamp);
+    } 
+    // Handle if dateInput is a string
+    else if (typeof dateInput === 'string') {
+      // Try to parse as ISO date string first
+      if (dateInput.includes('T') || dateInput.includes('-')) {
+        date = new Date(dateInput);
+      } 
+      // If that fails, try parsing as timestamp string
+      else {
+        const timestamp = parseInt(dateInput);
+        if (!isNaN(timestamp)) {
+          const timestampMs = dateInput.length === 10 ? timestamp * 1000 : timestamp;
+          date = new Date(timestampMs);
+        } else {
+          date = new Date(dateInput);
+        }
+      }
+    }
+    // Handle other types (just in case)
+    else {
+      date = new Date(dateInput);
+    }
+    
+    // Check if date is valid
+    if (isNaN(date.getTime())) {
+      return 'Invalid Date';
+    }
+    
+    return date.toLocaleDateString('en-IN');
+  } catch (error) {
+    console.warn('Invalid date format:', dateInput, error);
+    return 'Invalid Date';
+  }
+};
+
 interface AdminOrderRowProps {
   order: Order;
   actionStates?: OrderActionFlags;
@@ -93,7 +140,7 @@ export const AdminOrderRow: React.FC<AdminOrderRowProps> = ({
             <div>
               <p className="text-sm text-gray-500">Order Date</p>
               <p className="font-medium">
-                {new Date(order.order_date).toLocaleDateString('en-IN')}
+                {formatOrderDate(order.order_date)}
               </p>
             </div>
             <div>

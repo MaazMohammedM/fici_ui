@@ -80,13 +80,13 @@ export default defineConfig({
   build: {
     rollupOptions: {
       external: (id) => {
-        // Only externalize Node.js modules that Supabase realtime-js needs but can't be polyfilled
+        // Only externalize Node.js modules that Firebase needs but can't be polyfilled
         return ['stream', 'http', 'https', 'url', 'zlib', 'util', 'events', 'assert'].includes(id);
       },
       output: {
         manualChunks: {
           vendor: ['react', 'react-dom'],
-          supabase: ['@supabase/supabase-js']
+          firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/storage', 'firebase/functions']
         }
       }
     },

@@ -1,6 +1,6 @@
 import { memo, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@lib/supabase';
+import { getAuth, onAuthStateChanged } from '../../lib/firebase';
 import { useAuthStore } from '@store/authStore';
 import { Loader2, AlertCircle, CheckCircle, ArrowRight } from 'lucide-react';
 import { Button } from '../ui';
@@ -15,33 +15,26 @@ const AuthCallback = memo(() => {
   const { setUser, setRole, setFirstName } = useAuthStore();
 
   useEffect(() => {
-    const handleAuth = async () => {
-      try {
-        setStep('loading');
+    setStep('loading');
 
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-
-        if (sessionError || !session?.user) {
-          throw new Error(sessionError?.message || 'Authentication failed');
-        }
-
-        const user = session.user;
+    const auth = getAuth();
+    
+    // Listen for auth state changes
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
         setUser(user);
-        await new Promise(resolve => setTimeout(resolve, 1000));
-
         setStep('success');
-
+        
         // Redirect after a short delay
         setTimeout(() => navigate('/'), 1500);
-
-      } catch (err: any) {
-        console.error('Auth callback error:', err);
-        setError(err.message || 'Authentication failed');
+      } else {
+        setError('Authentication failed');
         setStep('error');
       }
-    };
+    });
 
-    handleAuth();
+    // Cleanup subscription
+    return unsubscribe;
   }, [navigate, setUser, setRole, setFirstName]);
 
   // Loading State

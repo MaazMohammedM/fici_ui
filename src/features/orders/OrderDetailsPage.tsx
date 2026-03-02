@@ -4,7 +4,8 @@ import { XCircle, Package, ArrowLeft, X, Upload, CheckCircle } from 'lucide-reac
 import ReviewModal from './components/ReviewModal';
 import { useOrderStore } from '../../store/orderStore';
 import { useAuthStore } from '../../store/authStore';
-import { supabase } from '../../lib/supabase';
+import { collection, getDocs, query, where, orderBy, orderBy as orderByDesc } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
 import { getAvailableSizes } from '../../lib/utils/productValidation';
 import FiciLoader from '../../components/ui/FiciLoader';
 import { OrderHeader } from '../../components/order/OrderHeader';
@@ -749,20 +750,23 @@ const OrderDetailsPage = ({ isGuest = false }: { isGuest?: boolean }) => {
       const productIds = order.items.map(item => item.product_id);
 
       try {
-        let query = supabase
-          .from('reviews')
-          .select('product_id, user_id, guest_session_id, rating, comment, created_at, review_id')
-          .in('product_id', productIds);
+        const reviewsQuery = query(
+          collection(db, 'reviews'),
+          where('product_id', 'in', productIds)
+        );
 
+        let finalQuery = reviewsQuery;
         if (user) {
-          query = query.eq('user_id', user.id);
+          finalQuery = query(reviewsQuery, where('user_id', '==', user.uid));
         } else if (guestSession) {
-          query = query.eq('guest_session_id', guestSession.guest_session_id);
+          finalQuery = query(reviewsQuery, where('guest_session_id', '==', guestSession.guest_session_id));
         }
 
-        const { data: reviews, error } = await query;
-
-        if (error) throw error;
+        const querySnapshot = await getDocs(finalQuery);
+        const reviews = querySnapshot.docs.map(doc => ({
+          ...doc.data(),
+          review_id: doc.id
+        }));
 
         // Type the reviews response properly
         type ReviewResponse = {
@@ -803,16 +807,20 @@ const OrderDetailsPage = ({ isGuest = false }: { isGuest?: boolean }) => {
     const orderItemIds = order.items.map(item => item.order_item_id);
 
     try {
-      const { data: replacements, error } = await supabase
-        .from('returns')
-        .select('return_id, order_item_id, status, reason_description,reason_code, requested_size, pickup_partner, replacement_tracking_id, replacement_tracking_url, approved_by, resolved_at')
-        .in('order_item_id', orderItemIds)
-        .eq('request_type', 'replacement');
-
-      if (error) throw error;
+      const returnsQuery = query(
+        collection(db, 'returns'),
+        where('order_item_id', 'in', orderItemIds),
+        where('request_type', '==', 'replacement')
+      );
+      
+      const querySnapshot = await getDocs(returnsQuery);
+      const replacements = querySnapshot.docs.map(doc => ({
+        ...doc.data(),
+        return_id: doc.id
+      }));
 
       // Include all replacements except rejected ones
-      const activeReplacements = replacements?.filter(r => 
+      const activeReplacements = (replacements as any[])?.filter((r: any) => 
         r.status !== 'rejected'
       ) || [];
 
@@ -830,7 +838,7 @@ const OrderDetailsPage = ({ isGuest = false }: { isGuest?: boolean }) => {
       }> = {};
       
       if (Array.isArray(activeReplacements)) {
-        activeReplacements.forEach(replacement => {
+        activeReplacements.forEach((replacement: any) => {
           replacementMap[replacement.order_item_id] = {
             return_id: replacement.return_id,
             status: replacement.status,
@@ -863,16 +871,23 @@ const OrderDetailsPage = ({ isGuest = false }: { isGuest?: boolean }) => {
     const orderItemIds = order.items.map(item => item.order_item_id);
 
     try {
-      const { data: refunds, error } = await supabase
-        .from('refunds')
-        .select('*')
-        .in('order_item_id', orderItemIds)
-        .order('created_at', { ascending: false });
+      const refundsQuery = query(
+        collection(db, 'refunds'),
+        where('order_item_id', 'in', orderItemIds),
+        orderBy('created_at', 'desc')
+      );
+      
+      const querySnapshot = await getDocs(refundsQuery);
+      const refunds = querySnapshot.docs.map(doc => ({
+        ...doc.data(),
+        refund_id: doc.id
+      }));
 
-      if (error) throw error;
+      if (!refunds.length) return;
 
       const refundMap: Record<string, {
         refund_id: string;
+        order_item_id: string;
         refund_status: 'initiated' | 'processed' | 'failed' | 'cancelled';
         refund_method: 'razorpay' | 'cod' | 'manual' | 'wallet';
         provider_reference?: string;
@@ -882,15 +897,19 @@ const OrderDetailsPage = ({ isGuest = false }: { isGuest?: boolean }) => {
         processed_at?: string;
       }> = {};
       
-      if (Array.isArray(refunds)) {
-        refunds.forEach(refund => {
-          // Keep only the latest refund for each order item
-          if (!refundMap[refund.order_item_id] || 
-              new Date(refund.created_at) > new Date(refundMap[refund.order_item_id].created_at)) {
-            refundMap[refund.order_item_id] = refund;
-          }
-        });
-      }
+      refunds.forEach((refund: any) => {
+        refundMap[refund.order_item_id] = {
+          refund_id: refund.refund_id,
+          order_item_id: refund.order_item_id,
+          refund_status: refund.refund_status,
+          refund_method: refund.refund_method,
+          provider_reference: refund.provider_reference,
+          arn: refund.arn,
+          refund_amount: refund.refund_amount,
+          created_at: refund.created_at,
+          processed_at: refund.processed_at
+        };
+      });
 
       setExistingRefunds(refundMap);
     } catch (error) {
@@ -1085,13 +1104,15 @@ const OrderDetailsPage = ({ isGuest = false }: { isGuest?: boolean }) => {
             // Fetch available sizes for this product
             const fetchProductSizes = async () => {
               try {
-                const { data: product } = await supabase
-                  .from('products')
-                  .select('sizes')
-                  .eq('product_id', item.product_id)
-                  .single();
+                const productQuery = query(
+                  collection(db, 'products'),
+                  where('product_id', '==', item.product_id)
+                );
                 
-                if (product?.sizes) {
+                const productSnapshot = await getDocs(productQuery);
+                const product = productSnapshot.docs[0]?.data();
+                
+                if (product && (product as any).sizes) {
                   const sizes = getAvailableSizes(product);
                   console.log('📏 Available sizes fetched:', sizes);
                   setAvailableSizesForReplacement(sizes);

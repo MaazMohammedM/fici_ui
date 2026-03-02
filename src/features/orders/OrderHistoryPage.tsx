@@ -8,7 +8,8 @@ import { Input, Button } from '../../auth/ui';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { supabase } from '../../lib/supabase';
+import { collection, getDocs, query, where, and as queryAnd, or as queryOr } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
 
 // Helper to hash OTP using SHA-256 (matches backend)
 async function hashOtp(otp: string): Promise<string> {
@@ -80,20 +81,33 @@ const OrderHistoryPage: React.FC = () => {
       const { identifier, otp } = data;
       const hashedOtp = await hashOtp(otp);
 
-      const { data: order, error } = await supabase
-        .from('orders')
-        .select('order_id')
-        .eq('order_type', 'guest')
-        .eq('guest_pin_hash', hashedOtp)
-        .or(`guest_email.eq.${identifier},guest_phone.eq.${identifier}`)
-        .maybeSingle();
-
-      if (error) throw error;
-
-      if (!order) {
+      const ordersQuery = query(
+        collection(db, 'orders'),
+        queryOr(
+          queryAnd(
+            where('order_type', '==', 'guest'),
+            where('guest_pin_hash', '==', hashedOtp),
+            where('guest_email', '==', identifier)
+          ),
+          queryAnd(
+            where('order_type', '==', 'guest'),
+            where('guest_pin_hash', '==', hashedOtp),
+            where('guest_phone', '==', identifier)
+          )
+        )
+      );
+      
+      const querySnapshot = await getDocs(ordersQuery);
+      
+      if (querySnapshot.empty) {
         setGuestOrderError('Invalid OTP or details. Please check and try again.');
         return;
       }
+      
+      const order = {
+        order_id: querySnapshot.docs[0].id,
+        ...querySnapshot.docs[0].data()
+      };
 
       navigate(`/orders/${order.order_id}`);
     } catch (err) {

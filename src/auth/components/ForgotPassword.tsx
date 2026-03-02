@@ -4,7 +4,8 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Mail, ArrowLeft, CheckCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { supabase } from '@lib/supabase';
+import { sendPasswordResetEmail } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 import { Input, Button } from '../ui';
 
 const ForgotPasswordSchema = z.object({
@@ -32,13 +33,9 @@ const ForgotPassword: React.FC = () => {
     setError(null);
 
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(data.email, {
-        redirectTo: `${window.location.origin}/auth/reset-password`
+      await sendPasswordResetEmail(auth, data.email, {
+        url: `${window.location.origin}/auth/reset-password`
       });
-
-      if (error) {
-        throw error;
-      }
 
       setIsEmailSent(true);
     } catch (err: any) {

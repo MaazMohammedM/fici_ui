@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Package, Truck, CheckCircle, XCircle, Clock, Eye, Filter, RefreshCw } from 'lucide-react';
-import { supabase } from '../../../lib/supabase';
+import { db, collection, getDocs, query, orderBy, doc, updateDoc, where } from '@lib/firebase';
 
 interface Order {
   order_id: string;
@@ -65,18 +65,14 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ className = '' }) => 
     try {
       setLoading(true);
 
-      const { data: ordersData, error: ordersError } = await supabase
-        .from('orders')
-        .select(`
-          *,
-          order_items (*)
-        `)
-        .order('order_date', { ascending: false });
-
-      if (ordersError) {
-        console.error('Error fetching orders:', ordersError);
-        return;
-      }
+      const ordersQuery = query(
+        collection(db, 'orders'),
+        orderBy('order_date', 'desc')
+      );
+      const ordersSnapshot = await getDocs(ordersQuery);
+      const ordersData = ordersSnapshot.docs.map(doc => ({
+        ...doc.data()
+      })) as Order[];
 
       setOrders(ordersData || []);
     } catch (error) {
@@ -113,21 +109,14 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ className = '' }) => 
     try {
       setUpdating(true);
 
-      const { error } = await supabase
-        .from('orders')
-        .update({
-          status: 'shipped',
-          shipping_partner: shipmentForm.shipping_partner,
-          tracking_id: shipmentForm.tracking_id,
-          tracking_url: shipmentForm.tracking_url,
-          shipped_at: new Date().toISOString(),
-        })
-        .eq('order_id', selectedOrder.order_id);
-
-      if (error) {
-        console.error('Error updating order:', error);
-        return;
-      }
+      const orderRef = doc(db, 'orders', selectedOrder.order_id);
+      await updateDoc(orderRef, {
+        status: 'shipped',
+        shipping_partner: shipmentForm.shipping_partner,
+        tracking_id: shipmentForm.tracking_id,
+        tracking_url: shipmentForm.tracking_url,
+        shipped_at: new Date().toISOString(),
+      });
 
       // Refresh orders
       await fetchOrders();

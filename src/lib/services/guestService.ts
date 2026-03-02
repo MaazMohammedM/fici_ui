@@ -1,4 +1,4 @@
-import { supabase } from '../supabase'; // Make sure to import supabase client
+import { httpsCallable, functions } from '../firebase'; // Make sure to import firebase functions
 import type { GuestContactInfo } from '../validation/checkout';
 
 export interface GuestSession {
@@ -21,16 +21,15 @@ export class GuestService {
         name: contactInfo.name || ''
       };
 
-      // Use Supabase functions client to invoke the edge function
-      const { data, error } = await supabase.functions.invoke('create-guest-session', {
-        body: requestBody
-      });
+      // Use Firebase functions to invoke the cloud function
+      const createGuestSessionFunction = httpsCallable(functions, 'create-guest-session');
+      const { data } = await createGuestSessionFunction(requestBody);
 
-      if (error) {
-        throw error;
+      if (!data) {
+        throw new Error('Failed to create guest session');
       }
 
-      return data;
+      return data as GuestSession;
     } catch (error) {
       console.error('Failed to create guest session:', error);
       throw error;
@@ -39,15 +38,10 @@ export class GuestService {
 
   static async validateSession(sessionId: string): Promise<boolean> {
     try {
-      const { data, error } = await supabase.functions.invoke('validate-guest-session', {
-        body: { session_id: sessionId }
-      });
-
-      if (error) {
-        throw error;
-      }
-
-      return data?.valid === true;
+      const validateGuestSessionFunction = httpsCallable(functions, 'validate-guest-session');
+      const { data } = await validateGuestSessionFunction({ session_id: sessionId });
+      
+      return (data as any)?.valid === true;
     } catch (error) {
       console.error('Session validation error:', error);
       return false;
@@ -56,17 +50,13 @@ export class GuestService {
 
   static async extendSession(sessionId: string): Promise<boolean> {
     try {
-      const { data, error } = await supabase.functions.invoke('extend-guest-session', {
-        body: { session_id: sessionId }
-      });
-
-      if (error) {
-        throw error;
-      }
-
-      return data?.success === true;
+      const extendGuestSessionFunction = httpsCallable(functions, 'extend-guest-session');
+      const { data } = await extendGuestSessionFunction({ session_id: sessionId });
+      
+      return (data as any)?.success === true;
     } catch (error) {
       console.error('Session extension error:', error);
       return false;
     }
-  }}
+  }
+}

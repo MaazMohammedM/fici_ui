@@ -4,7 +4,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { User, Mail, Phone, Lock, Eye, EyeOff, Save, Edit3 } from 'lucide-react';
 import { useAuthStore } from '@store/authStore';
-import { supabase } from '@lib/supabase';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { signInWithEmailAndPassword, updatePassword as updateFirebasePassword } from 'firebase/auth';
+import { db, auth } from '@lib/firebase';
 import { Input, Button } from '../../auth/ui';
 import PhoneUpdateWithOtp from '../../components/PhoneUpdateWithOtp';
 
@@ -64,13 +66,14 @@ const ProfilePage: React.FC = () => {
       if (!user) return;
 
       try {
-        const { data, error } = await supabase
-          .from('user_profiles')
-          .select('*')
-          .eq('user_id', user.id)
-          .single();
-
-        if (error) throw error;
+        const userDocRef = doc(db, 'user_profiles', user.uid);
+        const docSnapshot = await getDoc(userDocRef);
+        
+        if (!docSnapshot.exists()) {
+          throw new Error('User profile not found');
+        }
+        
+        const data = docSnapshot.data();
 
         setUserProfile(data);
         profileForm.reset({
@@ -96,16 +99,12 @@ const ProfilePage: React.FC = () => {
 
     try {
       // Update user profile in database (excluding email and phone)
-      const { error: profileError } = await supabase
-        .from('user_profiles')
-        .update({
-          first_name: data.firstName,
-          last_name: data.lastName
-          // phone_number removed - only updated via OTP modal
-        })
-        .eq('user_id', user.id);
-
-      if (profileError) throw profileError;
+      const userDocRef = doc(db, 'user_profiles', user.uid);
+      await updateDoc(userDocRef, {
+        first_name: data.firstName,
+        last_name: data.lastName
+        // phone_number removed - only updated via OTP modal
+      });
 
       // Update local state
       setFirstName(data.firstName);
@@ -132,21 +131,10 @@ const ProfilePage: React.FC = () => {
 
     try {
       // Verify current password by attempting to sign in
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: user?.email || '',
-        password: data.currentPassword
-      });
-
-      if (signInError) {
-        throw new Error('Current password is incorrect');
-      }
+      await signInWithEmailAndPassword(auth, user?.email || '', data.currentPassword);
 
       // Update password
-      const { error: updateError } = await supabase.auth.updateUser({
-        password: data.newPassword
-      });
-
-      if (updateError) throw updateError;
+      await updateFirebasePassword(user, data.newPassword);
 
       setPasswordSuccess('Password updated successfully!');
       setIsEditingPassword(false);

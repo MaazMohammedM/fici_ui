@@ -94,6 +94,7 @@ const useDebounce = <T,>(value: T, delay: number): T => {
 const ProductPage: React.FC = () => {
   const {
     filteredProducts,
+    totalFilteredCount,
     fetchProducts,
     currentPage,
     totalPages,
@@ -179,12 +180,6 @@ const ProductPage: React.FC = () => {
            (debouncedSearchInput.trim() ? 1 : 0);
   }, [selectedCategories, selectedGenders, selectedSubCategories, selectedSizes, sortBy, debouncedSearchInput]);
 
-  // Use totalPages from store instead of calculating locally
-  // The store now correctly calculates totalPages based on database count
-
-
-
-  
   // Reset to page 1 if current page exceeds total pages
   useEffect(() => {
     if (currentPage > totalPages) {
@@ -632,7 +627,7 @@ const ProductPage: React.FC = () => {
             </div>
             {filteredProducts && filteredProducts.length > 0 && !loading && (
               <div className="text-sm text-gray-600 dark:text-gray-400">
-                <span className="font-medium">{filteredProducts.length}</span> items
+                <span className="font-medium">{totalPages > 1 ? `${(currentPage - 1) * 12 + filteredProducts.length} of ${totalFilteredCount}` : totalFilteredCount}</span> items
                 {hasActiveFilters && ' with filters applied'}
               </div>
             )}
@@ -682,8 +677,8 @@ const ProductPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Filter Button - Compact width */}
-            <div className="flex-1 max-w-[45%]">
+            {/* Filter Button - Compact width - Hidden on desktop */}
+            <div className="flex-1 max-w-[45%] lg:hidden">
               <FilterButton count={activeFilterCount} onClick={() => setIsMobileFiltersOpen(true)} />
             </div>
 

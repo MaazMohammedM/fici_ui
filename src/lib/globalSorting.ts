@@ -5,7 +5,7 @@ interface GlobalSortOptions {
   search?: string;
   category?: string[];
   gender?: string[];
-  subCategory?: string[];
+  sub_category?: string[];
   sizeFilters?: string[];
 }
 
@@ -44,9 +44,9 @@ export const applyGlobalSorting = (
   }
 
   // Apply subcategory filter
-  if (options.subCategory && options.subCategory.length > 0) {
+  if (options.sub_category && options.sub_category.length > 0) {
     filteredProducts = filteredProducts.filter(product =>
-      options.subCategory!.includes(product.sub_category)
+      options.sub_category!.includes(product.sub_category)
     );
   }
 

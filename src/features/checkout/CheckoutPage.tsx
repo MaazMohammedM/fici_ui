@@ -19,7 +19,9 @@ import CheckoutSummary from "./components/CheckoutSummary";
 import CheckoutAddressSection from "./components/CheckoutAddressSection";
 import CheckoutPaymentSection from "./components/CheckoutPaymentSection";
 import CheckoutActions from "./components/CheckoutActions";
-import { supabase } from "@lib/supabase";
+import { db, collection, doc, getDoc, getDocs, query, where, updateDoc } from "@lib/firebase";
+import { firebaseHelpers } from "@lib/firebaseUtils";
+import { httpsCallable, functions } from "@lib/firebase";
 import { 
   getOtpIdentity, 
   getNonEditableIdentityFields, 
@@ -217,14 +219,17 @@ const CheckoutPage: React.FC = () => {
       if (productIds.length === 0) return;
 
       try {
-        // Build proper query for multiple product IDs
-        const { data: products, error } = await supabase
-          .from('products')
-          .select('*')
-          .in('product_id', productIds);
+        // Build proper query for multiple product IDs using Firebase
+        const productsQuery = query(
+          collection(db, 'products'),
+          where('product_id', 'in', productIds)
+        );
+        
+        const querySnapshot = await getDocs(productsQuery);
+        const products = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
 
-        if (error) {
-          console.error('Error fetching product details:', error);
+        if (products.length === 0) {
+          console.error('No products found');
           return;
         }
 
@@ -802,15 +807,16 @@ const productSavings = useMemo(() => {
 
   // Function to load default address for signed-in users
   const loadDefaultAddress = async () => {
+    if (!user || !user.uid) {
+      console.warn('User or user.uid is undefined, cannot load default address');
+      return;
+    }
+    
     try {
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .select('addresses')
-        .eq('user_id', user.id)
-        .single();
-
-      if (!error && data?.addresses && Array.isArray(data.addresses)) {
-        const addresses = data.addresses;
+      const userDoc = await firebaseHelpers.getDocumentWithId('user_profiles', user.uid);
+      
+      if (userDoc?.addresses && Array.isArray(userDoc.addresses) && userDoc.addresses.length > 0) {
+        const addresses = userDoc.addresses;
         
         // Find default address with valid pincode
         const defaultAddress = addresses.find(addr => 
@@ -834,9 +840,14 @@ const productSavings = useMemo(() => {
             sessionStorage.setItem(CHECKOUT_DRAFT_KEY, JSON.stringify(draftData));
           }
         }
+      } else {
+        console.warn('No addresses found for user:', user.uid, 'User profile data:', userDoc);
+        console.info('User needs to add addresses in their profile');
       }
     } catch (error) {
       console.error("Error loading default address:", error);
+      // If user_profiles collection doesn't exist or permission denied, continue without address
+      console.info('Continuing without default address - user can add address during checkout');
     }
   };
 
@@ -1101,17 +1112,19 @@ const productSavings = useMemo(() => {
   // Fetch user profile data for registered users
   useEffect(() => {
     const fetchUserProfile = async () => {
-      if (!user) return;
+      if (!user || !user.uid) {
+        console.warn('User or user.uid is undefined, cannot fetch user profile');
+        return;
+      }
 
       try {
-        const { data, error } = await supabase
-          .from('user_profiles')
-          .select('*')
-          .eq('user_id', user.id)
-          .single();
+        const userProfileData = await firebaseHelpers.getDocumentWithId('user_profiles', user.uid);
 
-        if (!error && data) {
-          setUserProfile(data);
+        if (userProfileData) {
+          setUserProfile(userProfileData);
+          console.log('User profile loaded successfully for:', user.email);
+        } else {
+          console.warn('No user profile found for:', user.uid);
         }
       } catch (error) {
         console.error('Error fetching user profile:', error);
@@ -1196,51 +1209,53 @@ const productSavings = useMemo(() => {
     if (orderIdToUse) {
       try {
 
-        const { error: orderError } = await supabase
-          .from("orders")
-          .update({
+        // Find orders by order_id field using Firebase
+        const ordersQuery = query(
+          collection(db, 'orders'),
+          where('order_id', '==', orderIdToUse)
+        );
+        const orderSnapshot = await getDocs(ordersQuery);
+        
+        if (!orderSnapshot.empty) {
+          const orderDoc = orderSnapshot.docs[0];
+          await updateDoc(orderDoc.ref, {
             status: "cancelled",
             payment_status: "failed",
             cancelled_at: new Date().toISOString(),
-            comments: "Payment cancelled by user",
-          })
-          .eq("order_id", orderIdToUse);
-
-        if (orderError) {
-          console.error(
-            "❌ Error updating order status:",
-            orderError
-          );
+            comments: "Payment cancelled by user"
+          });
         }
 
-        const { error: itemsError } = await supabase
-          .from("order_items")
-          .update({
+        // Find order items by order_id field using Firebase
+        const orderItemsQuery = query(
+          collection(db, 'order_items'),
+          where('order_id', '==', orderIdToUse)
+        );
+        const orderItemsSnapshot = await getDocs(orderItemsQuery);
+        
+        // Update all order items for this order
+        const updatePromises = orderItemsSnapshot.docs.map(itemDoc => 
+          updateDoc(itemDoc.ref, {
             item_status: "cancelled",
-            cancel_reason: "Payment cancelled by user",
+            cancel_reason: "Payment cancelled by user"
           })
-          .eq("order_id", orderIdToUse);
+        );
+        
+        await Promise.all(updatePromises);
 
-        if (itemsError) {
-          console.error(
-            "❌ Error updating order items status:",
-            itemsError
-          );
-        }
-
-        const { error: paymentError } = await supabase
-          .from("payments")
-          .update({
+        // Find payments by order_id field using Firebase
+        const paymentsQuery = query(
+          collection(db, 'payments'),
+          where('order_id', '==', orderIdToUse)
+        );
+        const paymentsSnapshot = await getDocs(paymentsQuery);
+        
+        if (!paymentsSnapshot.empty) {
+          const paymentDoc = paymentsSnapshot.docs[0];
+          await updateDoc(paymentDoc.ref, {
             payment_status: "failed",
-            updated_at: new Date().toISOString(),
-          })
-          .eq("order_id", orderIdToUse);
-
-        if (paymentError) {
-          console.error(
-            "❌ Error updating payment status:",
-            paymentError
-          );
+            updated_at: new Date().toISOString()
+          });
         }
 
       } catch (dbError) {
@@ -1537,26 +1552,37 @@ const productSavings = useMemo(() => {
 
       const invokeBody =
         authType === "user"
-          ? { ...orderData, user_id: user!.id }
+          ? { ...orderData, user_id: user!.uid }
           : {
               ...orderData,
               guest_session_id: currentGuestSession?.guest_session_id,
               guest_contact_info: guestInfo,
             };
 
-      const { data, error } = await supabase.functions.invoke(
-        "create-order",
-        {
-          body: invokeBody,
-        }
-      );
+      // Use HTTP fetch for create-order function
+      const functionName = 'createOrder';
+      
+      // Use production URL (emulator disabled for now)
+      const url = `https://asia-south1-fici-shoes.cloudfunctions.net/${functionName}`;
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(invokeBody),
+      });
 
-      if (error) {
-        console.error("Error creating order:", error);
-        throw new Error(
-          (error as any).message ||
-            "Failed to create order"
-        );
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      
+      if (!data) {
+        console.error("Error creating order: No data returned");
+        throw new Error("Failed to create order");
       }
 
       const paymentOrder =

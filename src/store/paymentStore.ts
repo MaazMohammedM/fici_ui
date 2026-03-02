@@ -1,6 +1,7 @@
 // src/store/paymentStore.ts
 import { create } from 'zustand';
-import { supabase } from '@lib/supabase';
+import { db, collection, addDoc, getDocs, query, where, doc, getDoc, updateDoc, serverTimestamp, limit } from '@lib/firebase';
+import { httpsCallable, functions } from '@lib/firebase';
 
 /** ─────────────────────────────────────────────────────────────────────────────
  * Types
@@ -76,11 +77,9 @@ export const usePaymentStore = create<PaymentState>((set) => ({
   /** Creates order in Razorpay and returns razorpay_order_id */
   createRazorpayOrder: async (amount: number, currency: string = 'INR') => {
     try {
-      const { data, error } = await supabase.functions.invoke('create-razorpay-order', {
-        body: { amount, currency }
-      });
+      const createRazorpayOrderFunction = httpsCallable(functions, 'create-razorpay-order');
+      const { data } = await createRazorpayOrderFunction({ amount, currency });
 
-      if (error) throw error;
       return data;
     } catch (error) {
       console.error('Failed to create Razorpay order:', error);
@@ -94,15 +93,10 @@ export const usePaymentStore = create<PaymentState>((set) => ({
     try {
       // 1) Insert into orders with razorpay_order_id
       const orderInsertData: any = {
-        subtotal: orderData.subtotal,
-        discount: orderData.discount,
-        delivery_charge: orderData.delivery_charge,
-        total_amount: orderData.total_amount,
-        status: orderData.status,
-        payment_status: orderData.payment_status,
-        payment_method: orderData.payment_method,
-        shipping_address: orderData.shipping_address,
+        ...orderData,
         razorpay_order_id: razorpayOrderId, // Link to Razorpay order
+        created_at: serverTimestamp(),
+        updated_at: serverTimestamp()
       };
 
       // Add user_id or guest session data based on order type
@@ -118,14 +112,8 @@ export const usePaymentStore = create<PaymentState>((set) => ({
         }
       }
 
-      const { data: orderRow, error: orderErr } = await supabase
-        .from("orders")
-        .insert([orderInsertData])
-        .select("order_id")
-        .single();
-
-      if (orderErr) throw orderErr;
-      const orderId: string = orderRow.order_id;
+      const orderRef = await addDoc(collection(db, 'orders'), orderInsertData);
+      const orderId = orderRef.id;
 
       // 2) Insert order_items
       if (orderData.items?.length) {
@@ -136,13 +124,12 @@ export const usePaymentStore = create<PaymentState>((set) => ({
           quantity: i.quantity,
           price_at_purchase: i.price,
           thumbnail_url: i.thumbnail_url,
+          created_at: serverTimestamp()
         }));
 
-        const { error: itemsErr } = await supabase
-          .from("order_items")
-          .insert(itemsToInsert);
-
-        if (itemsErr) throw itemsErr;
+        for (const item of itemsToInsert) {
+          await addDoc(collection(db, 'order_items'), item);
+        }
       }
 
       set({ loading: false });
@@ -157,21 +144,22 @@ export const usePaymentStore = create<PaymentState>((set) => ({
   savePaymentDetails: async (paymentData) => {
     set({ loading: true, error: null });
     try {
-      const now = new Date().toISOString();
+      const now = serverTimestamp();
       const isPaid = paymentData.payment_status === "completed";
 
       // If order_id is not provided, try to find it from existing payment record
       let orderId = paymentData.order_id;
       if (!orderId && paymentData.payment_reference) {
         // Look up the order_id from the payments table using payment_reference
-        const { data: existingPayment } = await supabase
-          .from("payments")
-          .select("order_id")
-          .eq("payment_reference", paymentData.payment_reference)
-          .single();
+        const paymentsQuery = query(
+          collection(db, 'payments'),
+          where('payment_reference', '==', paymentData.payment_reference),
+          limit(1)
+        );
+        const paymentSnapshot = await getDocs(paymentsQuery);
 
-        if (existingPayment) {
-          orderId = existingPayment.order_id;
+        if (!paymentSnapshot.empty) {
+          orderId = paymentSnapshot.docs[0].data().order_id;
         }
       }
 
@@ -180,27 +168,24 @@ export const usePaymentStore = create<PaymentState>((set) => ({
       }
 
       // Check if payment record already exists
-      const { data: existingPayment } = await supabase
-        .from("payments")
-        .select("*")
-        .eq("payment_reference", paymentData.payment_reference)
-        .single();
+      const existingPaymentQuery = query(
+        collection(db, 'payments'),
+        where('payment_reference', '==', paymentData.payment_reference),
+        limit(1)
+      );
+      const existingPaymentSnapshot = await getDocs(existingPaymentQuery);
 
-      if (existingPayment) {
+      if (!existingPaymentSnapshot.empty) {
         // Update existing payment record
-        const { error: updateErr } = await supabase
-          .from("payments")
-          .update({
-            payment_status: paymentData.payment_status,
-            payment_method: paymentData.payment_method,
-            amount: paymentData.amount,
-            currency: paymentData.currency,
-            paid_at: isPaid ? now : null,
-            updated_at: now,
-          })
-          .eq("payment_reference", paymentData.payment_reference);
-
-        if (updateErr) throw updateErr;
+        const paymentDoc = existingPaymentSnapshot.docs[0];
+        await updateDoc(paymentDoc.ref, {
+          payment_status: paymentData.payment_status,
+          payment_method: paymentData.payment_method,
+          amount: paymentData.amount,
+          currency: paymentData.currency,
+          paid_at: isPaid ? now : null,
+          updated_at: now,
+        });
       } else {
         // Insert new payment record
         const paymentInsert: any = {
@@ -213,6 +198,7 @@ export const usePaymentStore = create<PaymentState>((set) => ({
           payment_reference: paymentData.payment_reference ?? null,
           paid_at: isPaid ? now : null,
           updated_at: now,
+          created_at: now,
         };
 
         // Add user_id or guest_session_id based on payment type
@@ -224,8 +210,7 @@ export const usePaymentStore = create<PaymentState>((set) => ({
           paymentInsert.payment_type = 'guest';
         }
 
-        const { error: payErr } = await supabase.from("payments").insert([paymentInsert]);
-        if (payErr) throw payErr;
+        await addDoc(collection(db, 'payments'), paymentInsert);
       }
 
       // 2) Update orders.{status,payment_status}
@@ -235,22 +220,27 @@ export const usePaymentStore = create<PaymentState>((set) => ({
         ? "cancelled"
         : "pending";
 
-      const { error: updErr } = await supabase
-        .from("orders")
-        .update({
+      const orderQuery = query(
+        collection(db, 'orders'),
+        where('order_id', '==', orderId),
+        limit(1)
+      );
+      const orderSnapshot = await getDocs(orderQuery);
+
+      if (!orderSnapshot.empty) {
+        await updateDoc(orderSnapshot.docs[0].ref, {
           status: nextOrderStatus,
           payment_status: paymentData.payment_status,
-        })
-        .eq("order_id", orderId);
-
-      if (updErr) throw updErr;
+          updated_at: now,
+        });
+      }
 
       set({
         currentPayment: {
           ...paymentData,
           order_id: orderId,
-          paid_at: isPaid ? now : null,
-          updated_at: now,
+          paid_at: isPaid ? new Date().toISOString() : null,
+          updated_at: new Date().toISOString(),
         },
         loading: false,
       });

@@ -1,4 +1,5 @@
-import { supabase } from '../supabase';
+import { db } from '@/lib/firebase';
+import { collection, addDoc, serverTimestamp, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { useAuthStore } from '../../store/authStore';
 
 // Enhanced traffic source analysis
@@ -155,55 +156,56 @@ export const updateTrafficSource = async (url: string, userAgent: string, referr
   const analysis = analyzeTrafficSource(url, userAgent, referrer);
   
   try {
-    // Direct table update since RPC function doesn't exist
-    const { data: existingRecord } = await supabase
-      .from('traffic_sources')
-      .select('*')
-      .eq('source', analysis.source)
-      .eq('medium', analysis.medium)
-      .eq('campaign', analysis.campaign)
-      .maybeSingle();
-
-    const now = new Date().toISOString();
+    // Use Firebase Firestore for traffic source tracking
+    const trafficSourcesRef = collection(db, 'traffic_sources');
     
-    if (existingRecord) {
-      // Update existing record
-      const { error: updateError } = await supabase
-        .from('traffic_sources')
-        .update({
-          visit_count: (existingRecord.visit_count || 0) + 1,
-          last_visited_at: now
-        })
-        .eq('id', existingRecord.id);
-      
-      if (updateError) {
-        console.error('Error updating traffic source:', updateError);
-        return false;
-      }
-    } else {
+    // Query for existing record
+    const q = query(
+      trafficSourcesRef,
+      where('source', '==', analysis.source),
+      where('medium', '==', analysis.medium),
+      where('campaign', '==', analysis.campaign)
+    );
+    
+    const querySnapshot = await getDocs(q);
+    
+    if (querySnapshot.empty) {
       // Insert new record
-      const { error: insertError } = await supabase
-        .from('traffic_sources')
-        .insert({
-          source: analysis.source,
-          medium: analysis.medium,
-          campaign: analysis.campaign,
-          referrer: analysis.referrer,
-          visit_count: 1,
-          last_visited_at: now,
-          created_at: now
-        });
+      await addDoc(trafficSourcesRef, {
+        source: analysis.source,
+        medium: analysis.medium,
+        campaign: analysis.campaign,
+        referrer: analysis.referrer,
+        visit_count: 1,
+        last_visited_at: serverTimestamp(),
+        created_at: serverTimestamp()
+      });
+      console.log('Traffic source created successfully:', analysis);
+    } else {
+      // Update existing record
+      const existingDoc = querySnapshot.docs[0];
+      const docRef = doc(db, 'traffic_sources', existingDoc.id);
+      const currentData = existingDoc.data();
       
-      if (insertError) {
-        console.error('Error inserting traffic source:', insertError);
-        return false;
-      }
+      await updateDoc(docRef, {
+        visit_count: (currentData.visit_count || 0) + 1,
+        last_visited_at: serverTimestamp()
+      });
+      console.log('Traffic source updated successfully:', analysis, 'previous count:', currentData.visit_count);
     }
     
-    console.log('Traffic source tracked successfully:', analysis);
     return true;
   } catch (error) {
     console.error('Error updating traffic source:', error);
+    // Log additional details for debugging
+    if (error instanceof Error) {
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+        analysis: analysis,
+        timestamp: new Date().toISOString()
+      });
+    }
     return false;
   }
 };
@@ -257,40 +259,41 @@ export const trackProductVisit = async (product: {
     const visitedAt = new Date().toISOString();    
     // Try direct table update
     try {
-      // First, try to get the existing record
-      const { data: existingRecord, error: fetchError } = await supabase
-        .from('product_visit_stats')
-        .select('visit_count')
-        .eq('product_id', targetProductId)
-        .maybeSingle();
-
-      if (fetchError) {
-        console.error('Error fetching existing record:', fetchError);
-        return false;
-      }
-
+      // Use Firebase Firestore for product visit tracking
+      const productVisitStatsRef = collection(db, 'product_visit_stats');
+      
+      // Query for existing record
+      const q = query(
+        productVisitStatsRef,
+        where('product_id', '==', targetProductId)
+      );
+      
+      const querySnapshot = await getDocs(q);
+      
       let newCount = 1;
-      if (existingRecord) {
-        newCount = (existingRecord.visit_count || 0) + 1;
-      }
-
-      // Upsert with the correct count
-      const { data: visitData, error } = await supabase
-        .from('product_visit_stats')
-        .upsert([{
+      if (querySnapshot.empty) {
+        // Insert new record
+        await addDoc(productVisitStatsRef, {
           product_id: targetProductId,
           name: product.name,
           thumbnail_url: product.thumbnail_url || '',
           visit_count: newCount,
-          last_visited_at: visitedAt
-        }], {
-          onConflict: 'product_id'
-        })
-        .select();
-
-      if (error) {
-        console.error('Error tracking product visit:', error);
-        return false;
+          last_visited_at: serverTimestamp(),
+          created_at: serverTimestamp()
+        });
+        console.log('Product visit created successfully:', { product_id: targetProductId, name: product.name, visit_count: newCount });
+      } else {
+        // Update existing record
+        const existingDoc = querySnapshot.docs[0];
+        const docRef = doc(db, 'product_visit_stats', existingDoc.id);
+        const currentData = existingDoc.data();
+        newCount = (currentData.visit_count || 0) + 1;
+        
+        await updateDoc(docRef, {
+          visit_count: newCount,
+          last_visited_at: serverTimestamp()
+        });
+        console.log('Product visit updated successfully:', { product_id: targetProductId, name: product.name, visit_count: newCount, previous_count: currentData.visit_count });
       }
       
       console.log('Product visit tracked successfully:', { product_id: targetProductId, name: product.name, visit_count: newCount });

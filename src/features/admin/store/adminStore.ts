@@ -1,5 +1,7 @@
 import { create } from 'zustand';
-import { supabase } from '@lib/supabase';
+import { db, collection, doc, getDoc, getDocs, query, where, orderBy, limit, addDoc, updateDoc, deleteDoc, serverTimestamp, Timestamp, writeBatch } from '@lib/firebase';
+import { ref, getDownloadURL, uploadBytes, uploadString, deleteObject, getStorage, listAll } from '@lib/firebase';
+import { httpsCallable, functions } from '@lib/firebase';
 import type { EnhancedProductFormData, EditProductFormData } from '@lib/util/formValidation';
 import type { Product } from '../../../types/product';
 import type { ShippingAddress, AdminOrder } from '../../../types/order';
@@ -69,27 +71,25 @@ export interface Return {
 
 interface AdminStore {
   // Product related
-  products: AdminProduct[];
+  products: any[];
   loading: boolean;
-  error: string | null;
-  success: string | null;
+  error: any;
+  success: any;
   uploadProgress: number;
-  editingProduct: AdminProduct | null;
-  
+  editingProduct: any;
   // Order related
-  orders: AdminOrder[];
+  orders: any[];
   ordersLoading: boolean;
-  ordersError: string | null;
+  ordersError: any;
   currentPage: number;
   totalPages: number;
   itemsPerPage: number;
   statusFilter: string;
   searchTerm: string;
-  
   // Returns related
-  returns: Return[];
+  returns: any[];
   returnsLoading: boolean;
-  returnsError: string | null;
+  returnsError: any;
   processingAction: string | null;
 
   // Product actions
@@ -348,31 +348,30 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
   fetchProducts: async () => {
     set({ loading: true, error: null });
     try {
-      const { data, error } = await supabase
-        .from('products')
-        .select(`
-          product_id,
-          name,
-          description,
-          sub_category,
-          mrp_price,
-          discount_price,
-          gender,
-          category,
-          sizes,
-          images,
-          thumbnail_url,
-          article_id,
-          created_at,
-          is_active,
-          size_prices,
-          tags
-        `)
-        .order('created_at', { ascending: false });
+      const querySnapshot = await getDocs(query(collection(db, 'products')));
+      const data = querySnapshot.docs.map(doc => ({ 
+        id: doc.id, 
+        product_id: doc.data().product_id || '',
+        article_id: doc.data().article_id || '',
+        name: doc.data().name || '',
+        description: doc.data().description || '',
+        sub_category: doc.data().sub_category || '',
+        mrp_price: doc.data().mrp_price || '',
+        discount_price: doc.data().discount_price || '',
+        gender: doc.data().gender || '',
+        category: doc.data().category || '',
+        sizes: doc.data().sizes || {},
+        size_prices: doc.data().size_prices || null,
+        tags: doc.data().tags || [],
+        images: doc.data().images || '',
+        is_active: doc.data().is_active !== false, // Default to true if not explicitly false
+        mrp: doc.data().mrp || 0,
+        color: (doc.data() as any).color || '',
+        discount_percentage: doc.data().discount_percentage || 0,
+        created_at: (doc.data() as any).created_at || new Date().toISOString()
+      }));
 
-      if (error) throw error;
-
-      const parsedProducts = (data || []).map(product => ({
+      const parsedProducts = data.map(product => ({
         ...product,
         sizes: safeParseSizes(product.sizes),
         size_prices: safeParseSizePrices(product.size_prices),
@@ -408,26 +407,10 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
           ? file.type
           : getMimeType(file.name);
 
-        const { error: uploadError } = await supabase.storage
-          .from('ficishoesimages')
-          .upload(filePath, file, {
-            cacheControl: '3600',
-            upsert: false,
-            contentType: contentType
-          });
-
-        if (uploadError) {
-          throw new Error(`Failed to upload ${file.name}: ${uploadError.message}`);
-        }
-
-        const { data: urlData } = supabase.storage
-          .from('ficishoesimages')
-          .getPublicUrl(filePath);
-
-        imageUrls.push(urlData.publicUrl);
-
-        const progress = ((i + 1) / totalFiles) * 100;
-        set({ uploadProgress: progress });
+        const storageRef = ref(getStorage(), filePath);
+        const snapshot = await uploadBytes(storageRef, file, { contentType });
+        const downloadURL = await getDownloadURL(snapshot.ref);
+        imageUrls.push(downloadURL);
       }
 
       return {
@@ -445,29 +428,11 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
 
   deleteProductImages: async (folderName) => {
     try {
-      const { data: fileList, error: listError } = await supabase.storage
-        .from('ficishoesimages')
-        .list(folderName);
+      const storageRef = ref(getStorage(), folderName);
+      const imageRefs = await listAll(storageRef);
 
-      if (listError) {
-        console.error('Error listing files:', listError);
-        return false;
-      }
-
-      if (!fileList || fileList.length === 0) {
-        return true;
-      }
-
-      const filePaths = fileList.map(file => `${folderName}/${file.name}`);
-
-      const { error: deleteError } = await supabase.storage
-        .from('ficishoesimages')
-        .remove(filePaths);
-
-      if (deleteError) {
-        console.error('Error deleting files:', deleteError);
-        return false;
-      }
+      const deletePromises = imageRefs.items.map((imageRef) => deleteObject(imageRef));
+      await Promise.all(deletePromises);
 
       return true;
     } catch (error) {
@@ -506,30 +471,26 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
     set({ loading: true, error: null });
 
     try {
-      // Format data for storage in Supabase
+      // Format data for storage in Firestore
       const formattedData = {
         ...productData,
-        // Store sizes as clean JSON object (Supabase JSONB will handle it)
+        // Store sizes as object (Firestore handles it natively)
         sizes: typeof productData.sizes === 'string'
-          ? productData.sizes
-          : JSON.stringify(productData.sizes),
-        // Store size_prices as JSON object or null (not stringified)
+          ? JSON.parse(productData.sizes)
+          : productData.sizes,
+        // Store size_prices as object or null
         size_prices: productData.size_prices && productData.size_prices !== '{}'
           ? JSON.parse(productData.size_prices)
           : null,
-        // Store images as comma-separated string (NOT double-stringified)
+        // Store images as comma-separated string
         images: Array.isArray(productData.images)
           ? productData.images.join(',')
-          : productData.images
+          : productData.images,
+        // Add created_at timestamp
+        created_at: serverTimestamp()
       };
 
-      const { error } = await supabase
-        .from('products')
-        .insert([formattedData])
-        .select()
-        .single();
-
-      if (error) throw error;
+      const docRef = await addDoc(collection(db, 'products'), formattedData);
 
       await get().fetchProducts();
       set({ success: 'Product added successfully' });
@@ -556,7 +517,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
 
       // Only include sizes if they exist
       if (sizes !== undefined) {
-        updateData.sizes = sizes; // Send object directly for JSONB
+        updateData.sizes = sizes; // Send object directly for Firestore
       }
 
       // Only include size_prices if they exist
@@ -570,31 +531,15 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
       }
 
 
-      const { data, error } = await supabase
-        .from('products')
-        .update(updateData)
-        .eq('product_id', productId)
-        .select();
-
-      if (error) {
-        console.error('❌ Supabase update error:', error);
-        set({ error: `Failed to update product: ${error.message}` });
-        return false;
-      }
-
-
-      if (!data || data.length === 0) {
-        console.error('❌ No data returned from update');
-        set({ error: 'Product update failed - no data returned' });
-        return false;
-      }
+      const docRef = doc(db, 'products', productId);
+      await updateDoc(docRef, updateData);
 
       await get().fetchProducts();
       set({ editingProduct: null, success: 'Product updated successfully' });
       setTimeout(() => set({ success: null }), 3000);
       return true;
     } catch (error) {
-      console.error('💥 Update product error:', error);
+      console.error('Update product error:', error);
       set({ error: 'Failed to update product' });
       return false;
     } finally {
@@ -605,12 +550,8 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
   updateSizes: async (productId, sizes) => {
     set({ loading: true, error: null });
     try {
-      const { error } = await supabase
-        .from('products')
-        .update({ sizes: JSON.stringify(sizes) })
-        .eq('product_id', productId);
-
-      if (error) throw error;
+      const docRef = doc(db, 'products', productId);
+      await updateDoc(docRef, { sizes: sizes }); // Send object directly for Firestore
 
       await get().fetchProducts();
       return true;
@@ -626,34 +567,30 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
   deleteProduct: async (productId: string): Promise<boolean> => {
     set({ loading: true, error: null });
     try {
-      const { data: product, error: fetchError } = await supabase
-        .from('products')
-        .select('images')
-        .eq('product_id', productId)
-        .single();
+      const docRef = doc(db, 'products', productId);
+      const docSnapshot = await getDoc(docRef);
 
-      if (fetchError) throw fetchError;
+      if (docSnapshot.exists()) {
+        const folderName = get().getFolderNameFromImages(docSnapshot.data().images);
 
-      const folderName = get().getFolderNameFromImages(product.images);
-
-      if (folderName) {
-        const imagesDeletionSuccess = await get().deleteProductImages(folderName);
-        if (!imagesDeletionSuccess) {
-          console.warn('Failed to delete some images, but continuing with product deletion');
+        if (folderName) {
+          const imagesDeletionSuccess = await get().deleteProductImages(folderName);
+          if (!imagesDeletionSuccess) {
+            console.warn('Failed to delete some images, but continuing with product deletion');
+          }
         }
+
+        await deleteDoc(docRef);
+
+        await get().fetchProducts();
+        set({ success: 'Product deleted successfully' });
+        setTimeout(() => set({ success: null }), 3000);
+        return true;
+      } else {
+        console.error('Product not found');
+        set({ error: 'Product not found' });
+        return false;
       }
-
-      const { error } = await supabase
-        .from('products')
-        .delete()
-        .eq('product_id', productId);
-
-      if (error) throw error;
-
-      await get().fetchProducts();
-      set({ success: 'Product deleted successfully' });
-      setTimeout(() => set({ success: null }), 3000);
-      return true;
     } catch (error) {
       console.error('Delete product error:', error);
       set({ error: 'Failed to delete product' });
@@ -673,44 +610,39 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
     set({ ordersLoading: true, ordersError: null });
     
     try {
-      let query = supabase
-        .from('orders')
-        .select(`
-          *,
-          order_items (*)
-        `, { count: 'exact' });
-
+      let baseQuery = query(collection(db, 'orders'));
+      
       // Apply status filter at database level
       switch (statusFilter) {
         case 'cod-pending':
-          query = query.eq('payment_method', 'cod').eq('status', 'pending');
+          baseQuery = query(baseQuery, where('payment_method', '==', 'cod'), where('status', '==', 'pending'));
           break;
         case 'paid-orders':
-          query = query.eq('payment_method', 'razorpay').eq('status', 'paid');
+          baseQuery = query(baseQuery, where('payment_method', '==', 'razorpay'), where('status', '==', 'paid'));
           break;
         case 'pending':
-          query = query.eq('payment_method', 'cod').eq('status', 'pending');
+          baseQuery = query(baseQuery, where('payment_method', '==', 'cod'), where('status', '==', 'pending'));
           break;
         case 'paid':
-          query = query.eq('status', 'paid');
+          baseQuery = query(baseQuery, where('status', '==', 'paid'));
           break;
         case 'cancelled':
-          query = query.eq('status', 'cancelled');
+          baseQuery = query(baseQuery, where('status', '==', 'cancelled'));
           break;
         case 'delivered':
-          query = query.eq('status', 'delivered');
+          baseQuery = query(baseQuery, where('status', '==', 'delivered'));
           break;
         case 'shipped':
-          query = query.eq('status', 'shipped');
+          baseQuery = query(baseQuery, where('status', '==', 'shipped'));
           break;
         case 'partially_shipped':
-          query = query.eq('status', 'partially_shipped');
+          baseQuery = query(baseQuery, where('status', '==', 'partially_shipped'));
           break;
         case 'partially_delivered':
-          query = query.eq('status', 'partially_delivered');
+          baseQuery = query(baseQuery, where('status', '==', 'partially_delivered'));
           break;
         case 'partially_cancelled':
-          query = query.eq('status', 'partially_cancelled');
+          baseQuery = query(baseQuery, where('status', '==', 'partially_cancelled'));
           break;
         case 'all':
         default:
@@ -719,24 +651,52 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
           break;
       }
 
-      // Apply search filter
-      if (searchTerm) {
-        const searchLower = searchTerm.toLowerCase();
-        query = query.or(`order_id.ilike.%${searchLower}%,shipping_address->>name.ilike.%${searchLower}%,shipping_address->>email.ilike.%${searchLower}%,shipping_address->>phone.ilike.%${searchTerm}%,guest_email.ilike.%${searchLower}%`);
-      }
-
+      // Apply search filter (Firebase doesn't support complex OR queries, so we'll handle client-side)
       // Apply pagination and ordering
       const offset = (page - 1) * get().itemsPerPage;
-      const { data, error, count } = await query
-        .order('created_at', { ascending: false })
-        .range(offset, offset + get().itemsPerPage - 1);
-
-      if (error) throw error;
-
+      baseQuery = query(baseQuery, orderBy('created_at', 'desc'));
+      
+      const snapshot = await getDocs(baseQuery);
+      let data = snapshot.docs.map(doc => doc.data() as AdminOrder);
+      
+      // Fetch order items for all orders
+      const orderIds = data.map(order => order.order_id);
+      const itemsSnapshot = await getDocs(
+        query(collection(db, 'order_items'), where('order_id', 'in', orderIds))
+      );
+      
+      // Create a map of order_id to items for easy lookup
+      const itemsMap = new Map();
+      itemsSnapshot.docs.forEach(doc => {
+        const item = doc.data() as any;
+        const orderId = item.order_id;
+        if (!itemsMap.has(orderId)) {
+          itemsMap.set(orderId, []);
+        }
+        itemsMap.get(orderId).push(item);
+      });
+      
+      // Attach items to their respective orders
+      data = data.map(order => ({
+        ...order,
+        order_items: itemsMap.get(order.order_id) || []
+      }));
+      
+      // Apply client-side search filtering
+      if (searchTerm) {
+        const searchLower = searchTerm.toLowerCase();
+        data = data.filter(order => 
+          order.order_id?.toLowerCase().includes(searchLower) ||
+          (typeof order.shipping_address === 'object' && order.shipping_address?.name?.toLowerCase().includes(searchLower)) ||
+          (typeof order.shipping_address === 'object' && order.shipping_address?.email?.toLowerCase().includes(searchLower)) ||
+          (typeof order.shipping_address === 'object' && order.shipping_address?.phone?.includes(searchTerm)) ||
+          order.guest_email?.toLowerCase().includes(searchLower)
+        );
+      }
 
       // Apply client-side filtering for 'all' case to exclude pending razorpay orders
       let filteredData = data || [];
-      let actualCount = count || 0;
+      let actualCount = data.length;
       
       if (statusFilter === 'all') {
         const originalLength = filteredData.length;
@@ -753,9 +713,12 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
         if (filteredData.length !== originalLength) {
           // For now, use the current page data to estimate
           // This will be recalculated on each page navigation
-          actualCount = Math.ceil((count || 0) * (filteredData.length / originalLength));
+          actualCount = Math.ceil(data.length * (filteredData.length / originalLength));
         }
       }
+      
+      // Apply pagination
+      const paginatedData = filteredData.slice(offset, offset + get().itemsPerPage);
 
       const totalPages = Math.ceil(actualCount / get().itemsPerPage);
 
@@ -799,36 +762,9 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
     set({ returnsLoading: true, returnsError: null });
     console.log('🔍 Fetching returns from returns table...');
     try {
-      const { data, error } = await supabase
-        .from('returns')
-        .select(`
-          *,
-          orders (
-            order_id,
-            order_date,
-            user_id,
-            guest_email,
-            guest_phone,
-            shipping_address,
-            payment_method,
-            payment_status,
-            total_amount,
-            status
-          ),
-          order_items (
-            product_name,
-            thumbnail_url,
-            size,
-            quantity,
-            price_at_purchase,
-            product_id,
-            color,
-            mrp
-          )
-        `)
-        .order('requested_at', { ascending: false });
-
-      if (error) throw error;
+      const snapshot = await getDocs(query(collection(db, 'returns')));
+      const data = snapshot.docs.map(doc => doc.data() as Return);
+      
       set({ returns: data || [], returnsLoading: false });
     } catch (err: unknown) {
       console.error('Error fetching returns:', err);
@@ -867,13 +803,12 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
       }
 
       // Call edge function to update return status
-      const { data, error } = await supabase.functions.invoke('update-item-status', {
+      const updateReturnStatus = httpsCallable(functions, 'update-item-status');
+      const result = await updateReturnStatus({
         body: requestBody,
       });
-
-      if (error) throw error;
-
-      if (data?.success) {
+      
+      if ((result.data as any)?.success) {
         // Refresh returns data after successful update
         await get().fetchReturns();
         
@@ -890,7 +825,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
         
         set({ success: successMessages[action] || 'Status updated successfully' });
       } else {
-        throw new Error(data?.error || 'Failed to update status');
+        throw new Error((result.data as any)?.error || 'Failed to update status');
       }
     } catch (err: unknown) {
       console.error('Error updating return status:', err);
@@ -905,24 +840,15 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
   // Order management actions
   updateAggregateOrderStatus: async (orderId: string) => {
     try {
-      const { data: items, error: itemsError } = await supabase
-        .from('order_items')
-        .select('*')
-        .eq('order_id', orderId);
-
-      if (itemsError) throw itemsError;
+      const itemsSnapshot = await getDocs(query(collection(db, 'order_items'), where('order_id', '==', orderId)));
+      const items = itemsSnapshot.docs.map(doc => doc.data()) as any[];
 
       const aggregateStatus = calculateAggregateOrderStatus(items || []);
 
-      const { error: updateError } = await supabase
-        .from('orders')
-        .update({
-          status: aggregateStatus,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('order_id', orderId);
-
-      if (updateError) throw updateError;
+      await updateDoc(doc(db, 'orders', orderId), {
+        status: aggregateStatus,
+        updated_at: new Date().toISOString(),
+      });
     } catch (error) {
       console.error('Error updating aggregate order status:', error);
       throw error;
@@ -931,18 +857,17 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
 
   updatePaymentStatus: async (orderId: string, status: string) => {
     try {
-      const { error } = await supabase
-        .from('orders')
-        .update({
-          payment_status: status,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('order_id', orderId);
+      await updateDoc(doc(db, 'orders', orderId), {
+        payment_status: status,
+        updated_at: new Date().toISOString(),
+      });
 
-      if (error) throw error;
+      await get().fetchOrders(get().currentPage, get().statusFilter, get().searchTerm);
+      set({ success: `Payment status updated to ${status}` });
+      setTimeout(() => set({ success: null }), 3000);
     } catch (error) {
       console.error('Error updating payment status:', error);
-      throw error;
+      set({ error: error instanceof Error ? error.message : 'Failed to update payment status' });
     }
   },
 
@@ -955,18 +880,13 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
       set({ processingAction: `${orderId}-${action}` });
 
       if (action === 'ship') {
-        const { error } = await supabase
-          .from('orders')
-          .update({
-            status: 'shipped',
-            shipping_partner: data?.shipping_partner || '',
-            tracking_id: data?.tracking_id || '',
-            tracking_url: data?.tracking_url || '',
-            shipped_at: new Date().toISOString(),
-          })
-          .eq('order_id', orderId);
-
-        if (error) throw error;
+        await updateDoc(doc(db, 'orders', orderId), {
+          status: 'shipped',
+          shipping_partner: data?.shipping_partner || '',
+          tracking_id: data?.tracking_id || '',
+          tracking_url: data?.tracking_url || '',
+          shipped_at: new Date().toISOString(),
+        });
 
         await get().fetchOrders();
         set({ success: 'Order shipped successfully' });
@@ -982,15 +902,10 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
         await get().fetchOrders();
         return;
       } else {
-        const { error } = await supabase
-          .from('orders')
-          .update({
-            status: action,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('order_id', orderId);
-
-        if (error) throw error;
+        await updateDoc(doc(db, 'orders', orderId), {
+          status: action,
+          updated_at: new Date().toISOString(),
+        });
 
         await get().fetchOrders();
         set({ success: `Order ${action} successful` });
@@ -1078,77 +993,68 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
       set({ processingAction: `refund-${orderId}` });
 
       // First, get the order details to validate it's a Razorpay payment
-      const { data: order, error: orderError } = await supabase
-        .from('orders')
-        .select('payment_method, payment_status, razorpay_payment_id, effective_amount, order_items (order_item_id)')
-        .eq('order_id', orderId)
-        .single();
-
-      if (orderError) throw orderError;
-
+      const orderDoc = await getDoc(doc(db, 'orders', orderId));
+      const orderData = orderDoc.data();
+      
+      if (!orderData) throw new Error('Order not found');
+      
       // Validate that this is a Razorpay order
-      if (order.payment_method !== 'razorpay') {
+      if (orderData.payment_method !== 'razorpay') {
         throw new Error('Refund can only be processed for Razorpay payments');
       }
 
-      if (order.payment_status !== 'paid') {
+      if (orderData.payment_status !== 'paid') {
         throw new Error('Refund can only be processed for paid orders');
       }
 
-      if (!order.razorpay_payment_id) {
+      if (!orderData.razorpay_payment_id) {
         throw new Error('No Razorpay payment ID found for this order');
       }
 
       // For single item orders, use effective_amount if available and matches the passed amount
       let finalAmount = amount;
-      if (order.order_items && order.order_items.length === 1 && order.effective_amount) {
-        finalAmount = order.effective_amount;
+      if (orderData.order_items && orderData.order_items.length === 1 && orderData.effective_amount) {
+        finalAmount = orderData.effective_amount;
       }
 
       // Call the refund API endpoint
-      const { data: refundData, error: refundError } = await supabase.functions.invoke('process-razorpay-refund', {
+      const processRefund = httpsCallable(functions, 'process-razorpay-refund');
+      const { data: refundData } = await processRefund({
         body: {
-          payment_id: order.razorpay_payment_id,
+          payment_id: orderData.razorpay_payment_id,
           amount: Math.round(finalAmount * 100), // Convert to paise
           reason: reason,
           reference_id: refReference
         }
       });
 
-      if (refundError) {
-        console.error('Refund API error:', refundError);
-        throw new Error(`Refund processing failed: ${refundError.message}`);
+      if ((refundData as any)?.error) {
+        console.error('Refund API error:', (refundData as any).error);
+        throw new Error((refundData as any).error.message || 'Refund failed');
       }
 
       // Update the order status to reflect the refund
-      const { error: updateError } = await supabase
-        .from('orders')
-        .update({
-          payment_status: 'refunded',
-          status: 'refunded',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('order_id', orderId);
-
-      if (updateError) throw updateError;
+      await updateDoc(doc(db, 'orders', orderId), {
+        payment_status: 'refunded',
+        status: 'refunded',
+        updated_at: new Date().toISOString(),
+      });
 
       // Log the refund in order_items if needed
-      const { error: itemUpdateError } = await supabase
-        .from('order_items')
-        .update({
+      const querySnapshot = await getDocs(query(collection(db, 'order_items'), where('order_id', '==', orderId)));
+      const batch = writeBatch(db);
+      querySnapshot.forEach((doc) => {
+        batch.update(doc.ref, {
           refunded_at: new Date().toISOString(),
           item_status: 'refunded',
           refund_amount: finalAmount.toString(),
-        })
-        .eq('order_id', orderId);
-
-      if (itemUpdateError) {
-        console.warn('Warning: Could not update order items refund status:', itemUpdateError);
-      }
-
-      await get().fetchOrders();
-      set({ success: `Refund of ₹${finalAmount.toLocaleString('en-IN')} processed successfully` });
-      setTimeout(() => set({ success: null }), 3000);
+        });
+      });
+      
+      await batch.commit();
+      
+      // Set success message
+      set({ success: `Refund of ₹${finalAmount} processed successfully` });
     } catch (error: unknown) {
       console.error('Error processing refund:', error);
       const errorMessage = `Failed to process refund: ${error instanceof Error ? error.message : 'Unknown error'}`;

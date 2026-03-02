@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Package, XCircle, Clock, CheckCircle, Truck, Ban, RefreshCw, Filter, Search, Eye, X, Upload, MapPin, Phone, Mail, User, Calendar, DollarSign, TrendingUp, ShoppingBag, Users, AlertCircle, ChevronDown, ChevronUp, ArrowUpDown } from 'lucide-react';
-import { supabase } from '@lib/supabase';
+import { db, collection, getDocs, query, orderBy, doc, updateDoc, where } from '@lib/firebase';
 import { getImageForUseCase } from '../../../lib/utils/imageOptimization';
 import AlertModal from '../../../components/ui/AlertModal';
 import type { Return } from '../store/adminStore';

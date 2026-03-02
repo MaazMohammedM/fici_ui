@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '@lib/supabase';
+import { db, collection, getDocs, query, orderBy, limit } from '@lib/firebase';
 import {
   TrendingUp,
   Eye,
@@ -25,22 +25,26 @@ interface DashboardStatsProps {
 const fetchDetailedStats = async () => {
   try {
     // Fetch traffic sources data
-    const { data: trafficData, error: trafficError } = await supabase
-      .from('traffic_sources')
-      .select('source, medium, campaign, visit_count, last_visited_at')
-      .order('visit_count', { ascending: false })
-      .limit(10);
-
-    if (trafficError) throw trafficError;
+    const trafficQuery = query(
+      collection(db, 'traffic_sources'),
+      orderBy('visit_count', 'desc'),
+      limit(10)
+    );
+    const trafficSnapshot = await getDocs(trafficQuery);
+    const trafficData = trafficSnapshot.docs.map(doc => ({
+      ...doc.data()
+    }));
 
     // Fetch product visit stats
-    const { data: productData, error: productError } = await supabase
-      .from('product_visit_stats')
-      .select('product_id, name, thumbnail_url, visit_count, last_visited_at')
-      .order('visit_count', { ascending: false })
-      .limit(10);
-
-    if (productError) throw productError;
+    const productQuery = query(
+      collection(db, 'product_visit_stats'),
+      orderBy('visit_count', 'desc'),
+      limit(10)
+    );
+    const productSnapshot = await getDocs(productQuery);
+    const productData = productSnapshot.docs.map(doc => ({
+      ...doc.data()
+    }));
 
     return {
       trafficSources: trafficData || [],
@@ -85,14 +89,16 @@ const DashboardStats: React.FC<DashboardStatsProps> = ({
     // Fetch total traffic visits from database
     const fetchTrafficVisits = async () => {
       try {
-        const { data, error } = await supabase
-          .from('traffic_sources')
-          .select('visit_count')
-          .not('visit_count', 'is', null);
+        const trafficQuery = query(
+          collection(db, 'traffic_sources'),
+          orderBy('visit_count', 'desc')
+        );
+        const snapshot = await getDocs(trafficQuery);
+        const data = snapshot.docs.map(doc => ({
+          ...doc.data()
+        }));
         
-        if (error) throw error;
-        
-        const total = data?.reduce((sum, row) => sum + (row.visit_count || 0), 0) || 0;
+        const total = data?.reduce((sum: number, row: any) => sum + (row.visit_count || 0), 0) || 0;
         setTotalTrafficVisits(total);
       } catch (error) {
         console.error('Failed to fetch traffic visits:', error);

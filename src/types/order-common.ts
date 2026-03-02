@@ -78,7 +78,7 @@ export interface Order {
   payment_method: string;
   payment_status: string;
   shipping_address: ShippingAddress | string;
-  order_items: OrderItem[];
+  order_items?: OrderItem[];
   user_id?: string | null;
   guest_email?: string | null;
   guest_phone?: string | null;
@@ -231,13 +231,13 @@ export const canRefundItem = (item: OrderItem, paymentMethod?: string, paymentSt
 };
 
 export const canRefundOrder = (order: Order): boolean => {
-  return order.order_items.some(item => canRefundItem(item, order.payment_method, order.payment_status));
+  return order.order_items?.some(item => canRefundItem(item, order.payment_method, order.payment_status)) || false;
 };
 
 export const canCancelOrder = (order: Order): boolean => {
-  return order.order_items.some(item => canCancelItem(item));
+  return order.order_items?.some(item => canCancelItem(item)) || false;
 };
 
 export const canReturnOrder = (order: Order): boolean => {
-  return order.order_items.some(item => canReturnItem(item));
+  return order.order_items?.some(item => canReturnItem(item)) || false;
 };

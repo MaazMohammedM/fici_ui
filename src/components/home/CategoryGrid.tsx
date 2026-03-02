@@ -37,14 +37,6 @@ const CategoryGrid: React.FC = () => {
               Explore our curated collections of premium leather products
             </p>
           </div>
-          <div className="w-full flex justify-end mt-4 sm:mt-0 sm:w-auto">
-            <Link
-              to="/products"
-              className="inline-flex items-center gap-2 bg-black dark:bg-white text-white dark:text-black px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 dark:hover:bg-gray-200 transition-all duration-300 hover:scale-105 shadow-lg"
-            >
-              See All
-            </Link>
-          </div>
         </div>
 
         {/* Category Grid */}

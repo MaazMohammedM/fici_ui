@@ -225,7 +225,7 @@ export const useFirebaseProductStore = create<ProductState>((set, get) => ({
         search: filters.search,
         category: Array.isArray(filters.category) ? filters.category : (filters.category ? [filters.category] : undefined),
         gender: Array.isArray(filters.gender) ? filters.gender : (filters.gender ? [filters.gender] : undefined),
-        subCategory: Array.isArray(filters.sub_category) ? filters.subCategory : (filters.subCategory ? [filters.subCategory] : undefined),
+        sub_category: Array.isArray(filters.sub_category) ? filters.sub_category : (filters.sub_category ? [filters.sub_category] : undefined),
         sizeFilters: (filters as any)._sizeFilters
       });
 
@@ -394,7 +394,7 @@ export const useFirebaseProductStore = create<ProductState>((set, get) => ({
         const variantsWithColors = processedProducts.map(product => ({
           ...product,
           color: product.article_id.split('_')[1] || 'default',
-          mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0
+          mrp: parseFloat(product.mrp_price) || parseFloat(String(product.discount_price)) || 0
         }));
 
         set({
@@ -755,7 +755,7 @@ export const useFirebaseProductStore = create<ProductState>((set, get) => ({
     get().fetchProducts(page, {
       category: selectedCategory || undefined,
       gender: selectedGender || undefined,
-      subCategory: selectedSubCategory || undefined,
+      sub_category: selectedSubCategory || undefined,
       priceRange: selectedPriceRange || undefined,
       search: get().searchQuery
     });

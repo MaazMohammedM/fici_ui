@@ -1,7 +1,7 @@
 import React from 'react';
 import { Eye, Truck, Ban, CheckCircle, DollarSign, Upload } from 'lucide-react';
 import type { Order, OrderItem, OrderActionFlags } from '../../../types/order-common';
-import { getThumbnailUrl } from '../../../lib/utils/imageOptimization';
+import { getThumbnailUrl, getThumbnailUrlSync } from '../../../lib/utils/imageOptimization';
 import { canRefundOrder } from '../../../types/order-common';
 import {
   getStatusColor,
@@ -128,6 +128,59 @@ const ItemActions: React.FC<{
   </div>
 );
 
+// Helper function to safely format date
+const formatOrderDate = (dateInput: string | number | undefined | null): string => {
+  if (!dateInput) return 'N/A';
+  
+  try {
+    let date: Date;
+    
+    // Handle if dateInput is a timestamp number (like 1769124252)
+    if (typeof dateInput === 'number') {
+      // Convert Unix timestamp to milliseconds (if it's in seconds)
+      const timestamp = dateInput.toString().length === 10 ? dateInput * 1000 : dateInput;
+      date = new Date(timestamp);
+    } 
+    // Handle if dateInput is a string
+    else if (typeof dateInput === 'string') {
+      // Try to parse as ISO date string first
+      if (dateInput.includes('T') || dateInput.includes('-')) {
+        date = new Date(dateInput);
+      } 
+      // If that fails, try parsing as timestamp string
+      else {
+        const timestamp = parseInt(dateInput);
+        if (!isNaN(timestamp)) {
+          const timestampMs = dateInput.length === 10 ? timestamp * 1000 : timestamp;
+          date = new Date(timestampMs);
+        } else {
+          date = new Date(dateInput);
+        }
+      }
+    }
+    // Handle other types (just in case)
+    else {
+      date = new Date(dateInput);
+    }
+    
+    // Check if date is valid
+    if (isNaN(date.getTime())) {
+      return 'Invalid Date';
+    }
+    
+    return date.toLocaleString('en-IN', {
+      day: 'numeric', 
+      month: 'short', 
+      year: 'numeric',
+      hour: '2-digit', 
+      minute: '2-digit',
+    });
+  } catch (error) {
+    console.warn('Invalid date format:', dateInput, error);
+    return 'Invalid Date';
+  }
+};
+
 export const OrderCard: React.FC<OrderCardProps> = ({
   order,
   actionStates,
@@ -168,10 +221,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
             <div>
               <p className="text-sm text-gray-500">Order Date & Time</p>
               <p className="font-medium">
-                {new Date(order.order_date).toLocaleString('en-IN', {
-                  day: 'numeric', month: 'short', year: 'numeric',
-                  hour: '2-digit', minute: '2-digit',
-                })}
+                {formatOrderDate(order.order_date)}
               </p>
             </div>
             <div>
@@ -221,10 +271,10 @@ export const OrderCard: React.FC<OrderCardProps> = ({
           <div className="mb-4">
             <p className="text-sm text-gray-500 mb-2">Items ({order.order_items?.length || 0})</p>
             <div className="space-y-2">
-              {order.order_items?.slice(0, 3).map((item) => (
-                <div key={item.order_item_id} className="flex items-start gap-3 text-sm">
+              {order.order_items?.slice(0, 3).map((item, index) => (
+                <div key={`${item.order_item_id || index}`} className="flex items-start gap-3 text-sm">
                   <img
-                    src={getThumbnailUrl(item.thumbnail_url || '/placeholder-image.jpg')}
+                    src={getThumbnailUrlSync(item.thumbnail_url || '/placeholder-image.jpg')}
                     alt={item.product_name}
                     className="w-8 h-8 object-cover rounded flex-shrink-0"
                     loading="lazy"

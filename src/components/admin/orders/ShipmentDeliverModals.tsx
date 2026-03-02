@@ -1,6 +1,6 @@
 import React from 'react';
 import type { Order, OrderItem } from '../../../types/order-common';
-import { getThumbnailUrl } from '../../../lib/utils/imageOptimization';
+import { getThumbnailUrl, getThumbnailUrlSync } from '../../../lib/utils/imageOptimization';
 import type { ShipmentFormState } from '../../../types/adminOrders';
 
 /* ─── ShipmentModal ────────────────────────────────────────────── */
@@ -261,7 +261,7 @@ export const DeliverModal: React.FC<DeliverModalProps> = ({
                     className="w-4 h-4 text-green-600 rounded focus:ring-green-500"
                   />
                   <img
-                    src={getThumbnailUrl(item.thumbnail_url)}
+                    src={getThumbnailUrlSync(item.thumbnail_url)}
                     alt={item.product_name}
                     className="w-10 h-10 rounded object-cover"
                     loading="lazy"

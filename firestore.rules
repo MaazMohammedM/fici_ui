@@ -2,6 +2,108 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Allow read access to products for all users
+    match /products/{documentId} {
+      allow read: if true;
+      allow write: if request.auth != null; // Only authenticated users can write
+    }
+    
+    // Allow read access to reviews for all users (needed for product ratings)
+    match /reviews/{documentId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+    
+    // Allow read access to checkout discount rules for all users
+    match /checkout_discount_rules/{documentId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+    
+    // Allow read access to product discounts for all users
+    match /product_discounts/{documentId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+    
+    // Allow read/write access to traffic sources for all users (including unauthenticated)
+    match /traffic_sources/{documentId} {
+      allow read: if true;
+      allow write: if true;
+    }
+    
+    // Allow read access to pincodes for all users
+    match /pincodes/{documentId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+    
+    // Allow read/write access to user profiles for authenticated users
+    match /user_profiles/{userId} {
+      // Users can always read/write their own profile
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      // Admins can read all profiles (they must have admin role in their own profile)
+      allow read: if request.auth != null && 
+        get(/databases/$(database)/documents/user_profiles/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Allow read access to orders for authenticated users
+    match /orders/{orderId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Allow read access to order items for authenticated users
+    match /order_items/{itemId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Allow read/write access to product visit stats for all users (including unauthenticated)
+    // But restrict admin and preview environments
+    match /product_visit_stats/{productId} {
+      allow read, write: if 
+        // Allow if not admin environment
+        !('admin' in request.headers || 'admin' in request.query) &&
+        // Allow if not preview environment  
+        !('preview' in request.headers || 'preview' in request.query);
+    }
+    
+    // Allow read/write access to returns for authenticated users
+    match /returns/{returnId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Allow read/write access to guest sessions for authenticated users
+    match /guest_sessions/{sessionId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Allow read/write access to payments for authenticated users
+    match /payments/{paymentId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Allow read/write access to refunds for authenticated users
+    match /refunds/{refundId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Allow read/write access to otps for authenticated users
+    match /otps/{otpId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Allow read/write access to user identities for authenticated users
+    match /user_identities/{identityId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Allow read/write access to account merges for authenticated users
+    match /account_merges/{mergeId} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Deny all other access
     match /{document=**} {
       allow read, write: if false;
     }

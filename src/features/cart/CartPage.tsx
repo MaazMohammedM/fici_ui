@@ -6,7 +6,7 @@ import { usePincodeStore } from "@store/pincodeStore";
 import CartItemCard from "./components/CartItemCard";
 import { ShoppingBag, ArrowLeft, Trash2 } from "lucide-react";
 import AlertModal from "@components/ui/AlertModal";
-import { supabase } from "@lib/supabase";
+import { db, collection, getDocs, query, where, onSnapshot } from "@lib/firebase";
 import { toast } from 'sonner';
 import { validateCartItems } from '@lib/utils/productValidation';
 import { parseProductSizes } from '@lib/productAvailability';
@@ -194,29 +194,17 @@ const CartPage: React.FC = () => {
       // Try UUID-based fetch first
       if (validUuids.length > 0) {
         try {
-          
-          // Use .or() with multiple .eq() conditions instead of .in() for better UUID handling
-          let query = supabase
-            .from('products')
-            .select('*');
-
-          // Add each UUID as a separate condition
-          validUuids.forEach((uuid, index) => {
-            if (index === 0) {
-              query = query.or(`product_id.eq.${uuid}`);
-            } else {
-              query = query.or(`product_id.eq.${uuid}`, { foreignTable: '' });
-            }
+          // Firebase doesn't support OR queries with multiple conditions, so we'll fetch individually
+          const uuidPromises = validUuids.map(async (uuid) => {
+            const q = query(collection(db, 'products'), where('product_id', '==', uuid));
+            const querySnapshot = await getDocs(q);
+            return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
           });
-
-          const { data: uuidProducts, error } = await query;
-
-          if (error) {
-            // Error handled silently
-          } else {
-            products = uuidProducts || [];
-          }
+          
+          const uuidResults = await Promise.all(uuidPromises);
+          products = uuidResults.flat();
         } catch (error) {
+          // Error handled silently
         }
       } else {
       }
@@ -226,22 +214,27 @@ const CartPage: React.FC = () => {
       
       if (articleIds.length > 0) {
         try {
-          const { data: fallbackProducts, error: fallbackError } = await supabase
-            .from('products')
-            .select('*')
-            .in('article_id', articleIds);
-            
-          if (fallbackError) {
-            // Error handled silently
-          } else {
-            
-            // Merge with UUID products (avoid duplicates)
-            const existingIds = new Set(products.map(p => p.product_id));
-            const newProducts = (fallbackProducts || []).filter(p => !existingIds.has(p.product_id));
-            products = [...products, ...newProducts];
-            
+          // Firebase supports 'in' queries but with a limit of 10 items
+          const chunks = [];
+          for (let i = 0; i < articleIds.length; i += 10) {
+            chunks.push(articleIds.slice(i, i + 10));
           }
+          
+          const chunkPromises = chunks.map(async (chunk) => {
+            const q = query(collection(db, 'products'), where('article_id', 'in', chunk));
+            const querySnapshot = await getDocs(q);
+            return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          });
+          
+          const chunkResults = await Promise.all(chunkPromises);
+          const fallbackProducts = chunkResults.flat();
+          
+          // Merge with UUID products (avoid duplicates)
+          const existingIds = new Set(products.map(p => (p as any).product_id));
+          const newProducts = fallbackProducts.filter(p => !existingIds.has((p as any).product_id));
+          products = [...products, ...newProducts];
         } catch (error) {
+          // Error handled silently
         }
       }
 
@@ -317,55 +310,53 @@ const CartPage: React.FC = () => {
         .filter(uuid => uuid.length >= 36) // Only valid UUIDs
         .slice(0, 5);
 
-      if (uniqueUuids.length > 0) {
-        const channel = supabase
-          .channel('cart_product_updates')
-          .on('postgres_changes', 
-            { 
-              event: 'UPDATE',
-              schema: 'public',
-              table: 'products',
-              filter: `product_id=in.(${uniqueUuids.map(uuid => `"${uuid}"`).join(',')})`
-            }, 
-            (payload) => {
-              const updatedProduct = payload.new;
-              // Update product details in state
-              const cartItem = cartItems.find(item => item.id.includes(updatedProduct.product_id));
-              if (cartItem) {
-                setProductDetails(prev => ({
-                  ...prev,
-                  [cartItem.id]: updatedProduct
-                }));
-                
-                // Update cart items in local storage with new prices
-                updateProductDetailsRef.current(updatedProduct);
-                
-                // Show notification to user about price change
-                const currentPrice = cartItem.price;
-                const newPrice = parseFloat(updatedProduct.discount_price || updatedProduct.mrp_price || updatedProduct.price || '0');
-                
-                if (!isNaN(newPrice) && currentPrice !== newPrice) {
-                  if (newPrice < currentPrice) {
-                    toast.success(`Good news! "${updatedProduct.name}" price dropped to ₹${newPrice.toLocaleString('en-IN')}`);
-                  } else if (newPrice > currentPrice) {
-                    toast.warning(`Price update: "${updatedProduct.name}" is now ₹${newPrice.toLocaleString('en-IN')}`);
+      const pollInterval = setInterval(async () => {
+        if (uniqueUuids.length > 0) {
+          try {
+            const uuidPromises = uniqueUuids.map(async (uuid) => {
+              const q = query(collection(db, 'products'), where('product_id', '==', uuid));
+              const querySnapshot = await getDocs(q);
+              const products = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+              return products[0]; // Get first (and only) product
+            });
+            
+            const updatedProducts = await Promise.all(uuidPromises);
+            
+            updatedProducts.forEach(updatedProduct => {
+              if (updatedProduct) {
+                const cartItem = cartItems.find(item => item.id.includes((updatedProduct as any).product_id));
+                if (cartItem) {
+                  setProductDetails(prev => ({
+                    ...prev,
+                    [cartItem.id]: updatedProduct
+                  }));
+                  
+                  // Update cart items in local storage with new prices
+                  updateProductDetailsRef.current(updatedProduct);
+                  
+                  // Show notification to user about price change
+                  const currentPrice = cartItem.price;
+                  const newPrice = (updatedProduct as any).discount_price || (updatedProduct as any).mrp_price;
+                  
+                  if (currentPrice !== newPrice) {
+                    toast.success(`Price updated for ${(updatedProduct as any).name}`);
                   }
                 }
-                
-                // Handle inactive products
-                if (updatedProduct.is_active === false) {
+                if ((updatedProduct as any).is_active === false) {
                   removeFromCart(cartItem.id);
-                  toast.error(`"${updatedProduct.name}" is no longer available and has been removed from your cart`);
+                  toast.error(`"${(updatedProduct as any).name}" is no longer available and has been removed from your cart`);
                 }
               }
-            }
-          )
-          .subscribe();
+            });
+          } catch (error) {
+            console.error('Error polling for product updates:', error);
+          }
+        }
+      }, 30000); // Poll every 30 seconds
 
-        return () => {
-          supabase.removeChannel(channel);
-        };
-      }
+      return () => {
+        clearInterval(pollInterval);
+      };
     }
   }, [cartItems, removeFromCart]);
 

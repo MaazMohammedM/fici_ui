@@ -1,7 +1,7 @@
 import React from 'react';
 import { XCircle } from 'lucide-react';
 import type { Order, OrderItem } from '../../../types/order-common';
-import { getThumbnailUrl } from '../../../lib/utils/imageOptimization';
+import { getThumbnailUrl, getThumbnailUrlSync } from '../../../lib/utils/imageOptimization';
 import { canCancelOrderItem } from '../../../utils/adminOrderUtils';
 
 interface CancelItemsModalProps {
@@ -102,7 +102,7 @@ export const CancelItemsModal: React.FC<CancelItemsModalProps> = ({
                     className="w-4 h-4 text-red-600 rounded"
                   />
                   <img
-                    src={getThumbnailUrl(item.thumbnail_url || item.product_thumbnail_url || '')}
+                    src={getThumbnailUrlSync(item.thumbnail_url || item.product_thumbnail_url || '')}
                     alt={item.product_name || 'Product'}
                     className="w-12 h-12 rounded-md object-cover border border-gray-200 dark:border-gray-600"
                     loading="lazy"

@@ -4,7 +4,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Lock, Eye, EyeOff, CheckCircle } from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { supabase } from '@lib/supabase';
+import { updatePassword, confirmPasswordReset, applyActionCode } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
+import { checkActionCode } from 'firebase/auth';
 import { Input, Button } from '../ui';
 
 const ResetPasswordSchema = z.object({
@@ -38,18 +40,17 @@ const ResetPassword: React.FC = () => {
 
   useEffect(() => {
     // Check if we have the required tokens from the URL
-    const accessToken = searchParams.get('access_token');
-    const refreshToken = searchParams.get('refresh_token');
+    const mode = searchParams.get('mode');
+    const oobCode = searchParams.get('oobCode');
     
-    if (!accessToken || !refreshToken) {
+    if (!mode || !oobCode) {
       setError('Invalid reset link. Please request a new password reset.');
       return;
     }
 
-    // Set the session with the tokens from the URL
-    supabase.auth.setSession({
-      access_token: accessToken,
-      refresh_token: refreshToken
+    // Verify the action code is valid
+    checkActionCode(auth, oobCode).catch(() => {
+      setError('Invalid or expired reset link. Please request a new password reset.');
     });
   }, [searchParams]);
 
@@ -58,13 +59,12 @@ const ResetPassword: React.FC = () => {
     setError(null);
 
     try {
-      const { error } = await supabase.auth.updateUser({
-        password: data.password
-      });
-
-      if (error) {
-        throw error;
+      const oobCode = searchParams.get('oobCode');
+      if (!oobCode) {
+        throw new Error('Missing reset code');
       }
+      
+      await confirmPasswordReset(auth, oobCode, data.password);
 
       setIsSuccess(true);
       

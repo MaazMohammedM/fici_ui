@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '@lib/supabase';
+import { collection, getDocs, query, where, orderBy, orderBy as orderByDesc, and as queryAnd, or as queryOr } from 'firebase/firestore';
+import { httpsCallable, getFunctions } from 'firebase/functions';
+import { db } from '@lib/firebase';
 import { useAuthStore } from '@store/authStore';
 import { Package, Truck, CheckCircle, XCircle, Clock, RefreshCw } from 'lucide-react';
 import ReturnRequest from './ReturnRequest';
@@ -58,32 +60,75 @@ const OrderList: React.FC = () => {
       setLoading(true);
       setError(null);
 
-      let query = supabase
-        .from('orders')
-        .select(`
-          *,
-          order_items (*)
-        `)
-        .order('created_at', { ascending: false });
+      let ordersQuery = query(
+        collection(db, 'orders'),
+        orderByDesc('created_at', 'desc')
+      );
 
       // Filter based on user type
       if (user) {
-        query = query.eq('user_id', user.id);
+        ordersQuery = query(ordersQuery, where('user_id', '==', user.uid));
       } else if (isGuest && guestSession?.guest_session_id) {
-        query = query.eq('guest_session_id', guestSession.guest_session_id);
+        ordersQuery = query(ordersQuery, where('guest_session_id', '==', guestSession.guest_session_id));
       } else {
         setError('Please sign in to view your orders');
         return;
       }
 
-      const { data, error } = await query;
+      const querySnapshot = await getDocs(ordersQuery);
+      const orders = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
 
-      if (error) {
-        setError(error.message);
-        return;
-      }
+      // Fetch order items for each order
+      const ordersWithItems = await Promise.all(
+        orders.map(async (order: any) => {
+          const itemsQuery = query(
+            collection(db, 'order_items'),
+            where('order_id', '==', order.id)
+          );
+          const itemsSnapshot = await getDocs(itemsQuery);
+          const orderItems: OrderItem[] = itemsSnapshot.docs.map(doc => ({
+            order_item_id: doc.id,
+            product_name: doc.data().product_name || '',
+            product_id: doc.data().product_id || '',
+            size: doc.data().size || '',
+            quantity: doc.data().quantity || 0,
+            price_at_purchase: doc.data().price_at_purchase || 0,
+            mrp: doc.data().mrp || 0,
+            thumbnail_url: doc.data().thumbnail_url || ''
+          }));
+          
+          return {
+            order_id: order.id,
+            order_date: order.created_at,
+            status: order.status,
+            payment_status: order.payment_status,
+            payment_method: order.payment_method,
+            total_amount: order.total_amount,
+            subtotal: order.subtotal,
+            mrp_total: order.mrp_total,
+            discount: order.discount,
+            prepaid_discount: order.prepaid_discount,
+            delivery_charge: order.delivery_charge,
+            cod_fee: order.cod_fee,
+            shipping_address: order.shipping_address,
+            order_type: order.order_type,
+            guest_email: order.guest_email,
+            guest_phone: order.guest_phone,
+            tracking_id: order.tracking_id,
+            tracking_url: order.tracking_url,
+            shipping_partner: order.shipping_partner,
+            shipped_at: order.shipped_at,
+            delivered_at: order.delivered_at,
+            cancelled_at: order.cancelled_at,
+            order_items: orderItems
+          };
+        })
+      );
 
-      setOrders(data || []);
+      setOrders(ordersWithItems);
     } catch (err) {
       setError('Failed to fetch orders');
       console.error('Error fetching orders:', err);
@@ -98,16 +143,16 @@ const OrderList: React.FC = () => {
     try {
       setCancellingOrder(orderId);
 
-      const { error } = await supabase.functions.invoke('cancel-order', 
-        {
-        body: {
-          order_id: orderId,
-          user_id: user?.id,
-          guest_session_id: guestSession?.guest_session_id
-        } 
+      const cancelOrderFunction = httpsCallable(getFunctions(), 'cancelOrder');
+      const result = await cancelOrderFunction({
+        order_id: orderId,
+        user_id: user?.uid,
+        guest_session_id: guestSession?.guest_session_id
       });
 
-      if (error) throw error;
+      if (!result.data) {
+        throw new Error('Failed to cancel order');
+      }
 
       // Refresh orders list
       await fetchOrders();
