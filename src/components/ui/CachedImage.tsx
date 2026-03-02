@@ -1,6 +1,6 @@
 import React from 'react';
 import { useCachedImage } from '@lib/utils/imageCached';
-import { useFirebaseImageSimple } from '@lib/utils/firebaseImageSimple';
+import { useFirebaseImage } from '@lib/utils/firebaseImage';
 interface CachedImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   src: string;
   fallbackSrc?: string;
@@ -22,7 +22,7 @@ const CachedImage: React.FC<CachedImageProps> = ({
   // Use Firebase image hook for Firebase Storage URLs, regular hook for others
   const isFirebaseUrl = src && src.includes('firebasestorage.googleapis.com');
   const { imageUrl, isLoading, error } = isFirebaseUrl 
-    ? useFirebaseImageSimple(src, fallbackSrc)
+    ? useFirebaseImage(src, fallbackSrc)
     : useCachedImage(src, fallbackSrc);
 
   // Show loading fallback while image is loading
