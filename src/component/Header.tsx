@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import ficiLight from '../assets/fici_logo_light.png';
 import ficiDark from '../assets/fici_logo_dark.png';
+import NetworkIssueBanner from '../components/NetworkIssueBanner';
 
 // Media query hook for responsive behavior
 const useMediaQuery = (query: string) => {
@@ -82,6 +83,11 @@ const Header: React.FC = () => {
   const isOnCheckoutWithChanges = location.pathname === '/checkout' && cartCount > 0;
 
   const handleProtectedNavigation = (path: string, e?: React.MouseEvent) => {
+    // Close mobile menu if open
+    if (isMobileMenu) {
+      setIsMobileMenu(false);
+    }
+    
     if (isOnCheckoutWithChanges) {
       e?.preventDefault();
       setPendingNavigation(path);
@@ -92,6 +98,11 @@ const Header: React.FC = () => {
   };
 
   const confirmNavigation = () => {
+    // Close mobile menu if open
+    if (isMobileMenu) {
+      setIsMobileMenu(false);
+    }
+    
     if (pendingNavigation) {
       navigate(pendingNavigation);
       setPendingNavigation(null);
@@ -249,7 +260,7 @@ const Header: React.FC = () => {
   // Mobile Menu Component
   const MobileMenu = () => (
     <div className="fixed inset-0 bg-black/50 z-50" onClick={() => setIsMobileMenu(false)}>
-      <div ref={mobileMenuRef} className="absolute top-0 left-0 w-80 h-full bg-white dark:bg-gray-900 p-6 overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
+      <div ref={mobileMenuRef} className="absolute top-0 left-0 w-[75vw] max-w-xs sm:w-72 md:w-80 h-full bg-white dark:bg-gray-900 p-4 sm:p-6 overflow-y-auto shadow-2xl" onClick={e => e.stopPropagation()}>
         {uniqueNavItems.map(({ label, path, dropdown }) => (
           <div key={label} className="mb-2">
             {dropdown ? (
@@ -321,6 +332,7 @@ const Header: React.FC = () => {
 
   return (
     <>
+      <NetworkIssueBanner />
       {/* Single Fixed Header */}
       <header className="sticky top-0 z-50 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 shadow-sm" style={{ fontFamily: 'var(--font-brand)' }}>
         {/* Top Bar - Logo and Icons */}

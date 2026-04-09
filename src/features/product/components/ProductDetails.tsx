@@ -457,11 +457,13 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
             availableQuantities={availableQuantities}
             currentQuantity={quantity}
             onQuantityChange={onQuantityChange}
+            product={{
+              product_id: selectedVariant?.product_id,
+              name: selectedVariant?.name || currentProduct.name
+            }}
           />
         </div>
       )}
-
-
 
 
       {/* Action Buttons and Trust Badge */}
@@ -476,6 +478,12 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
           availableQuantity={maxQuantity}
           selectedVariant={selectedVariant}
           showError={showError}
+          product={{
+            product_id: selectedVariant?.product_id,
+            name: selectedVariant?.name || currentProduct.name,
+            discount_price: selectedVariant?.discount_price,
+            price: selectedVariant?.mrp_price
+          }}
         />
 
         <div className="flex items-center justify-center space-x-2 py-2 px-2">
@@ -486,15 +494,15 @@ const ProductDetails: React.FC<ProductDetailsProps> = ({
         </div>
       </div>
 
-                  <div className="w-full max-w-xs mx-auto">
-                    <img
-                      src={razorpayPayments}
-                      alt="Payment methods: Cards, UPI and Razorpay"
-                      className="h-10 sm:h-12 md:h-14 lg:h-16 w-full object-contain dark:invert dark:brightness-90 dark:contrast-125"
-                      loading="lazy"
-                    />
-                  </div>
-            {/* Pincode Search */}
+      <div className="w-full max-w-xs mx-auto">
+        <img
+          src={razorpayPayments}
+          alt="Payment methods: Cards, UPI and Razorpay"
+          className="h-10 sm:h-12 md:h-14 lg:h-16 w-full object-contain dark:invert dark:brightness-90 dark:contrast-125"
+          loading="lazy"
+        />
+      </div>
+      {/* Pincode Search */}
       <PincodeSearch />
       {/* Product Description */}
       {currentProduct.description && (

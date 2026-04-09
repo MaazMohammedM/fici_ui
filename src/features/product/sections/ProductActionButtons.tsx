@@ -1,5 +1,6 @@
 import React from "react";
 import { useCartStore } from '@store/cartStore';
+import { trackEvent } from '@utils/ga4Analytics';
 
 export interface ProductActionButtonsProps {
   onAddToCart: () => void;
@@ -11,6 +12,12 @@ export interface ProductActionButtonsProps {
   availableQuantity?: number;
   selectedVariant?: any;
   showError?: (message: string) => void;
+  product?: {
+    product_id?: string;
+    name?: string;
+    discount_price?: string | number;
+    price?: string | number;
+  };
 }
 
 const ProductActionButtons: React.FC<ProductActionButtonsProps> = ({
@@ -23,6 +30,7 @@ const ProductActionButtons: React.FC<ProductActionButtonsProps> = ({
   availableQuantity = 0,
   selectedVariant,
   showError,
+  product,
 }) => {
   const { items } = useCartStore();
   
@@ -69,11 +77,29 @@ const ProductActionButtons: React.FC<ProductActionButtonsProps> = ({
   const handleAddToCart = () => {
     if (validateBeforeAction()) {
       onAddToCart();
+      
+      // Track add to cart
+      trackEvent("add_to_cart", {
+        product_id: product?.product_id,
+        product_name: product?.name,
+        size: selectedSize,
+        quantity: quantity,
+        price: product?.discount_price || product?.price,
+      });
     }
   };
 
   const handleBuyNow = () => {
     if (validateBeforeAction()) {
+      // Track buy now
+      trackEvent("buy_now", {
+        product_id: product?.product_id,
+        product_name: product?.name,
+        size: selectedSize,
+        quantity: quantity,
+        price: product?.discount_price || product?.price,
+      });
+      
       onBuyNow();
     }
   };

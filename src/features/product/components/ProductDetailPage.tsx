@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useProductStore } from '@store/productStore';
 import { useAuthStore } from '@store/authStore';
 import { trackProductViewOnce } from '../../../lib/utils/analytics';
+import { trackEvent } from '@utils/ga4Analytics';
 import {
   getActiveProductDiscountsForProducts,
   type ProductDiscountRule,
@@ -110,13 +111,29 @@ const ProductDetailPage: React.FC = () => {
 
     lastTrackedRef.current = key;
 
+    // Convert thumbnail URL to original Supabase URL for better tracking
+    let thumbnailUrl = productVariant.selectedVariant?.thumbnail_url || productVariant.selectedVariant?.images?.[0] || '';
+    if (thumbnailUrl.includes('supabase-proxy.furqhaanmohammed001.workers.dev')) {
+      thumbnailUrl = thumbnailUrl.replace(
+        'https://supabase-proxy.furqhaanmohammed001.workers.dev',
+        'https://qegaebazravcwofibtry.supabase.co'
+      );
+    }
+
     trackProductViewOnce({
       article_id: currentProduct.article_id,
       product_id: productVariant.selectedVariant.product_id,
       selected_article_id: productVariant.selectedArticleId,
       name: productVariant.selectedVariant?.name || currentProduct.name,
-      thumbnail_url: productVariant.selectedVariant?.thumbnail_url || productVariant.selectedVariant?.images?.[0] || ''
+      thumbnail_url: thumbnailUrl
     }).catch(console.error);
+
+    // Track product view in GA4
+    trackEvent("view_product", {
+      product_id: productVariant.selectedVariant.product_id,
+      product_name: productVariant.selectedVariant?.name || currentProduct.name,
+      category: currentProduct.category,
+    });
   }, [currentProduct?.article_id, productVariant.selectedVariant?.product_id, productVariant.selectedArticleId]);
 
   // Fetch product discount when selected variant changes

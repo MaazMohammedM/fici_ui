@@ -67,7 +67,6 @@
 
 <!-- Google tag (gtag.js) - Only load in production -->
 <script>
-  // Check if we're in production environment
   const isProduction = !(
     window.location.hostname === 'localhost' || 
     window.location.hostname === '127.0.0.1' ||
@@ -77,22 +76,22 @@
   );
 
   if (isProduction) {
-    // Load Google Analytics only in production
+    // 1. Initialize dataLayer and gtag function IMMEDIATELY
+    window.dataLayer = window.dataLayer || [];
+    window.gtag = function() { dataLayer.push(arguments); }; 
+    
+    gtag('js', new Date());
+    gtag('config', 'G-XVXEQB0MZK');
+
+    // 2. Load the external script asynchronously
     (function() {
       var script = document.createElement('script');
       script.async = true;
       script.src = 'https://www.googletagmanager.com/gtag/js?id=G-XVXEQB0MZK';
       document.head.appendChild(script);
-      
-      script.onload = function() {
-        window.dataLayer = window.dataLayer || [];
-        function gtag(){dataLayer.push(arguments);}
-        gtag('js', new Date());
-        gtag('config', 'G-XVXEQB0MZK');
-      };
     })();
   } else {
-    console.log('Google Analytics disabled in development/preview environment');
+    console.log('GA4 disabled in development');
   }
 </script>
 </head>

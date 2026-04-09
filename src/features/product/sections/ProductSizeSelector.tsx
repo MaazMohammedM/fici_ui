@@ -3,6 +3,7 @@ import ProductQuantitySelector from "./ProductQuantitySelector";
 import { Ruler, ChevronDown } from "lucide-react";
 import { FaWhatsapp } from "react-icons/fa";
 import { hasValidSizePrices } from '@lib/productAvailability';
+import { trackEvent } from '@utils/ga4Analytics';
 
 interface Props {
   fullSizeRange: string[];
@@ -21,6 +22,10 @@ interface Props {
   availableQuantities: Record<string, number>;
   currentQuantity?: number;
   onQuantityChange?: (quantity: number) => void;
+  product?: {
+    product_id?: string;
+    name?: string;
+  };
 }
 
 const ProductSizeSelector: React.FC<Props> = ({
@@ -40,6 +45,7 @@ const ProductSizeSelector: React.FC<Props> = ({
   availableQuantities = {},
   currentQuantity = 1,
   onQuantityChange,
+  product,
 }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -82,6 +88,13 @@ const ProductSizeSelector: React.FC<Props> = ({
     
     onSizeChange(size);
     setIsDropdownOpen(false);
+    
+    // Track size selection
+    trackEvent("select_size", {
+      product_id: product?.product_id,
+      product_name: product?.name,
+      size: size,
+    });
   };
 
   const shouldShowSizePrices = hasValidSizePrices(sizePrices);

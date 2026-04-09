@@ -1,6 +1,36 @@
 import { supabase } from '../supabase';
 import { useAuthStore } from '../../store/authStore';
 
+// Reusable environment check function
+const isTestEnvironment = (): boolean => {
+  if (typeof window === 'undefined') return true;
+  
+  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  const isNetlifyPreview = window.location.hostname.includes('netlify.app');
+  
+  // Check admin role from auth store
+  let isAdmin = false;
+  try {
+    // Get auth store state directly
+    const authState = useAuthStore.getState();
+    const storeRole = authState?.role;
+    const storeUser = authState?.user;
+    
+    isAdmin = storeRole?.toLowerCase() === 'admin' || 
+              storeUser?.user_metadata?.role?.toLowerCase() === 'admin';
+    
+    // Fallback to localStorage check
+    if (!isAdmin) {
+      isAdmin = localStorage.getItem('userRole') === 'admin';
+    }
+  } catch (error) {
+    // Fallback to localStorage if store access fails
+    isAdmin = localStorage.getItem('userRole') === 'admin';
+  }
+  
+  return isAdmin || isLocalhost || isNetlifyPreview;
+};
+
 // Enhanced traffic source analysis
 export const analyzeTrafficSource = (url: string, userAgent: string, referrer: string) => {
   const urlObj = new URL(url);
@@ -120,37 +150,12 @@ const detectSourceFromUserAgent = (userAgent: string): string => {
 
 // Update traffic source with enhanced analysis
 export const updateTrafficSource = async (url: string, userAgent: string, referrer: string) => {
-  // Check if user is admin or in development/preview environment
-  const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-  const isNetlifyPreview = typeof window !== 'undefined' && window.location.hostname.includes('netlify.app');
-  
-  // Check admin role from auth store
-  let isAdmin = false;
-  if (typeof window !== 'undefined') {
-    try {
-      // Get auth store state directly
-      const authState = useAuthStore.getState();
-      const storeRole = authState?.role;
-      const storeUser = authState?.user;
-      
-      isAdmin = storeRole?.toLowerCase() === 'admin' || 
-                storeUser?.user_metadata?.role?.toLowerCase() === 'admin';
-      
-      // Fallback to localStorage check
-      if (!isAdmin) {
-        isAdmin = localStorage.getItem('userRole') === 'admin';
-      }
-    } catch (error) {
-      // Fallback to localStorage if store access fails
-      isAdmin = localStorage.getItem('userRole') === 'admin';
-    }
-  }
-  
+  // COMMENTED OUT FOR TESTING - UNCOMMENT WHEN TESTING IS COMPLETED
   // Don't track traffic sources for admin users or development/preview environments
-  if (isAdmin || isLocalhost || isNetlifyPreview) {
-    console.log('Skipping traffic source tracking for admin/preview environment', { isAdmin, isLocalhost, isNetlifyPreview });
-    return true; // Return true to indicate success but no tracking
-  }
+  // if (isTestEnvironment()) {
+  //   console.log('Skipping traffic source tracking for admin/preview environment');
+  //   return true; // Return true to indicate success but no tracking
+  // }
   
   const analysis = analyzeTrafficSource(url, userAgent, referrer);
   
@@ -178,6 +183,7 @@ export const updateTrafficSource = async (url: string, userAgent: string, referr
       
       if (updateError) {
         console.error('Error updating traffic source:', updateError);
+        console.error('Traffic source update failed for:', analysis);
         return false;
       }
     } else {
@@ -196,14 +202,15 @@ export const updateTrafficSource = async (url: string, userAgent: string, referr
       
       if (insertError) {
         console.error('Error inserting traffic source:', insertError);
+        console.error('Traffic source insert failed for:', analysis);
         return false;
       }
     }
     
-    console.log('Traffic source tracked successfully:', analysis);
     return true;
   } catch (error) {
     console.error('Error updating traffic source:', error);
+    console.error('Traffic source analysis failed for:', { url, userAgent: userAgent.substring(0, 100), referrer: referrer || 'none' });
     return false;
   }
 };
@@ -215,33 +222,8 @@ export const trackProductVisit = async (product: {
   product_id?: string;
 }) => {
   try {
-    // Check if user is admin or in development/preview environment
-    const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-    const isNetlifyPreview = typeof window !== 'undefined' && window.location.hostname.includes('netlify.app');
-    
-    // Check admin role from auth store
-    let isAdmin = false;
-    if (typeof window !== 'undefined') {
-      try {
-        // Get auth store state directly
-        const authState = useAuthStore.getState();
-        const storeRole = authState?.role;
-        const storeUser = authState?.user;
-        
-        isAdmin = storeRole?.toLowerCase() === 'admin' || 
-                  storeUser?.user_metadata?.role?.toLowerCase() === 'admin';
-        
-        // Fallback to localStorage check
-        if (!isAdmin) {
-          isAdmin = localStorage.getItem('userRole') === 'admin';
-        }
-      } catch (error) {
-        // Fallback to localStorage if store access fails
-        isAdmin = localStorage.getItem('userRole') === 'admin';
-      }
-    }
-    
-    if (isAdmin || isLocalhost || isNetlifyPreview) {
+    // Don't track for admin users or development/preview environments
+    if (isTestEnvironment()) {
       return true; // Return true to indicate success but no tracking
     }
     
@@ -265,7 +247,8 @@ export const trackProductVisit = async (product: {
         .maybeSingle();
 
       if (fetchError) {
-        console.error('Error fetching existing record:', fetchError);
+        console.error('Error fetching existing product visit record:', fetchError);
+        console.error('Product visit fetch failed for:', { product_id: targetProductId, name: product.name });
         return false;
       }
 
@@ -290,17 +273,19 @@ export const trackProductVisit = async (product: {
 
       if (error) {
         console.error('Error tracking product visit:', error);
+        console.error('Product visit upsert failed for:', { product_id: targetProductId, name: product.name, thumbnail_url: product.thumbnail_url });
         return false;
       }
       
-      console.log('Product visit tracked successfully:', { product_id: targetProductId, name: product.name, visit_count: newCount });
       return true;
     } catch (error) {
       console.error('Exception in trackProductVisit:', error);
+      console.error('Product visit exception for:', { product_id: targetProductId, name: product.name });
       return false;
     }
   } catch (error) {
     console.error('Error in trackProductVisit:', error);
+    console.error('Product visit outer error for:', { product_id: product.product_id, name: product.name });
     return false;
   }
 };
@@ -336,7 +321,6 @@ export const trackTrafficSourceOnce = async (url: string, userAgent: string, ref
   const sessionKey = 'traffic_source_tracked';
   
   if (typeof window !== 'undefined' && sessionStorage.getItem(sessionKey)) {
-    console.log('Traffic source already tracked in this session');
     return true; // Already tracked
   }
   
@@ -368,7 +352,6 @@ export const trackTrafficSourceOnce = async (url: string, userAgent: string, ref
     // Only mark as tracked if not admin/preview environment
     if (!isAdmin && !isLocalhost && !isNetlifyPreview) {
       sessionStorage.setItem(sessionKey, 'true');
-      console.log('Traffic source tracked for first time in session');
     } else {
       console.log('Traffic source tracking skipped for admin/preview environment - not marking as tracked');
     }
@@ -431,7 +414,6 @@ export const trackProductViewOnce = async (product: {
   const cache = getSessionCache();
 
   if (cache.has(key)) {
-    console.log('Skipping duplicate product view:', key);
     return;
   }
 
@@ -460,7 +442,6 @@ export const trackProductVariantView = async (product: {
   const cache = getSessionCache();
 
   if (cache.has(key)) {
-    console.log('Skipping duplicate product variant view:', key);
     return;
   }
 

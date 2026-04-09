@@ -9,6 +9,7 @@ import TrustStrip from '../../components/home/TrustStrip';
 import CategoryGrid from '../../components/home/CategoryGrid';
 import BestSellers from '../../components/home/BestSellers';
 import NewArrivals from '../../components/home/NewArrivals';
+import GoogleReviews from '../../components/GoogleReviews';
 // import WhyChooseUs from '../../components/home/WhyChooseUs';
 // import Testimonials from '../../components/home/Testimonials';
 
@@ -21,6 +22,7 @@ const HomePage: React.FC = () => {
         keywords="fici shoes, leather footwear, premium shoes, handcrafted shoes, men shoes, women shoes, sandals, boots"
         url="https://ficishoes.com"
       />
+      
       <main className="min-h-screen bg-white dark:bg-gray-900">
       {/* Hero Section - Premium first impression */}
       <Hero />
@@ -50,6 +52,9 @@ const HomePage: React.FC = () => {
       
       {/* Testimonials - Customer validation */}
       {/* <Testimonials /> */}
+      
+      {/* Google Reviews - Social proof */}
+      <GoogleReviews />
       
     </main>
     </>

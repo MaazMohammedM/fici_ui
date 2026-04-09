@@ -508,13 +508,6 @@ const OrderDetailsPage = ({ isGuest = false }: { isGuest?: boolean }) => {
         (isGuestUser && order?.guest_session_id ? order.guest_session_id : 
          sessionStorage.getItem('guest_session_id'));
       
-      console.log('🔍 Guest session debug:', {
-        guestSession: guestSession,
-        orderGuestSessionId: order?.guest_session_id,
-        sessionStorageId: sessionStorage.getItem('guest_session_id'),
-        effectiveGuestSessionId,
-        isGuestUser
-      });
       
       // Call edge function with request_replacement action
       const { updateOrderItemStatus } = await import('../../lib/orderActions');
@@ -1076,11 +1069,6 @@ const OrderDetailsPage = ({ isGuest = false }: { isGuest?: boolean }) => {
             setShowCancelItemModal(true); 
           }}
           onReplacementRequest={(item, availableSizes) => { 
-            console.log('🔍 Replacement request clicked in OrderDetailsPage:', { item, availableSizes });
-            console.log('🔍 Before state update:', {
-              currentSelectedItem: selectedItem?.product_name,
-              currentShowReplacementForm: showReplacementForm
-            });
             
             // Fetch available sizes for this product
             const fetchProductSizes = async () => {
@@ -1093,7 +1081,6 @@ const OrderDetailsPage = ({ isGuest = false }: { isGuest?: boolean }) => {
                 
                 if (product?.sizes) {
                   const sizes = getAvailableSizes(product);
-                  console.log('📏 Available sizes fetched:', sizes);
                   setAvailableSizesForReplacement(sizes);
                 }
               } catch (error) {
@@ -1196,11 +1183,6 @@ const OrderDetailsPage = ({ isGuest = false }: { isGuest?: boolean }) => {
 
         {/* Replacement Request Modal */}
         {(() => {
-          console.log('🔍 Modal visibility check:', {
-            showReplacementForm,
-            selectedItem: selectedItem?.product_name,
-            shouldShow: showReplacementForm && selectedItem
-          });
           return showReplacementForm && selectedItem;
         })() && (
           <ReplacementRequestModal

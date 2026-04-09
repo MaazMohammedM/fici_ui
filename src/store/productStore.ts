@@ -68,13 +68,42 @@ const safeParseSizes = (value: any): Record<string, number> => {
   return {};
 };
 
+// Transform image URLs with fallback support
+const transformImageUrl = (url: string): string => {
+  if (!url || typeof url !== 'string') return url;
+  
+  // Get the base URL from environment variable (use Cloudflare proxy)
+  const baseUrl = 'https://supabase-proxy.furqhaanmohammed001.workers.dev';
+  
+  // If it's already using the configured domain, return as-is
+  if (url.includes(baseUrl)) {
+    return url;
+  }
+  
+  // Replace old Supabase URLs with the configured domain
+  return url.replace(
+    /https:\/\/[a-zA-Z0-9-]+\.supabase\.co\/storage\/v1\/object\/public\/ficishoesimages\//g,
+    `${baseUrl}/storage/v1/object/public/ficishoesimages/`
+  );
+};
+
 // Helper function to parse images - handles comma-separated strings
 const parseImages = (images: any): string[] => {
   if (!images) return [];
   
-  // If it's already an array, filter valid URLs
+  // Helper to process individual URLs
+  const processUrl = (url: string): string => {
+    const trimmed = url.trim();
+    if (!trimmed) return '';
+    return transformImageUrl(trimmed);
+  };
+  
+  // If it's already an array, filter valid URLs and transform
   if (Array.isArray(images)) {
-    return images.filter(img => img && typeof img === 'string' && img.trim() !== '');
+    return images
+      .filter(img => img && typeof img === 'string' && img.trim() !== '')
+      .map(processUrl)
+      .filter(url => url !== '');
   }
   
   // If it's a string, check if it's comma-separated URLs
@@ -84,19 +113,26 @@ const parseImages = (images: any): string[] => {
     
     // Check if it starts with http (likely comma-separated URLs)
     if (trimmed.startsWith('http')) {
-      return trimmed.split(',').map(url => url.trim()).filter(url => url !== '');
+      return trimmed
+        .split(',')
+        .map(processUrl)
+        .filter(url => url !== '');
     }
     
     // Try to parse as JSON
     try {
       const parsed = JSON.parse(trimmed);
       if (Array.isArray(parsed)) {
-        return parsed.filter(img => img && typeof img === 'string' && img.trim() !== '');
+        return parsed
+          .filter(img => img && typeof img === 'string' && img.trim() !== '')
+          .map(processUrl)
+          .filter(url => url !== '');
       }
       return [];
     } catch (e) {
       // If JSON parsing fails and it's not a URL, treat as single image
-      return [trimmed];
+      const transformed = processUrl(trimmed);
+      return transformed ? [transformed] : [];
     }
   }
   
@@ -179,7 +215,7 @@ export const useProductStore = create<ProductState>((set, get) => ({
         ...product,
         sizes: safeParseSizes(product.sizes),
         images: [], // Empty array for listing pages - images fetched only when needed
-        thumbnail_url: product.thumbnail_url || null,
+        thumbnail_url: product.thumbnail_url ? transformImageUrl(product.thumbnail_url) : product.thumbnail_url,
         discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price),
         mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0,
         color: product.article_id?.split('_')[1] || 'default' // Extract color from article_id
@@ -286,7 +322,7 @@ export const useProductStore = create<ProductState>((set, get) => ({
           ...product,
           sizes: safeParseSizes(product.sizes),
           images: [], // Empty array for listing pages - images fetched only when needed
-          thumbnail_url: product.thumbnail_url || null,
+          thumbnail_url: product.thumbnail_url ? transformImageUrl(product.thumbnail_url) : product.thumbnail_url,
           discount_percentage: product.discount_percentage || calculateDiscountPercentage(product.mrp_price, product.discount_price),
           mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0,
           color: product.article_id?.split('_')[1] || 'default' // Extract color from article_id
@@ -358,9 +394,10 @@ export const useProductStore = create<ProductState>((set, get) => ({
           ...product,
           sizes: safeParseSizes(product.sizes),
           images: parseImages(product.images),
-          thumbnail_url: product.thumbnail_url || null,
+          thumbnail_url: product.thumbnail_url ? transformImageUrl(product.thumbnail_url) : product.thumbnail_url,
           discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price),
-          rating: rating
+          rating: rating,
+          mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0
         }));
 
         const firstProduct = processedProducts[0];
@@ -452,19 +489,25 @@ export const useProductStore = create<ProductState>((set, get) => ({
           };
         }
         
-        const processedProducts = variantsData.map(product => {
+        const processedProducts = variantsData.map(product => ({
+          ...product,
+          sizes: safeParseSizes(product.sizes),
+          images: parseImages(product.images),
+          thumbnail_url: product.thumbnail_url ? transformImageUrl(product.thumbnail_url) : product.thumbnail_url,
+          discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price),
+          rating: rating,
+          mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0
+        }));
+
+        const baseArticleId = processedProducts[0].article_id.split('_')[0];
+
+        const variantsWithColors = processedProducts.map(product => {
           return {
             ...product,
-            sizes: safeParseSizes(product.sizes),
-            images: parseImages(product.images),
-            thumbnail_url: product.thumbnail_url || null,
-            discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price),
-            rating: rating,
+            color: product.article_id.split('_')[1] || 'default',
             mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0
           };
         });
-
-        const baseArticleId = processedProducts[0].article_id.split('_')[0];
 
         const productDetail: ProductDetail = {
           article_id: baseArticleId,
@@ -536,9 +579,9 @@ export const useProductStore = create<ProductState>((set, get) => ({
               ...product,
               sizes: safeParseSizes(product.sizes),
               images: parseImages(product.images), // Use the new parseImages function
-              thumbnail_url: product.thumbnail_url || null,
+              thumbnail_url: product.thumbnail_url ? transformImageUrl(product.thumbnail_url) : product.thumbnail_url,
               discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price),
-              mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0  // ✅ Fallback to discount_price if mrp_price is missing
+              mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0  // Fallback to discount_price if mrp_price is missing
             };
           });
 
@@ -555,9 +598,9 @@ export const useProductStore = create<ProductState>((set, get) => ({
           ...product,
           sizes: safeParseSizes(product.sizes),
           images: parseImages(product.images), // Use the new parseImages function
-          thumbnail_url: product.thumbnail_url || null,
+          thumbnail_url: product.thumbnail_url ? transformImageUrl(product.thumbnail_url) : product.thumbnail_url,
           discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price),
-          mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0  // ✅ Fallback to discount_price if mrp_price is missing
+          mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0  // Fallback to discount_price if mrp_price is missing
         };
       });
 
@@ -645,9 +688,9 @@ export const useProductStore = create<ProductState>((set, get) => ({
           ...product,
           sizes: safeParseSizes(product.sizes),
           images: parseImages(product.images), // Use the new parseImages function
-          thumbnail_url: product.thumbnail_url || null,
+          thumbnail_url: product.thumbnail_url ? transformImageUrl(product.thumbnail_url) : product.thumbnail_url,
           discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price),
-          mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0  // ✅ Fallback to discount_price if mrp_price is missing
+          mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0  // Fallback to discount_price if mrp_price is missing
         };
       });
 

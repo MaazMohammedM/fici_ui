@@ -487,16 +487,6 @@ const ShippingDetails = ({ item }: { item: OrderItem }) => {
           
           {(itemStatus === 'replacement_initiated' || existingReplacement?.status === 'approved') && (
             (() => {
-              // Debug logging - moved outside JSX
-              console.log('🔍 Replacement approved status check:', {
-                itemStatus,
-                existingReplacement: {
-                  status: existingReplacement?.status,
-                  reason_code: existingReplacement?.reason_code,
-                  requested_size: existingReplacement?.requested_size,
-                  reason_description: existingReplacement?.reason_description
-                }
-              });
               
               return (
                 <div className="p-2 sm:p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
@@ -523,16 +513,6 @@ const ShippingDetails = ({ item }: { item: OrderItem }) => {
           
           {(itemStatus === 'replacement_shipped' || existingReplacement?.status === 'replacement_shipped') && (
             (() => {
-              // Debug logging - moved outside JSX
-              console.log('🔍 Replacement shipped status check:', {
-                itemStatus,
-                existingReplacement: {
-                  status: existingReplacement?.status,
-                  reason_code: existingReplacement?.reason_code,
-                  requested_size: existingReplacement?.requested_size,
-                  reason_description: existingReplacement?.reason_description
-                }
-              });
               
               return (
                 <div className="p-2 sm:p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">

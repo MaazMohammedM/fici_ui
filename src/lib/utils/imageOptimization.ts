@@ -3,8 +3,8 @@
  * Handles Supabase image transformations, WebP conversion, and sizing
  */
 
-// Supabase storage URL pattern
-const SUPABASE_STORAGE_URL = 'https://project.supabase.co/storage/v1/object/public';
+// Supabase storage URL pattern - use worker URL for all requests
+const SUPABASE_STORAGE_URL = 'https://supabase-proxy.furqhaanmohammed001.workers.dev/storage/v1/object/public';
 
 // Cache for optimized URLs to prevent duplicate processing
 const optimizedUrlCache = new Map<string, string>();
@@ -30,12 +30,18 @@ export const getOptimizedImageUrl = (
   }
 
   // If it's not a Supabase URL, return as-is
-  if (!imageUrl.includes(SUPABASE_STORAGE_URL)) {
+  if (!imageUrl.includes('qegaebazravcwofibtry.supabase.co')) {
     return imageUrl;
   }
 
+  // Replace Supabase URL with Cloudflare proxy URL
+  const proxiedImageUrl = imageUrl.replace(
+    'https://qegaebazravcwofibtry.supabase.co/storage/v1/object/public',
+    SUPABASE_STORAGE_URL
+  );
+
   // Create cache key for this specific optimization
-  const cacheKey = `${imageUrl}-${JSON.stringify(options)}`;
+  const cacheKey = `${proxiedImageUrl}-${JSON.stringify(options)}`;
   
   // Return cached URL if available
   if (optimizedUrlCache.has(cacheKey)) {
@@ -63,9 +69,9 @@ export const getOptimizedImageUrl = (
   params.set('format', format);
 
   // Check if URL already has parameters
-  const urlWithParams = imageUrl.includes('?') 
-    ? `${imageUrl}&${params.toString()}`
-    : `${imageUrl}?${params.toString()}`;
+  const urlWithParams = proxiedImageUrl.includes('?') 
+    ? `${proxiedImageUrl}&${params.toString()}`
+    : `${proxiedImageUrl}?${params.toString()}`;
 
   // Cache the result
   optimizedUrlCache.set(cacheKey, urlWithParams);

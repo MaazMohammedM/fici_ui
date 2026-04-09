@@ -82,12 +82,21 @@ const getRazorpayKey = () => {
 const loadRazorpayScript = (): Promise<void> => {
   return new Promise((resolve, reject) => {
     if ((window as any).Razorpay) return resolve();
+    
+    // Check if script is already being loaded
+    const existingScript = document.querySelector('script[src="https://checkout.razorpay.com/v1/checkout.js"]');
+    if (existingScript) {
+      existingScript.addEventListener('load', () => resolve());
+      existingScript.addEventListener('error', () => reject(new Error("Razorpay SDK failed to load")));
+      return;
+    }
+    
     const script = document.createElement("script");
     script.src = "https://checkout.razorpay.com/v1/checkout.js";
     script.async = true;
+    script.setAttribute('data-preload-strategy', 'none'); // Prevent aggressive preloading
     script.onload = () => resolve();
-    script.onerror = () =>
-      reject(new Error("Razorpay SDK failed to load"));
+    script.onerror = () => reject(new Error("Razorpay SDK failed to load"));
     document.head.appendChild(script);
   });
 };
@@ -201,18 +210,9 @@ const CheckoutPage: React.FC = () => {
     const loadProductDetails = async () => {
       if (!cartItems.length) return;
 
-      // Debug logging for cart items
-      console.log('Processing cart items:', cartItems.map(item => ({
-        cartItemId: item.id,
-        productId: item.product_id,
-        productName: item.name,
-        size: item.size,
-        quantity: item.quantity
-      })));
 
       const productIds = Array.from(new Set(cartItems.map(item => item.product_id).filter(Boolean)));
       
-      console.log('Fetching product details for IDs:', productIds);
       
       if (productIds.length === 0) return;
 
@@ -228,12 +228,6 @@ const CheckoutPage: React.FC = () => {
           return;
         }
 
-        console.log('Products returned from database:', products.map(p => ({
-          productId: p.product_id,
-          productName: p.name,
-          articleId: p.article_id
-        })));
-
         // Create a mapping from product_id to product details for easier lookup
         const productMap = products.reduce((acc, product) => {
           acc[product.product_id] = product;
@@ -243,15 +237,6 @@ const CheckoutPage: React.FC = () => {
         // Now map each cart item to its product details
         const details = cartItems.reduce((acc, cartItem) => {
           const product = productMap[cartItem.product_id];
-          
-          // Debug logging for product mapping
-          console.log('Mapping product to cart:', {
-            cartItemId: cartItem.id,
-            productId: cartItem.product_id,
-            productName: cartItem.name,
-            foundProduct: !!product,
-            productNameFromDb: product?.name
-          });
           
           if (product) {
             acc[cartItem.id] = product;

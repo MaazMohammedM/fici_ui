@@ -1,4 +1,5 @@
 // Error types for better error handling
+import { fetchWithFallback } from '../utils/apiClient';
 export type OtpError =
   | 'INVALID_CONTACT'
   | 'RATE_LIMIT_EXCEEDED'
@@ -39,7 +40,7 @@ export async function requestOtp(
 }> {
   try {
     // Use direct fetch to call the specific endpoint with correct path
-    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-verify-otp/send`, {
+    const response = await fetchWithFallback(`/functions/v1/send-verify-otp/send`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -114,7 +115,7 @@ export async function verifyOtp(
 }> {
   try {
     // Use direct fetch to call the specific endpoint with correct path
-    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-verify-otp/verify`, {
+    const response = await fetchWithFallback(`/functions/v1/send-verify-otp/verify`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

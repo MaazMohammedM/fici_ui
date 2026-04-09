@@ -243,17 +243,38 @@ const safeParseTags = (value: unknown): string[] => {
 };
 
 /**
+ * Transform old Supabase URLs to custom domain
+ */
+const transformImageUrl = (url: string): string => {
+  if (!url || typeof url !== 'string') return url;
+  
+  // Replace old Supabase URLs with custom domain
+  return url.replace(
+    /https:\/\/[a-zA-Z0-9-]+\.supabase\.co\/storage\/v1\/object\/public\/ficishoesimages\//g,
+    'https://api.ficishoes.com/storage/v1/object/public/ficishoesimages/'
+  );
+};
+
+/**
  * Parse images from database - handles arrays and comma-separated strings
- * Returns clean array of image URLs
+ * Returns clean array of image URLs with transformed domain
  */
 const parseImages = (images: unknown): string[] => {
   if (!images) return [];
+
+  // Helper to process individual URLs
+  const processUrl = (url: string): string => {
+    const trimmed = url.trim();
+    if (!trimmed) return '';
+    return transformImageUrl(trimmed);
+  };
 
   // Already an array
   if (Array.isArray(images)) {
     return images
       .filter((img): img is string => img !== null && typeof img === 'string' && img.trim() !== '')
-      .map(url => url.trim());
+      .map(processUrl)
+      .filter(url => url.length > 0);
   }
 
   if (typeof images === 'string') {
@@ -270,7 +291,7 @@ const parseImages = (images: unknown): string[] => {
     if (cleaned.includes('http')) {
       return cleaned
         .split(',')
-        .map(url => url.trim())
+        .map(processUrl)
         .filter(url => url.length > 0);
     }
 
@@ -280,12 +301,14 @@ const parseImages = (images: unknown): string[] => {
       if (Array.isArray(parsed)) {
         return parsed
           .filter((img): img is string => img !== null && typeof img === 'string' && img.trim() !== '')
-          .map(url => url.trim());
+          .map(processUrl)
+          .filter(url => url.length > 0);
       }
     } catch {
       // Not JSON, return as single URL if it's valid
       if (cleaned.startsWith('http')) {
-        return [cleaned];
+        const transformed = processUrl(cleaned);
+        return transformed ? [transformed] : [];
       }
     }
   }
@@ -378,6 +401,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
         size_prices: safeParseSizePrices(product.size_prices),
         tags: safeParseTags(product.tags),
         images: parseImages(product.images),
+        thumbnail_url: product.thumbnail_url ? transformImageUrl(product.thumbnail_url) : product.thumbnail_url,
         // Add missing fields with defaults to satisfy AdminProduct interface
         mrp: parseFloat(product.mrp_price) || 0,
         color: (product as { color?: string }).color || '',
@@ -420,11 +444,9 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
           throw new Error(`Failed to upload ${file.name}: ${uploadError.message}`);
         }
 
-        const { data: urlData } = supabase.storage
-          .from('ficishoesimages')
-          .getPublicUrl(filePath);
-
-        imageUrls.push(urlData.publicUrl);
+        // Construct URL manually using custom domain instead of Supabase's getPublicUrl
+        const publicUrl = `https://api.ficishoes.com/storage/v1/object/public/ficishoesimages/${filePath}`;
+        imageUrls.push(publicUrl);
 
         const progress = ((i + 1) / totalFiles) * 100;
         set({ uploadProgress: progress });
@@ -797,7 +819,6 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
   // Returns actions
   fetchReturns: async () => {
     set({ returnsLoading: true, returnsError: null });
-    console.log('🔍 Fetching returns from returns table...');
     try {
       const { data, error } = await supabase
         .from('returns')

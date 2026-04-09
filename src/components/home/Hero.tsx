@@ -3,8 +3,8 @@ import { Link } from "react-router-dom";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 // Import desktop images
-import pc1 from "../../assets/1000805150_pc.jpg";
-import pc2 from "../../assets/1000805146_pc.jpg";
+import pc1 from "../../assets/desktop_slide_2.png";
+import pc2 from "../../assets/desktop_slide_1.png"
 import pc4 from "../../assets/1000805148_pc.jpg";
 import pc5 from "../../assets/1000805157_pc.jpg";
 import pc6 from "../../assets/1000805149_pc.jpg";
@@ -74,53 +74,63 @@ const Hero: React.FC = () => {
 
   return (
     <section className="relative w-full overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 dark:from-black dark:via-slate-950 dark:to-black">
-      {/* Responsive container with safe height boundaries */}
-      <div className="relative w-full h-[50vh] min-h-[400px] max-h-[600px] sm:h-[55vh] sm:min-h-[450px] md:h-[60vh] md:min-h-[500px] lg:h-[65vh] lg:min-h-[550px] xl:h-[70vh] xl:min-h-[600px]">
-        {heroSlides.map((slide, index) => (
-          <div
-            key={slide.id}
-            className={`absolute inset-0 transition-all duration-700 ease-out ${
-              index === currentSlide 
-                ? "opacity-100 scale-100 z-10" 
-                : "opacity-0 scale-95 z-0 pointer-events-none"
-            }`}
-          >
-            {/* Image container */}
-            <Link 
-              to={slide.ctaLink}
-              className="absolute inset-0 block"
-              onClick={(e) => {
-                // Prevent navigation if clicking on navigation buttons
-                if ((e.target as HTMLElement).closest('button')) {
-                  e.preventDefault();
-                }
-              }}
+      {/* Responsive container with aspect-ratio based on image dimensions */}
+      <div className="relative w-full">
+        {/* Dynamic height based on current slide's aspect ratio */}
+        <div 
+          className="relative w-full"
+          style={{
+            aspectRatio: currentSlide >= 2 ? '2125/914' : '1920/1080', // Wide images vs standard images
+            minHeight: '400px',
+            maxHeight: '90vh'
+          }}
+        >
+          {heroSlides.map((slide, index) => (
+            <div
+              key={slide.id}
+              className={`absolute inset-0 transition-all duration-700 ease-out ${
+                index === currentSlide 
+                  ? "opacity-100 scale-100 z-10" 
+                  : "opacity-0 scale-95 z-0 pointer-events-none"
+              }`}
             >
-              <div className="absolute inset-0">
-                <picture className="w-full h-full">
-                  <source 
-                    media="(min-width: 768px)" 
-                    srcSet={desktopImages[index]}
-                  />
-                  <img
-                    src={mobileImages[index]}
-                    alt={`Featured collection ${index + 1}`}
-                    className="w-full h-full object-contain object-center bg-gray-100 cursor-pointer"
-                    loading={index === 0 ? "eager" : "lazy"}
-                    decoding="async"
-                  />
-                </picture>
-              </div>
-            </Link>
-          </div>
-        ))}
+              {/* Image container with proper aspect ratio */}
+              <Link 
+                to={slide.ctaLink}
+                className="absolute inset-0 block"
+                onClick={(e) => {
+                  // Prevent navigation if clicking on navigation buttons
+                  if ((e.target as HTMLElement).closest('button')) {
+                    e.preventDefault();
+                  }
+                }}
+              >
+                <div className="absolute inset-0 bg-white">
+                  <picture className="w-full h-full">
+                    <source 
+                      media="(min-width: 768px)" 
+                      srcSet={desktopImages[index]}
+                    />
+                    <img
+                      src={mobileImages[index]}
+                      alt={`Featured collection ${index + 1}`}
+                      className="w-full h-full object-contain cursor-pointer"
+                      loading={index === 0 ? "eager" : "lazy"}
+                      decoding="async"
+                    />
+                  </picture>
+                </div>
+              </Link>
+            </div>
+          ))}
+        </div>
       </div>
 
-      {/* Navigation buttons */}
-      <div className="absolute inset-0 flex items-center justify-between px-4 sm:px-6 md:px-8 pointer-events-none z-20">
+      {/* Navigation buttons - positioned absolutely over the entire hero section */}
+      <div className="absolute top-0 left-0 right-0 z-30 pointer-events-none" style={{ height: '100%' }}>
         <button
           onClick={goToPrevious}
-          className="pointer-events-auto group relative p-3 rounded-full bg-white/10 backdrop-blur-xl border border-white/20 text-white hover:bg-white/20 transition-all duration-300 hover:scale-110"
+          className="pointer-events-auto absolute left-4 sm:left-6 md:left-8 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 backdrop-blur-xl border border-white/20 text-gray-800 hover:bg-white hover:text-gray-900 transition-all duration-300 hover:scale-110"
           aria-label="Previous slide"
         >
           <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
@@ -128,7 +138,7 @@ const Hero: React.FC = () => {
         
         <button
           onClick={goToNext}
-          className="pointer-events-auto group relative p-3 rounded-full bg-white/10 backdrop-blur-xl border border-white/20 text-white hover:bg-white/20 transition-all duration-300 hover:scale-110"
+          className="pointer-events-auto absolute right-4 sm:right-6 md:right-8 top-1/2 -translate-y-1/2 p-3 rounded-full bg-white/10 backdrop-blur-xl border border-white/20 text-gray-800 hover:bg-white hover:text-gray-900 transition-all duration-300 hover:scale-110"
           aria-label="Next slide"
         >
           <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />

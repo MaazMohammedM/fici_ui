@@ -93,11 +93,7 @@ export async function updateOrderItemStatus({
 
     // Add shipping details for ship_item and ship_replacement actions
     if (action === 'ship_item' || action === 'ship_replacement') {
-      console.log('🔍 Adding shipping details for action:', action, {
-        shipping_partner,
-        tracking_id,
-        tracking_url
-      });
+
       if (!shipping_partner || !tracking_id) {
         throw new Error('Shipping partner and tracking ID are required');
       }
