@@ -7,6 +7,17 @@ import ReturnsManagementTab from './ReturnsManagementTab';
 import { printInvoice, generateInvoiceNumber, type InvoiceData, type InvoiceItem } from '../../../utils/invoiceUtils';
 import AlertModal from '../../../components/ui/AlertModal';
 
+// Import transformImageUrl from adminStore
+const transformImageUrl = (url: string): string => {
+  if (!url || typeof url !== 'string') return url;
+  
+  // Replace old Supabase URLs with supabase-proxy domain
+  return url.replace(
+    /https:\/\/[a-zA-Z0-9-]+\.supabase\.co\/storage\/v1\/object\/public\/ficishoesimages\//g,
+    'https://supabase-proxy.furqhaanmohammed001.workers.dev/storage/v1/object/public/ficishoesimages/'
+  );
+};
+
 import type {
   Order,
   OrderItem,
@@ -409,7 +420,7 @@ const AdminOrderDashboard: React.FC = () => {
             size: item.size || 'N/A',
             quantity: item.quantity || 1,
             price_at_purchase: item.price_at_purchase || 0,
-            thumbnail_url: item.thumbnail_url || item.product_thumbnail_url || '',
+            thumbnail_url: transformImageUrl(item.thumbnail_url || item.product_thumbnail_url || ''),
           } as OrderItem)
       );
 

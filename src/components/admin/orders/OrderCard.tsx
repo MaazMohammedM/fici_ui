@@ -1,7 +1,6 @@
 import React from 'react';
-import { Eye, Truck, Ban, CheckCircle, DollarSign, Upload } from 'lucide-react';
+import { Package, Truck, CheckCircle, XCircle, Clock, Eye, DollarSign, Ban, Upload } from 'lucide-react';
 import type { Order, OrderItem, OrderActionFlags } from '../../../types/order-common';
-import { getThumbnailUrl } from '../../../lib/utils/imageOptimization';
 import { canRefundOrder } from '../../../types/order-common';
 import {
   getStatusColor,
@@ -223,14 +222,24 @@ export const OrderCard: React.FC<OrderCardProps> = ({
             <div className="space-y-2">
               {order.order_items?.slice(0, 3).map((item) => (
                 <div key={item.order_item_id} className="flex items-start gap-3 text-sm">
-                  <img
-                    src={getThumbnailUrl(item.thumbnail_url || '/placeholder-image.jpg')}
-                    alt={item.product_name}
-                    className="w-8 h-8 object-cover rounded flex-shrink-0"
-                    loading="lazy"
-                    decoding="async"
-                    onError={(e) => { e.currentTarget.src = '/placeholder-image.jpg'; }}
-                  />
+                  {item.thumbnail_url ? (
+                    <img
+                      src={item.thumbnail_url}
+                      alt={item.product_name}
+                      className="w-8 h-8 object-cover rounded flex-shrink-0"
+                      loading="lazy"
+                      decoding="async"
+                      onError={(e) => {
+                        if (!e.currentTarget.src.includes('placeholder-image.jpg')) {
+                          e.currentTarget.src = '/placeholder-image.jpg';
+                        }
+                      }}
+                    />
+                  ) : (
+                    <div className="w-8 h-8 bg-gray-200 rounded flex items-center justify-center flex-shrink-0">
+                      <Package className="w-4 h-4 text-gray-400" />
+                    </div>
+                  )}
                   <div className="flex-1 min-w-0">
                     <p className="font-medium">{item.product_name}</p>
                     <p className="text-gray-500">

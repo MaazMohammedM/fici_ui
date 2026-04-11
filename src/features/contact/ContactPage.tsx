@@ -5,7 +5,7 @@ const ContactPage = () => {
   return (
     <>
       <SEOHead 
-        title="Contact Us - FICI Shoes"
+        title="Contact - FICI Shoes | Get in Touch | Customer Support"
         description="Get in touch with FICI Shoes for premium leather footwear inquiries, support, and customer service. Visit our showroom in Ambur, Tamil Nadu."
         keywords="contact fici shoes, customer support, leather shoes inquiry, ambur showroom, ficishoes contact"
         url="https://ficishoes.com/contact"

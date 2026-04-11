@@ -612,7 +612,7 @@ const ProductPage: React.FC = () => {
   return (
     <>
       <SEOHead 
-        title="All Products - FICI Shoes | Premium Leather Footwear Collection"
+        title="Products - FICI Shoes | Premium Leather Footwear Collection"
         description="Browse our complete collection of premium leather shoes, sandals, and accessories for men and women. Quality craftsmanship meets modern style."
         keywords="fici shoes products, leather footwear, men shoes, women shoes, sandals, bags, accessories"
         url="https://ficishoes.com/products"

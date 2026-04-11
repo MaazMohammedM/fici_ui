@@ -12,7 +12,7 @@ const AboutPage: React.FC = () => {
   return (
     <>
       <SEOHead 
-        title="About Fici Shoes - A Brand of NMF International | Premium Leather Footwear"
+        title="About - FICI Shoes - A Brand of NMF International | Premium Leather Footwear | Brand Story"
         description="Fici Shoes is a premium brand of NMF International, crafting quality leather footwear since 2018. Discover our story of craftsmanship, comfort, and style from Ambur, Tamil Nadu."
         keywords="Fici Shoes, NMF International, leather footwear, premium shoes, Ambur Tamil Nadu, quality craftsmanship, leather shoes, footwear brand"
         url="https://ficishoes.com/about"

@@ -1,12 +1,13 @@
 import { create } from 'zustand';
-import { supabase } from '@lib/supabase';
-import type { EnhancedProductFormData, EditProductFormData } from '@lib/util/formValidation';
+import { supabase } from '../../../lib/supabase';
 import type { Product } from '../../../types/product';
-import type { ShippingAddress, AdminOrder } from '../../../types/order';
+import { getThumbnailUrl } from '../../../lib/utils/imageOptimization';
+import type { AdminOrder } from '../../../types/order';
+import type { EnhancedProductFormData, EditProductFormData } from '@lib/util/formValidation';
+
 import { calculateAggregateOrderStatus } from '@store/orderStore';
 import { updateOrderItemStatus } from '@/lib/orderActions';
 import { useAuthStore } from '@store/authStore';
-
 
 // Extended Product type for admin functionality
 export interface AdminProduct extends Product {
@@ -243,15 +244,15 @@ const safeParseTags = (value: unknown): string[] => {
 };
 
 /**
- * Transform old Supabase URLs to custom domain
+ * Transform old Supabase URLs to supabase-proxy domain (matching working product page URLs)
  */
 const transformImageUrl = (url: string): string => {
   if (!url || typeof url !== 'string') return url;
   
-  // Replace old Supabase URLs with custom domain
+  // Replace old Supabase URLs with supabase-proxy domain
   return url.replace(
     /https:\/\/[a-zA-Z0-9-]+\.supabase\.co\/storage\/v1\/object\/public\/ficishoesimages\//g,
-    'https://api.ficishoes.com/storage/v1/object/public/ficishoesimages/'
+    'https://supabase-proxy.furqhaanmohammed001.workers.dev/storage/v1/object/public/ficishoesimages/'
   );
 };
 
@@ -404,7 +405,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
         thumbnail_url: product.thumbnail_url ? transformImageUrl(product.thumbnail_url) : product.thumbnail_url,
         // Add missing fields with defaults to satisfy AdminProduct interface
         mrp: parseFloat(product.mrp_price) || 0,
-        color: (product as { color?: string }).color || '',
+        color: extractColorFromArticleId(product.article_id),
         discount_percentage: product.discount_price ? 
           Math.round(((parseFloat(product.mrp_price) - parseFloat(product.discount_price)) / parseFloat(product.mrp_price)) * 100) : 0
       }));
@@ -418,7 +419,7 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
     }
   },
 
-  uploadImages: async (folderName, files) => {
+  uploadImages: async (folderName: string, files: FileList) => {
     const imageUrls: string[] = [];
     const totalFiles = files.length;
 
@@ -431,41 +432,27 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
         const contentType = file.type && file.type.startsWith('image/')
           ? file.type
           : getMimeType(file.name);
-
-        const { error: uploadError } = await supabase.storage
-          .from('ficishoesimages')
-          .upload(filePath, file, {
-            cacheControl: '3600',
-            upsert: false,
-            contentType: contentType
-          });
-
-        if (uploadError) {
-          throw new Error(`Failed to upload ${file.name}: ${uploadError.message}`);
-        }
-
-        // Construct URL manually using custom domain instead of Supabase's getPublicUrl
-        const publicUrl = `https://api.ficishoes.com/storage/v1/object/public/ficishoesimages/${filePath}`;
+        
+        // Use direct Supabase URL without query parameters (matching working product page URLs)
+        const publicUrl = `https://supabase-proxy.furqhaanmohammed001.workers.dev/storage/v1/object/public/ficishoesimages/${filePath}`;
         imageUrls.push(publicUrl);
 
+        // Update progress after each file
         const progress = ((i + 1) / totalFiles) * 100;
         set({ uploadProgress: progress });
       }
-
+      
       return {
         imageUrls,
         thumbnail: imageUrls[0]
       };
     } catch (error) {
       console.error('Upload error:', error);
-      set({ error: error instanceof Error ? error.message : 'Upload failed' });
       return null;
-    } finally {
-      set({ uploadProgress: 0 });
     }
   },
 
-  deleteProductImages: async (folderName) => {
+  deleteProductImages: async (folderName: string) => {
     try {
       const { data: fileList, error: listError } = await supabase.storage
         .from('ficishoesimages')

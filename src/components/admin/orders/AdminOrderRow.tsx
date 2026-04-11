@@ -1,5 +1,5 @@
 import React from 'react';
-import { Eye, TruckIcon, Ban, CheckCircle, Upload } from 'lucide-react';
+import { Eye, TruckIcon, Ban, CheckCircle, Upload, Package } from 'lucide-react';
 import type { Order, OrderActionFlags } from '../../../types/order-common';
 import { printInvoice, generateInvoiceNumber, type InvoiceData, type InvoiceItem } from '../../../utils/invoiceUtils';
 
@@ -150,14 +150,25 @@ export const AdminOrderRow: React.FC<AdminOrderRowProps> = ({
             <div className="space-y-2">
               {order.order_items?.slice(0, 3).map((item) => (
                 <div key={item.order_item_id} className="flex items-center gap-3 text-sm">
-                  <img
-                    src={item.thumbnail_url || '/placeholder-image.jpg'}
-                    alt={item.product_name}
-                    className="w-8 h-8 object-cover rounded"
-                    onError={(e) => {
-                      e.currentTarget.src = '/placeholder-image.jpg';
-                    }}
-                  />
+                  {item.thumbnail_url ? (
+                    <img
+                      src={item.thumbnail_url}
+                      alt={item.product_name}
+                      className="w-8 h-8 object-cover rounded"
+                      onError={(e) => {
+                        // Only fallback to placeholder if URL is clearly invalid
+                        const img = e.currentTarget;
+                        if (!img.src.includes('placeholder-image.jpg')) {
+                          console.warn('Image failed to load:', item.thumbnail_url);
+                          img.src = '/placeholder-image.jpg';
+                        }
+                      }}
+                    />
+                  ) : (
+                    <div className="w-8 h-8 bg-gray-200 rounded flex items-center justify-center">
+                      <Package className="w-4 h-4 text-gray-400" />
+                    </div>
+                  )}
                   <div className="flex-1">
                     <p className="font-medium">{item.product_name}</p>
                     <p className="text-gray-500">

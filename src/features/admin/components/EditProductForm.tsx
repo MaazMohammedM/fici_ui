@@ -87,6 +87,11 @@ export const EditProductForm: React.FC<EditProductFormProps> = ({
     }
   };
 
+  // Handle thumbnail selection
+  const handleThumbnailSelect = (imageUrl: string) => {
+    setValue('thumbnail_url', imageUrl, { shouldValidate: true });
+  };
+
   // Handle tag toggling
   const handleTagToggle = (tag: string) => {
     const currentTags = (watch('tags') as unknown as string[]) || [];
@@ -286,12 +291,19 @@ export const EditProductForm: React.FC<EditProductFormProps> = ({
         <div className="md:col-span-2">
           <label className="block text-sm font-medium text-gray-700 dark:text-white">
             Thumbnail URL
+            <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
+              (Selected from images above)
+            </span>
           </label>
           <input 
             {...register('thumbnail_url')} 
-            placeholder="https://example.com/image.jpg" 
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white" 
+            placeholder="Click an image above to set as thumbnail" 
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary dark:bg-gray-800 dark:text-white bg-gray-50 dark:bg-gray-700"
+            readOnly
           />
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            Click on any image in the "Current Images" section above to set it as the thumbnail. This image will be displayed as the main product image in listings.
+          </p>
         </div>
 
         {/* Active Status */}
@@ -361,23 +373,48 @@ export const EditProductForm: React.FC<EditProductFormProps> = ({
           <div className="md:col-span-2">
             <label className="block text-sm font-medium text-gray-700 dark:text-white mb-2">
               Current Images
+              <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
+                (Click an image to set as thumbnail)
+              </span>
             </label>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {product.images.map((image: string, index: number) => (
-                <div key={index} className="relative group">
-                  <img 
-                    src={image} 
-                    alt={`Product ${index + 1}`}
-                    className="w-full h-24 object-cover rounded"
-                  />
-                  {index === 0 && (
-                    <span className="absolute top-1 left-1 bg-blue-500 text-white text-xs px-1 rounded">
-                      Thumbnail
-                    </span>
-                  )}
-                </div>
-              ))}
+              {product.images.map((image: string, index: number) => {
+                const isCurrentThumbnail = watch('thumbnail_url') === image || 
+                                       (index === 0 && !watch('thumbnail_url'));
+                return (
+                  <div key={index} className="relative group">
+                    <button
+                      type="button"
+                      onClick={() => handleThumbnailSelect(image)}
+                      className={`relative w-full h-24 object-cover rounded border-2 transition-all ${
+                        isCurrentThumbnail 
+                          ? 'border-blue-500 ring-2 ring-blue-200' 
+                          : 'border-gray-300 hover:border-gray-400'
+                      }`}
+                    >
+                      <img 
+                        src={image} 
+                        alt={`Product ${index + 1}`}
+                        className="w-full h-24 object-cover rounded"
+                      />
+                      {isCurrentThumbnail && (
+                        <div className="absolute top-1 left-1 bg-blue-500 text-white text-xs px-1 rounded">
+                          Thumbnail
+                        </div>
+                      )}
+                    </button>
+                    <div className="absolute bottom-1 right-1 bg-black bg-opacity-50 text-white text-xs px-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                      {isCurrentThumbnail ? 'Current' : 'Click to set'}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
+            {watch('thumbnail_url') && (
+              <div className="mt-2 text-xs text-gray-600 dark:text-gray-400">
+                Selected thumbnail: {watch('thumbnail_url').substring(0, 50)}...
+              </div>
+            )}
           </div>
         )}
       </div>

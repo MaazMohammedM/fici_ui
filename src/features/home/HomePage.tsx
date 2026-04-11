@@ -17,7 +17,7 @@ const HomePage: React.FC = () => {
   return (
     <>
       <SEOHead 
-        title="FICI Shoes - Premium Leather Footwear | Handcrafted Quality"
+        title="Home - FICI Shoes | Premium Leather Footwear | Handcrafted Quality"
         description="Discover premium leather shoes, sandals, and accessories at FICI Shoes. Handcrafted quality with modern style. Free shipping on orders above ₹999."
         keywords="fici shoes, leather footwear, premium shoes, handcrafted shoes, men shoes, women shoes, sandals, boots"
         url="https://ficishoes.com"

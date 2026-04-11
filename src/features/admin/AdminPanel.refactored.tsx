@@ -3,7 +3,6 @@ import { BarChart3, List, Plus, Package, Percent } from "lucide-react";
 import { supabase } from "@lib/supabase";
 import { useAdminStore } from "./store/adminStore";
 import ScrollToTop from "@components/ScrollToTop";
-import { getThumbnailUrl } from "@lib/utils/imageOptimization";
 
 const DashboardStats = lazy(() => import("./components/DashboardStats"));
 const TopProductsChart = lazy(() => import("./components/TopProductsChart"));
@@ -58,7 +57,10 @@ const AdminPage: React.FC = () => {
 
       setComprehensiveData({
         trafficSources: trafficData || [],
-        productVisits: productVisitData || [], // Use real product visit stats data
+        productVisits: productVisitData.map((product: any) => ({
+          ...product,
+          thumbnail_url: product.thumbnail_url || ''
+        })) || [], // Use real product visit stats data
         recentOrders: orderData || []
       });
 

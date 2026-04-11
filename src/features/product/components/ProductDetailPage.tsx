@@ -4,6 +4,7 @@ import { useProductStore } from '@store/productStore';
 import { useAuthStore } from '@store/authStore';
 import { trackProductViewOnce } from '../../../lib/utils/analytics';
 import { trackEvent } from '@utils/ga4Analytics';
+import SEOHead from '@lib/components/SEOHead';
 import {
   getActiveProductDiscountsForProducts,
   type ProductDiscountRule,
@@ -248,6 +249,12 @@ const ProductDetailPage: React.FC = () => {
 
   return (
     <>
+      <SEOHead 
+        title={`Product - ${currentProduct.name} (${article_id}) | FICI Shoes | Premium Leather Footwear`}
+        description={`${currentProduct.name} - Premium leather footwear from FICI Shoes. Article ID: ${article_id}. ${currentProduct.description?.substring(0, 150) || 'Discover quality craftsmanship and modern style.'}`}
+        keywords={`${currentProduct.name}, fici shoes, leather footwear, article ${article_id}, ${currentProduct.category}, premium shoes`}
+        url={`https://ficishoes.com/products/${article_id}`}
+      />
       <div className="bg-white dark:bg-dark1">
         {/* Success Message */}
         {productActions.showSuccessMessage && (

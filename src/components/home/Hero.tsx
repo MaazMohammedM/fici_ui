@@ -3,17 +3,17 @@ import { Link } from "react-router-dom";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 // Import desktop images
-import pc1 from "../../assets/desktop_slide_2.png";
-import pc2 from "../../assets/desktop_slide_1.png"
-import pc4 from "../../assets/1000805148_pc.jpg";
-import pc5 from "../../assets/1000805157_pc.jpg";
+import pc1 from "../../assets/desktop_slide_01.png";
+import pc2 from "../../assets/desktop_slide_2.png"
+import pc4 from "../../assets/desktop_slide_2.png";
+import pc5 from "../../assets/desktop_slide_01.png";
 import pc6 from "../../assets/1000805149_pc.jpg";
 
 // Import mobile images
-import mobile1 from "../../assets/1000806049_mobile.png";
-import mobile2 from "../../assets/1000806046_mobile.jpg";
-import mobile3 from "../../assets/1000806089_mobile.jpg";
-import mobile5 from "../../assets/1000806094_mobile.jpg";
+import mobile1 from "../../assets/mobile_slide_1.png";
+import mobile2 from "../../assets/mobile_slide_2.png";
+import mobile3 from "../../assets/mobile_slide_2.png";
+import mobile5 from "../../assets/mobile_slide_1.png";
 import mobile6 from "../../assets/1000806095_mobile.jpg";
 
 const desktopImages = [pc1, pc2, pc4, pc5, pc6];
@@ -52,6 +52,17 @@ const heroSlides = [
 
 const Hero: React.FC = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -80,7 +91,9 @@ const Hero: React.FC = () => {
         <div 
           className="relative w-full"
           style={{
-            aspectRatio: currentSlide >= 2 ? '2125/914' : '1920/1080', // Wide images vs standard images
+            aspectRatio: isMobile 
+              ? '800/1200' // Mobile aspect ratio (2:3 for 800x1200 images)
+              : (currentSlide >= 2 ? '2125/914' : '1920/1080'), // Desktop aspect ratios
             minHeight: '400px',
             maxHeight: '90vh'
           }}
