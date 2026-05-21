@@ -68,6 +68,7 @@ const getEnabledSubCategoryOptions = (selectedCategories: string[]) => {
 
 const SORT_OPTIONS = [
   { value: null, label: "Sort by" },
+  { value: "stock_high_to_low", label: "Stock: High to Low" },
   { value: "price_low_to_high", label: "Price: Low to High" },
   { value: "price_high_to_low", label: "Price: High to Low" },
 ];
@@ -157,7 +158,18 @@ const ProductPage: React.FC = () => {
     
     // Sort by
     if (sortBy) {
-      const sortLabel = sortBy === 'price_low_to_high' ? 'Price: Low to High' : 'Price: High to Low';
+      let sortLabel = '';
+      switch (sortBy) {
+        case 'price_low_to_high':
+          sortLabel = 'Price: Low to High';
+          break;
+        case 'price_high_to_low':
+          sortLabel = 'Price: High to Low';
+          break;
+        case 'stock_high_to_low':
+          sortLabel = 'Stock: High to Low';
+          break;
+      }
       summary.push(sortLabel);
     }
     
@@ -249,7 +261,7 @@ const ProductPage: React.FC = () => {
     const genderParams = params.getAll("gender");
     const subCategoryParams = params.getAll("sub_category");
     const sizeParams = params.getAll("size");
-    const sortParam = params.get("sort") as 'price_low_to_high' | 'price_high_to_low' | null;
+    const sortParam = params.get("sort") as 'price_low_to_high' | 'price_high_to_low' | 'stock_high_to_low' | null;
     const q = params.get("q") || "";
     const pageStr = params.get("page");
     const page = pageStr ? Math.max(1, parseInt(pageStr, 10) || 1) : 1;
@@ -441,7 +453,7 @@ const ProductPage: React.FC = () => {
     navigate({ pathname: "/products", search: params.toString() });
   }, [location.search, navigate]);
 
-  const handleSortChange = useCallback((newSort: 'price_low_to_high' | 'price_high_to_low' | null) => {
+  const handleSortChange = useCallback((newSort: 'price_low_to_high' | 'price_high_to_low' | 'stock_high_to_low' | null) => {
     setSortBy(newSort);
     const params = new URLSearchParams(location.search);
     if (newSort) {
@@ -550,31 +562,30 @@ const ProductPage: React.FC = () => {
       </div>
 
       {/* Pagination */}
-{/* Pagination */}
-{totalPages > 1 && (
-  <div className="flex justify-center mt-8 sm:mt-10 mb-6 sm:mb-8">
-    <div className="flex items-center gap-1 bg-white dark:bg-gray-800 rounded-xl shadow-sm p-1 border border-gray-200 dark:border-gray-700">
-      {Array.from({ length: totalPages }, (_, idx) => {
-        const page = idx + 1;
-        const isCurrent = page === currentPage;
+      {totalPages > 1 && (
+        <div className="flex justify-center mt-8 sm:mt-10 mb-6 sm:mb-8">
+          <div className="flex items-center gap-1 bg-white dark:bg-gray-800 rounded-xl shadow-sm p-1 border border-gray-200 dark:border-gray-700">
+            {Array.from({ length: totalPages }, (_, idx) => {
+              const page = idx + 1;
+              const isCurrent = page === currentPage;
 
-        return (
-          <button
-            key={page}
-            onClick={() => handlePageChange(page)}
-            className={`w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-lg text-xs sm:text-sm font-medium transition-colors ${
-              isCurrent
-                ? "bg-primary text-inverse dark:bg-inverse dark:text-primary"
-                : "text-secondary hover:bg-gray-100 dark:hover:bg-dark3"
-            }`}
-          >
-            {page}
-          </button>
-        );
-      })}
-    </div>
-  </div>
-)}
+              return (
+                <button
+                  key={page}
+                  onClick={() => handlePageChange(page)}
+                  className={`w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-lg text-xs sm:text-sm font-medium transition-colors ${
+                    isCurrent
+                      ? "bg-primary text-inverse dark:bg-inverse dark:text-primary"
+                      : "text-secondary hover:bg-gray-100 dark:hover:bg-dark3"
+                  }`}
+                >
+                  {page}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </>
   );
 }, [
@@ -609,15 +620,96 @@ const ProductPage: React.FC = () => {
     </button>
   ), []);
 
-  return (
-    <>
-      <SEOHead 
-        title="Products - FICI Shoes | Premium Leather Footwear Collection"
-        description="Browse our complete collection of premium leather shoes, sandals, and accessories for men and women. Quality craftsmanship meets modern style."
-        keywords="fici shoes products, leather footwear, men shoes, women shoes, sandals, bags, accessories"
-        url="https://ficishoes.com/products"
-      />
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+  // Generate dynamic SEO metadata based on filters
+  const getSEOMetadata = useCallback(() => {
+    const activeFilters = [];
+    const seoKeywords = ['leather shoe manufacturer', 'ambur leather', 'fici shoes ambur'];
+    
+    if (selectedGenders.length > 0) {
+      activeFilters.push(selectedGenders.map(g => g.charAt(0).toUpperCase() + g.slice(1)).join(' & '));
+      seoKeywords.push(...selectedGenders.map(g => `${g} leather shoes`));
+    }
+  
+  if (selectedCategories.length > 0) {
+    const categoryLabels = selectedCategories.map(c => 
+      CATEGORY_CONFIG[c as keyof typeof CATEGORY_CONFIG]?.label || c
+    );
+    activeFilters.push(categoryLabels.join(' & '));
+    seoKeywords.push(...categoryLabels.map(label => label.toLowerCase().replace(/\s+/g, '_')));
+  }
+  
+  if (selectedSubCategories.length > 0) {
+    activeFilters.push(selectedSubCategories.join(' & '));
+    seoKeywords.push(...selectedSubCategories.map(sub => sub.toLowerCase().replace(/\s+/g, '_')));
+  }
+
+  const filterDescription = activeFilters.length > 0 ? activeFilters.join(' - ') : 'All Products';
+  const title = activeFilters.length > 0 
+    ? `${filterDescription} | Premium Leather Collection | Fici | Ambur`
+    : 'Premium Leather Collection | Quality Footwear | Fici | Ambur';
+  
+  const description = activeFilters.length > 0
+    ? `Shop ${filterDescription.toLowerCase()} from Ambur's premier leather manufacturer. ${filteredProducts?.length || 0}+ styles with wholesale prices. Verified craftsmanship with worldwide shipping.`
+    : `Browse complete leather footwear collection from Ambur's premier manufacturer. ${filteredProducts?.length || 0}+ styles including shoes, sandals, and accessories. Direct factory prices.`;
+
+  return { title, description, keywords: seoKeywords.join(', ') };
+}, [selectedGenders, selectedCategories, selectedSubCategories, filteredProducts]);
+
+const seoMetadata = getSEOMetadata();
+
+return (
+  <>
+    <SEOHead 
+      title={seoMetadata.title}
+      description={seoMetadata.description}
+      keywords={seoMetadata.keywords}
+      url="https://ficishoes.com/products"
+    />
+    
+    {/* Collection Structured Data */}
+    <script type="application/ld+json">
+      {JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "CollectionPage",
+        "name": seoMetadata.title,
+        "description": seoMetadata.description,
+        "url": "https://ficishoes.com/products",
+        "mainEntity": {
+          "@type": "ItemList",
+          "numberOfItems": filteredProducts?.length || 0,
+          "itemListElement": filteredProducts?.slice(0, 10).map((product, index) => ({
+            "@type": "Product",
+            "position": index + 1,
+            "name": product.name,
+            "url": `https://ficishoes.com/products/${product.article_id}`,
+            "image": product.thumbnail_url || product.images?.[0],
+            "category": product.category,
+            "brand": {
+              "@type": "Brand",
+              "name": "FICI Shoes"
+            },
+            "offers": {
+              "@type": "Offer",
+              "price": product.mrp_price,
+              "priceCurrency": "INR",
+              "availability": "https://schema.org/InStock"
+            }
+          }))
+        },
+        "provider": {
+          "@type": "Organization",
+          "name": "FICI Shoes by NMF International",
+          "address": {
+            "@type": "PostalAddress",
+            "addressLocality": "Ambur",
+            "addressRegion": "Tamil Nadu",
+            "addressCountry": "IN"
+          }
+        }
+      })}
+    </script>
+    
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="py-6 sm:py-8">

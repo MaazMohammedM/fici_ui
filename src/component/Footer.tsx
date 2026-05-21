@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Mail, Phone, MapPin } from 'lucide-react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import logo from '../assets/fici_transparent.png';
+import logo from '../assets/fici_transparent.webp';
 import razorpayPayments from '../assets/razorpay-with-all-cards-upi-seeklogo.png';
 
 const Footer: React.FC = () => {
@@ -13,7 +13,7 @@ const Footer: React.FC = () => {
       {/* Full-bleed white logo strip (all breakpoints) */}
       <div className="w-full bg-white py-3 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-center">
-          <img src={logo} alt="FICI Logo" className="h-14 sm:h-20 w-auto object-contain" />
+          <img src={logo} alt="FICI Logo - Premium leather shoe manufacturer in Ambur" className="h-14 sm:h-20 w-auto object-contain" />
         </div>
       </div>
 
@@ -101,7 +101,12 @@ const Footer: React.FC = () => {
             <ul className="space-y-2">
               <li>
                 <Link to="/about" className="text-gray-300 hover:text-white text-sm sm:text-base transition-colors">
-                  Our Story
+                  Our Ambur Heritage
+                </Link>
+              </li>
+              <li>
+                <Link to="/ambur-leather-excellence" className="text-gray-300 hover:text-white text-sm sm:text-base transition-colors">
+                  Ambur Leather Excellence
                 </Link>
               </li>
               <li>
@@ -126,7 +131,7 @@ const Footer: React.FC = () => {
               </li>
               <li>
                 <Link to="/contact" className="text-gray-300 hover:text-white text-sm sm:text-base transition-colors">
-                  Contact Us
+                  Contact Leather Manufacturers
                 </Link>
               </li>
               <li>
@@ -139,14 +144,14 @@ const Footer: React.FC = () => {
 
           {/* Categories */}
           <div className="order-2">
-            <h3 className="text-lg sm:text-xl font-semibold mb-3">Categories</h3>
+            <h3 className="text-lg sm:text-xl font-semibold mb-3">Leather Categories</h3>
             <ul className="space-y-2">
               <li>
                 <Link
                   to="/products?sub_category=Shoes"
                   className="text-gray-300 hover:text-white text-sm sm:text-base transition-colors"
                 >
-                  Shoes
+                  Premium Leather Shoes
                 </Link>
               </li>
               <li>
@@ -154,7 +159,7 @@ const Footer: React.FC = () => {
                   to="/products?sub_category=Sandals"
                   className="text-gray-300 hover:text-white text-sm sm:text-base transition-colors"
                 >
-                  Sandals
+                  Handcrafted Leather Sandals
                 </Link>
               </li>
               <li>
@@ -162,7 +167,7 @@ const Footer: React.FC = () => {
                   to="/products?sub_category=Bags&sub_category=Accessories"
                   className="text-gray-300 hover:text-white text-sm sm:text-base transition-colors"
                 >
-                  Bags & Accessories
+                  Leather Bags & Accessories
                 </Link>
               </li>
               <li>
@@ -170,7 +175,7 @@ const Footer: React.FC = () => {
                   to="/products?gender=men"
                   className="text-gray-300 hover:text-white text-sm sm:text-base transition-colors"
                 >
-                  Men's Collection
+                  Men's Leather Collection
                 </Link>
               </li>
               <li>
@@ -178,7 +183,15 @@ const Footer: React.FC = () => {
                   to="/products?gender=women"
                   className="text-gray-300 hover:text-white text-sm sm:text-base transition-colors"
                 >
-                  Women's Collection
+                  Women's Leather Collection
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/ambur-leather-excellence"
+                  className="text-gray-300 hover:text-white text-sm sm:text-base transition-colors"
+                >
+                  Manufacturing Process
                 </Link>
               </li>
             </ul>

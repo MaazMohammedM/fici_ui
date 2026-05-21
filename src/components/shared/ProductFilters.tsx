@@ -273,7 +273,7 @@ const ProductFilters: React.FC<ProductFiltersProps> = ({
       className="flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
     >
       <SlidersHorizontal className="w-4 h-4" />
-      <span>Filters</span>
+      {/* <span></span> */}
       {count > 0 && (
         <span className="px-2 py-0.5 bg-primary text-white text-xs rounded-full">
           {count}

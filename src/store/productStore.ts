@@ -21,11 +21,11 @@ interface ProductState {
   totalPages: number;
   itemsPerPage: number;
   abortController: AbortController | null;
-  sortBy: 'price_low_to_high' | 'price_high_to_low' | null;
+  sortBy: 'price_low_to_high' | 'price_high_to_low' | 'stock_high_to_low' | null;
   highlightProducts: Product[];
   fetchHighlightProducts: () => Promise<void>;
   clearHighlightProductsCache: () => void;
-  setSortBy: (sortBy: 'price_low_to_high' | 'price_high_to_low' | null) => void;
+  setSortBy: (sortBy: 'price_low_to_high' | 'price_high_to_low' | 'stock_high_to_low' | null) => void;
   clearFilters: () => void;
   clearError: () => void;
   fetchSingleProductByArticleId: (articleId: string) => Promise<void>;
@@ -44,7 +44,7 @@ interface ProductFilters {
   gender?: string | string[];
   size?: string[];
   search?: string;
-  sortBy?: 'price_low_to_high' | 'price_high_to_low' | null;
+  sortBy?: 'price_low_to_high' | 'price_high_to_low' | 'stock_high_to_low' | null;
   priceRange?: string;
   _sizeFilters?: string[];
 }
@@ -178,7 +178,6 @@ export const useProductStore = create<ProductState>((set, get) => ({
 
   fetchProducts: async (page = 1, filters = {}, retryCount = 0) => {
     const maxRetries = 3;
-    const timeoutMs = 30000;
 
     // Cancel any ongoing request
     if (get().abortController) {
@@ -191,7 +190,7 @@ export const useProductStore = create<ProductState>((set, get) => ({
     try {
       // Fetch ALL products without pagination for global sorting
       // Only fetch essential fields for listing page - exclude full images array
-      const { data, error, count } = await supabase
+      const { data, error } = await supabase
         .from('products')
         .select(`
           product_id,
@@ -501,13 +500,6 @@ export const useProductStore = create<ProductState>((set, get) => ({
 
         const baseArticleId = processedProducts[0].article_id.split('_')[0];
 
-        const variantsWithColors = processedProducts.map(product => {
-          return {
-            ...product,
-            color: product.article_id.split('_')[1] || 'default',
-            mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0
-          };
-        });
 
         const productDetail: ProductDetail = {
           article_id: baseArticleId,
@@ -636,11 +628,12 @@ export const useProductStore = create<ProductState>((set, get) => ({
         .from('products')
         .select('*')
         .eq('is_active', true)
-        .in('sub_category', ['Shoes', 'Sandals', 'Bags'])
-        .limit(30); // Fetch more to ensure we have enough after filtering
+        .eq('category', 'Footwear')
+        .limit(50); // Fetch more to ensure we have enough after filtering
 
       if (error) throw error;
 
+     
       // Shuffle function
       const shuffleArray = (array: any[]) => {
         const newArray = [...array];
@@ -651,33 +644,16 @@ export const useProductStore = create<ProductState>((set, get) => ({
         return newArray;
       };
 
-      // Shuffle products within each category
-      const shuffledShoes = shuffleArray(products.filter((p: Product) => p.sub_category === 'Shoes'));
-      const shuffledSandals = shuffleArray(products.filter((p: Product) => p.sub_category === 'Sandals'));
-      const shuffledBags = shuffleArray(products.filter((p: Product) => p.sub_category === 'Bags'));
-
-      // Check if sandals and bags have in-stock products
-      const sandalsInStock = products.filter((p: Product) => p.sub_category === 'Sandals' && hasAnyStock(p)).length > 0;
-      const bagsInStock = products.filter((p: Product) => p.sub_category === 'Bags' && hasAnyStock(p)).length > 0;
+      // Since we're fetching all footwear products, just shuffle and take the top ones
+      // Filter to only include products with stock first
+      const inStockProducts = products.filter((p: Product) => hasAnyStock(p));
       
-      // Select products with priority logic
-      let selectedProducts = [];
-      if (!sandalsInStock && !bagsInStock) {
-        // Both sandals and bags out of stock, prioritize shoes
-        const shuffledShoes = shuffleArray(products.filter((p: Product) => p.sub_category === 'Shoes'));
-        selectedProducts = [
-          ...shuffledShoes.slice(0, 12), // Take more shoes to ensure 5 products
-          ...shuffledSandals.slice(0, 4), // Take some sandals
-          ...shuffledBags.slice(0, 2) // Take some bags
-        ];
-      } else {
-        // Normal logic: take more products from each category
-        selectedProducts = [
-          ...shuffledShoes.slice(0, 8), // Take more shoes to account for out-of-stock
-          ...shuffledSandals.slice(0, 8), // Take more sandals to account for out-of-stock
-          ...shuffledBags.slice(0, 6) // Take more bags to account for out-of-stock
-        ];
-      }
+      
+      // Shuffle all in-stock products
+      const shuffledProducts = shuffleArray(inStockProducts);
+      
+      // Take top products (more than needed to account for filtering in NewArrivals)
+      const selectedProducts = shuffledProducts.slice(0, 20);
 
       // Shuffle the final selection to mix categories
       const shuffledSelection = shuffleArray(selectedProducts);
@@ -699,12 +675,14 @@ export const useProductStore = create<ProductState>((set, get) => ({
       localStorage.setItem('highlightProductsLastFetched', now);
       localStorage.setItem('highlightProductsCacheTimestamp', Date.now().toString());
 
-      // Set the highlight products state
+      // Update the state with processed products
       set({ highlightProducts: processedProducts });
+
     } catch (error) {
       console.error('Error fetching highlight products:', error);
     }
-  },  
+  },
+
   filterProducts: (filters) => {
     const { products } = get();
     let filtered = [...products];
@@ -792,7 +770,8 @@ export const useProductStore = create<ProductState>((set, get) => ({
     localStorage.removeItem('highlightProductsLastFetched');
     localStorage.removeItem('highlightProductsCacheTimestamp');
   },
-  setSortBy: (sortBy: 'price_low_to_high' | 'price_high_to_low' | null) => {
+  
+  setSortBy: (sortBy: 'price_low_to_high' | 'price_high_to_low' | 'stock_high_to_low' | null) => {
     set({ sortBy });
   }
 }));

@@ -535,6 +535,12 @@ const productSavings = useMemo(() => {
 
   // State for delivery charge calculation
   const [deliveryCharge, setDeliveryCharge] = useState(0);
+  const [deliveryTime, setDeliveryTime] = useState<string | null>(null);
+  const [codAvailable, setCodAvailable] = useState(true);
+  const [prevCodAvailable, setPrevCodAvailable] = useState(true);
+  const [isPincodeServiceable, setIsPincodeServiceable] = useState(true);
+  const [codFee, setCodFee] = useState(0);
+  const [codFeesApplicable, setCodFeesApplicable] = useState(false);
 
   // Determine which discount to apply: only the bigger one, prefer prepaid when equal
   const discountType = useMemo(() => {
@@ -564,12 +570,8 @@ const productSavings = useMemo(() => {
       finalSubtotal = subtotal;
     }
     
-    return Math.max(0, finalSubtotal + deliveryCharge);
-  }, [discountType, mrpTotal, subtotal, deliveryCharge, selectedPayment, checkoutRule]);
-  const [deliveryTime, setDeliveryTime] = useState<string | null>(null);
-  const [codAvailable, setCodAvailable] = useState(true);
-  const [prevCodAvailable, setPrevCodAvailable] = useState(true);
-  const [isPincodeServiceable, setIsPincodeServiceable] = useState(true);
+    return Math.max(0, finalSubtotal + deliveryCharge + (selectedPayment === 'cod' ? codFee : 0));
+  }, [discountType, mrpTotal, subtotal, deliveryCharge, selectedPayment, checkoutRule, codFee]);
 
   // Zustand store for pincode operations
   const { fetchDetails } = usePincodeStore();
@@ -599,12 +601,16 @@ const productSavings = useMemo(() => {
           
           // Use the details from the store
           const shippingFee = details.shipping_fee || 0;
+          const codFeeAmount = details.cod_fee || 0;
+          const codFeesApplicableValue = details.cod_fees_applicable !== undefined ? details.cod_fees_applicable : false;
           const freeShippingThreshold = details.free_shipping_threshold || 999;
           
           const finalDeliveryCharge = subtotal >= freeShippingThreshold ? 0 : shippingFee;
           setDeliveryCharge(finalDeliveryCharge);
           setDeliveryTime(details.delivery_time || null);
           setIsPincodeServiceable(true);
+          setCodFee(codFeeAmount);
+          setCodFeesApplicable(codFeesApplicableValue);
         } else {
           setDeliveryCharge(0);
           setDeliveryTime(null);
@@ -1896,6 +1902,8 @@ const productSavings = useMemo(() => {
                 prepaidDiscount={prepaidDiscountAmount}
                 onCodOtpRequired={handleCodOtpRequired}
                 codAvailable={codAvailable}
+                codFee={codFee}
+                codFeesApplicable={codFeesApplicable}
                 isIdentityVerified={isIdentityVerified}
                 checkoutSessionId={checkoutSessionId}
                 isPincodeServiceable={isPincodeServiceable}

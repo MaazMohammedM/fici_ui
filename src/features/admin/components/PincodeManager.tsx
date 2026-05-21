@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/Skeleton';
 import { Switch } from '@/components/ui/SwitchSimple';
 import { Label } from '@/components/ui/LabelSimple';
 import { PincodeModal, type PincodeFormValues } from './PincodeModal';
+import { BulkUpdateModal } from './BulkUpdateModal';
 import { toast } from 'sonner';
 import { supabase } from '@lib/supabase';
 
@@ -71,32 +72,8 @@ export const PincodeManager = () => {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showBulkUpdateModal, setShowBulkUpdateModal] = useState(false);
   const [editingPincode, setEditingPincode] = useState<string | null>(null);
-  
-  // New bulk update state
-  const [showBulkUpdate, setShowBulkUpdate] = useState(false);
-  const [selectedField, setSelectedField] = useState<BulkPincodeUpdateRequest['field']>('is_serviceable');
-  const [selectedScope, setSelectedScope] = useState<BulkPincodeUpdateRequest['scope']>('all');
-  const [fieldValue, setFieldValue] = useState<boolean | string | number>(true);
-  const [scopeValue, setScopeValue] = useState('');
-  const [multiplePincodes, setMultiplePincodes] = useState('');
-  const [isNullCondition, setIsNullCondition] = useState<boolean>(false);
-  
-  // Reset field value when field type changes
-  useEffect(() => {
-    if (selectedField === 'is_serviceable' || selectedField === 'cod_allowed' || selectedField === 'active') {
-      setFieldValue(true); // Default boolean fields to true
-    } else if (selectedField === 'delivery_time') {
-      setFieldValue(''); // Default text fields to empty string
-    } else {
-      setFieldValue(0); // Default numeric fields to 0
-    }
-  }, [selectedField]);
-  
-  // Separate state for new bulk update preview
-  const [bulkPreviewCount, setBulkPreviewCount] = useState<number | null>(null);
-  const [bulkPreviewSample, setBulkPreviewSample] = useState<string[]>([]);
-  const [loadingBulkPreview, setLoadingBulkPreview] = useState(false);
   
   // Legacy bulk edit state (keeping for compatibility)
   const [selectedPincodes, setSelectedPincodes] = useState<Set<string>>(new Set());
@@ -188,107 +165,6 @@ export const PincodeManager = () => {
     }
   };
 
-  // Preview for new bulk update modal
-  const previewBulkUpdate = async () => {
-    setLoadingBulkPreview(true);
-    try {
-      let count = 0;
-      let sample: string[] = [];
-      
-      // Build request based on scope
-      const request: any = { 
-        scope: selectedScope,
-        field: selectedField,
-        isNullCondition: isNullCondition
-      };
-      
-      if (selectedScope === 'state' && scopeValue) {
-        request.state = scopeValue;
-        count = await getBulkUpdateCount(request);
-        
-        // Get sample pincodes for display with field condition
-        let sampleQuery = supabase
-          .from('pincodes')
-          .select('pincode')
-          .eq('state', scopeValue);
-        
-        // Apply field condition
-        if (isNullCondition) {
-          sampleQuery = sampleQuery.is(selectedField, null);
-        } else {
-          sampleQuery = sampleQuery.not(selectedField, 'is', null);
-        }
-        
-        const { data } = await sampleQuery.limit(50);
-        sample = data?.map(p => p.pincode) || [];
-        
-      } else if (selectedScope === 'city' && scopeValue) {
-        request.city = scopeValue;
-        count = await getBulkUpdateCount(request);
-        
-        // Get sample pincodes for display with field condition
-        let sampleQuery = supabase
-          .from('pincodes')
-          .select('pincode')
-          .eq('city', scopeValue);
-        
-        // Apply field condition
-        if (isNullCondition) {
-          sampleQuery = sampleQuery.is(selectedField, null);
-        } else {
-          sampleQuery = sampleQuery.not(selectedField, 'is', null);
-        }
-        
-        const { data } = await sampleQuery.limit(50);
-        sample = data?.map(p => p.pincode) || [];
-        
-      } else if (selectedScope === 'single_pincode' && scopeValue) {
-        request.pincode = scopeValue.trim();
-        count = await getBulkUpdateCount(request);
-        sample = count > 0 ? [scopeValue.trim()] : [];
-        
-      } else if (selectedScope === 'multiple_pincodes' && multiplePincodes) {
-        const pincodeList = multiplePincodes.split(/[\s,]+/).map(p => p.trim()).filter(p => p);
-        if (pincodeList.length > 0) {
-          request.pincodes = pincodeList;
-          count = await getBulkUpdateCount(request);
-          sample = pincodeList.slice(0, 50);
-        }
-        
-      } else if (selectedScope === 'all') {
-        count = await getBulkUpdateCount({ 
-          scope: 'all',
-          field: selectedField,
-          isNullCondition: isNullCondition
-        });
-        
-        // Get sample pincodes for display with field condition
-        let sampleQuery = supabase
-          .from('pincodes')
-          .select('pincode');
-        
-        // Apply field condition
-        if (isNullCondition) {
-          sampleQuery = sampleQuery.is(selectedField, null);
-        } else {
-          sampleQuery = sampleQuery.not(selectedField, 'is', null);
-        }
-        
-        const { data } = await sampleQuery.limit(50);
-        sample = data?.map(p => p.pincode) || [];
-      }
-      
-      setBulkPreviewCount(count);
-      setBulkPreviewSample(sample);
-      
-    } catch (error) {
-      console.error('Error previewing bulk update:', error);
-      setBulkPreviewCount(0);
-      setBulkPreviewSample([]);
-    } finally {
-      setLoadingBulkPreview(false);
-    }
-  };
 
   // Preview for legacy bulk edit modal
   const previewLegacyBulkEdit = async () => {
@@ -342,12 +218,6 @@ export const PincodeManager = () => {
     }
   }, [showBulkEdit]);
 
-  // Fetch available states and cities when bulk update modal opens
-  useEffect(() => {
-    if (showBulkUpdate) {
-      fetchStatesAndCities();
-    }
-  }, [showBulkUpdate]);
 
   // Fetch cities when state changes
   useEffect(() => {
@@ -359,25 +229,6 @@ export const PincodeManager = () => {
     }
   }, [selectedState, bulkSelectionMode]);
 
-  // Preview bulk update when scope or filters change
-  useEffect(() => {
-    if (showBulkUpdate) {
-      // Validate scope requirements
-      const isValidScope = 
-        selectedScope === 'all' ||
-        (selectedScope === 'state' && scopeValue) ||
-        (selectedScope === 'city' && scopeValue) ||
-        (selectedScope === 'single_pincode' && scopeValue) ||
-        (selectedScope === 'multiple_pincodes' && multiplePincodes);
-      
-      if (isValidScope) {
-        previewBulkUpdate();
-      } else {
-        setBulkPreviewCount(0);
-        setBulkPreviewSample([]);
-      }
-    }
-  }, [showBulkUpdate, selectedScope, selectedField, scopeValue, multiplePincodes, isNullCondition, getBulkUpdateCount]);
 
   // Preview legacy bulk edit when selection changes
   useEffect(() => {
@@ -477,67 +328,6 @@ export const PincodeManager = () => {
   };
 
   const handleBulkUpdate = async () => {
-    // Handle bulk update modal (new approach)
-    if (showBulkUpdate) {
-      // Validate scope requirements
-      const isValidScope = 
-        selectedScope === 'all' ||
-        (selectedScope === 'state' && scopeValue) ||
-        (selectedScope === 'city' && scopeValue) ||
-        (selectedScope === 'single_pincode' && scopeValue) ||
-        (selectedScope === 'multiple_pincodes' && multiplePincodes);
-      
-      if (!isValidScope) {
-        toast.error('Please fill in the required fields for the selected scope');
-        return;
-      }
-      
-      if (bulkPreviewCount === 0) {
-        toast.error('No pincodes found matching the criteria');
-        return;
-      }
-      
-      try {
-        const result = await bulkUpdatePincodes({
-          field: selectedField,
-          value: fieldValue,
-          scope: selectedScope,
-          isNullCondition: isNullCondition,
-          ...(selectedScope === 'state' && { state: scopeValue }),
-          ...(selectedScope === 'city' && { city: scopeValue }),
-          ...(selectedScope === 'single_pincode' && { pincode: scopeValue.trim() }),
-          ...(selectedScope === 'multiple_pincodes' && { 
-            pincodes: multiplePincodes.split(/[\s,]+/).map(p => p.trim()).filter(p => p) 
-          })
-        });
-        
-        if (result.error) {
-          toast.error(result.error);
-          return;
-        }
-        
-        toast.success(`Updated ${result.updatedCount} pincodes successfully`);
-        
-        // Refetch current page data
-        await fetchPincodes(currentPage, searchTerm);
-        
-        // Reset and close modal
-        setShowBulkUpdate(false);
-        setSelectedScope('all');
-        setScopeValue('');
-        setMultiplePincodes('');
-        setFieldValue(true);
-        setBulkPreviewCount(null);
-        setBulkPreviewSample([]);
-        return;
-        
-      } catch (error) {
-        console.error('Error in bulk update:', error);
-        toast.error('Failed to update pincodes');
-        return;
-      }
-    }
-    
     // Handle legacy bulk edit
     let pincodesToUpdate: string[] = [];
     const updateData: any = {};
@@ -610,21 +400,12 @@ export const PincodeManager = () => {
         <h2 className="text-xl sm:text-2xl font-bold tracking-tight text-gray-900 dark:text-gray-100">Manage Pincodes</h2>
         <div className="flex gap-2 w-full sm:w-auto">
           <Button 
-            onClick={() => setShowBulkUpdate(true)}
+            onClick={() => setShowBulkUpdateModal(true)}
             className="bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 dark:bg-purple-900/20 dark:border-purple-800 dark:text-blue-400 dark:hover:bg-blue-900/30 flex-1 sm:flex-none text-xs sm:text-sm"
           >
             <Play className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
             <span className="hidden xs:inline">Bulk Update</span>
             <span className="xs:hidden">Bulk Update</span>
-          </Button>
-          <Button 
-            onClick={() => setShowBulkEdit(true)}
-            variant="outline"
-            className="bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-900/30 flex-1 sm:flex-none text-xs sm:text-sm"
-          >
-            <Edit3 className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
-            <span className="hidden xs:inline">Bulk Edit</span>
-            <span className="xs:hidden">Bulk</span>
           </Button>
           {selectedPincodes.size > 0 && (
             <Button 
@@ -858,229 +639,14 @@ export const PincodeManager = () => {
         onSubmit={editingPincode ? (data) => handleUpdate(editingPincode, data) : handleCreate}
       />
 
-      {/* New Bulk Update Modal */}
-      {showBulkUpdate && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-75 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-4 sm:p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                Bulk Update – Pincodes
-              </h3>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setShowBulkUpdate(false)}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
+      <BulkUpdateModal
+        isOpen={showBulkUpdateModal}
+        onClose={() => setShowBulkUpdateModal(false)}
+        onSuccess={async () => {
+          await fetchPincodes(currentPage, searchTerm);
+        }}
+      />
 
-            <div className="space-y-6">
-              {/* Field Selection */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Field to Update</Label>
-                <select
-                  value={selectedField}
-                  onChange={(e) => setSelectedField(e.target.value as BulkPincodeUpdateRequest['field'])}
-                  className="w-full border rounded-lg p-2 bg-white dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-gray-100"
-                >
-                  <option value="is_serviceable">Serviceable Status</option>
-                  <option value="cod_allowed">Cash on Delivery</option>
-                  <option value="delivery_time">Delivery Time</option>
-                  <option value="min_order_amount">Minimum Order Amount</option>
-                  <option value="shipping_fee">Shipping Fee</option>
-                  <option value="cod_fee">COD Fee</option>
-                  <option value="free_shipping_threshold">Free Shipping Threshold</option>
-                </select>
-              </div>
-
-              {/* Field Condition Selection */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Field Condition</Label>
-                <select
-                  value={isNullCondition ? 'null' : 'not_null'}
-                  onChange={(e) => setIsNullCondition(e.target.value === 'null')}
-                  className="w-full border rounded-lg p-2 bg-white dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-gray-100"
-                >
-                  <option value="not_null">Update fields that are NOT null</option>
-                  <option value="null">Update fields that ARE null</option>
-                </select>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Scope</Label>
-                <select
-                  value={selectedScope}
-                  onChange={(e) => setSelectedScope(e.target.value as BulkPincodeUpdateRequest['scope'])}
-                  className="w-full border rounded-lg p-2 bg-white dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-gray-100"
-                >
-                  <option value="all">All pincodes</option>
-                  <option value="state">By state</option>
-                  <option value="city">By city</option>
-                  <option value="single_pincode">Single pincode</option>
-                  <option value="multiple_pincodes">Multiple pincodes</option>
-                </select>
-              </div>
-
-              {/* Dynamic Scope Input */}
-              {selectedScope === 'state' && (
-                <div className="space-y-2">
-                  <Label htmlFor="scope_state">State</Label>
-                  <select
-                    id="scope_state"
-                    value={scopeValue}
-                    onChange={(e) => setScopeValue(e.target.value)}
-                    className="w-full border rounded-lg p-2 bg-white dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-gray-100"
-                  >
-                    <option value="">Select a state...</option>
-                    {ALL_INDIAN_STATES.map((state) => (
-                      <option key={state} value={state}>
-                        {state}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {selectedScope === 'city' && (
-                <div className="space-y-2">
-                  <Label htmlFor="scope_city">City</Label>
-                  <Input
-                    id="scope_city"
-                    value={scopeValue}
-                    onChange={(e) => setScopeValue(e.target.value)}
-                    placeholder="Enter city name..."
-                    className="w-full border rounded-lg p-2 bg-white dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-gray-100"
-                  />
-                </div>
-              )}
-
-              {selectedScope === 'single_pincode' && (
-                <div className="space-y-2">
-                  <Label htmlFor="scope_pincode">Pincode</Label>
-                  <Input
-                    id="scope_pincode"
-                    value={scopeValue}
-                    onChange={(e) => setScopeValue(e.target.value)}
-                    placeholder="Enter pincode..."
-                    className="w-full border rounded-lg p-2 bg-white dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-gray-100"
-                  />
-                </div>
-              )}
-
-              {selectedScope === 'multiple_pincodes' && (
-                <div className="space-y-2">
-                  <Label htmlFor="scope_multiple">Pincodes (comma-separated)</Label>
-                  <textarea
-                    id="scope_multiple"
-                    value={multiplePincodes}
-                    onChange={(e) => setMultiplePincodes(e.target.value)}
-                    placeholder="Enter pincodes separated by commas...&#10;Example: 110001, 110002, 110003"
-                    className="w-full border rounded-lg p-2 bg-white dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-gray-100 min-h-[80px] resize-y"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    You can paste multiple pincodes at once, separated by commas or new lines
-                  </p>
-                </div>
-              )}
-
-              {/* Value Input */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">New Value</Label>
-                {(selectedField === 'is_serviceable' || selectedField === 'cod_allowed' || selectedField === 'active') ? (
-                  <div className="flex items-center space-x-4">
-                    <label className="flex items-center">
-                      <input
-                        type="radio"
-                        name={selectedField}
-                        value="true"
-                        checked={fieldValue === true}
-                        onChange={() => setFieldValue(true)}
-                        className="mr-2"
-                      />
-                      True
-                    </label>
-                    <label className="flex items-center">
-                      <input
-                        type="radio"
-                        name={selectedField}
-                        value="false"
-                        checked={fieldValue === false}
-                        onChange={() => setFieldValue(false)}
-                        className="mr-2"
-                      />
-                      False
-                    </label>
-                  </div>
-                ) : selectedField === 'delivery_time' ? (
-                  <Input
-                    value={fieldValue as string}
-                    onChange={(e) => setFieldValue(e.target.value)}
-                    placeholder="e.g., 2-3 days, Same-day, Next-day"
-                    className="w-full border rounded-lg p-2 bg-white dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-gray-100"
-                  />
-                ) : (
-                  <Input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={fieldValue as number}
-                    onChange={(e) => setFieldValue(Number(e.target.value))}
-                    placeholder="Enter amount..."
-                    className="w-full border rounded-lg p-2 bg-white dark:bg-gray-700 dark:border-gray-600 text-gray-900 dark:text-gray-100"
-                  />
-                )}
-              </div>
-
-              {/* Preview */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">
-                  Pincodes to Update {loadingBulkPreview && '(Loading...)'}
-                </Label>
-                <div className="border rounded-lg p-3 bg-gray-50 dark:bg-gray-700 max-h-32 overflow-y-auto">
-                  {bulkPreviewSample.length > 0 ? (
-                    <div className="flex flex-wrap gap-1">
-                      {bulkPreviewSample.map(pincode => (
-                        <span key={pincode} className="inline-block bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 text-xs px-2 py-1 rounded">
-                          {pincode}
-                        </span>
-                      ))}
-                      {bulkPreviewCount && bulkPreviewCount > bulkPreviewSample.length && (
-                        <span className="inline-block bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300 text-xs px-2 py-1 rounded">
-                          +{bulkPreviewCount - bulkPreviewSample.length} more...
-                        </span>
-                      )}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      {loadingBulkPreview ? 'Loading...' : 'No pincodes found for the selected criteria'}
-                    </p>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Total: {bulkPreviewCount ?? 0} pincodes
-                </p>
-              </div>
-            </div>
-
-            <div className="flex justify-end space-x-3 mt-6">
-              <Button
-                variant="outline"
-                onClick={() => setShowBulkUpdate(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleBulkUpdate}
-                className="bg-blue-600 hover:bg-blue-700"
-                disabled={loadingBulkPreview || bulkPreviewCount === 0 || (selectedScope !== 'all' && !scopeValue && !multiplePincodes)}
-              >
-                Update {bulkPreviewCount ?? 0} Pincodes
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Bulk Edit Modal */}
       {showBulkEdit && (
@@ -1203,9 +769,9 @@ export const PincodeManager = () => {
               <Button
                 onClick={handleBulkUpdate}
                 className="bg-blue-600 hover:bg-blue-700"
-                disabled={loadingBulkPreview || bulkPreviewCount === 0 || (selectedScope !== 'all' && !scopeValue && !multiplePincodes)}
+                disabled={previewPincodes.length === 0}
               >
-                Update {bulkPreviewCount ?? 0} Pincodes
+                Update {previewPincodes.length} Pincodes
               </Button>
             </div>
           </div>

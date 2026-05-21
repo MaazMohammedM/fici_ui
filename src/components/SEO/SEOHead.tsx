@@ -1,7 +1,7 @@
 import { Helmet } from 'react-helmet-async';
 import { useLocation } from 'react-router-dom';
 import ficiImage from '@/assets/fici_light_1920x917.png';
-import ficiLogo from '@/assets/fici_128x128.png';
+import ficiLogo from '@/assets/fici_128x128.webp';
 
 interface SEOHeadProps {
   title?: string;
@@ -14,12 +14,13 @@ interface SEOHeadProps {
   modifiedTime?: string;
   author?: string;
   keywords?: string[];
+  noIndex?: boolean;
 }
 
-const DEFAULT_TITLE = 'FICI Shoes by NMF International | Handcrafted Leather Formal Shoes Ambur | Mohammed Faisal';
-const DEFAULT_DESCRIPTION = 'FICI Shoes by NMF International - Premium handcrafted leather formal shoes for men in Ambur. Traditional lace-ups, slip-ons, Chelsea boots, chappals. Milled leather, customization options. Wholesale available. Shop online via Facebook, Instagram. GST: 33BMAPM8509H1Z4.';
+const DEFAULT_TITLE = 'Leather Shoe Manufacturer | Fici | Ambur';
+const DEFAULT_DESCRIPTION = 'Premium leather shoe manufacturer in Ambur, India. Direct from factory wholesale prices. Verified Ambur craftsmanship with 30+ years heritage. Shop handcrafted leather shoes with worldwide shipping. GST: 33BMAPM8509H1Z4.';
 const DEFAULT_IMAGE = ficiImage;
-const SITE_URL = 'https://www.ficishoes.com';
+const SITE_URL = 'https://ficishoes.com';
 
 const SEOHead = ({
   title = '',
@@ -31,21 +32,24 @@ const SEOHead = ({
   publishedTime,
   modifiedTime,
   author = 'Mohammed Faisal - FICI Shoes by NMF International',
-  keywords = ['FICI shoes Ambur', 'NMF International', 'ambur leather shoes', 'ambur shoes wholesale market', 'ambur leather shoes wholesale market', 'ambur shoe factory list', 'ambur leather manufacturers', 'leather manufacturers in ambur', 'ambur wholesale market', 'broad formal shoes for men', 'shoe manufacturers in ambur', 'ambur shoes online shopping', 'shoe manufacturer near me', 'ambur leather factory', 'ambur shoe', 'ambur leather bags', 'ambur best leather shop', 'shoes ambur', 'leather shoes ambur', 'ambur shoe factory', 'sneakers india', 'nmf international', 'nmf', 'fici shoes', 'handcrafted leather shoes', 'men formal shoes', 'leather lace-ups', 'Chelsea boots', 'slip-on shoes', 'leather chappals', 'milled leather', 'Mohammed Faisal shoes', 'Khaderpet Ambur shoes', 'GST 33BMAPM8509H1Z4', 'Celby height increasing shoes', 'tassel shoes', 'office footwear', 'professional shoes', 'genuine leather shoes', 'traditional footwear Ambur', 'Justdial FICI shoes', 'IndiaMART FICI shoes'],
+  keywords = ['leather shoe manufacturer', 'ambur leather', 'ambur shoes', 'leather manufacturing in india', 'wholesale shoe factory', 'fici shoes ambur', 'nmf international', 'ambur leather shoes wholesale market', 'ambur shoe factory list', 'ambur leather manufacturers', 'leather manufacturers in ambur', 'ambur wholesale market', 'broad formal shoes for men', 'shoe manufacturers in ambur', 'ambur shoes online shopping', 'shoe manufacturer near me', 'ambur leather factory', 'ambur shoe', 'ambur leather bags', 'ambur best leather shop', 'shoes ambur', 'leather shoes ambur', 'ambur shoe factory', 'sneakers india', 'nmf international', 'nmf', 'fici shoes', 'handcrafted leather shoes', 'men formal shoes', 'leather lace-ups', 'Chelsea boots', 'slip-on shoes', 'leather chappals', 'milled leather', 'Mohammed Faisal shoes', 'Khaderpet Ambur shoes', 'GST 33BMAPM8509H1Z4', 'Celby height increasing shoes', 'tassel shoes', 'office footwear', 'professional shoes', 'genuine leather shoes', 'traditional footwear Ambur', 'Justdial FICI shoes', 'IndiaMART FICI shoes'],
+  noIndex = false,
 }: SEOHeadProps) => {
   const { pathname } = useLocation();
+  // Ensure consistent canonical URL (HTTPS, non-WWW)
   const currentUrl = `${SITE_URL}${pathname}`;
-  const pageTitle = title ? `${title} | Fici Shoes` : DEFAULT_TITLE;
+  const canonicalUrl = currentUrl.replace(/^http:\/\//, 'https://').replace(/^www\./, '');
+  const pageTitle = title ? `${title} | Fici | Ambur` : DEFAULT_TITLE;
 
   return (
     <Helmet>
       {/* Core SEO Tags */}
       <title>{pageTitle}</title>
       <meta name="description" content={description} />
-      <link rel="canonical" href={currentUrl} />
+      <link rel="canonical" href={canonicalUrl} />
       <meta name="keywords" content={keywords.join(', ')} />
       <meta name="author" content={author} />
-      <meta name="robots" content="index, follow" />
+      <meta name="robots" content={noIndex ? "noindex, nofollow" : "index, follow"} />
 
       {/* Open Graph / Facebook */}
       <meta property="og:type" content={type} />

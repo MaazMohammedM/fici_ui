@@ -15,8 +15,8 @@ import {
   Menu,
   X,
 } from 'lucide-react';
-import ficiLight from '../assets/fici_logo_light.png';
-import ficiDark from '../assets/fici_logo_dark.png';
+import ficiLight from '../assets/fici_transparent.webp';
+import ficiDark from '../assets/fici_logo_dark.webp';
 import NetworkIssueBanner from '../components/NetworkIssueBanner';
 
 // Media query hook for responsive behavior
@@ -187,6 +187,7 @@ const Header: React.FC = () => {
         ],
       },
       { label: 'Shoe Care', path: '/shoe-care' },
+      // { label: 'Ambur Leather', path: '/ambur-leather-excellence' },
       { label: 'About', path: '/about' },
       { label: 'Contact', path: '/contact' },
       { label: 'Orders', path: '/orders' },
@@ -345,7 +346,7 @@ const Header: React.FC = () => {
             >
               <img
                 src={mode === 'dark' ? ficiDark : ficiLight}
-                alt="FICI Logo"
+                alt="FICI Logo - Premium leather shoe manufacturer Ambur India"
                 className="h-12 sm:h-14 md:h-16 lg:h-20 w-auto object-contain filter drop-shadow-lg transition-transform duration-300 hover:scale-105 leading-none"
               />
             </NavLink>

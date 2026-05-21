@@ -1,7 +1,8 @@
 import type { Product } from '../types/product';
+import { calculateStockScore } from '@lib/utils/stockFilter';
 
 interface GlobalSortOptions {
-  sortBy?: 'price_low_to_high' | 'price_high_to_low' | null;
+  sortBy?: 'price_low_to_high' | 'price_high_to_low' | 'stock_high_to_low' | null;
   search?: string;
   category?: string[];
   gender?: string[];
@@ -83,8 +84,12 @@ export const applyGlobalSorting = (
       return 1;
     }
     
-    // Priority 2: Price sorting (if specified)
-    if (options.sortBy === 'price_low_to_high') {
+    // Priority 2: Stock or Price sorting (if specified)
+    if (options.sortBy === 'stock_high_to_low') {
+      const aStockScore = calculateStockScore(a);
+      const bStockScore = calculateStockScore(b);
+      return bStockScore - aStockScore; // Highest stock first
+    } else if (options.sortBy === 'price_low_to_high') {
       const aPrice = parseFloat(String(a.discount_price)) || 0;
       const bPrice = parseFloat(String(b.discount_price)) || 0;
       return aPrice - bPrice;

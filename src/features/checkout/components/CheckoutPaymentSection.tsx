@@ -8,6 +8,8 @@ interface CheckoutPaymentSectionProps {
   prepaidDiscount: number;
   onCodOtpRequired: () => void;
   codAvailable: boolean;
+  codFee?: number;
+  codFeesApplicable?: boolean;
   isIdentityVerified: boolean;
   checkoutSessionId: string | null;
   isPincodeServiceable: boolean;
@@ -27,6 +29,8 @@ const CheckoutPaymentSection: React.FC<CheckoutPaymentSectionProps> = ({
   prepaidDiscount,
   onCodOtpRequired,
   codAvailable,
+  codFee = 0,
+  codFeesApplicable = false,
   isIdentityVerified,
   checkoutSessionId,
   isPincodeServiceable,
@@ -97,6 +101,8 @@ const CheckoutPaymentSection: React.FC<CheckoutPaymentSectionProps> = ({
         prepaidDiscount={prepaidDiscount}
         onCodOtpRequired={onCodOtpRequired}
         codAvailable={codAvailable}
+        codFee={codFee}
+        codFeesApplicable={codFeesApplicable}
         isIdentityVerified={isIdentityVerified}
         checkoutSessionId={checkoutSessionId}
         isPincodeServiceable={isPincodeServiceable}

@@ -1,6 +1,6 @@
 // src/features/admin/components/EditProductForm.tsx
-import React, { useEffect } from 'react';
-import { X } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { X, Trash2, Upload, Plus } from 'lucide-react';
 import { useEditProductForm } from '@lib/hooks/useEditProductForm';
 import { useAdminStore } from '../store/adminStore';
 import SizeManager from './SizeManager';
@@ -19,8 +19,27 @@ export const EditProductForm: React.FC<EditProductFormProps> = ({
   onCancel,
   onSuccess 
 }) => {
-  const { error, success, clearError, clearSuccess } = useAdminStore();
+  const { 
+    error, 
+    success, 
+    clearError, 
+    clearSuccess,
+    deleteSingleImage,
+    updateProductImages,
+    uploadImages,
+    uploadProgress 
+  } = useAdminStore();
   
+  // Image management state
+  const [currentImages, setCurrentImages] = useState<string[]>(product.images || []);
+  const [isUploadingImages, setIsUploadingImages] = useState(false);
+
+  // Sync currentImages with product.images when product changes
+  useEffect(() => {
+    console.log('Product images updated:', product.images);
+    setCurrentImages(product.images || []);
+  }, [product.images]);
+
   // Calculate current status
   const stockStatus = getStockStatus(product);
   const activeStatus = getActiveStatus(product);
@@ -101,6 +120,75 @@ export const EditProductForm: React.FC<EditProductFormProps> = ({
     setValue('tags', newTags.join(','), { shouldValidate: true });
   };
 
+  // Handle image deletion
+  const handleDeleteImage = async (imageUrl: string) => {
+    if (window.confirm('Are you sure you want to delete this image?')) {
+      console.log('Deleting image:', imageUrl);
+      
+      // Prevent deletion if it's the last image
+      if (currentImages.length <= 1) {
+        console.warn('Cannot delete the last image');
+        return;
+      }
+
+      const success = await deleteSingleImage(product.product_id, imageUrl);
+      if (success) {
+        // Update local state immediately for better UX
+        const updatedImages = currentImages.filter(img => img !== imageUrl);
+        setCurrentImages(updatedImages);
+        
+        // Update form thumbnail if needed
+        if (watch('thumbnail_url') === imageUrl) {
+          const newThumbnail = updatedImages[0] || '';
+          setValue('thumbnail_url', newThumbnail, { shouldValidate: true });
+        }
+        
+        console.log('Image deleted successfully, updated images:', updatedImages);
+      } else {
+        console.error('Failed to delete image');
+      }
+    }
+  };
+
+  // Handle image upload
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    // Check if adding new images would exceed the limit
+    if (currentImages.length + files.length > 5) {
+      alert(`You can only upload a maximum of 5 images. Currently have ${currentImages.length} images, trying to add ${files.length} more.`);
+      event.target.value = '';
+      return;
+    }
+
+    setIsUploadingImages(true);
+    try {
+      // Get folder name from product
+      const folderName = product.article_id;
+      
+      // Upload new images
+      const uploadResult = await uploadImages(folderName, files);
+      
+      if (uploadResult) {
+        // Combine existing images with new ones
+        const updatedImages = [...currentImages, ...uploadResult.imageUrls];
+        setCurrentImages(updatedImages);
+        
+        // Update product in database with new images
+        await updateProductImages(product.product_id, updatedImages, watch('thumbnail_url'));
+        
+        console.log('Images uploaded successfully. Total images:', updatedImages.length);
+      }
+    } catch (error) {
+      console.error('Error uploading images:', error);
+    } finally {
+      setIsUploadingImages(false);
+      // Clear the file input
+      event.target.value = '';
+    }
+  };
+
   // Available tag options
   const TAG_OPTIONS = [
     { value: 'clearance_sale', label: 'Clearance Sale' },
@@ -125,6 +213,7 @@ export const EditProductForm: React.FC<EditProductFormProps> = ({
           </span>
         </div>
       </div>
+
       {/* Error Display */}
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded flex justify-between items-center">
@@ -302,7 +391,7 @@ export const EditProductForm: React.FC<EditProductFormProps> = ({
             readOnly
           />
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            Click on any image in the "Current Images" section above to set it as the thumbnail. This image will be displayed as the main product image in listings.
+            Click on any image in the "Product Images" section below to set it as the thumbnail. This image will be displayed as the main product image in listings.
           </p>
         </div>
 
@@ -335,50 +424,52 @@ export const EditProductForm: React.FC<EditProductFormProps> = ({
           />
         </div>
 
-        {/* Tags */}
+        {/* Image Management */}
         <div className="md:col-span-2">
-          <label className="block text-sm font-medium text-gray-700 dark:text-white mb-2">
-            Tags
-          </label>
-          <div className="flex flex-wrap gap-2">
-            {['clearance_sale', 'discount_sale', 'deal_of_the_day'].map((tag) => {
-              const isSelected = ((watch('tags') as unknown as string[]) || [])?.includes(tag);
-              return (
-                <button
-                  key={tag}
-                  type="button"
-                  onClick={() => {
-                    const currentTags = (watch('tags') as unknown as string[]) || [];
-                    const newTags = isSelected
-                      ? currentTags.filter((t: string) => t !== tag)
-                      : [...currentTags, tag];
-                    setValue('tags', newTags.join(','));
-                  }}
-                  className={`px-3 py-1 rounded-full text-sm font-medium ${
-                    isSelected
-                      ? 'bg-primary-100 text-primary-800 dark:bg-primary-900 dark:text-primary-200'
-                      : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
-                  }`}
-                >
-                  {tag.replace('_', ' ')}
-                  {isSelected && <X className="ml-1 h-3 w-3 inline" />}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Current Images */}
-        {product.images && product.images.length > 0 && (
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 dark:text-white mb-2">
-              Current Images
+          <div className="flex justify-between items-center mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-white">
+              Product Images
               <span className="text-xs text-gray-500 dark:text-gray-400 ml-2">
-                (Click an image to set as thumbnail)
+                (Click to set thumbnail, hover for options)
               </span>
             </label>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {product.images.map((image: string, index: number) => {
+            <div className="flex items-center gap-2">
+              <label className={`relative cursor-pointer px-3 py-1 rounded text-sm flex items-center gap-1 transition-colors ${
+                currentImages.length >= 5 || isUploadingImages
+                  ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                  : 'bg-blue-500 hover:bg-blue-600 text-white'
+              }`}>
+                <Upload className="h-4 w-4" />
+                Add Images ({currentImages.length}/5)
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  disabled={isUploadingImages || currentImages.length >= 5}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+                />
+              </label>
+              {isUploadingImages && (
+                <span className="text-xs text-blue-600">
+                  Uploading... {Math.round(uploadProgress)}%
+                </span>
+              )}
+              {currentImages.length >= 5 && (
+                <span className="text-xs text-orange-600">
+                  Maximum 5 images allowed
+                </span>
+              )}
+            </div>
+          </div>
+
+          {currentImages.length > 0 ? (
+            <>
+              <div className="text-xs text-gray-500 mb-2">
+                Debug: {currentImages.length} images loaded
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {currentImages.map((image: string, index: number) => {
                 const isCurrentThumbnail = watch('thumbnail_url') === image || 
                                        (index === 0 && !watch('thumbnail_url'));
                 return (
@@ -403,46 +494,87 @@ export const EditProductForm: React.FC<EditProductFormProps> = ({
                         </div>
                       )}
                     </button>
-                    <div className="absolute bottom-1 right-1 bg-black bg-opacity-50 text-white text-xs px-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
-                      {isCurrentThumbnail ? 'Current' : 'Click to set'}
+                    
+                    {/* Action buttons - always visible */}
+                    <div className="absolute top-1 right-1 flex gap-1 bg-black bg-opacity-50 rounded p-1">
+                      <button
+                        type="button"
+                        onClick={() => handleThumbnailSelect(image)}
+                        className={`p-1 rounded text-xs ${
+                          isCurrentThumbnail 
+                            ? 'bg-blue-500 text-white' 
+                            : 'bg-gray-700 text-white hover:bg-gray-800'
+                        }`}
+                        title={isCurrentThumbnail ? 'Current thumbnail' : 'Set as thumbnail'}
+                      >
+                        {isCurrentThumbnail ? '✓' : '👁'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          console.log('Delete button clicked for image:', image);
+                          console.log('Current images count:', currentImages.length);
+                          console.log('Current images:', currentImages);
+                          handleDeleteImage(image);
+                        }}
+                        className="p-1 bg-red-500 text-white rounded hover:bg-red-600 text-xs disabled:bg-gray-400 disabled:cursor-not-allowed"
+                        title="Delete image"
+                        disabled={currentImages.length <= 1}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </button>
+                    </div>
+                    
+                    <div className="absolute bottom-1 left-1 bg-black bg-opacity-50 text-white text-xs px-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
+                      {isCurrentThumbnail ? 'Thumbnail' : `Image ${index + 1}`}
                     </div>
                   </div>
                 );
               })}
-            </div>
-            {watch('thumbnail_url') && (
-              <div className="mt-2 text-xs text-gray-600 dark:text-gray-400">
-                Selected thumbnail: {watch('thumbnail_url').substring(0, 50)}...
               </div>
-            )}
-          </div>
-        )}
-      </div>
+            </>
+          ) : (
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+              <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <p className="text-gray-600 dark:text-gray-400 mb-2">No images uploaded yet</p>
+              <p className="text-sm text-gray-500 dark:text-gray-500">
+                Click "Add Images" to upload product images
+              </p>
+            </div>
+          )}
+          
+          {watch('thumbnail_url') && (
+            <div className="mt-2 text-xs text-gray-600 dark:text-gray-400">
+              Selected thumbnail: {watch('thumbnail_url').substring(0, 50)}...
+            </div>
+          )}
+        </div>
 
-      {/* Tags */}
-      <div className="md:col-span-2">
-        <label className="block text-sm font-medium text-gray-700 dark:text-white mb-2">
-          Tags
-        </label>
-        <div className="flex flex-wrap gap-2">
-          {TAG_OPTIONS.map((tag) => {
-            const isSelected = ((watch('tags') as unknown as string[]) || []).includes(tag.value);
-            return (
-              <button
-                key={tag.value}
-                type="button"
-                onClick={() => handleTagToggle(tag.value)}
-                className={`px-3 py-1 rounded-full text-sm font-medium ${
-                  isSelected
-                    ? 'bg-primary-100 text-primary-800 dark:bg-primary-900 dark:text-primary-200'
-                    : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
-                }`}
-              >
-                {tag.label}
-                {isSelected && <X className="ml-1 h-3 w-3 inline" />}
-              </button>
-            );
-          })}
+        {/* Tags */}
+        <div className="md:col-span-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-white mb-2">
+            Tags
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {TAG_OPTIONS.map((tag) => {
+              const isSelected = ((watch('tags') as unknown as string[]) || []).includes(tag.value);
+              return (
+                <button
+                  key={tag.value}
+                  type="button"
+                  onClick={() => handleTagToggle(tag.value)}
+                  className={`px-3 py-1 rounded-full text-sm font-medium ${
+                    isSelected
+                      ? 'bg-primary-100 text-primary-800 dark:bg-primary-900 dark:text-primary-200'
+                      : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+                  }`}
+                >
+                  {tag.label}
+                  {isSelected && <X className="ml-1 h-3 w-3 inline" />}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 

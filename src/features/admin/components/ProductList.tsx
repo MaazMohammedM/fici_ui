@@ -8,6 +8,7 @@ import fallbackImage from '../../../assets/Fici_logo.png';
 import CachedImage from '../../../components/ui/CachedImage';
 import { getStockStatus, getActiveStatus, getStatusBadgeProps } from '../../../lib/admin/productStatus';
 import { getImageForUseCase } from '../../../lib/utils/imageOptimization';
+import {ArrowLeft, ArrowRight} from 'lucide-react';
 
 const ProductList: React.FC = () => {
   const { 
@@ -209,25 +210,161 @@ const ProductList: React.FC = () => {
         {/* Main Content */}
         <div className="flex-1">
           {/* Mobile Filters Bar */}
-          <div className="lg:hidden mb-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                Products ({filteredProducts.length})
-              </h3>
-              <ProductFilters 
-                onFiltersChange={handleFiltersChange}
-                isMobile={true}
-                isAdmin={true}
-                showActionButtons={true}
-              />
-            </div>
-          </div>
-          
+         <div className="lg:hidden mb-4 space-y-4">
+  {/* Products Count */}
+  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+    Products ({filteredProducts.length})
+  </h3>
+
+  {/* Pagination + Filters Row */}
+  <div className="flex items-center justify-between gap-2">
+    {/* Pagination Controls */}
+    {totalPages > 1 && (
+      <div className="flex items-center gap-1 overflow-x-auto flex-1 scrollbar-hide">
+        <button
+          onClick={goToPreviousPage}
+          disabled={currentPage === 1}
+          className="
+            px-3 py-2
+            rounded-md
+            bg-white dark:bg-gray-800
+            border border-gray-300 dark:border-gray-600
+            text-sm font-small
+            text-gray-700 dark:text-gray-300
+            hover:bg-gray-50 dark:hover:bg-gray-700
+            disabled:opacity-50
+            disabled:cursor-not-allowed
+            whitespace-nowrap
+          "
+        >
+          <ArrowLeft/>
+        </button>
+
+        <div className="flex items-center gap-1">
+          {Array.from(
+            { length: Math.min(totalPages, 5) },
+            (_, i) => i + 1
+          ).map((pageNumber) => (
+            <button
+              key={pageNumber}
+              onClick={() => paginate(pageNumber)}
+              className={`
+                min-w-[40px]
+                h-10
+                rounded-md
+                text-sm
+                font-medium
+                ${
+                  currentPage === pageNumber
+                    ? 'bg-primary text-white'
+                    : 'bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300'
+                }
+              `}
+            >
+              {pageNumber}
+            </button>
+          ))}
+
+          {totalPages > 5 && (
+            <>
+              <span className="px-1 text-gray-500">...</span>
+
+              <button
+                onClick={() => paginate(totalPages)}
+                className={`
+                  min-w-[40px]
+                  h-10
+                  rounded-md
+                  text-sm
+                  font-medium
+                  ${
+                    currentPage === totalPages
+                      ? 'bg-primary text-white'
+                      : 'bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300'
+                  }
+                `}
+              >
+                {totalPages}
+              </button>
+            </>
+          )}
+        </div>
+
+        <button
+          onClick={goToNextPage}
+          disabled={currentPage === totalPages}
+          className="
+            px-3 py-2
+            rounded-md
+            bg-white dark:bg-gray-800
+            border border-gray-300 dark:border-gray-600
+            text-sm font-medium
+            text-gray-700 dark:text-gray-300
+            hover:bg-gray-50 dark:hover:bg-gray-700
+            disabled:opacity-50
+            disabled:cursor-not-allowed
+            whitespace-nowrap
+          "
+        >
+          <ArrowRight/>
+        </button>
+      </div>
+    )}
+
+    {/* Filters */}
+    <div className="shrink-0">
+      <ProductFilters
+        onFiltersChange={handleFiltersChange}
+        isMobile={true}
+        isAdmin={true}
+        showActionButtons={true}
+      />
+    </div>
+  </div>
+</div> 
           {/* Desktop Products Header */}
+          
           <div className="hidden lg:block mb-4">
+            {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex justify-center items-center space-x-2 mt-8">
+              <button
+                onClick={goToPreviousPage}
+                disabled={currentPage === 1}
+                className="px-3 py-2 rounded-md bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Previous
+              </button>
+
+              <div className="flex space-x-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNumber) => (
+                  <button
+                    key={pageNumber}
+                    onClick={() => paginate(pageNumber)}
+                    className={`px-3 py-2 rounded-md text-sm font-medium ${
+                      currentPage === pageNumber
+                        ? 'bg-primary text-white'
+                        : 'bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    {pageNumber}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                onClick={goToNextPage}
+                disabled={currentPage === totalPages}
+                className="px-3 py-2 rounded-md bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
+            </div>
+          )}
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
               Products ({filteredProducts.length})
             </h3>
+                      
           </div>
           {filteredProducts.length === 0 ? (
             <div className="text-center py-8 text-gray-500">
@@ -306,6 +443,7 @@ const ProductList: React.FC = () => {
                     <div className="text-sm text-gray-500">
                       <p>Article ID: {product.article_id}</p>
                       <p>Sizes: {Object.entries(product.sizes || {}).map(([size, qty]) => `${size}: ${qty}`).join(', ')}</p>
+                      <p>Images: {product.images?.length || 0} uploaded</p>
                     </div>
                   </div>
                   
@@ -317,8 +455,9 @@ const ProductList: React.FC = () => {
                         setEditingProduct(product);
                       }}
                       className="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded text-sm transition-colors"
+                      title="Edit product details, manage images, sizes, and more"
                     >
-                      Edit
+                      Edit & Images
                     </button>
                     <button
                       onClick={() => {

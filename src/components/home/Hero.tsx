@@ -3,40 +3,38 @@ import { Link } from "react-router-dom";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 // Import desktop images
-import pc1 from "../../assets/desktop_slide_01.png";
-import pc2 from "../../assets/desktop_slide_2.png"
-import pc4 from "../../assets/desktop_slide_2.png";
-import pc5 from "../../assets/desktop_slide_01.png";
-import pc6 from "../../assets/1000805149_pc.jpg";
+import pc1 from "../../assets/desktop_slide_04.png";
+import pc2 from "../../assets/desktop_slide_4.png"
+import pc4 from "../../assets/desktop_slide_Pdd54_dk.tan.png";
+import pc5 from "../../assets/desktop_slide_04.png";
 
 // Import mobile images
-import mobile1 from "../../assets/mobile_slide_1.png";
-import mobile2 from "../../assets/mobile_slide_2.png";
-import mobile3 from "../../assets/mobile_slide_2.png";
-import mobile5 from "../../assets/mobile_slide_1.png";
-import mobile6 from "../../assets/1000806095_mobile.jpg";
+import mobile1 from "../../assets/mobile_slide_04.png";
+import mobile2 from "../../assets/monthly_slide_3.png";
+import mobile3 from "../../assets/mobile_slide_Pdd54_dk.tan.png";
+import mobile5 from "../../assets/mobile_slide_04.png";
 
-const desktopImages = [pc1, pc2, pc4, pc5, pc6];
-const mobileImages = [mobile1, mobile2, mobile3, mobile5, mobile6];
+const desktopImages = [pc1, pc2, pc4, pc5];
+const mobileImages = [mobile1, mobile2, mobile3, mobile5];
 
 const heroSlides = [
   { 
     id: "1", 
-    ctaLink: "/products/Woxmsch265_brown",
+    ctaLink: "/products/Pslc22_black",
     title: "Premium Leather Collections",
     subtitle: "Handcrafted Excellence",
     description: "Discover our curated selection of premium leather goods"
   },
   { 
     id: "2", 
-    ctaLink: "/products?gender=men",
+    ctaLink: "/products/Woxmsch265_brown",
     title: "Men's Collection",
     subtitle: "Sophisticated Style",
     description: "Elevate your wardrobe with our premium leather essentials"
   },
   { 
     id: "3", 
-    ctaLink: "/products?gender=women",
+    ctaLink: "/products/Pdd54_dk.tan.png",
     title: "Women's Collection", 
     subtitle: "Timeless Elegance",
     description: "Discover elegant leather pieces designed for the modern woman"
@@ -53,15 +51,17 @@ const heroSlides = [
 const Hero: React.FC = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
+  const [isTablet, setIsTablet] = useState(false);
 
   useEffect(() => {
-    const checkMobile = () => {
+    const checkDevice = () => {
       setIsMobile(window.innerWidth < 768);
+      setIsTablet(window.innerWidth >= 768 && window.innerWidth < 1024);
     };
     
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
+    checkDevice();
+    window.addEventListener('resize', checkDevice);
+    return () => window.removeEventListener('resize', checkDevice);
   }, []);
 
   useEffect(() => {
@@ -93,7 +93,7 @@ const Hero: React.FC = () => {
           style={{
             aspectRatio: isMobile 
               ? '800/1200' // Mobile aspect ratio (2:3 for 800x1200 images)
-              : (currentSlide >= 2 ? '2125/914' : '1920/1080'), // Desktop aspect ratios
+              : '2125/914', // Use original aspect ratio for both tablet and desktop
             minHeight: '400px',
             maxHeight: '90vh'
           }}
@@ -119,19 +119,30 @@ const Hero: React.FC = () => {
                 }}
               >
                 <div className="absolute inset-0 bg-white">
-                  <picture className="w-full h-full">
-                    <source 
-                      media="(min-width: 768px)" 
-                      srcSet={desktopImages[index]}
-                    />
-                    <img
-                      src={mobileImages[index]}
-                      alt={`Featured collection ${index + 1}`}
-                      className="w-full h-full object-contain cursor-pointer"
-                      loading={index === 0 ? "eager" : "lazy"}
-                      decoding="async"
-                    />
-                  </picture>
+                  {/* Desktop image - object-cover to fill container and eliminate gaps */}
+                  <img
+                    src={desktopImages[index]}
+                    alt={`Featured collection ${index + 1}`}
+                    className="hidden md:block w-full h-full object-cover cursor-pointer"
+                    loading={index === 0 ? "eager" : "lazy"}
+                    decoding="async"
+                  />
+                  {/* Tablet image - object-contain to show full content */}
+                  <img
+                    src={desktopImages[index]}
+                    alt={`Featured collection ${index + 1}`}
+                    className="hidden md:hidden lg:block w-full h-full object-contain cursor-pointer"
+                    loading={index === 0 ? "eager" : "lazy"}
+                    decoding="async"
+                  />
+                  {/* Mobile image - object-contain to maintain aspect ratio on mobile */}
+                  <img
+                    src={mobileImages[index]}
+                    alt={`Featured collection ${index + 1}`}
+                    className="block md:hidden lg:hidden w-full h-full object-contain cursor-pointer"
+                    loading={index === 0 ? "eager" : "lazy"}
+                    decoding="async"
+                  />
                 </div>
               </Link>
             </div>

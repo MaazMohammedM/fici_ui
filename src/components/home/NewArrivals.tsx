@@ -1,20 +1,54 @@
 import React, { useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useProductStore } from '@/store/productStore';
-import { filterInStockProductsWithCount } from '@lib/utils/stockFilter';
+import { filterInStockProductsWithCount, calculateStockScore } from '@lib/utils/stockFilter';
 import { Sparkles } from 'lucide-react';
 import ProductCard from '../../features/product/components/ProductCard';
 
 const NewArrivals: React.FC = () => {
   const { highlightProducts, fetchHighlightProducts, clearHighlightProductsCache, loading } = useProductStore();
 
-  // Filter out out-of-stock products and ensure consistent count
+  // Filter out out-of-stock products and sort by newness first, then stock quantity
   const inStockHighlightProducts = useMemo(() => {
-    const filtered = filterInStockProductsWithCount(highlightProducts, 8);    
-    return filtered;
+    if (!highlightProducts || highlightProducts.length === 0) return [];
+    
+    
+    // Filter in-stock products
+    const filtered = highlightProducts.filter((product: any) => {
+      // Check if product is active and has stock (using type assertion since is_active is not in Product interface)
+      if ((product as any).is_active === false) return false;
+      
+      // Use the existing calculateStockScore function which handles sizes parsing internally
+      const stockScore = calculateStockScore(product);
+      const hasStock = stockScore > 0;
+      
+      
+      return hasStock;
+    });
+    
+    
+    // Sort by stock score first (highest stock quantity), then by newness for tie-breaking
+    const sortedByStockAndNewness = filtered.sort((a, b) => {
+      // First, sort by stock score (highest stock first)
+      const stockScoreA = calculateStockScore(a);
+      const stockScoreB = calculateStockScore(b);
+      
+      if (stockScoreB !== stockScoreA) {
+        return stockScoreB - stockScoreA; // Highest stock first
+      }
+      
+      // If stock scores are the same, sort by created_at (newest first)
+      const dateA = new Date((a as any).created_at || 0).getTime();
+      const dateB = new Date((b as any).created_at || 0).getTime();
+      return dateB - dateA; // Newest first
+    });
+    
+    
+    // Return top 8 products
+    return sortedByStockAndNewness.slice(0, 8);
   }, [highlightProducts]);
 
-  // Clear cache on mount to ensure fresh data
+  // Clear cache and fetch highlight products on mount to get newest products
   useEffect(() => {
     clearHighlightProductsCache();
     fetchHighlightProducts();

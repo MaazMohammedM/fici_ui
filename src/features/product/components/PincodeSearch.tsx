@@ -94,6 +94,8 @@ const PincodeSearch: React.FC = () => {
   const deliveryTime = details?.delivery_time;
   const shippingFee = details?.shipping_fee || 0;
   const codAvailable = details?.cod_allowed !== false;
+  const codFee = details?.cod_fee || 0;
+  const codFeesApplicable = details?.cod_fees_applicable || false;
   const isServiceable = details?.is_serviceable !== false;
   const minOrderAmount = details?.min_order_amount || 0;
   const freeShippingThreshold = details?.free_shipping_threshold || 0;
@@ -197,14 +199,23 @@ const PincodeSearch: React.FC = () => {
             </div>
           )}
           
-          {/* Shipping and COD Information
+          {/* Shipping and COD Information */}
           <div className="flex items-center text-sm text-gray-600 dark:text-gray-300">
             <Truck className="h-3 w-3 mr-2 text-gray-400" />
             <span>
               {shippingFee === 0 ? 'Free Shipping' : `Shipping: ₹${shippingFee}`}
-              {codAvailable && ' • COD Available'}
+              {codAvailable && (
+                <>
+                  {' • COD Available'}
+                  {codFeesApplicable && codFee > 0 && (
+                    <span className="text-amber-600 dark:text-amber-400 font-medium">
+                      {' (COD fee: ₹' + codFee + ' applies)'}
+                    </span>
+                  )}
+                </>
+              )}
             </span>
-          </div> */}
+          </div>
           
           {/* Minimum Order Amount
           {minOrderAmount > 0 && (

@@ -12,18 +12,28 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { toast } from 'sonner';
 
 const pincodeSchema = z.object({
-  pincode: z.string().min(6, 'Pincode must be at least 6 characters'),
-  city: z.string().min(2, 'City is required'),
-  state: z.string().min(2, 'State is required'),
-  districts: z.array(z.string().min(1, 'District cannot be empty')),
+  pincode: z.string().min(1, 'Pincode is required'),
+  city: z.string().min(1, 'City is required'),
+  state: z.string().min(1, 'State is required'),
+  districts: z.array(z.string()).min(1, 'At least one district is required'),
   active: z.boolean(),
   is_serviceable: z.boolean(),
   cod_allowed: z.boolean(),
   min_order_amount: z.number().min(0, 'Cannot be negative'),
   shipping_fee: z.number().min(0, 'Cannot be negative'),
-  cod_fee: z.number().min(0, 'Cannot be negative'),
+  cod_fee: z.number().min(0, 'Cannot be negative').optional(),
   free_shipping_threshold: z.number().min(0, 'Cannot be negative').nullable(),
   delivery_time: z.string().min(1, 'Delivery time is required'),
+  cod_fees_applicable: z.boolean(),
+}).refine((data) => {
+  // If COD fees are applicable, COD fee must be provided
+  if (data.cod_fees_applicable) {
+    return data.cod_fee !== undefined && data.cod_fee !== null;
+  }
+  return true;
+}, {
+  message: "COD fee is required when COD fees are applicable",
+  path: ["cod_fee"]
 });
 
 export type PincodeFormValues = z.infer<typeof pincodeSchema>;
@@ -52,15 +62,28 @@ export const PincodeModal = ({ isOpen, onClose, pincode, onSubmit }: PincodeModa
       cod_allowed: true,
       min_order_amount: 0,
       shipping_fee: 0,
-      cod_fee: 0,
+      cod_fee: undefined,
       free_shipping_threshold: null,
       delivery_time: '3-5 days',
-    },
+      cod_fees_applicable: false,
+      is_returnable: false,
+      is_exchangeable: true,
+      return_window_days: 0,
+      exchange_window_days: 7,
+    } as any,
   });
 
   const districts = watch('districts');
   const isServiceable = watch('is_serviceable');
   const codAllowed = watch('cod_allowed');
+  const codFeesApplicable = watch('cod_fees_applicable');
+
+  // Handle COD fee when cod_fees_applicable changes
+  useEffect(() => {
+    if (!codFeesApplicable) {
+      setValue('cod_fee', undefined);
+    }
+  }, [codFeesApplicable, setValue]);
 
   // Load pincode data when editing
   useEffect(() => {
@@ -80,7 +103,8 @@ export const PincodeModal = ({ isOpen, onClose, pincode, onSubmit }: PincodeModa
             districts: data.districts || [],
             min_order_amount: data.min_order_amount || 0,
             shipping_fee: data.shipping_fee || 0,
-            cod_fee: data.cod_fee || 0,
+            cod_fee: data.cod_fees_applicable ? (data.cod_fee || 0) : undefined,
+            cod_fees_applicable: data.cod_fees_applicable || false,
           });
         }
       } catch (error) {
@@ -112,7 +136,14 @@ export const PincodeModal = ({ isOpen, onClose, pincode, onSubmit }: PincodeModa
   const processSubmit = async (data: PincodeFormValues) => {
     try {
       setIsLoading(true);
-      await onSubmit(data);
+      
+      // If COD fees are not applicable, set COD fee to 0
+      const submitData = {
+        ...data,
+        cod_fee: data.cod_fees_applicable ? (data.cod_fee || 0) : 0
+      };
+      
+      await onSubmit(submitData);
       onClose();
     } catch (error) {
       console.error('Error submitting pincode:', error);
@@ -301,6 +332,52 @@ export const PincodeModal = ({ isOpen, onClose, pincode, onSubmit }: PincodeModa
                     disabled={!isServiceable}
                   />
                 </div>
+
+                <div className="flex items-center justify-between rounded-lg border dark:border-gray-600 p-3 sm:p-4">
+                  <div className="flex-1">
+                    <h4 className="font-medium text-sm sm:text-base">COD Fees Applicable</h4>
+                    <p className="text-xs sm:text-sm text-muted-foreground">
+                      {codFeesApplicable ? 'COD fees are charged' : 'No COD fees charged'}
+                    </p>
+                  </div>
+                  <Switch
+                    checked={codFeesApplicable}
+                    onCheckedChange={(checked) => {
+                      setValue('cod_fees_applicable', checked);
+                      // Auto-set COD fee to 0 when COD fees are not applicable
+                      if (!checked) {
+                        setValue('cod_fee', 0);
+                      }
+                    }}
+                    disabled={!codAllowed}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between rounded-lg border dark:border-gray-600 p-3 sm:p-4">
+                  <div className="flex-1">
+                    <h4 className="font-medium text-sm sm:text-base">Returnable</h4>
+                    <p className="text-xs sm:text-sm text-muted-foreground">
+                      {(watch as any)('is_returnable') ? 'Returns are allowed' : 'Returns are not allowed'}
+                    </p>
+                  </div>
+                  <Switch
+                    checked={(watch as any)('is_returnable')}
+                    onCheckedChange={(checked) => (setValue as any)('is_returnable', checked)}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between rounded-lg border dark:border-gray-600 p-3 sm:p-4">
+                  <div className="flex-1">
+                    <h4 className="font-medium text-sm sm:text-base">Exchangeable</h4>
+                    <p className="text-xs sm:text-sm text-muted-foreground">
+                      {(watch as any)('is_exchangeable') ? 'Exchanges are allowed' : 'Exchanges are not allowed'}
+                    </p>
+                  </div>
+                  <Switch
+                    checked={(watch as any)('is_exchangeable')}
+                    onCheckedChange={(checked) => (setValue as any)('is_exchangeable', checked)}
+                  />
+                </div>
               </div>
             </div>
           )}
@@ -318,7 +395,10 @@ export const PincodeModal = ({ isOpen, onClose, pincode, onSubmit }: PincodeModa
                       min="0"
                       step="0.01"
                       className="pl-9"
-                      {...register('min_order_amount', { valueAsNumber: true })}
+                      {...register('min_order_amount', { 
+                        valueAsNumber: true,
+                        setValueAs: (v) => v === '' ? 0 : parseFloat(v)
+                      })}
                     />
                   </div>
                   {errors.min_order_amount && (
@@ -336,7 +416,10 @@ export const PincodeModal = ({ isOpen, onClose, pincode, onSubmit }: PincodeModa
                       min="0"
                       step="0.01"
                       className="pl-9"
-                      {...register('shipping_fee', { valueAsNumber: true })}
+                      {...register('shipping_fee', { 
+                        valueAsNumber: true,
+                        setValueAs: (v) => v === '' ? 0 : parseFloat(v)
+                      })}
                     />
                   </div>
                   {errors.shipping_fee && (
@@ -345,7 +428,7 @@ export const PincodeModal = ({ isOpen, onClose, pincode, onSubmit }: PincodeModa
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="cod_fee">COD Fee (₹)</Label>
+                  <Label htmlFor="cod_fee">COD Fee (₹) {codFeesApplicable && <span className="text-red-500">*</span>}</Label>
                   <div className="relative">
                     <DollarSign className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
@@ -354,12 +437,19 @@ export const PincodeModal = ({ isOpen, onClose, pincode, onSubmit }: PincodeModa
                       min="0"
                       step="0.01"
                       className="pl-9"
-                      disabled={!codAllowed}
-                      {...register('cod_fee', { valueAsNumber: true })}
+                      disabled={!codAllowed || !codFeesApplicable}
+                      placeholder={codFeesApplicable ? "Enter COD fee amount" : "COD fees not applicable"}
+                      {...register('cod_fee', { 
+                        valueAsNumber: true,
+                        setValueAs: (v) => v === '' ? 0 : parseFloat(v)
+                      })}
                     />
                   </div>
                   {errors.cod_fee && (
-                    <p className="text-sm text-red-500">{errors.cod_fee.message}</p>
+                    <p className="text-sm text-red-500 dark:text-red-400">{errors.cod_fee.message}</p>
+                  )}
+                  {!codFeesApplicable && (
+                    <p className="text-xs text-muted-foreground">COD fee is set to 0 when COD fees are not applicable</p>
                   )}
                 </div>
 
@@ -382,6 +472,40 @@ export const PincodeModal = ({ isOpen, onClose, pincode, onSubmit }: PincodeModa
                   </div>
                   {errors.free_shipping_threshold && (
                     <p className="text-sm text-red-500">{errors.free_shipping_threshold.message}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="return_window_days">Return Window Days</Label>
+                  <Input
+                    id="return_window_days"
+                    type="number"
+                    min="0"
+                    step="1"
+                    {...(register as any)('return_window_days', { 
+                      valueAsNumber: true,
+                      setValueAs: (v) => v === '' ? 0 : parseInt(v)
+                    })}
+                  />
+                  {(errors as any).return_window_days && (
+                    <p className="text-sm text-red-500">{(errors as any).return_window_days.message}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="exchange_window_days">Exchange Window Days</Label>
+                  <Input
+                    id="exchange_window_days"
+                    type="number"
+                    min="0"
+                    step="1"
+                    {...(register as any)('exchange_window_days', { 
+                      valueAsNumber: true,
+                      setValueAs: (v) => v === '' ? 0 : parseInt(v)
+                    })}
+                  />
+                  {(errors as any).exchange_window_days && (
+                    <p className="text-sm text-red-500">{(errors as any).exchange_window_days.message}</p>
                   )}
                 </div>
               </div>

@@ -19,6 +19,8 @@ interface Props {
   prepaidDiscount?: number;
   onCodOtpRequired?: () => void;
   codAvailable?: boolean;
+  codFee?: number;
+  codFeesApplicable?: boolean;
   isIdentityVerified?: boolean;
   checkoutSessionId?: string | null; // Add checkout session ID for proper OTP scoping
   isPincodeServiceable?: boolean;
@@ -30,6 +32,8 @@ const PaymentMethods: React.FC<Props> = ({
   prepaidDiscount = 0,
   onCodOtpRequired,
   codAvailable = true,
+  codFee = 0,
+  codFeesApplicable = false,
   isIdentityVerified: propIsVerified = false,
   checkoutSessionId,
   isPincodeServiceable = true,
@@ -150,6 +154,13 @@ const PaymentMethods: React.FC<Props> = ({
                     {isCOD && isDisabled && isPincodeServiceable && (
                       <p className="mt-2 text-xs text-red-600 dark:text-red-400 font-medium bg-red-50 dark:bg-red-900/20 p-2 rounded border border-red-200 dark:border-red-800">
                         Cash on Delivery is not available for this pincode. Please choose online payment.
+                      </p>
+                    )}
+
+                    {/* COD Fee Information */}
+                    {isCOD && !isDisabled && codFeesApplicable && codFee > 0 && (
+                      <p className="mt-2 text-xs text-amber-700 dark:text-amber-300 font-medium bg-amber-50 dark:bg-amber-900/20 p-2 rounded border border-amber-200 dark:border-amber-800">
+                        💰 COD fee of ₹{codFee.toLocaleString('en-IN')} applies for this pincode. This charge covers additional handling costs for cash on delivery orders.
                       </p>
                     )}
 

@@ -98,6 +98,8 @@ interface AdminStore {
   addProduct: (data: EnhancedProductFormData) => Promise<boolean>;
   updateProduct: (productId: string, data: EditProductFormData) => Promise<boolean>;
   uploadImages: (folderName: string, files: FileList) => Promise<{ imageUrls: string[]; thumbnail: string } | null>;
+  deleteSingleImage: (productId: string, imageUrl: string) => Promise<boolean>;
+  updateProductImages: (productId: string, images: string[], thumbnailUrl?: string) => Promise<boolean>;
   updateSizes: (productId: string, sizes: Record<string, number>) => Promise<boolean>;
   deleteProduct: (productId: string) => Promise<boolean>;
   deleteProductImages: (folderName: string) => Promise<boolean>;
@@ -433,8 +435,52 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
           ? file.type
           : getMimeType(file.name);
         
-        // Use direct Supabase URL without query parameters (matching working product page URLs)
-        const publicUrl = `https://supabase-proxy.furqhaanmohammed001.workers.dev/storage/v1/object/public/ficishoesimages/${filePath}`;
+        // Use direct Supabase client with authentication for storage uploads
+        const { createClient } = await import('@supabase/supabase-js');
+        
+        // Get current session to use for authenticated uploads
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session) {
+          throw new Error('You must be authenticated to upload images');
+        }
+        
+        const directSupabase = createClient(
+          'https://qegaebazravcwofibtry.supabase.co',
+          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFlZ2FlYmF6cmF2Y3dvZmlidHJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM5ODE4NzksImV4cCI6MjA2OTU1Nzg3OX0.YKP1oM0WIWzuaa47S6OTVEitBalCNqBQxgoLw0yiUg0',
+          {
+            auth: {
+              persistSession: false,
+              autoRefreshToken: false
+            }
+          }
+        );
+        
+        // Set the session for the direct client
+        await directSupabase.auth.setSession({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token!
+        });
+
+        // Upload file to Supabase storage using direct client
+        const { data: uploadData, error: uploadError } = await directSupabase.storage
+          .from('ficishoesimages')
+          .upload(filePath, file, {
+            contentType,
+            upsert: true
+          });
+
+        if (uploadError) {
+          console.error('Error uploading file:', uploadError);
+          throw uploadError;
+        }
+
+        // Get public URL for the uploaded file using direct client
+        const { data: publicUrlData } = directSupabase.storage
+          .from('ficishoesimages')
+          .getPublicUrl(filePath);
+
+        const publicUrl = publicUrlData.publicUrl;
         imageUrls.push(publicUrl);
 
         // Update progress after each file
@@ -449,6 +495,92 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
     } catch (error) {
       console.error('Upload error:', error);
       return null;
+    }
+  },
+
+  deleteSingleImage: async (productId: string, imageUrl: string) => {
+    try {
+      // Get current product data
+      const { data: product, error: fetchError } = await supabase
+        .from('products')
+        .select('images, thumbnail_url')
+        .eq('product_id', productId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Parse current images
+      const currentImages = parseImages(product.images);
+      const updatedImages = currentImages.filter(img => img !== imageUrl);
+
+      // Check if thumbnail is being deleted and update if needed
+      let newThumbnail = product.thumbnail_url;
+      if (product.thumbnail_url === imageUrl) {
+        newThumbnail = updatedImages.length > 0 ? updatedImages[0] : null;
+      }
+
+      // Update product with new images array
+      const { error: updateError } = await supabase
+        .from('products')
+        .update({ 
+          images: updatedImages.join(','),
+          thumbnail_url: newThumbnail
+        })
+        .eq('product_id', productId);
+
+      if (updateError) throw updateError;
+
+      // Delete the actual file from storage
+      const urlParts = imageUrl.split('/');
+      const fileName = urlParts[urlParts.length - 1];
+      const folderName = urlParts[urlParts.length - 2];
+      const filePath = `${folderName}/${fileName}`;
+
+      const { error: deleteError } = await supabase.storage
+        .from('ficishoesimages')
+        .remove([filePath]);
+
+      if (deleteError) {
+        console.warn('Failed to delete file from storage:', deleteError);
+        // Don't throw error since database was updated
+      }
+
+      await get().fetchProducts();
+      set({ success: 'Image deleted successfully' });
+      setTimeout(() => set({ success: null }), 3000);
+      return true;
+    } catch (error) {
+      console.error('Error deleting image:', error);
+      set({ error: error instanceof Error ? error.message : 'Failed to delete image' });
+      return false;
+    }
+  },
+
+  updateProductImages: async (productId: string, images: string[], thumbnailUrl?: string) => {
+    try {
+      const updateData: Record<string, unknown> = {
+        images: images.join(',')
+      };
+
+      if (thumbnailUrl) {
+        updateData.thumbnail_url = thumbnailUrl;
+      }
+
+      const { error } = await supabase
+        .from('products')
+        .update(updateData)
+        .eq('product_id', productId);
+
+      if (error) throw error;
+
+      await get().fetchProducts();
+      set({ success: 'Images updated successfully' });
+      setTimeout(() => set({ success: null }), 3000);
+      return true;
+    } catch (error) {
+      console.error('Error updating images:', error);
+      set({ error: error instanceof Error ? error.message : 'Failed to update images' });
+      return false;
     }
   },
 

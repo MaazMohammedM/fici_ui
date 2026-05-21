@@ -1,5 +1,5 @@
 import React from "react";
-import ficiLight from '../../assets/fici_logo_light.png';
+import ficiLight from '../../assets/fici_logo_light.webp';
 
 const ShoeCarePage: React.FC = () => {
   return (

@@ -508,7 +508,7 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
                 className={`flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden border-2 transition-transform ${idx === selectedImage ? 'border-accent scale-105 ring-2 ring-accent/50' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'}`}
                 aria-label={`Thumbnail ${idx + 1}`}
               >
-                <img src={thumbnailUrl} alt={`${productName} ${idx + 1}`} className="w-full h-full object-cover" onError={handleImageError} loading="lazy" decoding="async" />
+                <img src={thumbnailUrl} alt={`${productName} - Premium leather shoes from Ambur manufacturer ${idx + 1}`} className="w-full h-full object-cover" onError={handleImageError} loading="lazy" decoding="async" />
               </button>
             );
           })}

@@ -24,6 +24,8 @@ interface OrderCardProps {
   onShipReplacement?: (item: OrderItem) => void;
   onMarkReturned?: (item: OrderItem) => void;
   onPrintInvoice?: (order: Order) => void;
+  onDownloadInvoice?: (order: Order) => void;
+  downloadingInvoiceId?: string;
 }
 
 const ItemActions: React.FC<{
@@ -142,6 +144,8 @@ export const OrderCard: React.FC<OrderCardProps> = ({
   onShipReplacement,
   onMarkReturned,
   onPrintInvoice,
+  onDownloadInvoice,
+  downloadingInvoiceId,
 }) => {
   const isShippingAddress = (address: unknown): address is import('../../../types/order-common').ShippingAddress =>
     typeof address === 'object' && address !== null;
@@ -327,6 +331,17 @@ export const OrderCard: React.FC<OrderCardProps> = ({
             >
               <Upload className="w-4 h-4" />
               <span>Print Invoice</span>
+            </button>
+          )}
+
+          {onDownloadInvoice && (
+            <button
+              onClick={() => onDownloadInvoice(order)}
+              disabled={downloadingInvoiceId === order.order_id}
+              className="flex items-center justify-center gap-2 text-purple-600 hover:text-purple-700 text-sm px-3 py-2 rounded border border-purple-200 hover:border-purple-300 bg-white dark:bg-gray-800 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Upload className="w-4 h-4" />
+              <span>{downloadingInvoiceId === order.order_id ? 'Downloading...' : 'Download Invoice'}</span>
             </button>
           )}
         </div>

@@ -4,10 +4,10 @@ import { useProductStore } from "@store/productStore";
 import type { Category } from "../../types/product";
 
 // Import category images
-import shoesImage from "@/assets/1000876119.jpg";
-import sandalsImage from "@/assets/1000876133.jpg";
-import bagsImage from "@/assets/1000250076.jpg";
-import accessoriesImage from "@/assets/1000876149.png";
+import shoesImage from "@/assets/1000876119.webp";
+import sandalsImage from "@/assets/1000876133.webp";
+import bagsImage from "@/assets/1000250076.webp";
+import accessoriesImage from "@/assets/1000876149.webp";
 
 const categories: Category[] = [
   { id: "Shoes", name: "Shoes", image: shoesImage, count: 0 },

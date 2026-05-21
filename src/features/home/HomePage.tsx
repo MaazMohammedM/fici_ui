@@ -14,6 +14,7 @@ import GoogleReviews from '../../components/GoogleReviews';
 // import Testimonials from '../../components/home/Testimonials';
 
 const HomePage: React.FC = () => {
+
   return (
     <>
       <SEOHead 
@@ -37,14 +38,14 @@ const HomePage: React.FC = () => {
         <CategoryGrid />
       </section>
       
+         {/* New Arrivals - Fresh content */}
+      <div className="-mt-24">
+        <NewArrivals />
+      </div>
+      
       {/* Best Sellers - Social proof */}
       <div className="-mt-24">
         <BestSellers />
-      </div>
-      
-      {/* New Arrivals - Fresh content */}
-      <div className="-mt-24">
-        <NewArrivals />
       </div>
       
       {/* Why Choose Us - Value proposition */}

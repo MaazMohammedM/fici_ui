@@ -11,6 +11,7 @@ interface SEOHeadProps {
   price?: string;
   currency?: string;
   availability?: 'in stock' | 'out of stock';
+  noIndex?: boolean;
 }
 
 const SEOHead: React.FC<SEOHeadProps> = ({
@@ -22,7 +23,8 @@ const SEOHead: React.FC<SEOHeadProps> = ({
   type = 'website',
   price,
   currency = 'INR',
-  availability = 'in stock'
+  availability = 'in stock',
+  noIndex = false
 }) => {
   const siteName = 'FiCi Shoes';
   const fullTitle = title.includes(siteName) ? title : `${title} ${siteName}`;
@@ -42,6 +44,7 @@ const SEOHead: React.FC<SEOHeadProps> = ({
       <meta name="author" content="FICI Shoes" />
       <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       <link rel="canonical" href={canonicalUrl} />
+      <meta name="robots" content={noIndex ? "noindex, nofollow" : "index, follow"} />
 
       {/* Open Graph Tags */}
       <meta property="og:title" content={fullTitle} />

@@ -1,5 +1,6 @@
 // src/store/authStore.ts
 import { create } from 'zustand';
+import { createClient } from '@supabase/supabase-js';
 import { persist } from 'zustand/middleware';
 import { supabase } from '@lib/supabase';
 import { GuestService } from '../lib/services/guestService';
@@ -86,13 +87,21 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       lastVerifiedAt: null,
       lastVerifiedCheckoutId: null,
 
-      setUser: (user) =>
+      setUser: (user) => {
         set({
           user,
           isAuthenticated: !!user,
           isGuest: false,
           authType: user ? 'user' : null,
-        }),
+        });
+        
+        // Ensure user profile is created when user is set
+        if (user) {
+          ensureUserProfile(user).catch(error => {
+            console.error('Error ensuring profile in setUser:', error);
+          });
+        }
+      },
 
       setUserProfile: (userProfile) => set({ userProfile }),
       setRole: (role) => set({ role }),
@@ -310,12 +319,37 @@ export const useAuthStore = create<AuthState>()((set, get) => ({
       signInWithGoogle: async () => {
         set({ loading: true, error: null });
         try {
-          const { error } = await supabase.auth.signInWithOAuth({
+          // Create direct Supabase client for Google OAuth to avoid X-Frame-Options issues
+          // This client will use the direct Supabase URL for OAuth authorize only
+          const supabaseDirect = createClient(
+            'https://qegaebazravcwofibtry.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFlZ2FlYmF6cmF2Y3dvZmlidHJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM5ODE4NzksImV4cCI6MjA2OTU1Nzg3OX0.YKP1oM0WIWzuaa47S6OTVEitBalCNqBQxgoLw0yiUg0',
+            {
+              auth: {
+                autoRefreshToken: false, // Don't interfere with main session
+                persistSession: false,   // Don't persist this session
+                detectSessionInUrl: false // Don't detect session in URL
+              }
+            }
+          );
+
+          // Use production URL in production, or when explicitly set for testing
+          const baseUrl = import.meta.env.PROD 
+            ? import.meta.env.VITE_PRODUCTION_URL || 'https://ficishoes.com'
+            : import.meta.env.VITE_PRODUCTION_URL || window.location.origin;
+          
+          const { error } = await supabaseDirect.auth.signInWithOAuth({
             provider: 'google',
-            options: { redirectTo: `${window.location.origin}/auth/callback` },
+            options: { 
+              redirectTo: `${baseUrl}/auth/callback`,
+              queryParams: {
+                access_type: 'offline',
+                prompt: 'consent',
+              }
+            },
           });
           if (error) throw error;
-          // session will be handled by callback route
+          // session will be handled by callback route using main supabase client (Cloudflare worker)
         } catch (err: any) {
           set({ error: err.message, loading: false });
           throw err;

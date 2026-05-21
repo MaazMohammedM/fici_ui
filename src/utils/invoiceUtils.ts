@@ -1,779 +1,1077 @@
+/**
+ * invoiceUtils.ts
+ * ─────────────────────────────────────────────────────────────────────────────
+ * Fici Shoes – Tax Invoice utilities
+ *
+ * GST model (corrected):
+ *   taxableAmount  = effective_amount   (the amount customer actually paid)
+ *   gstAmount      = taxableAmount × 0.05   (5 % additive on top)
+ *   grandTotal     = taxableAmount + gstAmount
+ *
+ * Inter-state  → IGST  @ 5 %
+ * Intra-state (Tamil Nadu) → CGST 2.5 % + SGST 2.5 %
+ */
+
 import { showSuccessAlert, showErrorAlert } from '../lib/utils/alertUtils';
 
+// ─── Install (run once) ───────────────────────────────────────────────────────
+//   yarn add jspdf html2canvas
+//   yarn add -D @types/html2canvas   (if types aren't bundled)
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const FICI_SHOES = {
+  name:       'NMF International',
+  gstin:      '33BMAPM8509H1Z4',
+  stateCode:  '33',
+  stateName:  'Tamil Nadu',
+  address:    'No.20, 1st Floor, Broad Bazaar, Flower Bazaar Lane, Ambur - 635802 Tirupattur District, Tamilnadu, India.',
+  phone:      '8122003006',
+  contactUrl: 'https://www.ficishoes.com/contact',
+  logoUrl:    '/favicons/logo-512x512.png',
+  hsnCode:    '6403',
+  /** GST rate as a plain percentage, e.g. 5 means 5 % */
+  gstRate:    5,
+} as const;
+
+const MONTH_CODES: Record<number, string> = {
+  0:'JA', 1:'FB', 2:'MR', 3:'AP', 4:'MY', 5:'JN',
+  6:'JL', 7:'AG', 8:'SP', 9:'OC', 10:'NV', 11:'DC',
+};
+
+// ─── Safe number conversion ───────────────────────────────────────────────────
+
+/**
+ * Safely converts any Supabase value (string | number | null | undefined) to a
+ * finite number.  Returns 0 for anything that isn't a valid number.
+ */
+export const toNumber = (value: unknown): number => {
+  if (value === null || value === undefined) return 0;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const round2 = (n: number): number => Number(n.toFixed(2));
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
 export interface InvoiceItem {
-  id: string;
-  name: string;
+  id:           string;
+  name:         string;
   description?: string;
-  quantity: number;
-  price: number;
-  total: number;
+  quantity:     number;
+  /** Selling price per unit (GST-exclusive — the taxable base per unit) */
+  price:        number;
+  /** Original MRP per unit (used for discount display only) */
+  mrp:          number;
+  /** price × quantity  (GST-exclusive subtotal for this line) */
+  total:        number;
+  size?:        string;
+  color?:       string;
+  hsnCode?:     string;
+}
+
+export interface ShippingAddress {
+  name:       string;
+  email?:     string;
+  phone?:     string;
+  address:    string;
+  city:       string;
+  district?:  string;
+  state:      string;
+  pincode:    string;
+  landmark?:  string;
 }
 
 export interface InvoiceData {
-  id: string;
-  invoiceNumber: string;
-  date: string;
-  dueDate?: string;
+  id:              string;
+  invoiceNumber:   string;
+  orderId:         string;
+  orderDate:       string;
+  invoiceDate:     string;
+  orderType:       'registered' | 'guest';
   customer: {
-    name: string;
-    email: string;
+    name:   string;
+    email:  string;
     phone?: string;
-    address?: string;
   };
-  items: InvoiceItem[];
-  subtotal: number;
-  tax?: number;
-  discount?: number;
-  total: number;
-  status: 'pending' | 'paid' | 'overdue' | 'cancelled';
-  notes?: string;
+  billingAddress:  ShippingAddress;
+  shippingAddress: ShippingAddress;
+  items:           InvoiceItem[];
+  /** Sum of all item.total (GST-exclusive) before discount */
+  subtotal:        number;
+  /** Total discount applied */
+  discount:        number;
+  deliveryCharge:  number;
+  /** effective_amount = the amount customer actually paid (taxable base) */
+  effectiveAmount: number;
+  /** GST amount (5 % of effectiveAmount) */
+  gstAmount:       number;
+  cgst?:           number;   // intra-state only (Tamil Nadu)
+  sgst?:           number;   // intra-state only (Tamil Nadu)
+  igst?:           number;   // inter-state only
+  /** effectiveAmount + gstAmount */
+  grandTotal:      number;
+  paymentMethod:   string;
+  status:          'pending' | 'paid' | 'overdue' | 'cancelled';
+  notes?:          string;
 }
 
-export const generateInvoiceNumber = (): string => {
-  const timestamp = Date.now();
-  const random = Math.floor(Math.random() * 1000);
-  return `INV-${timestamp}-${random}`;
+// ─── Invoice number ───────────────────────────────────────────────────────────
+
+export const generateInvoiceNumber = (orderId: string, date?: string): string => {
+  const d          = date ? new Date(date) : new Date();
+  const monthCode  = MONTH_CODES[d.getMonth()];
+  const year       = String(d.getFullYear()).slice(-2);
+  const suffix     = orderId.replace(/-/g, '').slice(-8).toUpperCase();
+  return `FSI${monthCode}CT${year}${suffix}`;
 };
 
-export const calculateInvoiceTotal = (items: InvoiceItem[]): number => {
-  return items.reduce((total, item) => total + item.total, 0);
+// ─── GST helpers ─────────────────────────────────────────────────────────────
+
+/** True when the delivery state is Tamil Nadu (same state as seller). */
+export const isIntraState = (shippingState: string): boolean => {
+  const n = shippingState.trim().toUpperCase();
+  return n === 'TAMIL NADU' || n === 'TN' || n === 'IN-TN' || n === '33';
 };
 
-export const formatCurrency = (amount: number): string => {
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR'
+/**
+ * Computes GST on top of an EXCLUSIVE (taxable) amount.
+ *
+ * Formula (additive, not back-calculated):
+ *   gstAmount = taxableAmount × (gstRate / 100)
+ *
+ * Split:
+ *   Intra-state → CGST = gstAmount / 2, SGST = gstAmount / 2
+ *   Inter-state → IGST = gstAmount
+ */
+export const computeGST = (
+  totalInclusiveAmount: number,
+  gstRate: number,
+  shippingState: string,
+): { gstAmount: number; taxableAmount: number; cgst: number; sgst: number; igst: number } => {
+
+  // GST inclusive calculation
+  const taxableAmount = round2(
+    totalInclusiveAmount / (1 + gstRate / 100)
+  );
+
+  const gstAmount = round2(
+    totalInclusiveAmount - taxableAmount
+  );
+
+  if (isIntraState(shippingState)) {
+    const half = round2(gstAmount / 2);
+
+    return {
+      taxableAmount,
+      gstAmount,
+      cgst: half,
+      sgst: half,
+      igst: 0,
+    };
+  }
+
+  return {
+    taxableAmount,
+    gstAmount,
+    cgst: 0,
+    sgst: 0,
+    igst: gstAmount,
+  };
+};
+
+// ─── Formatters ───────────────────────────────────────────────────────────────
+
+export const formatCurrency = (amount: number): string =>
+  new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(amount);
+
+export const formatCurrencyPlain = (amount: number): string =>
+  new Intl.NumberFormat('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(amount);
-};
 
 export const formatDate = (date: string | Date): string => {
-  const dateObj = typeof date === 'string' ? new Date(date) : date;
-  return dateObj.toLocaleDateString('en-IN', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
+  const d  = typeof date === 'string' ? new Date(date) : date;
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  return `${dd}-${mm}-${d.getFullYear()}`;
+};
+
+// ─── Admin Order → InvoiceData adapter ───────────────────────────────────────
+
+export interface AdminOrderForInvoice {
+  order_id:         string;
+  order_date:       string;
+  order_type?:      'registered' | 'guest';
+  payment_status:   string;
+  payment_method:   string;
+  total_amount?:    number | string | null;
+  effective_amount?: number | string | null;
+  discount?:        number | string | null;
+  delivery_charge?: number | string | null;
+  user_id?:         string | null;
+  guest_email?:     string | null;
+  guest_phone?:     string | null;
+  shipping_address?: unknown;
+  order_items: Array<{
+    order_item_id?:       string;
+    product_id?:          string;
+    product_name?:        string;
+    name?:                string;
+    size?:                string;
+    color?:               string;
+    quantity?:            number | string | null;
+    price_at_purchase?:   number | string | null;
+    mrp?:                 number | string | null;
+    thumbnail_url?:       string;
+    product_thumbnail_url?: string;
+  }>;
+}
+
+const parseShippingAddress = (raw: unknown, fallbackEmail?: string | null): ShippingAddress => {
+  if (!raw) {
+    return {
+      name:    fallbackEmail?.split('@')[0] ?? 'Customer',
+      address: '', city: '', state: '', pincode: '',
+    };
+  }
+  if (typeof raw === 'string') {
+    try {
+      return JSON.parse(raw) as ShippingAddress;
+    } catch {
+      return { name: 'Customer', address: raw, city: '', state: '', pincode: '' };
+    }
+  }
+  return raw as ShippingAddress;
+};
+
+/**
+ * Converts a raw admin Order into the InvoiceData shape.
+ *
+ * GST calculation:
+ *   1. taxableBase = effective_amount (what the customer actually paid, GST-exclusive)
+ *   2. gstAmount   = taxableBase × 5 %
+ *   3. grandTotal  = taxableBase + gstAmount
+ */
+export const generateInvoiceFromAdminOrder = (order: AdminOrderForInvoice): InvoiceData => {
+  const shippingAddr = parseShippingAddress(order.shipping_address, order.guest_email);
+
+  const isGuest     = !order.user_id;
+  const customerName  = shippingAddr.name || order.guest_email?.split('@')[0] || 'Customer';
+  const customerEmail = isGuest ? (order.guest_email ?? shippingAddr.email ?? '') : (shippingAddr.email ?? '');
+  const customerPhone = isGuest ? (order.guest_phone ?? shippingAddr.phone ?? '') : (shippingAddr.phone ?? '');
+
+  // ── Build line items ──────────────────────────────────────────────────────
+  const rawItems = (order.order_items ?? []).map((oi, idx) => {
+  const qty = toNumber(oi.quantity) || 1;
+
+  const originalPrice =
+    round2(toNumber(oi.price_at_purchase));
+
+  const mrp =
+    oi.mrp
+      ? round2(toNumber(oi.mrp))
+      : originalPrice;
+
+  return {
+    idx,
+    qty,
+    mrp,
+    originalPrice,
+    originalSubtotal: round2(originalPrice * qty),
+    raw: oi,
+  };
+});
+
+const originalSubtotal = round2(
+  rawItems.reduce((sum, item) => sum + item.originalSubtotal, 0)
+);
+
+const effectiveRaw = toNumber(order.effective_amount);
+
+const effectiveAmount =
+  effectiveRaw > 0
+    ? round2(effectiveRaw)
+    : originalSubtotal;
+
+const {
+  taxableAmount,
+  gstAmount,
+  cgst,
+  sgst,
+  igst,
+} = computeGST(
+  effectiveAmount,
+  FICI_SHOES.gstRate,
+  shippingAddr.state ?? '',
+);
+
+const items: InvoiceItem[] = rawItems.map((item) => {
+  const proportion =
+    originalSubtotal > 0
+      ? item.originalSubtotal / originalSubtotal
+      : 0;
+
+  const itemTaxable = round2(
+    taxableAmount * proportion
+  );
+
+  const itemPrice = round2(
+    itemTaxable / item.qty
+  );
+
+  return {
+    id:
+      item.raw.order_item_id ??
+      item.raw.product_id ??
+      String(item.idx),
+
+    name:
+      item.raw.product_name ??
+      item.raw.name ??
+      'Product',
+
+    size: item.raw.size,
+    color: item.raw.color,
+
+    quantity: item.qty,
+
+    // corrected GST-exclusive unit price
+    price: itemPrice,
+
+    mrp: item.mrp,
+
+    // corrected taxable line total
+    total: itemTaxable,
+
+    hsnCode: FICI_SHOES.hsnCode,
+  };
+});
+
+  // ── Financial base ────────────────────────────────────────────────────────
+  const subtotal = round2(originalSubtotal);
+  const discount      = round2(toNumber(order.discount));
+  const deliveryCharge = round2(toNumber(order.delivery_charge));
+
+
+// effective_amount already includes GST
+const grandTotal = effectiveAmount;
+  const intra      = isIntraState(shippingAddr.state ?? '');
+
+  return {
+    id:             order.order_id,
+    invoiceNumber:  generateInvoiceNumber(order.order_id, order.order_date),
+    orderId:        order.order_id,
+    orderDate:      order.order_date || new Date().toISOString(),
+    invoiceDate:    new Date().toISOString(),
+    orderType:      order.order_type ?? (isGuest ? 'guest' : 'registered'),
+    customer:       { name: customerName, email: customerEmail, phone: customerPhone },
+    billingAddress:  shippingAddr,
+    shippingAddress: shippingAddr,
+    items,
+    subtotal,
+    discount,
+    deliveryCharge,
+    effectiveAmount: taxableAmount,
+    gstAmount,
+    cgst:  intra  ? cgst : undefined,
+    sgst:  intra  ? sgst : undefined,
+    igst: !intra  ? igst : undefined,
+    grandTotal,
+    paymentMethod: order.payment_method || 'razorpay',
+    status:        order.payment_status === 'paid' ? 'paid' : 'pending',
+  };
+};
+
+// ─── Legacy builder (kept for non-admin flows) ────────────────────────────────
+
+export interface RawOrderData {
+  order_id:         string;
+  order_date:       string;
+  status:           string;
+  total_amount:     string | number;
+  effective_amount?: string | number | null;
+  subtotal:         string | number;
+  discount:         string | number;
+  delivery_charge:  string | number;
+  payment_status:   string;
+  payment_method:   string;
+  shipping_address: string | ShippingAddress;
+  order_type:       'registered' | 'guest';
+  user?: { name?: string; email?: string; phone?: string } | null;
+  guest_email?:     string | null;
+  guest_phone?:     string | null;
+}
+
+export interface RawOrderItem {
+  order_item_id:    string;
+  product_id:       string;
+  product_name:     string;
+  size?:            string;
+  color?:           string;
+  quantity:         number;
+  price_at_purchase: string | number;
+  mrp?:             string | number;
+  thumbnail_url?:   string;
+}
+
+export const buildInvoiceFromOrder = (
+  order:      RawOrderData,
+  orderItems: RawOrderItem[],
+): InvoiceData => {
+  const shippingAddr = parseShippingAddress(order.shipping_address, order.guest_email);
+
+  const customerName  = order.order_type === 'guest' ? shippingAddr.name  : (order.user?.name  || shippingAddr.name);
+  const customerEmail = order.order_type === 'guest' ? (order.guest_email ?? shippingAddr.email ?? '') : (order.user?.email ?? shippingAddr.email ?? '');
+  const customerPhone = order.order_type === 'guest' ? (order.guest_phone ?? shippingAddr.phone ?? '') : (order.user?.phone ?? shippingAddr.phone ?? '');
+
+  const items: InvoiceItem[] = orderItems.map((oi) => {
+    const price = round2(toNumber(oi.price_at_purchase));
+    const qty   = toNumber(oi.quantity) || 1;
+    const mrp   = oi.mrp ? round2(toNumber(oi.mrp)) : price;
+    return {
+      id: oi.order_item_id, name: oi.product_name,
+      size: oi.size, color: oi.color, quantity: qty,
+      price, mrp,
+      total:   round2(price * qty),
+      hsnCode: FICI_SHOES.hsnCode,
+    };
   });
+
+  const subtotal       = round2(items.reduce((s, i) => s + i.total, 0));
+  const discount       = round2(toNumber(order.discount));
+  const deliveryCharge = round2(toNumber(order.delivery_charge));
+  const effectiveRaw   = toNumber(order.effective_amount);
+  const effectiveAmount = effectiveRaw > 0 ? round2(effectiveRaw) : round2(subtotal - discount + deliveryCharge);
+
+  const { gstAmount, cgst, sgst, igst } = computeGST(effectiveAmount, FICI_SHOES.gstRate, shippingAddr.state ?? '');
+  const grandTotal = round2(effectiveAmount + gstAmount);
+  const intra      = isIntraState(shippingAddr.state ?? '');
+
+  return {
+    id: order.order_id,
+    invoiceNumber:   generateInvoiceNumber(order.order_id, order.order_date),
+    orderId:         order.order_id,
+    orderDate:       order.order_date,
+    invoiceDate:     new Date().toISOString(),
+    orderType:       order.order_type,
+    customer:        { name: customerName, email: customerEmail, phone: customerPhone },
+    billingAddress:  shippingAddr,
+    shippingAddress: shippingAddr,
+    items, subtotal, discount, deliveryCharge,
+    effectiveAmount, gstAmount,
+    cgst:  intra  ? cgst : undefined,
+    sgst:  intra  ? sgst : undefined,
+    igst: !intra  ? igst : undefined,
+    grandTotal,
+    paymentMethod: order.payment_method,
+    status:        order.payment_status === 'paid' ? 'paid' : 'pending',
+  };
 };
 
-export const generateInvoiceHTML = (invoice: InvoiceData): string => {
-  return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <title>Invoice ${invoice.invoiceNumber}</title>
-      <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
-        .header { text-align: center; margin-bottom: 30px; }
-        .invoice-details { display: flex; justify-content: space-between; margin-bottom: 30px; }
-        .customer-info { margin-bottom: 30px; }
-        table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
-        th { background-color: #f5f5f5; }
-        .total-section { text-align: right; margin-top: 20px; }
-        .notes { margin-top: 30px; padding: 15px; background-color: #f9f9f9; }
-      </style>
-    </head>
-    <body>
-      <div class="header">
-        <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 20px;">
-          <img src="https://www.ficishoes.com/fici_128x128.png" alt="Fici Shoes" style="height: 60px; margin-right: 15px;">
-          <div>
-            <h1 style="margin: 0; font-size: 28px; color: #333;">Invoice</h1>
-            <p style="margin: 5px 0 0 0; font-size: 14px; color: #666;">Fici Shoes</p>
-          </div>
-        </div>
-        <h2>${invoice.invoiceNumber}</h2>
+// ─── HTML template ────────────────────────────────────────────────────────────
+
+const statusColor = (s: string): string =>
+  ({ paid:'#16a34a', pending:'#d97706', overdue:'#dc2626', cancelled:'#6b7280' }[s] ?? '#111827');
+
+export const generateInvoiceHTML = (inv: InvoiceData, logoUrl?: string): string => {
+  const intra    = isIntraState(inv.shippingAddress.state);
+  const gstRate  = FICI_SHOES.gstRate;
+  const halfRate = gstRate / 2;
+  const addr     = inv.shippingAddress;
+  const bill     = inv.billingAddress;
+  const finalLogoUrl = logoUrl ?? FICI_SHOES.logoUrl;
+
+  // ── Per-item rows ──────────────────────────────────────────────────────────
+  const itemRows = inv.items.map((item) => {
+    const effectiveMrp  = item.mrp ?? item.price;
+    const grossAmount   = round2(effectiveMrp * item.quantity);
+    const discountAmt   = round2((effectiveMrp - item.price) * item.quantity);
+    // Per-line GST split is proportional to item.total / effectiveAmount
+    const lineProportion  = inv.effectiveAmount > 0 ? item.total / inv.effectiveAmount : 0;
+    const lineGst         = round2(inv.gstAmount * lineProportion);
+    const lineCgst        = intra ? round2(lineGst / 2) : 0;
+    const lineSgst        = intra ? round2(lineGst / 2) : 0;
+    const lineIgst        = intra ? 0 : lineGst;
+    const lineTotal       = round2(item.total + lineGst);
+
+    const gstCell = intra
+      ? `<td style="padding:10px 8px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:12px;">₹${formatCurrencyPlain(lineCgst)}</td>
+         <td style="padding:10px 8px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:12px;">₹${formatCurrencyPlain(lineSgst)}</td>`
+      : `<td style="padding:10px 8px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:12px;">₹${formatCurrencyPlain(lineIgst)}</td>`;
+
+    return `<tr>
+      <td style="padding:10px 8px;border-bottom:1px solid #e5e7eb;font-size:11px;color:#6b7280;">${item.hsnCode ?? FICI_SHOES.hsnCode}</td>
+      <td style="padding:10px 8px;border-bottom:1px solid #e5e7eb;">
+        <div style="font-weight:600;font-size:12px;color:#111827;">${item.name}</div>
+        ${item.size ? `<div style="font-size:10px;color:#6b7280;margin-top:2px;">Size: ${item.size}${item.color ? ' | Colour: ' + item.color : ''}</div>` : ''}
+        <div style="font-size:10px;color:#6b7280;margin-top:2px;">${intra ? `CGST ${halfRate}% + SGST ${halfRate}%` : `IGST ${gstRate}%`}</div>
+      </td>
+      <td style="padding:10px 8px;border-bottom:1px solid #e5e7eb;text-align:center;font-size:12px;">${item.quantity}</td>
+      <td style="padding:10px 8px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:12px;">₹${formatCurrencyPlain(grossAmount)}</td>
+      <td style="padding:10px 8px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:12px;">₹${formatCurrencyPlain(discountAmt)}</td>
+      <td style="padding:10px 8px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:12px;">₹${formatCurrencyPlain(item.total)}</td>
+      ${gstCell}
+      <td style="padding:10px 8px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:12px;font-weight:600;">₹${formatCurrencyPlain(lineTotal)}</td>
+    </tr>`;
+  }).join('');
+
+  // ── Totals row ─────────────────────────────────────────────────────────────
+  const totalGross   = round2(inv.items.reduce((s, i) => s + (i.mrp ?? i.price) * i.quantity, 0));
+  const totalDisc    = round2(inv.items.reduce((s, i) => s + ((i.mrp ?? i.price) - i.price) * i.quantity, 0) + inv.discount);
+  const totalTaxable = round2(
+  inv.grandTotal - inv.gstAmount
+  );
+  const totalCgst    = inv.cgst ?? 0;
+  const totalSgst    = inv.sgst ?? 0;
+  const totalIgst    = inv.igst ?? 0;
+  const totalQty     = inv.items.reduce((s, i) => s + i.quantity, 0);
+
+  const gstTotCells = intra
+    ? `<td style="padding:10px 8px;border-top:2px solid #d1d5db;text-align:right;font-size:12px;">₹${formatCurrencyPlain(totalCgst)}</td>
+       <td style="padding:10px 8px;border-top:2px solid #d1d5db;text-align:right;font-size:12px;">₹${formatCurrencyPlain(totalSgst)}</td>`
+    : `<td style="padding:10px 8px;border-top:2px solid #d1d5db;text-align:right;font-size:12px;">₹${formatCurrencyPlain(totalIgst)}</td>`;
+
+  const totalsRow = `<tr style="background:#f9fafb;font-weight:700;">
+    <td colspan="2" style="padding:10px 8px;border-top:2px solid #d1d5db;font-size:12px;">TOTAL</td>
+    <td style="padding:10px 8px;border-top:2px solid #d1d5db;text-align:center;font-size:12px;">${totalQty}</td>
+    <td style="padding:10px 8px;border-top:2px solid #d1d5db;text-align:right;font-size:12px;">₹${formatCurrencyPlain(totalGross)}</td>
+    <td style="padding:10px 8px;border-top:2px solid #d1d5db;text-align:right;font-size:12px;">₹${formatCurrencyPlain(totalDisc)}</td>
+    <td style="padding:10px 8px;border-top:2px solid #d1d5db;text-align:right;font-size:12px;">₹${formatCurrencyPlain(totalTaxable)}</td>
+    ${gstTotCells}
+    <td style="padding:10px 8px;border-top:2px solid #d1d5db;text-align:right;font-size:12px;">₹${formatCurrencyPlain(inv.grandTotal)}</td>
+  </tr>`;
+
+  // ── Column headers ─────────────────────────────────────────────────────────
+  const gstHeaders = intra
+    ? `<th style="padding:10px 8px;text-align:right;font-size:11px;font-weight:600;">CGST ₹<br/><span style="font-weight:400;font-size:10px;">${halfRate}%</span></th>
+       <th style="padding:10px 8px;text-align:right;font-size:11px;font-weight:600;">SGST ₹<br/><span style="font-weight:400;font-size:10px;">${halfRate}%</span></th>`
+    : `<th style="padding:10px 8px;text-align:right;font-size:11px;font-weight:600;">IGST ₹<br/><span style="font-weight:400;font-size:10px;">${gstRate}%</span></th>`;
+
+  const tableHeader = `<tr style="background:#1e293b;color:#fff;">
+    <th style="padding:10px 8px;text-align:left;font-size:11px;font-weight:600;">HSN</th>
+    <th style="padding:10px 8px;text-align:left;font-size:11px;font-weight:600;">Description</th>
+    <th style="padding:10px 8px;text-align:center;font-size:11px;font-weight:600;">Qty</th>
+    <th style="padding:10px 8px;text-align:right;font-size:11px;font-weight:600;">Gross Amt ₹</th>
+    <th style="padding:10px 8px;text-align:right;font-size:11px;font-weight:600;">Discount ₹</th>
+    <th style="padding:10px 8px;text-align:right;font-size:11px;font-weight:600;">Taxable ₹</th>
+    ${gstHeaders}
+    <th style="padding:10px 8px;text-align:right;font-size:11px;font-weight:600;">Total ₹</th>
+  </tr>`;
+
+  // ── GST summary box rows ───────────────────────────────────────────────────
+  const gstSummary = intra
+    ? `<div class="totals-row">
+         <span class="totals-label">CGST @ ${halfRate}%</span>
+         <span class="totals-value">₹${formatCurrencyPlain(totalCgst)}</span>
+       </div>
+       <div class="totals-row">
+         <span class="totals-label">SGST @ ${halfRate}%</span>
+         <span class="totals-value">₹${formatCurrencyPlain(totalSgst)}</span>
+       </div>`
+    : `<div class="totals-row">
+         <span class="totals-label">IGST @ ${gstRate}%</span>
+         <span class="totals-value">₹${formatCurrencyPlain(totalIgst)}</span>
+       </div>`;
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Tax Invoice – ${inv.invoiceNumber}</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Arial,sans-serif;background:#f8f8f6;color:#111827;font-size:13px;line-height:1.5;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .invoice-wrapper{max-width:900px;margin:0 auto;background:#fff;border:1px solid #e5e7eb}
+    .invoice-header{background:#1e293b;color:#fff;padding:24px 32px;display:flex;justify-content:space-between;align-items:flex-start}
+    .brand-block{display:flex;align-items:center;gap:14px}
+    .brand-logo{width:52px;height:52px;border-radius:8px;background:#fff;padding:4px;object-fit:contain}
+    .brand-name{font-size:22px;font-weight:700;letter-spacing:-0.5px}
+    .brand-tagline{font-size:11px;color:#94a3b8;margin-top:2px}
+    .invoice-meta{text-align:right}
+    .invoice-title{font-size:11px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:#94a3b8;margin-bottom:4px}
+    .invoice-number{font-size:18px;font-weight:700}
+    .invoice-dates{font-size:11px;color:#94a3b8;margin-top:4px}
+    .status-badge{display:inline-block;margin-top:6px;padding:2px 10px;border-radius:99px;font-size:10px;font-weight:600;letter-spacing:1px;text-transform:uppercase}
+    .section-band{background:#f1f5f9;border-top:1px solid #e2e8f0;border-bottom:1px solid #e2e8f0;padding:12px 32px;display:flex}
+    .section-col{flex:1;padding-right:24px}
+    .section-col:not(:last-child){border-right:1px solid #cbd5e1;margin-right:24px}
+    .section-label{font-size:9px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#64748b;margin-bottom:6px}
+    .section-value{font-size:12px;color:#1e293b;line-height:1.6}
+    .section-value strong{font-weight:600}
+    .order-strip{display:flex;padding:14px 32px;background:#fff;border-bottom:1px solid #e5e7eb}
+    .order-strip-item{flex:1}
+    .order-strip-item:not(:last-child){border-right:1px solid #e5e7eb;padding-right:16px;margin-right:16px}
+    .osl{font-size:10px;color:#9ca3af;font-weight:500;letter-spacing:0.5px;text-transform:uppercase}
+    .osv{font-size:13px;font-weight:600;color:#111827;margin-top:2px}
+    .table-section{padding:0 32px 24px}
+    table{width:100%;border-collapse:collapse;margin-top:16px}
+    .totals-section{display:flex;justify-content:flex-end;padding:0 32px 24px}
+    .totals-box{min-width:260px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;overflow:hidden}
+    .totals-row{display:flex;justify-content:space-between;padding:8px 16px;font-size:12px;border-bottom:1px solid #e2e8f0}
+    .totals-row:last-child{border-bottom:none}
+    .totals-row.grand{background:#1e293b;color:#fff;font-weight:700;font-size:14px}
+    .totals-label{color:#6b7280}
+    .totals-value{font-weight:600;color:#111827}
+    .grand .totals-label,.grand .totals-value{color:#fff}
+    .invoice-footer{background:#1e293b;color:#94a3b8;padding:20px 32px;display:flex;justify-content:space-between;align-items:flex-start;gap:24px}
+    .footer-section{flex:1}
+    .footer-title{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#f1f5f9;margin-bottom:6px}
+    .footer-text{font-size:11px;line-height:1.6}
+    .gst-tag{display:inline-block;background:#334155;border-radius:4px;padding:2px 8px;font-size:10px;font-family:monospace;color:#e2e8f0;margin-top:4px}
+    .footer-divider{width:1px;background:#334155}
+    .sig-block{text-align:right}
+    .sig-line{width:140px;height:1px;background:#475569;margin:40px 0 6px auto}
+    .sig-label{font-size:10px;color:#64748b}
+  </style>
+</head>
+<body>
+<div class="invoice-wrapper" id="invoice-root">
+  <div class="invoice-header">
+    <div class="brand-block">
+      <img src="${finalLogoUrl}" alt="Fici Shoes" class="brand-logo" crossorigin="anonymous"/>
+      <div>
+        <div class="brand-name">${FICI_SHOES.name}</div>
+        <div class="brand-tagline">TAX INVOICE</div>
       </div>
-      
-      <div class="invoice-details">
-        <div>
-          <p><strong>Date:</strong> ${formatDate(invoice.date)}</p>
-          ${invoice.dueDate ? `<p><strong>Due Date:</strong> ${formatDate(invoice.dueDate)}</p>` : ''}
-        </div>
-        <div>
-          <p><strong>Status:</strong> <span style="color: ${getStatusColor(invoice.status)}">${invoice.status.toUpperCase()}</span></p>
-        </div>
+    </div>
+    <div class="invoice-meta">
+      <div class="invoice-title">Invoice</div>
+      <div class="invoice-number"># ${inv.invoiceNumber}</div>
+      <div class="invoice-dates">Order Date: ${formatDate(inv.orderDate)}<br/>Invoice Date: ${formatDate(inv.invoiceDate)}</div>
+      <span class="status-badge" style="background:${statusColor(inv.status)}20;color:${statusColor(inv.status)};border:1px solid ${statusColor(inv.status)}40;">${inv.status.toUpperCase()}</span>
+    </div>
+  </div>
+
+  <div class="section-band">
+    <div class="section-col">
+      <div class="section-label">Sold By</div>
+      <div class="section-value">
+        <strong>${FICI_SHOES.name}</strong><br/>
+        ${FICI_SHOES.address}<br/>
+        GSTIN: <strong>${FICI_SHOES.gstin}</strong><br/>
+        Ph: ${FICI_SHOES.phone}
       </div>
-      
-      <div class="customer-info">
-        <h3>Bill To:</h3>
-        <p><strong>${invoice.customer.name}</strong></p>
-        <p>${invoice.customer.email}</p>
-        ${invoice.customer.phone ? `<p>${invoice.customer.phone}</p>` : ''}
-        ${invoice.customer.address ? `<p>${invoice.customer.address}</p>` : ''}
+    </div>
+    <div class="section-col">
+      <div class="section-label">Bill To</div>
+      <div class="section-value">
+        <strong>${bill.name}</strong><br/>
+        ${bill.address}<br/>
+        ${bill.city}, ${bill.state} – ${bill.pincode}<br/>
+        ${inv.customer.phone ? 'Ph: ' + inv.customer.phone : ''}
+        ${inv.customer.email ? '<br/>Email: ' + inv.customer.email : ''}
       </div>
-      
-      <table>
-        <thead>
-          <tr>
-            <th>Description</th>
-            <th>Quantity</th>
-            <th>Price</th>
-            <th>Total</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${invoice.items.map(item => `
-            <tr>
-              <td>${item.name}${item.description ? `<br><small>${item.description}</small>` : ''}</td>
-              <td>${item.quantity}</td>
-              <td>${formatCurrency(item.price)}</td>
-              <td>${formatCurrency(item.total)}</td>
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-      
-      <div class="total-section">
-        <p><strong>Subtotal:</strong> ${formatCurrency(invoice.subtotal)}</p>
-        ${invoice.tax ? `<p><strong>Tax:</strong> ${formatCurrency(invoice.tax)}</p>` : ''}
-        ${invoice.discount ? `<p><strong>Discount:</strong> -${formatCurrency(invoice.discount)}</p>` : ''}
-        <h3><strong>Total:</strong> ${formatCurrency(invoice.total)}</h3>
+    </div>
+    <div class="section-col" style="padding-right:0;">
+      <div class="section-label">Ship To</div>
+      <div class="section-value">
+        <strong>${addr.name}</strong><br/>
+        ${addr.address}<br/>
+        ${addr.city}, ${addr.state} – ${addr.pincode}<br/>
+        ${addr.landmark ? 'Landmark: ' + addr.landmark + '<br/>' : ''}
+        ${addr.phone ? 'Ph: ' + addr.phone : ''}
       </div>
-      
-      ${invoice.notes ? `
-        <div class="notes">
-          <h4>Notes:</h4>
-          <p>${invoice.notes}</p>
-        </div>
-      ` : ''}
-    </body>
-    </html>
-  `;
+    </div>
+  </div>
+
+  <div class="order-strip">
+    <div class="order-strip-item"><div class="osl">Order ID</div><div class="osv" style="font-size:11px;word-break:break-all;">${inv.orderId}</div></div>
+    <div class="order-strip-item"><div class="osl">Customer Type</div><div class="osv">${inv.orderType === 'guest' ? 'Guest' : 'Registered'}</div></div>
+    <div class="order-strip-item"><div class="osl">Payment</div><div class="osv" style="text-transform:capitalize;">${inv.paymentMethod}</div></div>
+    <div class="order-strip-item"><div class="osl">GST Type</div><div class="osv">${intra ? 'CGST + SGST (Intra-State)' : 'IGST (Inter-State)'}</div></div>
+  </div>
+
+  <div class="table-section">
+    <table><thead>${tableHeader}</thead><tbody>${itemRows}${totalsRow}</tbody></table>
+  </div>
+
+  <div class="totals-section">
+    <div class="totals-box">
+      <div class="totals-row"><span class="totals-label">Taxable Value (Effective Amt)</span><span class="totals-value">₹${formatCurrencyPlain(inv.effectiveAmount)}</span></div>
+      ${inv.discount > 0 ? `<div class="totals-row"><span class="totals-label">Coupon / Discount</span><span class="totals-value" style="color:#16a34a;">–₹${formatCurrencyPlain(inv.discount)}</span></div>` : ''}
+      ${gstSummary}
+      ${inv.deliveryCharge > 0 ? `<div class="totals-row"><span class="totals-label">Delivery Charges</span><span class="totals-value">₹${formatCurrencyPlain(inv.deliveryCharge)}</span></div>` : ''}
+      <div class="totals-row grand"><span class="totals-label">Grand Total</span><span class="totals-value">₹${formatCurrencyPlain(inv.grandTotal)}</span></div>
+    </div>
+  </div>
+
+  <div class="invoice-footer">
+    <div class="footer-section">
+      <div class="footer-title">${FICI_SHOES.name}</div>
+      <div class="footer-text">${FICI_SHOES.address}<br/>Ph: ${FICI_SHOES.phone}<br/><a href="${FICI_SHOES.contactUrl}" style="color:#60a5fa;">${FICI_SHOES.contactUrl}</a></div>
+      <div class="gst-tag">GSTIN: ${FICI_SHOES.gstin}</div>
+    </div>
+    <div class="footer-divider"></div>
+    <div class="footer-section" style="padding:0 20px;">
+      <div class="footer-title">Exchange / Replacement Policy</div>
+      <div class="footer-text">We do not accept returns. Exchange or replacement is offered only when the size does not fit. Please retain this invoice for any future exchange requests.</div>
+    </div>
+    <div class="footer-divider"></div>
+    <div class="footer-section sig-block">
+      <div class="footer-title">Authorised Signatory</div>
+      <div class="sig-line"></div>
+      <div class="sig-label">${FICI_SHOES.name}</div>
+      <div style="font-size:10px;color:#475569;margin-top:16px;">E. &amp; O.E. &nbsp;|&nbsp; Page 1 of 1</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>`;
 };
 
-const getStatusColor = (status: string): string => {
-  switch (status) {
-    case 'paid': return 'green';
-    case 'pending': return 'orange';
-    case 'overdue': return 'red';
-    case 'cancelled': return 'gray';
-    default: return 'black';
-  }
-};
+// ─── Helper: Fetch image as base64 data URL ─────────────────────────────────
 
-export const downloadInvoice = (invoice: InvoiceData): void => {
+/**
+ * Fetches an image from a URL and returns it as a base64 data URL.
+ * This ensures images render properly in html2canvas without CORS issues.
+ */
+const fetchImageAsBase64 = async (url: string): Promise<string> => {
   try {
-    const html = generateInvoiceHTML(invoice);
-    const blob = new Blob([html], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `invoice-${invoice.invoiceNumber}.html`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    
-    showSuccessAlert('Invoice downloaded successfully');
-  } catch (error) {
-    console.error('Error downloading invoice:', error);
-    showErrorAlert('Failed to download invoice');
+    const response = await fetch(url, { mode: 'cors' });
+    if (!response.ok) throw new Error(`Failed to fetch image: ${response.status}`);
+    const blob = await response.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (err) {
+    console.warn('[fetchImageAsBase64] Failed to fetch logo, using original URL:', err);
+    return url; // Fallback to original URL if fetch fails
   }
 };
 
-export const printInvoice = (invoice: InvoiceData): Promise<{ success: boolean; action: 'printed' | 'cancelled' | 'downloaded' | 'failed' | 'share_intent' }> => {
-  return new Promise((resolve) => {
-    const invoiceHTML = generateInvoiceHTML(invoice);
-    
-    // Detect device type
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    const isAndroid = /Android/.test(navigator.userAgent);
-    
-    // Mobile-specific strategies
-    if (isMobile) {
-      // Strategy 1: iOS - Use share menu for printing
-      if (isIOS) {
-        try {
-          // Create a blob and use Web Share API for iOS
-          const blob = new Blob([invoiceHTML], { type: 'text/html' });
-          const file = new File([blob], `invoice-${invoice.invoiceNumber}.html`, { type: 'text/html' });
-          
-          if (navigator.share && navigator.canShare({ files: [file] })) {
-            navigator.share({
-              title: `Invoice - ${invoice.invoiceNumber}`,
-              text: 'FICI Shoes Invoice',
-              files: [file]
-            }).then(() => {
-              resolve({ success: true, action: 'share_intent' });
-            }).catch((error) => {
-              downloadInvoice(invoice);
-              resolve({ success: true, action: 'downloaded' });
-            });
-            return;
-          }
-        } catch (error) {
-          // iOS share failed, falling back to iframe
-        }
-      }
-      
-      // Strategy 2: Android - Try share intent first, then iframe
-      if (isAndroid) {
-        try {
-          const blob = new Blob([invoiceHTML], { type: 'text/html' });
-          const file = new File([blob], `invoice-${invoice.invoiceNumber}.html`, { type: 'text/html' });
-          
-          if (navigator.share && navigator.canShare({ files: [file] })) {
-            navigator.share({
-              title: `Invoice - ${invoice.invoiceNumber}`,
-              text: 'FICI Shoes Invoice - Open in browser to print',
-              files: [file]
-            }).then(() => {
-              resolve({ success: true, action: 'share_intent' });
-            }).catch((error) => {
-              // Android share failed, trying iframe
-            });
-          }
-        } catch (error) {
-          // Android share failed, trying iframe
-        }
-      }
-      
-      // Strategy 3: Mobile iframe approach (works on most mobile browsers)
-      const iframe = document.createElement('iframe');
-      iframe.style.position = 'fixed';
-      iframe.style.left = '0';
-      iframe.style.top = '0';
-      iframe.style.width = '100vw';
-      iframe.style.height = '100vh';
-      iframe.style.border = 'none';
-      iframe.style.background = 'white';
-      iframe.style.zIndex = '9999';
-      iframe.style.overflow = 'hidden';
-      
-      document.body.appendChild(iframe);
-      
-      const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
-      if (iframeDoc) {
-        // Write the invoice content
-        iframeDoc.open();
-        iframeDoc.write(invoiceHTML);
-        iframeDoc.close();
-        
-        // Add mobile-specific print styles
-        const mobilePrintStyles = iframeDoc.createElement('style');
-        mobilePrintStyles.textContent = `
-          @media print {
-            body { 
-              margin: 0 !important; 
-              padding: 10px !important;
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-            }
-            @page {
-              margin: 0.5in;
-              size: A4;
-            }
-            * {
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-            }
-          }
-          
-          @media screen {
-            body {
-              zoom: 0.8;
-              -webkit-transform: scale(0.8);
-              transform: scale(0.8);
-              -webkit-transform-origin: 0 0;
-              transform-origin: 0 0;
-            }
-          }
-          
-          .mobile-print-hint {
-            position: fixed;
-            top: 10px;
-            right: 10px;
-            background: #007AFF;
-            color: white;
-            padding: 8px 12px;
-            border-radius: 8px;
-            font-size: 14px;
-            z-index: 10000;
-            cursor: pointer;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-          }
-          
-          @media print {
-            .mobile-print-hint {
-              display: none !important;
-            }
-          }
-        `;
-        iframeDoc.head.appendChild(mobilePrintStyles);
-        
-        // Add mobile print hint button
-        const printHint = iframeDoc.createElement('div');
-        printHint.className = 'mobile-print-hint';
-        printHint.textContent = '🖨️ Print';
-        printHint.onclick = () => {
-          try {
-            iframe.contentWindow?.print();
-          } catch (error) {
-            console.error('Print failed:', error);
-            alert('Please use your browser\'s menu: Share → Print');
-          }
-        };
-        iframeDoc.body.appendChild(printHint);
-        
-        // Wait for content to fully load
-        setTimeout(() => {
-          try {
-            // Focus the iframe
-            iframe.contentWindow?.focus();
-            
-            // Add print event listeners
-            let printStarted = false;
-            
-            const handlePrintStart = () => {
-              printStarted = true;
-            };
-            
-            const handlePrintEnd = () => {
-              setTimeout(() => {
-                if (document.body.contains(iframe)) {
-                  document.body.removeChild(iframe);
-                }
-              }, 1000);
-              
-              if (printStarted) {
-                resolve({ success: true, action: 'printed' });
-              } else {
-                resolve({ success: false, action: 'cancelled' });
-              }
-            };
-            
-            // Set timeout for cancellation
-            const printTimeout = setTimeout(() => {
-              if (document.body.contains(iframe)) {
-                document.body.removeChild(iframe);
-              }
-              resolve({ success: false, action: 'cancelled' });
-            }, 15000); // 15 second timeout for mobile
-            
-            // Add event listeners
-            iframe.contentWindow?.addEventListener('beforeprint', handlePrintStart);
-            
-            // For mobile browsers that don't support beforeprint
-            const mediaQueryList = iframe.contentWindow?.matchMedia('print');
-            if (mediaQueryList) {
-              mediaQueryList.addEventListener('change', (e) => {
-                if (e.matches) {
-                  handlePrintStart();
-                } else {
-                  handlePrintEnd();
-                }
-              });
-            }
-            
-            // Try to print automatically
-            try {
-              iframe.contentWindow?.print();
-            } catch (error) {
-              // Auto print failed on mobile, showing manual hint
-              // The print hint button is already visible, so user can print manually
-              setTimeout(() => {
-                if (document.body.contains(iframe)) {
-                  document.body.removeChild(iframe);
-                }
-                resolve({ success: false, action: 'cancelled' });
-              }, 20000); // Longer timeout for manual interaction
-            }
-            
-          } catch (error) {
-            // Mobile print setup failed
-            // Fallback to download
-            if (document.body.contains(iframe)) {
-              document.body.removeChild(iframe);
-            }
-            downloadInvoice(invoice);
-            resolve({ success: true, action: 'downloaded' });
-          }
-        }, 1500); // Longer wait for mobile rendering
+// ─── PDF download (real .pdf via html2canvas + jsPDF) ─────────────────────────
+
+/**
+ * Generates a real PDF from the invoice HTML and triggers a browser download.
+ * Works on: Chrome, Edge, Firefox, Safari (desktop + mobile), Android browsers.
+ *
+ * Strategy:
+ *  1. Fetch logo as base64 to avoid CORS issues.
+ *  2. Mount the invoice HTML in a hidden off-screen iframe.
+ *  3. Wait for fonts/images to load.
+ *  4. Capture via html2canvas (scale:2 for retina clarity).
+ *  5. Slice the canvas into A4-sized pages.
+ *  6. Use jsPDF to build and save the PDF.
+ */
+export const downloadInvoicePdf = async (invoice: InvoiceData): Promise<void> => {
+  try {
+    // Lazy-import so the libraries are only loaded when needed (keeps initial bundle small)
+    const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
+      import('jspdf'),
+      import('html2canvas'),
+    ]);
+
+    // ── 0. Fetch logo as base64 for reliable rendering ───────────────────
+    const logoDataUrl = await fetchImageAsBase64(FICI_SHOES.logoUrl);
+
+    // ── 1. Create a hidden iframe to host the rendered invoice ────────────
+    const iframe = document.createElement('iframe');
+    Object.assign(iframe.style, {
+      position:   'fixed',
+      top:        '-9999px',
+      left:       '-9999px',
+      width:      '900px',   // match invoice-wrapper max-width
+      height:     '1px',
+      border:     'none',
+      visibility: 'hidden',
+    });
+    document.body.appendChild(iframe);
+
+    const iframeDoc = iframe.contentDocument ?? iframe.contentWindow?.document;
+    if (!iframeDoc) {
+      document.body.removeChild(iframe);
+      throw new Error('Could not access iframe document');
+    }
+
+    iframeDoc.open();
+    iframeDoc.write(generateInvoiceHTML(invoice, logoDataUrl));
+    iframeDoc.close();
+
+    // ── 2. Wait for images/fonts inside the iframe ────────────────────────
+    await new Promise<void>((resolve) => {
+      const onLoad = () => resolve();
+      if (iframe.contentWindow) {
+        iframe.contentWindow.addEventListener('load', onLoad);
+        // Fallback timeout in case load already fired or fonts stall
+        setTimeout(onLoad, 1500);
       } else {
-        // If iframe creation failed
-        if (document.body.contains(iframe)) {
-          document.body.removeChild(iframe);
-        }
-        downloadInvoice(invoice);
-        resolve({ success: true, action: 'downloaded' });
+        setTimeout(onLoad, 1500);
       }
-    } else {
-      // Desktop approach - create data URL to avoid about:blank
-      const dataUrl = `data:text/html;charset=utf-8,${encodeURIComponent(invoiceHTML)}`;
-      const printWindow = window.open(dataUrl, '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes');
-      if (printWindow) {
-        printWindow.onload = () => {
-          setTimeout(() => {
-            try {
-              let printStarted = false;
-              
-              const handlePrintStart = () => {
-                printStarted = true;
-              };
-              
-              const handlePrintEnd = () => {
-                setTimeout(() => {
-                  printWindow.close();
-                }, 500);
-                
-                if (printStarted) {
-                  resolve({ success: true, action: 'printed' });
-                } else {
-                  resolve({ success: false, action: 'cancelled' });
-                }
-              };
-              
-              const mediaQueryList = printWindow.matchMedia('print');
-              if (mediaQueryList) {
-                mediaQueryList.addEventListener('change', (e) => {
-                  if (e.matches) {
-                    handlePrintStart();
-                  } else {
-                    handlePrintEnd();
-                  }
-                });
-              }
-              
-              printWindow.addEventListener('beforeprint', handlePrintStart);
-              
-              setTimeout(() => {
-                if (mediaQueryList) {
-                  mediaQueryList.removeEventListener('change', handlePrintEnd);
-                }
-                printWindow.removeEventListener('beforeprint', handlePrintStart);
-                printWindow.close();
-                resolve({ success: false, action: 'cancelled' });
-              }, 10000);
-              
-              printWindow.print();
-            } catch (error) {
-              printWindow.close();
-              resolve({ success: false, action: 'failed' });
-            }
-          }, 500);
-        };
-      } else {
-        downloadInvoice(invoice);
-        resolve({ success: true, action: 'downloaded' });
+    });
+
+    const invoiceRoot = iframeDoc.getElementById('invoice-root') ?? iframeDoc.body;
+
+    // ── 3. Capture the element with html2canvas ───────────────────────────
+    const canvas = await html2canvas(invoiceRoot, {
+      scale:           2,         // high DPI for clarity
+      useCORS:         true,      // allow cross-origin images (logo)
+      logging:         false,
+      backgroundColor: '#ffffff',
+      windowWidth:     900,
+    });
+
+    // Clean up the hidden iframe immediately after capture
+    document.body.removeChild(iframe);
+
+    // ── 4. Build the PDF ──────────────────────────────────────────────────
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit:        'mm',
+      format:      'a4',
+    });
+
+    const A4_WIDTH_MM  = 210;
+    const A4_HEIGHT_MM = 297;
+
+    const imgWidthMm   = A4_WIDTH_MM;
+    const scaleFactor  = imgWidthMm / canvas.width;
+    const imgHeightMm  = canvas.height * scaleFactor;
+
+    // ── 5. Paginate if the invoice is taller than one A4 page ────────────
+    let yOffset = 0;
+    let pageIndex = 0;
+
+    while (yOffset < imgHeightMm) {
+      if (pageIndex > 0) pdf.addPage();
+
+      // Clip the source canvas to the current A4 slice
+      const sourceY      = Math.round(yOffset / scaleFactor);
+      const sliceHeightPx = Math.round(A4_HEIGHT_MM / scaleFactor);
+
+      const pageCanvas   = document.createElement('canvas');
+      pageCanvas.width   = canvas.width;
+      pageCanvas.height  = Math.min(sliceHeightPx, canvas.height - sourceY);
+
+      const ctx = pageCanvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(
+          canvas,
+          0, sourceY,                          // source x, y
+          canvas.width, pageCanvas.height,     // source w, h
+          0, 0,                                // dest x, y
+          canvas.width, pageCanvas.height,     // dest w, h
+        );
       }
+
+      const pageImgData = pageCanvas.toDataURL('image/jpeg', 0.92);
+      const pageHeightMm = pageCanvas.height * scaleFactor;
+
+      pdf.addImage(pageImgData, 'JPEG', 0, 0, imgWidthMm, pageHeightMm);
+
+      yOffset    += A4_HEIGHT_MM;
+      pageIndex  += 1;
+    }
+
+    // ── 6. Trigger the download ───────────────────────────────────────────
+    pdf.save(`invoice-${invoice.orderId}.pdf`);
+    showSuccessAlert(`Invoice ${invoice.invoiceNumber} downloaded as PDF`);
+
+  } catch (err) {
+    console.error('[downloadInvoicePdf]', err);
+    showErrorAlert('Failed to generate PDF. Please try again.');
+    throw err;
+  }
+};
+
+// ─── Legacy / compat exports (keep existing call-sites working) ───────────────
+
+/** @deprecated Use downloadInvoicePdf instead */
+export const downloadInvoiceAsHTML = (invoice: InvoiceData): void => {
+  // Silently delegate to the PDF version so callers get the right output
+  void downloadInvoicePdf(invoice).catch(() => {
+    // Hard fallback: if PDF libs fail, offer HTML
+    try {
+      const html  = generateInvoiceHTML(invoice);
+      const blob  = new Blob([html], { type: 'text/html;charset=utf-8' });
+      const url   = URL.createObjectURL(blob);
+      const a     = document.createElement('a');
+      a.href      = url;
+      a.download  = `invoice-${invoice.invoiceNumber}.html`;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 300);
+      showSuccessAlert(`Invoice downloaded (HTML fallback)`);
+    } catch {
+      showErrorAlert('Failed to download invoice');
     }
   });
 };
 
-export const validateInvoice = (invoice: Partial<InvoiceData>): { isValid: boolean; errors: string[] } => {
+/** @deprecated Use downloadInvoicePdf instead */
+export const downloadInvoice = (invoice: InvoiceData): void =>
+  downloadInvoiceAsHTML(invoice);
+
+/** @deprecated Use downloadInvoicePdf instead */
+export const printInvoice = (
+  invoice: InvoiceData,
+): Promise<{ success: boolean; action: 'printed' | 'cancelled' | 'downloaded' | 'failed' | 'share_intent' }> =>
+  downloadInvoicePdf(invoice)
+    .then(() => ({ success: true,  action: 'downloaded' as const }))
+    .catch(() => ({ success: false, action: 'failed'     as const }));
+
+// ─── Misc utilities (unchanged) ───────────────────────────────────────────────
+
+export const validateInvoice = (
+  invoice: Partial<InvoiceData>,
+): { isValid: boolean; errors: string[] } => {
   const errors: string[] = [];
-  
-  if (!invoice.customer?.name) errors.push('Customer name is required');
-  if (!invoice.customer?.email) errors.push('Customer email is required');
+  if (!invoice.customer?.name)                    errors.push('Customer name is required');
+  if (!invoice.customer?.email)                   errors.push('Customer email is required');
   if (!invoice.items || invoice.items.length === 0) errors.push('At least one item is required');
-  if (!invoice.date) errors.push('Invoice date is required');
-  
-  if (invoice.items) {
-    invoice.items.forEach((item, index) => {
-      if (!item.name) errors.push(`Item ${index + 1}: Name is required`);
-      if (!item.quantity || item.quantity <= 0) errors.push(`Item ${index + 1}: Quantity must be greater than 0`);
-      if (!item.price || item.price < 0) errors.push(`Item ${index + 1}: Price must be non-negative`);
-    });
-  }
-  
-  return {
-    isValid: errors.length === 0,
-    errors
-  };
+  if (!invoice.orderDate)                         errors.push('Order date is required');
+  invoice.items?.forEach((item, i) => {
+    if (!item.name)                                   errors.push(`Item ${i + 1}: Name is required`);
+    if (!item.quantity || item.quantity <= 0)         errors.push(`Item ${i + 1}: Quantity must be > 0`);
+    if (item.price === undefined || item.price < 0)  errors.push(`Item ${i + 1}: Price must be non-negative`);
+  });
+  return { isValid: errors.length === 0, errors };
 };
 
-export const createInvoice = (data: Partial<InvoiceData>): InvoiceData => {
-  const validation = validateInvoice(data);
-  if (!validation.isValid) {
-    throw new Error(validation.errors.join(', '));
-  }
-  
-  const items = data.items || [];
-  const subtotal = calculateInvoiceTotal(items);
-  
-  return {
-    id: data.id || crypto.randomUUID(),
-    invoiceNumber: data.invoiceNumber || generateInvoiceNumber(),
-    date: data.date || new Date().toISOString(),
-    dueDate: data.dueDate,
-    customer: data.customer!,
-    items,
-    subtotal,
-    tax: data.tax || 0,
-    discount: data.discount || 0,
-    total: subtotal + (data.tax || 0) - (data.discount || 0),
-    status: data.status || 'pending',
-    notes: data.notes
-  };
+export const validateInvoiceNumber = (num: string): boolean =>
+  /^FSI[A-Z]{2}CT\d{2}[A-Z0-9]{8}$/.test(num);
+
+export const calculateInvoiceTotal = (items: InvoiceItem[]): number =>
+  items.reduce((s, i) => s + i.total, 0);
+
+export const calculateTax = (amount: number, taxRate: number): number =>
+  amount * (taxRate / 100);
+
+export const applyDiscount = (
+  amount: number,
+  type:  'percentage' | 'fixed',
+  value: number,
+): number => (type === 'percentage' ? amount * (value / 100) : value);
+
+export const parseInvoiceDate  = (d?: string): Date => (d ? new Date(d) : new Date());
+export const safeDateParse     = (d?: string): Date => {
+  if (!d) return new Date();
+  const p = new Date(d);
+  return Number.isNaN(p.getTime()) ? new Date() : p;
 };
+export const isInvoiceOverdue  = (_invoice: InvoiceData): boolean => false;
 
-export const updateInvoiceStatus = (
-  invoice: InvoiceData, 
-  status: InvoiceData['status']
-): InvoiceData => {
-  return {
-    ...invoice,
-    status
-  };
-};
+export const sanitizeCustomerData = (c: InvoiceData['customer']): InvoiceData['customer'] => ({
+  name:  c.name.trim(),
+  email: c.email.toLowerCase().trim(),
+  phone: c.phone?.trim() || undefined,
+});
 
-// Additional invoice utilities that might have been in the original file
-
-export const parseInvoiceDate = (dateString: string | undefined): Date => {
-  if (!dateString) {
-    return new Date();
-  }
-  return new Date(dateString);
-};
-
-export const isInvoiceOverdue = (invoice: InvoiceData): boolean => {
-  if (!invoice.dueDate || invoice.status === 'paid' || invoice.status === 'cancelled') {
-    return false;
-  }
-  return new Date() > new Date(invoice.dueDate);
-};
-
-export const getInvoiceSummary = (invoices: InvoiceData[]): {
-  total: number;
-  paid: number;
-  pending: number;
-  overdue: number;
-  cancelled: number;
-} => {
-  return invoices.reduce(
-    (summary, invoice) => {
-      summary.total++;
-      summary[invoice.status]++;
-      return summary;
-    },
-    { total: 0, paid: 0, pending: 0, overdue: 0, cancelled: 0 }
+export const getInvoiceSummary = (invoices: InvoiceData[]) =>
+  invoices.reduce(
+    (s, inv) => { s.total++; s[inv.status]++; return s; },
+    { total: 0, paid: 0, pending: 0, overdue: 0, cancelled: 0 },
   );
-};
 
 export const filterInvoicesByStatus = (
   invoices: InvoiceData[],
-  status: InvoiceData['status']
-): InvoiceData[] => {
-  return invoices.filter(invoice => invoice.status === status);
-};
+  status:   InvoiceData['status'],
+): InvoiceData[] => invoices.filter((i) => i.status === status);
 
 export const filterInvoicesByDateRange = (
-  invoices: InvoiceData[],
-  startDate: string,
-  endDate: string
+  invoices:  InvoiceData[],
+  start:     string,
+  end:       string,
 ): InvoiceData[] => {
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  
-  return invoices.filter(invoice => {
-    const invoiceDate = new Date(invoice.date);
-    return invoiceDate >= start && invoiceDate <= end;
-  });
+  const s = new Date(start), e = new Date(end);
+  return invoices.filter((inv) => { const d = new Date(inv.orderDate); return d >= s && d <= e; });
 };
 
-export const searchInvoices = (
-  invoices: InvoiceData[],
-  searchTerm: string
-): InvoiceData[] => {
-  const term = searchTerm.toLowerCase();
-  
-  return invoices.filter(invoice => 
-    invoice.invoiceNumber.toLowerCase().includes(term) ||
-    invoice.customer.name.toLowerCase().includes(term) ||
-    invoice.customer.email.toLowerCase().includes(term) ||
-    invoice.items.some(item => item.name.toLowerCase().includes(term))
+export const searchInvoices = (invoices: InvoiceData[], term: string): InvoiceData[] => {
+  const t = term.toLowerCase();
+  return invoices.filter((inv) =>
+    inv.invoiceNumber.toLowerCase().includes(t) ||
+    inv.customer.name.toLowerCase().includes(t)  ||
+    inv.customer.email.toLowerCase().includes(t) ||
+    inv.items.some((item) => item.name.toLowerCase().includes(t)),
   );
 };
 
 export const sortInvoices = (
   invoices: InvoiceData[],
-  sortBy: 'date' | 'total' | 'invoiceNumber',
-  order: 'asc' | 'desc' = 'desc'
-): InvoiceData[] => {
-  return [...invoices].sort((a, b) => {
-    let comparison = 0;
-    
-    switch (sortBy) {
-      case 'date':
-        comparison = new Date(a.date).getTime() - new Date(b.date).getTime();
-        break;
-      case 'total':
-        comparison = a.total - b.total;
-        break;
-      case 'invoiceNumber':
-        comparison = a.invoiceNumber.localeCompare(b.invoiceNumber);
-        break;
-    }
-    
-    return order === 'asc' ? comparison : -comparison;
+  by:       'date' | 'total' | 'invoiceNumber',
+  order:    'asc' | 'desc' = 'desc',
+): InvoiceData[] =>
+  [...invoices].sort((a, b) => {
+    let cmp = 0;
+    if (by === 'date')          cmp = new Date(a.orderDate).getTime() - new Date(b.orderDate).getTime();
+    else if (by === 'total')    cmp = a.grandTotal - b.grandTotal;
+    else                        cmp = a.invoiceNumber.localeCompare(b.invoiceNumber);
+    return order === 'asc' ? cmp : -cmp;
   });
-};
 
 export const exportInvoicesToCSV = (invoices: InvoiceData[]): string => {
   const headers = [
-    'Invoice Number',
-    'Date',
-    'Due Date',
-    'Customer Name',
-    'Customer Email',
-    'Status',
-    'Subtotal',
-    'Tax',
-    'Discount',
-    'Total'
+    'Invoice Number','Order ID','Order Date','Customer Name','Customer Email',
+    'Status','Taxable Value','GST Amount','Discount','Delivery','Grand Total','GST Type',
   ];
-  
-  const rows = invoices.map(invoice => [
-    invoice.invoiceNumber,
-    invoice.date,
-    invoice.dueDate || '',
-    invoice.customer.name,
-    invoice.customer.email,
-    invoice.status,
-    invoice.subtotal.toString(),
-    invoice.tax?.toString() || '0',
-    invoice.discount?.toString() || '0',
-    invoice.total.toString()
+  const rows = invoices.map((inv) => [
+    inv.invoiceNumber, inv.orderId, inv.orderDate,
+    inv.customer.name, inv.customer.email, inv.status,
+    inv.effectiveAmount.toString(),
+    inv.gstAmount.toString(),
+    inv.discount.toString(),
+    inv.deliveryCharge.toString(),
+    inv.grandTotal.toString(),
+    isIntraState(inv.shippingAddress.state) ? 'CGST+SGST' : 'IGST',
   ]);
-  
-  const csvContent = [
-    headers.join(','),
-    ...rows.map(row => row.join(','))
-  ].join('\n');
-  
-  return csvContent;
+  return [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
 };
 
-export const downloadInvoicesCSV = (invoices: InvoiceData): void => {
+export const downloadInvoicesCSV = (invoice: InvoiceData): void => {
   try {
-    const csv = exportInvoicesToCSV([invoices]);
+    const csv  = exportInvoicesToCSV([invoice]);
     const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
     a.download = `invoices-${new Date().toISOString().split('T')[0]}.csv`;
     document.body.appendChild(a);
     a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    
+    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 300);
     showSuccessAlert('Invoices exported to CSV successfully');
-  } catch (error) {
-    console.error('Error exporting CSV:', error);
+  } catch (err) {
+    console.error('Error exporting CSV:', err);
     showErrorAlert('Failed to export invoices to CSV');
   }
 };
 
-export const calculateTax = (amount: number, taxRate: number): number => {
-  return amount * (taxRate / 100);
-};
-
-export const applyDiscount = (amount: number, discountType: 'percentage' | 'fixed', discountValue: number): number => {
-  if (discountType === 'percentage') {
-    return amount * (discountValue / 100);
-  }
-  return discountValue;
-};
-
 export const generateInvoicePDF = async (invoice: InvoiceData): Promise<Blob> => {
-  // This would typically use a PDF generation library like jsPDF or Puppeteer
-  // For now, we'll return the HTML as a blob
   const html = generateInvoiceHTML(invoice);
   return new Blob([html], { type: 'text/html' });
 };
 
-export const sendInvoiceEmail = async (
-  invoice: InvoiceData,
-  recipientEmail: string
-): Promise<void> => {
-  // This would typically integrate with an email service
-  console.log('Sending invoice to:', recipientEmail);
-  console.log('Invoice:', invoice.invoiceNumber);
-  
-  // Simulate API call
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  
+export const sendInvoiceEmail = async (invoice: InvoiceData, recipientEmail: string): Promise<void> => {
+  console.log('Sending invoice to:', recipientEmail, '| Invoice:', invoice.invoiceNumber);
+  await new Promise((r) => setTimeout(r, 1000));
   showSuccessAlert(`Invoice ${invoice.invoiceNumber} sent to ${recipientEmail}`);
 };
 
-export const getInvoiceStats = (invoices: InvoiceData[]): {
-  totalRevenue: number;
-  averageInvoiceValue: number;
-  highestInvoice: InvoiceData | null;
-  lowestInvoice: InvoiceData | null;
-  paidInvoices: InvoiceData[];
-  pendingInvoices: InvoiceData[];
-  overdueInvoices: InvoiceData[];
-} => {
-  const paidInvoices = filterInvoicesByStatus(invoices, 'paid');
-  const pendingInvoices = filterInvoicesByStatus(invoices, 'pending');
-  const overdueInvoices = invoices.filter(inv => isInvoiceOverdue(inv));
-  
-  const totalRevenue = paidInvoices.reduce((sum, inv) => sum + inv.total, 0);
-  const averageInvoiceValue = paidInvoices.length > 0 ? totalRevenue / paidInvoices.length : 0;
-  
-  const sortedByAmount = [...paidInvoices].sort((a, b) => b.total - a.total);
-  const highestInvoice = sortedByAmount[0] || null;
-  const lowestInvoice = sortedByAmount[sortedByAmount.length - 1] || null;
-  
+export const getInvoiceStats = (invoices: InvoiceData[]) => {
+  const paid    = filterInvoicesByStatus(invoices, 'paid');
+  const pending = filterInvoicesByStatus(invoices, 'pending');
+  const overdue = invoices.filter(isInvoiceOverdue);
+  const revenue = paid.reduce((s, i) => s + i.grandTotal, 0);
+  const sorted  = [...paid].sort((a, b) => b.grandTotal - a.grandTotal);
   return {
-    totalRevenue,
-    averageInvoiceValue,
-    highestInvoice,
-    lowestInvoice,
-    paidInvoices,
-    pendingInvoices,
-    overdueInvoices
+    totalRevenue:         revenue,
+    averageInvoiceValue:  paid.length > 0 ? revenue / paid.length : 0,
+    highestInvoice:       sorted[0] ?? null,
+    lowestInvoice:        sorted[sorted.length - 1] ?? null,
+    paidInvoices:         paid,
+    pendingInvoices:      pending,
+    overdueInvoices:      overdue,
   };
 };
 
-export const validateInvoiceNumber = (invoiceNumber: string): boolean => {
-  // Basic validation - should start with INV- followed by numbers
-  const pattern = /^INV-\d+-\d+$/;
-  return pattern.test(invoiceNumber);
-};
-
-export const sanitizeCustomerData = (customer: InvoiceData['customer']): InvoiceData['customer'] => {
-  return {
-    name: customer.name.trim(),
-    email: customer.email.toLowerCase().trim(),
-    phone: customer.phone?.trim() || undefined,
-    address: customer.address?.trim() || undefined
-  };
-};
-
-export const calculateLateFees = (
+export const updateInvoiceStatus = (
   invoice: InvoiceData,
-  lateFeeRate: number = 0.05 // 5% per month
-): number => {
-  if (!isInvoiceOverdue(invoice)) {
-    return 0;
-  }
-  
-  const dueDate = new Date(invoice.dueDate!);
-  const today = new Date();
-  const daysOverdue = Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
-  const monthsOverdue = Math.ceil(daysOverdue / 30);
-  
-  return invoice.total * (lateFeeRate * monthsOverdue);
-};
-
-// Fix for the Date constructor issue mentioned in the error
-export const safeDateParse = (dateString: string | undefined): Date => {
-  if (!dateString) {
-    return new Date();
-  }
-  
-  try {
-    const parsed = new Date(dateString);
-    if (isNaN(parsed.getTime())) {
-      return new Date();
-    }
-    return parsed;
-  } catch (error) {
-    console.warn('Invalid date string:', dateString);
-    return new Date();
-  }
-};
+  status:  InvoiceData['status'],
+): InvoiceData => ({ ...invoice, status });

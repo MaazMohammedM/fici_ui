@@ -32,8 +32,13 @@ const ForgotPassword: React.FC = () => {
     setError(null);
 
     try {
+      // Use production URL in production, or when explicitly set for testing
+      const baseUrl = import.meta.env.PROD 
+        ? import.meta.env.VITE_PRODUCTION_URL || 'https://ficishoes.com'
+        : import.meta.env.VITE_PRODUCTION_URL || window.location.origin;
+      
       const { error } = await supabase.auth.resetPasswordForEmail(data.email, {
-        redirectTo: `${window.location.origin}/auth/reset-password`
+        redirectTo: `${baseUrl}/auth/reset-password`
       });
 
       if (error) {

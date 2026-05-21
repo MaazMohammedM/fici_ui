@@ -168,30 +168,30 @@ export const useSEO = (seoData: SEOData) => {
 // Predefined SEO configurations for common pages
 export const SEOConfigs = {
   home: {
-    title: 'FICI - Premium Footwear Collection | Shop Latest Shoes & Sneakers',
-    description: 'Discover premium quality footwear at FICI. Shop the latest collection of shoes, sneakers, and boots with fast delivery and easy returns. Free shipping on orders over ₹999.',
-    keywords: ['shoes', 'footwear', 'sneakers', 'boots', 'fashion', 'premium', 'FICI', 'online shopping', 'free shipping'],
+    title: 'Leather Shoe Manufacturer | Fici | Ambur',
+    description: 'Premium leather shoe manufacturer in Ambur, India. Direct from factory wholesale prices. Verified Ambur craftsmanship with 30+ years heritage. Shop handcrafted leather shoes with worldwide shipping.',
+    keywords: ['leather shoe manufacturer', 'ambur leather', 'ambur shoes', 'leather manufacturing in india', 'wholesale shoe factory', 'fici shoes ambur', 'nmf international'],
     type: 'website' as const
   },
   
   products: {
-    title: 'All Products - FICI Footwear Collection',
-    description: 'Browse our complete collection of premium footwear. Find the perfect shoes, sneakers, and boots for every occasion. Quality guaranteed.',
-    keywords: ['shoes collection', 'footwear catalog', 'sneakers', 'boots', 'men shoes', 'women shoes'],
+    title: 'Leather Shoes Collection | Premium Quality | Fici | Ambur',
+    description: 'Browse our complete collection of premium leather shoes direct from Ambur factory. Wholesale prices available. Experience verified craftsmanship with worldwide shipping.',
+    keywords: ['leather shoes collection', 'ambur leather shoes', 'wholesale shoe factory', 'premium leather footwear', 'fici shoes ambur', 'leather manufacturing'],
     type: 'website' as const
   },
   
   about: {
-    title: 'About FICI - Premium Footwear Brand Story',
-    description: 'Learn about FICI\'s journey in creating premium quality footwear. Discover our commitment to craftsmanship, comfort, and style.',
-    keywords: ['about FICI', 'footwear brand', 'company story', 'premium shoes', 'craftsmanship'],
+    title: 'About Our Leather Manufacturing Heritage | Fici | Ambur',
+    description: 'Discover FICI\'s 30+ year heritage as leading leather shoe manufacturers in Ambur. Learn about our commitment to quality craftsmanship and traditional leather manufacturing techniques.',
+    keywords: ['about fici shoes', 'leather manufacturer ambur', 'ambur leather heritage', 'shoe manufacturing process', 'fici craftsmanship'],
     type: 'article' as const
   },
   
   contact: {
-    title: 'Contact FICI - Customer Support & Store Locations',
-    description: 'Get in touch with FICI customer support. Find store locations, contact information, and customer service details.',
-    keywords: ['contact FICI', 'customer support', 'store locations', 'help', 'customer service'],
+    title: 'Contact Leather Shoe Manufacturer | Factory Direct | Fici | Ambur',
+    description: 'Get in touch with leading leather shoe manufacturers in Ambur. Visit our factory or contact us for wholesale orders. Direct from manufacturer pricing available.',
+    keywords: ['contact leather manufacturer', 'ambur shoe factory', 'wholesale shoe contact', 'fici shoes ambur', 'factory direct shoes'],
     type: 'website' as const
   },
   

@@ -34,7 +34,7 @@ const ShareModal: React.FC<ShareModalProps> = ({
 
   if (!isOpen) return null;
 
-  const shareText = `Check out this amazing product: ${productName}${productPrice ? ` for just ₹${productPrice}` : ''} on FICI!`;
+  const shareText = `Check out this amazing product: ${productName}${productPrice ? ` for just ₹${productPrice}` : ''} on FiCi website!`;
   const encodedText = encodeURIComponent(shareText);
   
   // Prepare URL with UTM parameters for mobile sharing
