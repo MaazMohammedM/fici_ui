@@ -67,7 +67,22 @@ export const applyGlobalSorting = (
 
   // Apply global sorting
   return filteredProducts.sort((a, b) => {
-    // Priority 1: Stock availability (in-stock first)
+    // Priority 1: Price sorting (if specified) - takes precedence over stock
+    if (options.sortBy === 'stock_high_to_low') {
+      const aStockScore = calculateStockScore(a);
+      const bStockScore = calculateStockScore(b);
+      return bStockScore - aStockScore; // Highest stock first
+    } else if (options.sortBy === 'price_low_to_high') {
+      const aPrice = parseFloat(String(a.discount_price)) || 0;
+      const bPrice = parseFloat(String(b.discount_price)) || 0;
+      return aPrice - bPrice;
+    } else if (options.sortBy === 'price_high_to_low') {
+      const aPrice = parseFloat(String(a.discount_price)) || 0;
+      const bPrice = parseFloat(String(b.discount_price)) || 0;
+      return bPrice - aPrice;
+    }
+    
+    // Priority 2: Stock availability (in-stock first) - only when no price sort specified
     const aHasStock = a.sizes && typeof a.sizes === 'object' && 
       Object.values(a.sizes).some((quantity: number) => typeof quantity === 'number' && quantity > 0);
     
@@ -82,21 +97,6 @@ export const applyGlobalSorting = (
     // If B has stock and A doesn't, B comes first
     if (!aHasStock && bHasStock) {
       return 1;
-    }
-    
-    // Priority 2: Stock or Price sorting (if specified)
-    if (options.sortBy === 'stock_high_to_low') {
-      const aStockScore = calculateStockScore(a);
-      const bStockScore = calculateStockScore(b);
-      return bStockScore - aStockScore; // Highest stock first
-    } else if (options.sortBy === 'price_low_to_high') {
-      const aPrice = parseFloat(String(a.discount_price)) || 0;
-      const bPrice = parseFloat(String(b.discount_price)) || 0;
-      return aPrice - bPrice;
-    } else if (options.sortBy === 'price_high_to_low') {
-      const aPrice = parseFloat(String(a.discount_price)) || 0;
-      const bPrice = parseFloat(String(b.discount_price)) || 0;
-      return bPrice - aPrice;
     }
     
     // Priority 3: Default (newest first)

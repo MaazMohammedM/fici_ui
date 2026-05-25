@@ -6,6 +6,7 @@ import { supabase }       from '../../../lib/supabase';
 import ReturnsManagementTab from './ReturnsManagementTab';
 import {
   downloadInvoicePdf,
+  downloadPackagingLabelPdf,
   generateInvoiceFromAdminOrder,
   toNumber,
 } from '../../../utils/invoiceUtils';
@@ -266,6 +267,24 @@ const AdminOrderDashboard: React.FC = () => {
     }
   }, [downloadingInvoiceId, showAlert]);
 
+  // ── Packaging Label PDF download ───────────────────────────
+  /**
+   * Converts the admin Order to InvoiceData using generateInvoiceFromAdminOrder,
+   * then calls downloadPackagingLabelPdf to produce a packaging label PDF.
+   *
+   * Visible for ALL order statuses — admins can download at any time.
+   */
+  const handlePrintPackaging = useCallback(async (order: Order) => {
+    try {
+      // Cast to AdminOrderForInvoice — the shapes are structurally compatible
+      const invoice = generateInvoiceFromAdminOrder(order as Parameters<typeof generateInvoiceFromAdminOrder>[0]);
+      await downloadPackagingLabelPdf(invoice);
+      showAlert('Packaging label generated successfully', 'success');
+    } catch {
+      showAlert('Failed to generate packaging label. Please try again.', 'error');
+    }
+  }, [showAlert]);
+
   // ── Stats ─────────────────────────────────────────────────
   const getOrderStats = () => ({
     total:     orders.length,
@@ -385,6 +404,7 @@ const AdminOrderDashboard: React.FC = () => {
                         onDeliverReplacement={handleDeliverReplacement}
                         onMarkReturned={handleMarkReplacementReturned}
                         onDownloadInvoice={handleDownloadInvoice}
+                        onPrintPackaging={handlePrintPackaging}
                       />
                     );
                   })}

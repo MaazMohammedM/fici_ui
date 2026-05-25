@@ -8,6 +8,7 @@ const DashboardStats = lazy(() => import("./components/DashboardStats"));
 const TopProductsChart = lazy(() => import("./components/TopProductsChart"));
 const ProductVisitsTable = lazy(() => import("./components/ProductVisitsTable"));
 const TrafficSourcesWidget = lazy(() => import("./components/TrafficSourcesWidget"));
+const ProductEventsWidget = lazy(() => import("./components/ProductEventsWidget"));
 const DiscountFormSection = lazy(() => import("./components/DiscountFormSection"));
 const DashboardShareComponent = lazy(() => import("./components/DashboardShareComponent"));
 const ProductForm = lazy(() => import("./components/ProductForm"));
@@ -590,6 +591,13 @@ const AdminPage: React.FC = () => {
                   <TrafficSourcesWidget />
                 </Suspense>
               </div>
+            </div>
+
+            {/* Product Events Widget */}
+            <div className="mb-6 sm:mb-8">
+              <Suspense fallback={<div className="p-8 text-center">Loading product events...</div>}>
+                <ProductEventsWidget />
+              </Suspense>
             </div>
 
             {/* Product Visits Table */}

@@ -13,6 +13,7 @@
  */
 
 import { showSuccessAlert, showErrorAlert } from '../lib/utils/alertUtils';
+import { generatePackagingLabelsPdf, type LabelInvoiceData } from './packagingLabelPdf';
 
 // ─── Install (run once) ───────────────────────────────────────────────────────
 //   yarn add jspdf html2canvas
@@ -21,15 +22,16 @@ import { showSuccessAlert, showErrorAlert } from '../lib/utils/alertUtils';
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const FICI_SHOES = {
-  name:       'NMF International',
+  businessName: 'NMF International',
+  brandName: 'FiCi Shoes',
   gstin:      '33BMAPM8509H1Z4',
   stateCode:  '33',
   stateName:  'Tamil Nadu',
   address:    'No.20, 1st Floor, Broad Bazaar, Flower Bazaar Lane, Ambur - 635802 Tirupattur District, Tamilnadu, India.',
   phone:      '8122003006',
   contactUrl: 'https://www.ficishoes.com/contact',
-  logoUrl:    '/favicons/logo-512x512.png',
-  hsnCode:    '6403',
+  logoUrl:    'https://www.ficishoes.com/fici_128x128.webp',
+  hsnCode:    '6730',
   /** GST rate as a plain percentage, e.g. 5 means 5 % */
   gstRate:    5,
 } as const;
@@ -146,39 +148,17 @@ export const isIntraState = (shippingState: string): boolean => {
  *   Inter-state → IGST = gstAmount
  */
 export const computeGST = (
-  totalInclusiveAmount: number,
-  gstRate: number,
+  taxableAmount: number,
+  gstRate:       number,
   shippingState: string,
-): { gstAmount: number; taxableAmount: number; cgst: number; sgst: number; igst: number } => {
-
-  // GST inclusive calculation
-  const taxableAmount = round2(
-    totalInclusiveAmount / (1 + gstRate / 100)
-  );
-
-  const gstAmount = round2(
-    totalInclusiveAmount - taxableAmount
-  );
+): { gstAmount: number; cgst: number; sgst: number; igst: number } => {
+  const gstAmount = round2(taxableAmount * (gstRate / 100));
 
   if (isIntraState(shippingState)) {
     const half = round2(gstAmount / 2);
-
-    return {
-      taxableAmount,
-      gstAmount,
-      cgst: half,
-      sgst: half,
-      igst: 0,
-    };
+    return { gstAmount, cgst: half, sgst: half, igst: 0 };
   }
-
-  return {
-    taxableAmount,
-    gstAmount,
-    cgst: 0,
-    sgst: 0,
-    igst: gstAmount,
-  };
+  return { gstAmount, cgst: 0, sgst: 0, igst: gstAmount };
 };
 
 // ─── Formatters ───────────────────────────────────────────────────────────────
@@ -264,100 +244,45 @@ export const generateInvoiceFromAdminOrder = (order: AdminOrderForInvoice): Invo
   const customerPhone = isGuest ? (order.guest_phone ?? shippingAddr.phone ?? '') : (shippingAddr.phone ?? '');
 
   // ── Build line items ──────────────────────────────────────────────────────
-  const rawItems = (order.order_items ?? []).map((oi, idx) => {
-  const qty = toNumber(oi.quantity) || 1;
-
-  const originalPrice =
-    round2(toNumber(oi.price_at_purchase));
-
-  const mrp =
-    oi.mrp
-      ? round2(toNumber(oi.mrp))
-      : originalPrice;
-
-  return {
-    idx,
-    qty,
-    mrp,
-    originalPrice,
-    originalSubtotal: round2(originalPrice * qty),
-    raw: oi,
-  };
-});
-
-const originalSubtotal = round2(
-  rawItems.reduce((sum, item) => sum + item.originalSubtotal, 0)
-);
-
-const effectiveRaw = toNumber(order.effective_amount);
-
-const effectiveAmount =
-  effectiveRaw > 0
-    ? round2(effectiveRaw)
-    : originalSubtotal;
-
-const {
-  taxableAmount,
-  gstAmount,
-  cgst,
-  sgst,
-  igst,
-} = computeGST(
-  effectiveAmount,
-  FICI_SHOES.gstRate,
-  shippingAddr.state ?? '',
-);
-
-const items: InvoiceItem[] = rawItems.map((item) => {
-  const proportion =
-    originalSubtotal > 0
-      ? item.originalSubtotal / originalSubtotal
-      : 0;
-
-  const itemTaxable = round2(
-    taxableAmount * proportion
-  );
-
-  const itemPrice = round2(
-    itemTaxable / item.qty
-  );
-
-  return {
-    id:
-      item.raw.order_item_id ??
-      item.raw.product_id ??
-      String(item.idx),
-
-    name:
-      item.raw.product_name ??
-      item.raw.name ??
-      'Product',
-
-    size: item.raw.size,
-    color: item.raw.color,
-
-    quantity: item.qty,
-
-    // corrected GST-exclusive unit price
-    price: itemPrice,
-
-    mrp: item.mrp,
-
-    // corrected taxable line total
-    total: itemTaxable,
-
-    hsnCode: FICI_SHOES.hsnCode,
-  };
-});
+  const items: InvoiceItem[] = (order.order_items ?? []).map((oi, idx) => {
+    const price = round2(toNumber(oi.price_at_purchase));
+    const qty   = toNumber(oi.quantity) || 1;
+    const mrp   = oi.mrp ? round2(toNumber(oi.mrp)) : price;
+    return {
+      id:       oi.order_item_id ?? oi.product_id ?? String(idx),
+      name:     oi.product_name  ?? oi.name ?? 'Product',
+      size:     oi.size,
+      color:    oi.color,
+      quantity: qty,
+      price,
+      mrp,
+      total:    round2(price * qty),
+      hsnCode:  FICI_SHOES.hsnCode,
+    };
+  });
 
   // ── Financial base ────────────────────────────────────────────────────────
-  const subtotal = round2(originalSubtotal);
+  const subtotal      = round2(items.reduce((s, i) => s + i.total, 0));
   const discount      = round2(toNumber(order.discount));
   const deliveryCharge = round2(toNumber(order.delivery_charge));
 
+  /**
+   * taxableBase is the GST-exclusive amount the customer paid.
+   * Prefer effective_amount (already deducted discounts & charges on DB side).
+   * Fall back to computing from item totals if effective_amount is unavailable.
+   */
+  const effectiveRaw  = toNumber(order.effective_amount);
+  const effectiveAmount = effectiveRaw > 0
+    ? round2(effectiveRaw)
+    : round2(subtotal - discount + deliveryCharge);
 
-// effective_amount already includes GST
-const grandTotal = effectiveAmount;
+  const { gstAmount, cgst, sgst, igst } = computeGST(
+    effectiveAmount,
+    FICI_SHOES.gstRate,
+    shippingAddr.state ?? '',
+  );
+
+  const grandTotal = round2(effectiveAmount + gstAmount);
   const intra      = isIntraState(shippingAddr.state ?? '');
 
   return {
@@ -374,7 +299,7 @@ const grandTotal = effectiveAmount;
     subtotal,
     discount,
     deliveryCharge,
-    effectiveAmount: taxableAmount,
+    effectiveAmount,
     gstAmount,
     cgst:  intra  ? cgst : undefined,
     sgst:  intra  ? sgst : undefined,
@@ -476,13 +401,12 @@ export const buildInvoiceFromOrder = (
 const statusColor = (s: string): string =>
   ({ paid:'#16a34a', pending:'#d97706', overdue:'#dc2626', cancelled:'#6b7280' }[s] ?? '#111827');
 
-export const generateInvoiceHTML = (inv: InvoiceData, logoUrl?: string): string => {
+export const generateInvoiceHTML = (inv: InvoiceData): string => {
   const intra    = isIntraState(inv.shippingAddress.state);
   const gstRate  = FICI_SHOES.gstRate;
   const halfRate = gstRate / 2;
   const addr     = inv.shippingAddress;
   const bill     = inv.billingAddress;
-  const finalLogoUrl = logoUrl ?? FICI_SHOES.logoUrl;
 
   // ── Per-item rows ──────────────────────────────────────────────────────────
   const itemRows = inv.items.map((item) => {
@@ -495,7 +419,8 @@ export const generateInvoiceHTML = (inv: InvoiceData, logoUrl?: string): string 
     const lineCgst        = intra ? round2(lineGst / 2) : 0;
     const lineSgst        = intra ? round2(lineGst / 2) : 0;
     const lineIgst        = intra ? 0 : lineGst;
-    const lineTotal       = round2(item.total + lineGst);
+    // Line total is just item.total (GST already included in effective_amount)
+    const lineTotal       = item.total;
 
     const gstCell = intra
       ? `<td style="padding:10px 8px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:12px;">₹${formatCurrencyPlain(lineCgst)}</td>
@@ -521,9 +446,7 @@ export const generateInvoiceHTML = (inv: InvoiceData, logoUrl?: string): string 
   // ── Totals row ─────────────────────────────────────────────────────────────
   const totalGross   = round2(inv.items.reduce((s, i) => s + (i.mrp ?? i.price) * i.quantity, 0));
   const totalDisc    = round2(inv.items.reduce((s, i) => s + ((i.mrp ?? i.price) - i.price) * i.quantity, 0) + inv.discount);
-  const totalTaxable = round2(
-  inv.grandTotal - inv.gstAmount
-  );
+  const totalTaxable = inv.effectiveAmount;
   const totalCgst    = inv.cgst ?? 0;
   const totalSgst    = inv.sgst ?? 0;
   const totalIgst    = inv.igst ?? 0;
@@ -541,7 +464,7 @@ export const generateInvoiceHTML = (inv: InvoiceData, logoUrl?: string): string 
     <td style="padding:10px 8px;border-top:2px solid #d1d5db;text-align:right;font-size:12px;">₹${formatCurrencyPlain(totalDisc)}</td>
     <td style="padding:10px 8px;border-top:2px solid #d1d5db;text-align:right;font-size:12px;">₹${formatCurrencyPlain(totalTaxable)}</td>
     ${gstTotCells}
-    <td style="padding:10px 8px;border-top:2px solid #d1d5db;text-align:right;font-size:12px;">₹${formatCurrencyPlain(inv.grandTotal)}</td>
+    <td style="padding:10px 8px;border-top:2px solid #d1d5db;text-align:right;font-size:12px;">₹${formatCurrencyPlain(inv.effectiveAmount)}</td>
   </tr>`;
 
   // ── Column headers ─────────────────────────────────────────────────────────
@@ -632,9 +555,9 @@ export const generateInvoiceHTML = (inv: InvoiceData, logoUrl?: string): string 
 <div class="invoice-wrapper" id="invoice-root">
   <div class="invoice-header">
     <div class="brand-block">
-      <img src="${finalLogoUrl}" alt="Fici Shoes" class="brand-logo" crossorigin="anonymous"/>
+      <img src="${FICI_SHOES.logoUrl}" alt="Fici Shoes" class="brand-logo" crossorigin="anonymous"/>
       <div>
-        <div class="brand-name">${FICI_SHOES.name}</div>
+        <div class="brand-name">${FICI_SHOES.businessName}</div>
         <div class="brand-tagline">TAX INVOICE</div>
       </div>
     </div>
@@ -650,7 +573,7 @@ export const generateInvoiceHTML = (inv: InvoiceData, logoUrl?: string): string 
     <div class="section-col">
       <div class="section-label">Sold By</div>
       <div class="section-value">
-        <strong>${FICI_SHOES.name}</strong><br/>
+        <strong>${FICI_SHOES.businessName}</strong><br/>
         ${FICI_SHOES.address}<br/>
         GSTIN: <strong>${FICI_SHOES.gstin}</strong><br/>
         Ph: ${FICI_SHOES.phone}
@@ -695,13 +618,13 @@ export const generateInvoiceHTML = (inv: InvoiceData, logoUrl?: string): string 
       ${inv.discount > 0 ? `<div class="totals-row"><span class="totals-label">Coupon / Discount</span><span class="totals-value" style="color:#16a34a;">–₹${formatCurrencyPlain(inv.discount)}</span></div>` : ''}
       ${gstSummary}
       ${inv.deliveryCharge > 0 ? `<div class="totals-row"><span class="totals-label">Delivery Charges</span><span class="totals-value">₹${formatCurrencyPlain(inv.deliveryCharge)}</span></div>` : ''}
-      <div class="totals-row grand"><span class="totals-label">Grand Total</span><span class="totals-value">₹${formatCurrencyPlain(inv.grandTotal)}</span></div>
+      <div class="totals-row grand"><span class="totals-label">Grand Total</span><span class="totals-value">₹${formatCurrencyPlain(inv.effectiveAmount)}</span></div>
     </div>
   </div>
 
   <div class="invoice-footer">
     <div class="footer-section">
-      <div class="footer-title">${FICI_SHOES.name}</div>
+      <div class="footer-title">${FICI_SHOES.businessName}</div>
       <div class="footer-text">${FICI_SHOES.address}<br/>Ph: ${FICI_SHOES.phone}<br/><a href="${FICI_SHOES.contactUrl}" style="color:#60a5fa;">${FICI_SHOES.contactUrl}</a></div>
       <div class="gst-tag">GSTIN: ${FICI_SHOES.gstin}</div>
     </div>
@@ -714,36 +637,13 @@ export const generateInvoiceHTML = (inv: InvoiceData, logoUrl?: string): string 
     <div class="footer-section sig-block">
       <div class="footer-title">Authorised Signatory</div>
       <div class="sig-line"></div>
-      <div class="sig-label">${FICI_SHOES.name}</div>
+      <div class="sig-label">${FICI_SHOES.businessName}</div>
       <div style="font-size:10px;color:#475569;margin-top:16px;">E. &amp; O.E. &nbsp;|&nbsp; Page 1 of 1</div>
     </div>
   </div>
 </div>
 </body>
 </html>`;
-};
-
-// ─── Helper: Fetch image as base64 data URL ─────────────────────────────────
-
-/**
- * Fetches an image from a URL and returns it as a base64 data URL.
- * This ensures images render properly in html2canvas without CORS issues.
- */
-const fetchImageAsBase64 = async (url: string): Promise<string> => {
-  try {
-    const response = await fetch(url, { mode: 'cors' });
-    if (!response.ok) throw new Error(`Failed to fetch image: ${response.status}`);
-    const blob = await response.blob();
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
-  } catch (err) {
-    console.warn('[fetchImageAsBase64] Failed to fetch logo, using original URL:', err);
-    return url; // Fallback to original URL if fetch fails
-  }
 };
 
 // ─── PDF download (real .pdf via html2canvas + jsPDF) ─────────────────────────
@@ -753,12 +653,11 @@ const fetchImageAsBase64 = async (url: string): Promise<string> => {
  * Works on: Chrome, Edge, Firefox, Safari (desktop + mobile), Android browsers.
  *
  * Strategy:
- *  1. Fetch logo as base64 to avoid CORS issues.
- *  2. Mount the invoice HTML in a hidden off-screen iframe.
- *  3. Wait for fonts/images to load.
- *  4. Capture via html2canvas (scale:2 for retina clarity).
- *  5. Slice the canvas into A4-sized pages.
- *  6. Use jsPDF to build and save the PDF.
+ *  1. Mount the invoice HTML in a hidden off-screen iframe.
+ *  2. Wait for fonts/images to load.
+ *  3. Capture via html2canvas (scale:2 for retina clarity).
+ *  4. Slice the canvas into A4-sized pages.
+ *  5. Use jsPDF to build and save the PDF.
  */
 export const downloadInvoicePdf = async (invoice: InvoiceData): Promise<void> => {
   try {
@@ -767,9 +666,6 @@ export const downloadInvoicePdf = async (invoice: InvoiceData): Promise<void> =>
       import('jspdf'),
       import('html2canvas'),
     ]);
-
-    // ── 0. Fetch logo as base64 for reliable rendering ───────────────────
-    const logoDataUrl = await fetchImageAsBase64(FICI_SHOES.logoUrl);
 
     // ── 1. Create a hidden iframe to host the rendered invoice ────────────
     const iframe = document.createElement('iframe');
@@ -791,7 +687,7 @@ export const downloadInvoicePdf = async (invoice: InvoiceData): Promise<void> =>
     }
 
     iframeDoc.open();
-    iframeDoc.write(generateInvoiceHTML(invoice, logoDataUrl));
+    iframeDoc.write(generateInvoiceHTML(invoice));
     iframeDoc.close();
 
     // ── 2. Wait for images/fonts inside the iframe ────────────────────────
@@ -876,6 +772,75 @@ export const downloadInvoicePdf = async (invoice: InvoiceData): Promise<void> =>
   } catch (err) {
     console.error('[downloadInvoicePdf]', err);
     showErrorAlert('Failed to generate PDF. Please try again.');
+    throw err;
+  }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PUBLIC: downloadPackagingLabelPdf
+// Uses the new packaging label generator from packagingLabelPdf.ts
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Generates a professional A4 shipping label PDF using the new packaging label library.
+ * 
+ * This function converts InvoiceData to LabelInvoiceData and calls the new
+ * generatePackagingLabelsPdf function which supports multiple orders per page.
+ * 
+ * For backward compatibility, this function generates two identical labels
+ * for the same order (one for the package, one for records).
+ */
+export const downloadPackagingLabelPdf = async (invoice: InvoiceData): Promise<void> => {
+  try {
+    // Convert InvoiceData to LabelInvoiceData (the new library's interface)
+    const labelInvoice: LabelInvoiceData = {
+      orderId: invoice.orderId,
+      invoiceNumber: invoice.invoiceNumber,
+      orderDate: invoice.orderDate,
+      invoiceDate: invoice.invoiceDate,
+      paymentMethod: invoice.paymentMethod,
+      status: invoice.status,
+      effectiveAmount: invoice.effectiveAmount,
+      discount: invoice.discount,
+      deliveryCharge: invoice.deliveryCharge,
+      grandTotal: invoice.grandTotal,
+      customer: {
+        name: invoice.customer.name,
+        email: invoice.customer.email,
+        phone: invoice.customer.phone,
+      },
+      shippingAddress: {
+        name: invoice.shippingAddress.name,
+        address: invoice.shippingAddress.address,
+        city: invoice.shippingAddress.city,
+        district: invoice.shippingAddress.district,
+        state: invoice.shippingAddress.state,
+        pincode: invoice.shippingAddress.pincode,
+        phone: invoice.shippingAddress.phone,
+        landmark: invoice.shippingAddress.landmark,
+      },
+      items: invoice.items.map(item => ({
+        name: item.name,
+        size: item.size,
+        color: item.color,
+        quantity: item.quantity,
+        total: item.total,
+      })),
+    };
+
+    // Generate packaging label using the new library
+    // ONE order = ONE label
+    await generatePackagingLabelsPdf({
+      orders: [labelInvoice],
+      downloadFileName: `Packaging_Label_${invoice.orderId.replace(/-/g, '').slice(-12).toUpperCase()}`,
+    });
+
+    const shortId = invoice.orderId.replace(/-/g, '').slice(-12).toUpperCase();
+    showSuccessAlert(`Packaging label downloaded for order ${shortId}`);
+
+  } catch (err) {
+    console.error('[downloadPackagingLabelPdf]', err);
+    showErrorAlert('Failed to generate packaging label PDF. Please try again.');
     throw err;
   }
 };

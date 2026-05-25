@@ -1,5 +1,5 @@
 import React from 'react';
-import { Package, Truck, CheckCircle, XCircle, Clock, Eye, DollarSign, Ban, Upload } from 'lucide-react';
+import { Package, Truck, CheckCircle, XCircle, Clock, Eye, DollarSign, Ban, Upload, Box } from 'lucide-react';
 import type { Order, OrderItem, OrderActionFlags } from '../../../types/order-common';
 import { canRefundOrder } from '../../../types/order-common';
 import {
@@ -25,6 +25,7 @@ interface OrderCardProps {
   onMarkReturned?: (item: OrderItem) => void;
   onPrintInvoice?: (order: Order) => void;
   onDownloadInvoice?: (order: Order) => void;
+  onPrintPackaging?: (order: Order) => void;
   downloadingInvoiceId?: string;
 }
 
@@ -145,6 +146,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
   onMarkReturned,
   onPrintInvoice,
   onDownloadInvoice,
+  onPrintPackaging,
   downloadingInvoiceId,
 }) => {
   const isShippingAddress = (address: unknown): address is import('../../../types/order-common').ShippingAddress =>
@@ -342,6 +344,16 @@ export const OrderCard: React.FC<OrderCardProps> = ({
             >
               <Upload className="w-4 h-4" />
               <span>{downloadingInvoiceId === order.order_id ? 'Downloading...' : 'Download Invoice'}</span>
+            </button>
+          )}
+
+          {onPrintPackaging && (
+            <button
+              onClick={() => onPrintPackaging(order)}
+              className="flex items-center justify-center gap-2 text-amber-600 hover:text-amber-700 text-sm px-3 py-2 rounded border border-amber-200 hover:border-amber-300 bg-white dark:bg-gray-800 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
+            >
+              <Box className="w-4 h-4" />
+              <span>Print Packaging</span>
             </button>
           )}
         </div>

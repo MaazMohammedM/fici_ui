@@ -5,6 +5,7 @@ import { useCartStore } from '@/store/cartStore';
 import { useAuthStore } from '@/store/authStore';
 import { ensureGuestSessionId } from '@/lib/utils/guestSession';
 import { logger } from '@/lib/logger';
+import metaPixelEvents from '@/lib/utils/metaPixel';
 
 export const useProcessPayment = () => {
   const [isProcessing, setIsProcessing] = useState(false);
@@ -31,7 +32,7 @@ export const useProcessPayment = () => {
       // Save payment details
       await savePayment({
         order_id: paymentData.orderId,
-        provider: 'stripe', // or your payment provider
+        provider: 'razorpay', // or your payment provider
         payment_status: 'succeeded',
         payment_method: paymentData.paymentMethod,
         amount: paymentData.amount,

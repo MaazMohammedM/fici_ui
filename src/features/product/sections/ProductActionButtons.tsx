@@ -1,6 +1,7 @@
 import React from "react";
 import { useCartStore } from '@store/cartStore';
 import { trackEvent } from '@utils/ga4Analytics';
+import { trackAddToCart, trackBuyNow } from '@utils/productEventTracker';
 
 export interface ProductActionButtonsProps {
   onAddToCart: () => void;
@@ -77,8 +78,8 @@ const ProductActionButtons: React.FC<ProductActionButtonsProps> = ({
   const handleAddToCart = () => {
     if (validateBeforeAction()) {
       onAddToCart();
-      
-      // Track add to cart
+
+      // Track add to cart in GA4
       trackEvent("add_to_cart", {
         product_id: product?.product_id,
         product_name: product?.name,
@@ -86,12 +87,32 @@ const ProductActionButtons: React.FC<ProductActionButtonsProps> = ({
         quantity: quantity,
         price: product?.discount_price || product?.price,
       });
+
+      // Track add to cart in product_user_events table
+      if (product?.product_id && product?.name && selectedVariant) {
+        const mrpPrice = typeof selectedVariant.mrp_price === 'number' 
+          ? selectedVariant.mrp_price 
+          : parseFloat(selectedVariant.mrp_price || '0');
+        const sellingPrice = typeof selectedVariant.discount_price === 'number'
+          ? selectedVariant.discount_price
+          : parseFloat(selectedVariant.discount_price || selectedVariant.mrp_price || '0');
+
+        trackAddToCart({
+          product_id: product.product_id,
+          article_id: selectedVariant.article_id || product.product_id,
+          product_name: product.name,
+          category: selectedVariant.category,
+          sub_category: selectedVariant.sub_category,
+          gender: selectedVariant.gender,
+          thumbnail_url: selectedVariant.thumbnail_url || selectedVariant.images?.[0],
+        }, selectedSize || null, quantity, mrpPrice, sellingPrice);
+      }
     }
   };
 
   const handleBuyNow = () => {
     if (validateBeforeAction()) {
-      // Track buy now
+      // Track buy now in GA4
       trackEvent("buy_now", {
         product_id: product?.product_id,
         product_name: product?.name,
@@ -99,7 +120,27 @@ const ProductActionButtons: React.FC<ProductActionButtonsProps> = ({
         quantity: quantity,
         price: product?.discount_price || product?.price,
       });
-      
+
+      // Track buy now in product_user_events table
+      if (product?.product_id && product?.name && selectedVariant) {
+        const mrpPrice = typeof selectedVariant.mrp_price === 'number'
+          ? selectedVariant.mrp_price
+          : parseFloat(selectedVariant.mrp_price || '0');
+        const sellingPrice = typeof selectedVariant.discount_price === 'number'
+          ? selectedVariant.discount_price
+          : parseFloat(selectedVariant.discount_price || selectedVariant.mrp_price || '0');
+
+        trackBuyNow({
+          product_id: product.product_id,
+          article_id: selectedVariant.article_id || product.product_id,
+          product_name: product.name,
+          category: selectedVariant.category,
+          sub_category: selectedVariant.sub_category,
+          gender: selectedVariant.gender,
+          thumbnail_url: selectedVariant.thumbnail_url || selectedVariant.images?.[0],
+        }, selectedSize || null, quantity, mrpPrice, sellingPrice);
+      }
+
       onBuyNow();
     }
   };

@@ -4,12 +4,20 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { supabase } from '@lib/supabase';
 import { useAuthStore } from '@store/authStore';
-import { Edit, Trash2, Check, Plus } from 'lucide-react';
+import { Edit, Trash2, Check, Plus, MapPin } from 'lucide-react';
 import PincodeInput from '@components/ui/PincodeInput';
 import AlertModal from '@components/ui/AlertModal';
 import PhoneUpdateWithOtp from '@/components/PhoneUpdateWithOtp';
 import type { PincodeDetails } from '@store/pincodeStore';
 import { getDeliveryPhoneHelperText } from '@utils/identitySource';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@components/ui/Dialog';
 
 // Schema for form validation
 const AddressSchema = z.object({
@@ -113,11 +121,11 @@ const AddressForm: React.FC<Props> = ({ onSelect, selectedId, userProfile, onPho
   // Handle pincode selection with form integration
   const handlePincodeSelect = useCallback((pincodeData: PincodeDetails) => {
     setValue('pincode', pincodeData.pincode);
-    if (!watch('city')) setValue('city', pincodeData.city || '');
-    if (!watch('state')) setValue('state', pincodeData.state || '');
-    if (!watch('district')) setValue('district', pincodeData.districts?.[0] || '');
+    setValue('city', pincodeData.city || '');
+    setValue('state', pincodeData.state || '');
+    setValue('district', pincodeData.districts?.[0] || '');
     clearErrors('pincode');
-  }, [setValue, watch, clearErrors]);
+  }, [setValue, clearErrors]);
 
   useEffect(() => {
     if (user?.id) loadAddresses();
@@ -141,13 +149,17 @@ const AddressForm: React.FC<Props> = ({ onSelect, selectedId, userProfile, onPho
     }
   }, [selectedId, hasUserSelected]);
 
-  useEffect(() => {
-    if (!loading && addresses.length === 0) {
-      setShowForm(true);
-    } else if (!loading && addresses.length > 0 && !editing) {
-      setShowForm(false);
-    }
-  }, [addresses.length, loading, editing]);
+  const handleOpenModal = () => {
+    setEditing(null);
+    reset();
+    setShowForm(true);
+  };
+
+  const handleCloseModal = () => {
+    setShowForm(false);
+    setEditing(null);
+    reset();
+  };
 
   const loadAddresses = async () => {
     if (!user?.id) return;
@@ -255,8 +267,14 @@ const AddressForm: React.FC<Props> = ({ onSelect, selectedId, userProfile, onPho
       
       setAddresses(next);
       setEditing(null);
-      reset(); // Reset form to default values
+      reset();
+      setShowForm(false);
       showAlert("Address saved successfully!", "success");
+      
+      // Auto-select the new address if it's the first one
+      if (!editing && next.length === 1) {
+        onSelect(newAddress);
+      }
     } catch (err) {
       showAlert("Failed to save address. Please try again.", "error");
     } finally {
@@ -332,28 +350,33 @@ const AddressForm: React.FC<Props> = ({ onSelect, selectedId, userProfile, onPho
     <div className="bg-white dark:bg-dark2 rounded-2xl shadow-lg p-6">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Shipping Address</h2>
-        {/* Only show Add New Address button when user has addresses or form is hidden */}
-        {!loading && (addresses.length > 0 || !showForm) && (
-          <button
-            type="button"
-            onClick={() => {
-              setShowForm(!showForm);
-              if (showForm) {
-                setEditing(null);
-                reset();
-              }
-            }}
-            className="flex items-center text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 px-3 py-2 rounded-lg transition-colors shadow-sm hover:shadow-md"
-          >
-            <Plus className="w-4 h-4 mr-1" />
-            {showForm ? 'Cancel' : 'Add New Address'}
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={handleOpenModal}
+          className="flex items-center text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 px-3 py-2 rounded-lg transition-colors shadow-sm hover:shadow-md"
+        >
+          <Plus className="w-4 h-4 mr-1" />
+          Add New Address
+        </button>
       </div>
 
       {/* Address list */}
       {loading ? (
         <div>Loading...</div>
+      ) : addresses.length === 0 ? (
+        <div className="text-center py-12">
+          <MapPin className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No saved addresses</h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">Add a shipping address to continue with your order</p>
+          <button
+            type="button"
+            onClick={handleOpenModal}
+            className="inline-flex items-center text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 px-4 py-2 rounded-lg transition-colors shadow-sm hover:shadow-md"
+          >
+            <Plus className="w-4 h-4 mr-1" />
+            Add Address
+          </button>
+        </div>
       ) : (
         <div className="space-y-4">
           {addresses.length > 0 && (
@@ -456,13 +479,16 @@ const AddressForm: React.FC<Props> = ({ onSelect, selectedId, userProfile, onPho
         </div>
       )}
 
-      {/* Add/Edit form - Only show when explicitly requested */}
-      {showForm && (
-        <div className="mt-4 p-4 border rounded-lg bg-white dark:bg-dark2 border-gray-200 dark:border-gray-700">
-          <h3 className="font-medium mb-4 text-gray-900 dark:text-gray-100">
-            {editing ? 'Edit Address' : 'Add New Address'}
-          </h3>
-          <form onSubmit={handleSubmit(handleSave)} className="space-y-3">
+      {/* Add/Edit Form Modal */}
+      <Dialog open={showForm} onOpenChange={setShowForm}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-white dark:bg-dark2 border border-gray-200 dark:border-gray-700 shadow-2xl">
+          <DialogHeader>
+            <DialogTitle>{editing ? 'Edit Address' : 'Add New Address'}</DialogTitle>
+            <DialogDescription>
+              {editing ? 'Update your shipping address details below.' : 'Fill in the details below to add a new shipping address.'}
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSubmit(handleSave)} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -632,14 +658,10 @@ const AddressForm: React.FC<Props> = ({ onSelect, selectedId, userProfile, onPho
                 <p className="mt-1 text-xs text-red-600 dark:text-red-400">{errors.landmark.message}</p>
               )}
             </div>
-            <div className="flex space-x-3">
+            <DialogFooter className="mt-6">
               <button
                 type="button"
-                onClick={() => {
-                  setShowForm(false);
-                  setEditing(null);
-                  reset();
-                }}
+                onClick={handleCloseModal}
                 className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 dark:bg-dark3 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700 transition-colors"
               >
                 Cancel
@@ -647,14 +669,14 @@ const AddressForm: React.FC<Props> = ({ onSelect, selectedId, userProfile, onPho
               <button
                 type="submit"
                 disabled={loading}
-                className="px-4 py-2 text-sm font-medium text-white bg-primary border border-transparent rounded-md shadow-sm hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {loading ? 'Saving...' : editing ? 'Update Address' : 'Save Address'}
               </button>
-            </div>
+            </DialogFooter>
           </form>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
 
       {/* Phone Update Modal */}
       {showPhoneUpdate && (

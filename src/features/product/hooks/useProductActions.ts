@@ -5,6 +5,7 @@ import { useCartStore } from '@store/cartStore';
 import { useAuthStore } from '@store/authStore';
 import { validateCartItemStock } from '@lib/stock/stockValidator';
 import { showAlert } from '@lib/utils/alertUtils';
+import metaPixelEvents from '@/lib/utils/metaPixel';
 import type { ProductDetail } from '../../../types/product';
 
 interface UseProductActionsOptions {
@@ -123,6 +124,20 @@ export const useProductActions = ({
       thumbnail_url: selectedVariant.thumbnail_url || '',
       discount_percentage: selectedVariant.discount_percentage || 0,
       availableSizes: Array.from(allAvailableSizes).sort()
+    });
+
+    // Track AddToCart event with Meta Pixel
+    metaPixelEvents.addToCart({
+      content_ids: [selectedVariant.product_id],
+      content_type: 'product',
+      value: Number(selectedVariant.discount_price) || 0,
+      currency: 'INR',
+      content_name: selectedVariant?.name || currentProduct?.name || '',
+      contents: [{
+        id: selectedVariant.product_id,
+        quantity: quantity,
+        item_price: Number(selectedVariant.discount_price) || 0
+      }]
     });
 
     setSuccessMessageType('cart');

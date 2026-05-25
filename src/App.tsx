@@ -10,6 +10,7 @@ import Footer from 'component/Footer';
 import SEOHead from '@lib/components/SEOHead';
 import ScrollToTop from './components/ScrollToTop';
 import { useTrackVisit } from './hooks/useTrackVisit';
+import { useMetaPixelPageView } from './hooks/useMetaPixelPageView';
 import FiciLoader from './components/ui/FiciLoader';
 import FloatingWhatsApp from './components/FloatingWhatsApp';
 import AlertModal from './components/ui/AlertModal';
@@ -52,6 +53,7 @@ const LoadingSpinner = () => (
 
 const AppContent = () => {
   useTrackVisit();
+  useMetaPixelPageView();
   
   // State for reload confirmation modal
   const [showReloadModal, setShowReloadModal] = useState(false);

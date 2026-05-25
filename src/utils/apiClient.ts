@@ -1,5 +1,5 @@
 const BASE_URLS = [
-  "https://api.ficishoes.com"
+  "https://supabase-proxy.furqhaanmohammed001.workers.dev"
 ];
 
 export async function fetchWithFallback(path: string, options?: RequestInit): Promise<Response> {

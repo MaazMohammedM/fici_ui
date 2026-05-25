@@ -217,6 +217,7 @@ export const useProductStore = create<ProductState>((set, get) => ({
         thumbnail_url: product.thumbnail_url ? transformImageUrl(product.thumbnail_url) : product.thumbnail_url,
         discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price),
         mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0,
+        discount_price: parseFloat(product.discount_price) || 0, // Convert to number for proper sorting
         color: product.article_id?.split('_')[1] || 'default' // Extract color from article_id
       }));
 
@@ -324,6 +325,7 @@ export const useProductStore = create<ProductState>((set, get) => ({
           thumbnail_url: product.thumbnail_url ? transformImageUrl(product.thumbnail_url) : product.thumbnail_url,
           discount_percentage: product.discount_percentage || calculateDiscountPercentage(product.mrp_price, product.discount_price),
           mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0,
+          discount_price: parseFloat(product.discount_price) || 0, // Convert to number for proper sorting
           color: product.article_id?.split('_')[1] || 'default' // Extract color from article_id
         };
       });
@@ -396,7 +398,8 @@ export const useProductStore = create<ProductState>((set, get) => ({
           thumbnail_url: product.thumbnail_url ? transformImageUrl(product.thumbnail_url) : product.thumbnail_url,
           discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price),
           rating: rating,
-          mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0
+          mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0,
+          discount_price: parseFloat(product.discount_price) || 0 // Convert to number for proper sorting
         }));
 
         const firstProduct = processedProducts[0];
@@ -495,7 +498,8 @@ export const useProductStore = create<ProductState>((set, get) => ({
           thumbnail_url: product.thumbnail_url ? transformImageUrl(product.thumbnail_url) : product.thumbnail_url,
           discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price),
           rating: rating,
-          mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0
+          mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0,
+          discount_price: parseFloat(product.discount_price) || 0 // Convert to number for proper sorting
         }));
 
         const baseArticleId = processedProducts[0].article_id.split('_')[0];
@@ -573,7 +577,8 @@ export const useProductStore = create<ProductState>((set, get) => ({
               images: parseImages(product.images), // Use the new parseImages function
               thumbnail_url: product.thumbnail_url ? transformImageUrl(product.thumbnail_url) : product.thumbnail_url,
               discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price),
-              mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0  // Fallback to discount_price if mrp_price is missing
+              mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0,  // Fallback to discount_price if mrp_price is missing
+              discount_price: parseFloat(product.discount_price) || 0 // Convert to number for proper sorting
             };
           });
 
@@ -592,7 +597,8 @@ export const useProductStore = create<ProductState>((set, get) => ({
           images: parseImages(product.images), // Use the new parseImages function
           thumbnail_url: product.thumbnail_url ? transformImageUrl(product.thumbnail_url) : product.thumbnail_url,
           discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price),
-          mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0  // Fallback to discount_price if mrp_price is missing
+          mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0,  // Fallback to discount_price if mrp_price is missing
+          discount_price: parseFloat(product.discount_price) || 0 // Convert to number for proper sorting
         };
       });
 
@@ -666,7 +672,8 @@ export const useProductStore = create<ProductState>((set, get) => ({
           images: parseImages(product.images), // Use the new parseImages function
           thumbnail_url: product.thumbnail_url ? transformImageUrl(product.thumbnail_url) : product.thumbnail_url,
           discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price),
-          mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0  // Fallback to discount_price if mrp_price is missing
+          mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0,  // Fallback to discount_price if mrp_price is missing
+          discount_price: parseFloat(product.discount_price) || 0 // Convert to number for proper sorting
         };
       });
 

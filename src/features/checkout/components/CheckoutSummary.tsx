@@ -16,6 +16,8 @@ interface CheckoutSummaryProps {
   mrpTotal: number;
   darkMode: boolean;
   productDiscounts: Record<string, any>;
+  codFee?: number;
+  selectedPayment?: 'razorpay' | 'cod';
 }
 
 const CheckoutSummary: React.FC<CheckoutSummaryProps> = ({
@@ -29,7 +31,9 @@ const CheckoutSummary: React.FC<CheckoutSummaryProps> = ({
   productDiscount,
   mrpTotal,
   darkMode,
-  productDiscounts
+  productDiscounts,
+  codFee = 0,
+  selectedPayment = 'razorpay'
 }) => {
   const { items: cartItems } = useCartStore();
   const { mode } = useThemeStore();
@@ -104,6 +108,15 @@ const CheckoutSummary: React.FC<CheckoutSummaryProps> = ({
               {shipping === 0 ? 'FREE' : `₹${shipping.toLocaleString('en-IN')}`}
             </span>
           </div>
+
+          {selectedPayment === 'cod' && codFee > 0 && (
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600 dark:text-gray-400">COD Fee</span>
+              <span className="text-gray-900 dark:text-white">
+                {codFee === 0 ? 'FREE' : `₹${codFee.toLocaleString('en-IN')}`}
+              </span>
+            </div>
+          )}
 
           {tax > 0 && (
             <div className="flex justify-between text-sm">

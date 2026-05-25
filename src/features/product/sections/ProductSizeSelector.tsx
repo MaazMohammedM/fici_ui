@@ -4,6 +4,8 @@ import { Ruler, ChevronDown } from "lucide-react";
 import { FaWhatsapp } from "react-icons/fa";
 import { hasValidSizePrices } from '@lib/productAvailability';
 import { trackEvent } from '@utils/ga4Analytics';
+import { trackSizeSelection, trackOutOfStockClick } from '@utils/productEventTracker';
+import { trackSizeSelection as trackSizeSelectionGA4 } from '@utils/ga4Analytics';
 
 interface Props {
   fullSizeRange: string[];
@@ -79,22 +81,57 @@ const ProductSizeSelector: React.FC<Props> = ({
 
   const handleSizeChange = (size: string) => {
     const availableStockForSize = availableQuantities[size] || 0;
-    
+    const isAvailable = availableSizes.includes(size);
+
     if (availableStockForSize === 0) {
       onQuantityChange?.(1);
     } else if (currentQuantity > availableStockForSize && onQuantityChange) {
       onQuantityChange(availableStockForSize);
     }
-    
+
     onSizeChange(size);
     setIsDropdownOpen(false);
-    
-    // Track size selection
-    trackEvent("select_size", {
-      product_id: product?.product_id,
-      product_name: product?.name,
-      size: size,
-    });
+
+    // Track size selection for all sizes (available and out of stock)
+    if (product?.product_id && product?.name) {
+      trackSizeSelection({
+        product_id: product.product_id,
+        article_id: product.product_id, // Using product_id as article_id fallback
+        product_name: product.name,
+        category: category,
+        sub_category: subCategory,
+        gender: gender,
+        thumbnail_url: undefined,
+      }, size);
+
+      // Track size selection in GA4 with proper parameters
+      trackSizeSelectionGA4({
+        product_id: product.product_id,
+        article_id: product.product_id,
+        name: product.name,
+        category: category,
+        sub_category: subCategory,
+        gender: gender,
+      }, size);
+    }
+  };
+
+  const handleWhatsAppContact = (size: string) => {
+    // Track out-of-stock click when user clicks "Ask us" button
+    if (product?.product_id && product?.name) {
+      trackOutOfStockClick({
+        product_id: product.product_id,
+        article_id: product.product_id, // Using product_id as article_id fallback
+        product_name: product.name,
+        category: category,
+        sub_category: subCategory,
+        gender: gender,
+        thumbnail_url: undefined,
+      }, size);
+    }
+
+    // Call the original WhatsApp contact handler
+    onWhatsAppContact(size);
   };
 
   const shouldShowSizePrices = hasValidSizePrices(sizePrices);
@@ -189,7 +226,7 @@ const ProductSizeSelector: React.FC<Props> = ({
                     Size {selectedSize} unavailable
                   </span>
                   <button
-                    onClick={() => onWhatsAppContact(selectedSize)}
+                    onClick={() => handleWhatsAppContact(selectedSize)}
                     className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-green-500 hover:bg-green-600 text-white text-xs rounded transition-colors whitespace-nowrap max-[320px]:px-1 max-[320px]:py-0.5"
                   >
                     <FaWhatsapp className="w-3 h-3 max-[320px]:w-2.5 max-[320px]:h-2.5" />
@@ -266,7 +303,7 @@ const ProductSizeSelector: React.FC<Props> = ({
                   Size {selectedSize} unavailable
                 </span>
                 <button
-                  onClick={() => onWhatsAppContact(selectedSize)}
+                  onClick={() => handleWhatsAppContact(selectedSize)}
                   className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-500 hover:bg-green-600 text-white text-xs rounded transition-colors whitespace-nowrap"
                 >
                   <FaWhatsapp className="w-3 h-3" />

@@ -19,6 +19,7 @@ import CheckoutSummary from "./components/CheckoutSummary";
 import CheckoutAddressSection from "./components/CheckoutAddressSection";
 import CheckoutPaymentSection from "./components/CheckoutPaymentSection";
 import CheckoutActions from "./components/CheckoutActions";
+import metaPixelEvents from '@/lib/utils/metaPixel';
 import { supabase } from "@lib/supabase";
 import { 
   getOtpIdentity, 
@@ -1166,6 +1167,21 @@ const productSavings = useMemo(() => {
       setPaymentStatus("success");
       setShowPaymentStatus(true);
       
+      // Track Purchase event with Meta Pixel for Razorpay payments
+      metaPixelEvents.purchase({
+        content_ids: cartItems.map(item => item.product_id),
+        content_type: 'product',
+        value: amountRupees,
+        currency: 'INR',
+        transaction_id: orderId,
+        num_items: cartItems.reduce((sum, item) => sum + item.quantity, 0),
+        contents: cartItems.map(item => ({
+          id: item.product_id,
+          quantity: item.quantity,
+          item_price: item.price
+        }))
+      });
+      
       // Guest session will be cleared when modal is closed
       // Cart cleared after modal close
     } catch (err) {
@@ -1568,6 +1584,21 @@ const productSavings = useMemo(() => {
         setPaymentStatus("success");
         setShowPaymentStatus(true);
         
+        // Track Purchase event with Meta Pixel
+        metaPixelEvents.purchase({
+          content_ids: cartItems.map(item => item.product_id),
+          content_type: 'product',
+          value: totalAmount,
+          currency: 'INR',
+          transaction_id: actualOrderId || orderId,
+          num_items: cartItems.reduce((sum, item) => sum + item.quantity, 0),
+          contents: cartItems.map(item => ({
+            id: item.product_id,
+            quantity: item.quantity,
+            item_price: item.price
+          }))
+        });
+        
         // Clear guest session after modal is closed, not immediately
         return;
       }
@@ -1932,6 +1963,8 @@ const productSavings = useMemo(() => {
                 mrpTotal={displayMRPTotal}
                 darkMode={isDarkMode}
                 productDiscounts={productDiscounts}
+                codFee={codFee}
+                selectedPayment={selectedPayment}
               />
 
               <CheckoutActions

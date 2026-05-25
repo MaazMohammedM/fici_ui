@@ -68,7 +68,7 @@ const getEnabledSubCategoryOptions = (selectedCategories: string[]) => {
 
 const SORT_OPTIONS = [
   { value: null, label: "Sort by" },
-  { value: "stock_high_to_low", label: "Stock: High to Low" },
+  // { value: "stock_high_to_low", label: "Stock: High to Low" },
   { value: "price_low_to_high", label: "Price: Low to High" },
   { value: "price_high_to_low", label: "Price: High to Low" },
 ];

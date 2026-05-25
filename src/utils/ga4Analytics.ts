@@ -97,11 +97,16 @@ export const trackSizeSelection = (product: {
   product_id?: string;
   article_id?: string;
   name?: string;
+  category?: string;
+  sub_category?: string;
+  gender?: string;
 }, size: string, additionalParams: GA4EventParams = {}) => {
   trackEvent('select_size', {
-    product_id: product.product_id || product.article_id,
-    product_name: product.name,
-    size: size,
+    item_id: product.product_id || product.article_id,
+    item_name: product.name,
+    item_category: product.category || product.sub_category,
+    item_variant: size,
+    custom_size: size,
     ...additionalParams,
   });
 };
