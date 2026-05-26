@@ -6,6 +6,7 @@ import { useAuthStore } from '@store/authStore';
 import { validateCartItemStock } from '@lib/stock/stockValidator';
 import { showAlert } from '@lib/utils/alertUtils';
 import metaPixelEvents from '@/lib/utils/metaPixel';
+import { trackWishlist } from '@utils/productEventTracker';
 import type { ProductDetail } from '../../../types/product';
 
 interface UseProductActionsOptions {
@@ -169,7 +170,26 @@ export const useProductActions = ({
         setIsWishlisted(false);
         setSuccessMessageType('wishlist_remove');
         setShowSuccessMessage(true);
-        
+
+        // Track wishlist removal
+        let thumbnailUrl = selectedVariant?.thumbnail_url || selectedVariant?.images?.[0] || '';
+        if (thumbnailUrl.includes('supabase-proxy.furqhaanmohammed001.workers.dev')) {
+          thumbnailUrl = thumbnailUrl.replace(
+            'https://supabase-proxy.furqhaanmohammed001.workers.dev',
+            'https://qegaebazravcwofibtry.supabase.co'
+          );
+        }
+
+        trackWishlist({
+          product_id: selectedVariant.product_id,
+          article_id: currentProduct.article_id,
+          product_name: selectedVariant?.name || currentProduct.name,
+          category: currentProduct.category,
+          sub_category: currentProduct.sub_category,
+          gender: currentProduct.gender,
+          thumbnail_url: thumbnailUrl,
+        }, 'remove');
+
         // Auto-close after 3 seconds
         setTimeout(() => {
           setShowSuccessMessage(false);
@@ -198,7 +218,26 @@ export const useProductActions = ({
         setIsWishlisted(true);
         setSuccessMessageType('wishlist_add');
         setShowSuccessMessage(true);
-        
+
+        // Track wishlist addition
+        let thumbnailUrl = selectedVariant?.thumbnail_url || selectedVariant?.images?.[0] || '';
+        if (thumbnailUrl.includes('supabase-proxy.furqhaanmohammed001.workers.dev')) {
+          thumbnailUrl = thumbnailUrl.replace(
+            'https://supabase-proxy.furqhaanmohammed001.workers.dev',
+            'https://qegaebazravcwofibtry.supabase.co'
+          );
+        }
+
+        trackWishlist({
+          product_id: selectedVariant.product_id,
+          article_id: currentProduct.article_id,
+          product_name: selectedVariant?.name || currentProduct.name,
+          category: currentProduct.category,
+          sub_category: currentProduct.sub_category,
+          gender: currentProduct.gender,
+          thumbnail_url: thumbnailUrl,
+        }, 'add');
+
         // Auto-close after 3 seconds
         setTimeout(() => {
           setShowSuccessMessage(false);

@@ -5,7 +5,7 @@ import { useAuthStore } from '@store/authStore';
 import { trackProductViewOnce } from '../../../lib/utils/analytics';
 import { trackEvent } from '@utils/ga4Analytics';
 import metaPixelEvents from '@/lib/utils/metaPixel';
-import { trackProductView as trackProductViewEvent, resetTrackingState, trackWishlist } from '@utils/productEventTracker';
+import { trackProductView as trackProductViewEvent, resetTrackingState } from '@utils/productEventTracker';
 import SEOHead from '@lib/components/SEOHead';
 import {
   getActiveProductDiscountsForProducts,
@@ -200,42 +200,6 @@ const ProductDetailPage: React.FC = () => {
       (window as any).__pageLoadTime = Date.now();
     }
   }, []);
-
-  // Track wishlist changes (skip initial load, only track actual user toggles)
-  const wishlistInitializedRef = useRef(false);
-  useEffect(() => {
-    // Skip tracking during initial load
-    if (!wishlistInitializedRef.current) {
-      wishlistInitializedRef.current = true;
-      return;
-    }
-
-    // Skip tracking in development environments
-    if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.hostname.includes('netlify'))) {
-      return;
-    }
-
-    if (currentProduct?.article_id && productVariant.selectedVariant?.product_id && productActions.isWishlisted !== undefined) {
-      // Convert thumbnail URL to original Supabase URL for better tracking
-      let thumbnailUrl = productVariant.selectedVariant?.thumbnail_url || productVariant.selectedVariant?.images?.[0] || '';
-      if (thumbnailUrl.includes('supabase-proxy.furqhaanmohammed001.workers.dev')) {
-        thumbnailUrl = thumbnailUrl.replace(
-          'https://supabase-proxy.furqhaanmohammed001.workers.dev',
-          'https://qegaebazravcwofibtry.supabase.co'
-        );
-      }
-
-      trackWishlist({
-        product_id: productVariant.selectedVariant.product_id,
-        article_id: currentProduct.article_id,
-        product_name: productVariant.selectedVariant?.name || currentProduct.name,
-        category: currentProduct.category,
-        sub_category: currentProduct.sub_category,
-        gender: currentProduct.gender,
-        thumbnail_url: thumbnailUrl,
-      }, productActions.isWishlisted ? 'add' : 'remove');
-    }
-  }, [productActions.isWishlisted, currentProduct?.article_id, productVariant.selectedVariant?.product_id, currentProduct?.name, currentProduct?.category, currentProduct?.sub_category, currentProduct?.gender, productVariant.selectedVariant?.name, productVariant.selectedVariant?.thumbnail_url, productVariant.selectedVariant?.images]);
 
   // Track ViewContent with Meta Pixel when product loads
   useEffect(() => {

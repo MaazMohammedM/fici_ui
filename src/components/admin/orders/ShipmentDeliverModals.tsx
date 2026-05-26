@@ -1,4 +1,5 @@
 import React from 'react';
+import { Edit } from 'lucide-react';
 import type { Order, OrderItem } from '../../../types/order-common';
 import { getThumbnailUrl } from '../../../lib/utils/imageOptimization';
 import type { ShipmentFormState } from '../../../types/adminOrders';
@@ -182,6 +183,139 @@ export const ShipmentModal: React.FC<ShipmentModalProps> = ({
             className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
           >
             {isSubmitting ? 'Shipping...' : `Ship ${selectedItemsForShip.length} Item(s)`}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ─── EditShippingModal ───────────────────────────────────────────── */
+interface EditShippingModalProps {
+  isOpen: boolean;
+  item: OrderItem | null;
+  shipmentForm: ShipmentFormState;
+  setShipmentForm: React.Dispatch<React.SetStateAction<ShipmentFormState>>;
+  showCustomPartnerInput: boolean;
+  setShowCustomPartnerInput: React.Dispatch<React.SetStateAction<boolean>>;
+  onClose: () => void;
+  onSubmit: () => Promise<void>;
+  processingAction: string | null;
+}
+
+export const EditShippingModal: React.FC<EditShippingModalProps> = ({
+  isOpen,
+  item,
+  shipmentForm,
+  setShipmentForm,
+  showCustomPartnerInput,
+  setShowCustomPartnerInput,
+  onClose,
+  onSubmit,
+  processingAction,
+}) => {
+  if (!isOpen || !item) return null;
+
+  const isSubmitting = processingAction?.includes('edit-shipment') ?? false;
+
+  const isShippingPartnerValid = showCustomPartnerInput
+    ? shipmentForm.shipping_partner &&
+      shipmentForm.shipping_partner !== 'other' &&
+      shipmentForm.shipping_partner.trim() !== ''
+    : Boolean(shipmentForm.shipping_partner);
+
+  const submitDisabled =
+    isSubmitting ||
+    !isShippingPartnerValid ||
+    !shipmentForm.tracking_id;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+      <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4 my-8">
+        <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Edit Shipping Details</h3>
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">{item.product_name}</p>
+
+        {/* Shipping Details */}
+        <div className="space-y-4 mb-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Shipping Partner *
+            </label>
+            <select
+              value={shipmentForm.shipping_partner}
+              onChange={(e) => {
+                const value = e.target.value;
+                setShipmentForm((prev) => ({ ...prev, shipping_partner: value }));
+                setShowCustomPartnerInput(value === 'other');
+              }}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+            >
+              <option value="">Select Partner</option>
+              <option value="stcourier">ST Courier</option>
+              <option value="professional">Professional</option>
+              <option value="dtdc">DTDC</option>
+              <option value="india_post">India Post</option>
+              <option value="shree_maruti">Shree Maruti</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+
+          {showCustomPartnerInput && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Custom Shipping Partner Name *
+              </label>
+              <input
+                type="text"
+                value={shipmentForm.shipping_partner === 'other' ? '' : shipmentForm.shipping_partner}
+                onChange={(e) => setShipmentForm((prev) => ({ ...prev, shipping_partner: e.target.value }))}
+                placeholder="Enter shipping partner name"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+              />
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Tracking ID *
+            </label>
+            <input
+              type="text"
+              value={shipmentForm.tracking_id}
+              onChange={(e) => setShipmentForm((prev) => ({ ...prev, tracking_id: e.target.value }))}
+              placeholder="Enter tracking ID"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Tracking URL (Optional)
+            </label>
+            <input
+              type="url"
+              value={shipmentForm.tracking_url}
+              onChange={(e) => setShipmentForm((prev) => ({ ...prev, tracking_url: e.target.value }))}
+              placeholder="https://tracking.partner.com/track/..."
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+            />
+          </div>
+        </div>
+
+        <div className="flex gap-3">
+          <button
+            onClick={onClose}
+            disabled={isSubmitting}
+            className="flex-1 px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onSubmit}
+            disabled={submitDisabled}
+            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          >
+            {isSubmitting ? 'Updating...' : 'Update Details'}
           </button>
         </div>
       </div>

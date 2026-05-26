@@ -40,7 +40,7 @@ import {
 
 import { OrderCard }          from '../../../components/admin/orders/OrderCard';
 import { OrderDetailsModal }  from '../../../components/admin/orders/OrderDetailsModal';
-import { ShipmentModal, DeliverModal } from '../../../components/admin/orders/ShipmentDeliverModals';
+import { ShipmentModal, DeliverModal, EditShippingModal } from '../../../components/admin/orders/ShipmentDeliverModals';
 import { CancelItemsModal }   from '../../../components/admin/orders/CancelItemsModal';
 import { RefundModal }        from '../../../components/admin/orders/RefundModal';
 
@@ -58,6 +58,7 @@ const AdminOrderDashboard: React.FC = () => {
   const [showDeliverModal,      setShowDeliverModal]      = useState(false);
   const [showRefundModal,       setShowRefundModal]       = useState(false);
   const [showCancelModal,       setShowCancelModal]       = useState(false);
+  const [showEditShippingModal, setShowEditShippingModal] = useState(false);
 
   // ── Cancel state ──────────────────────────────────────────
   const [cancelReason,          setCancelReason]          = useState('');
@@ -68,6 +69,13 @@ const AdminOrderDashboard: React.FC = () => {
   const [selectedItemForAction, setSelectedItemForAction] = useState<OrderItem | null>(null);
   const [refundType,            setRefundType]            = useState<'full' | 'partial'>('full');
   const [refundAmount,          setRefundAmount]          = useState('');
+
+  // ── Edit shipping state ────────────────────────────────────
+  const [selectedItemForEditShipping, setSelectedItemForEditShipping] = useState<OrderItem | null>(null);
+  const [editShipmentForm,      setEditShipmentForm]      = useState<ShipmentFormState>({
+    shipping_partner: '', tracking_id: '', tracking_url: '',
+  });
+  const [showCustomPartnerInputForEdit, setShowCustomPartnerInputForEdit] = useState(false);
 
   // ── Confirm state ─────────────────────────────────────────
   const [confirmAction,         setConfirmAction]         = useState<ConfirmActionState | null>(null);
@@ -100,7 +108,7 @@ const AdminOrderDashboard: React.FC = () => {
     fetchOrders, setOrdersPage, setStatusFilter, setSearchTerm,
     returns, returnsLoading, processingAction, fetchReturns,
     updateReturnStatus, updateOrderStatus,
-    handleUpdateShipment, handleUpdateDeliver,
+    handleUpdateShipment, handleUpdateDeliver, handleUpdateItemShipment,
     error, success,
   } = useAdminStore();
 
@@ -356,6 +364,38 @@ const AdminOrderDashboard: React.FC = () => {
     setShowRefundModal(true);
   };
 
+  const openEditShippingModal = (item: OrderItem) => {
+    setSelectedItemForEditShipping(item);
+    setEditShipmentForm({
+      shipping_partner: item.shipping_partner || '',
+      tracking_id: item.tracking_id || '',
+      tracking_url: item.tracking_url || '',
+    });
+    setShowCustomPartnerInputForEdit(
+      item.shipping_partner && !['stcourier', 'professional', 'dtdc', 'india_post', 'shree_maruti'].includes(item.shipping_partner.toLowerCase())
+    );
+    setShowEditShippingModal(true);
+  };
+
+  const handleUpdateItemShipmentWrapper = async () => {
+    if (!selectedItemForEditShipping?.order_item_id) {
+      showAlert('Please select an item to update', 'warning');
+      return;
+    }
+    const partnerInvalid = showCustomPartnerInputForEdit
+      ? !editShipmentForm.shipping_partner || editShipmentForm.shipping_partner === 'other' || !editShipmentForm.shipping_partner.trim()
+      : !editShipmentForm.shipping_partner;
+    if (partnerInvalid || !editShipmentForm.tracking_id) {
+      showAlert('Please enter shipping partner and tracking ID', 'warning');
+      return;
+    }
+    await handleUpdateItemShipment(selectedItemForEditShipping.order_item_id, editShipmentForm);
+    setShowEditShippingModal(false);
+    setSelectedItemForEditShipping(null);
+    setEditShipmentForm({ shipping_partner: '', tracking_id: '', tracking_url: '' });
+    setShowCustomPartnerInputForEdit(false);
+  };
+
   const stats = getOrderStats();
   const isLoadingCurrentTab = (ordersLoading && activeTab === 'orders') || (returnsLoading && activeTab === 'returns');
 
@@ -405,6 +445,7 @@ const AdminOrderDashboard: React.FC = () => {
                         onMarkReturned={handleMarkReplacementReturned}
                         onDownloadInvoice={handleDownloadInvoice}
                         onPrintPackaging={handlePrintPackaging}
+                        onEditShipping={openEditShippingModal}
                       />
                     );
                   })}
@@ -475,6 +516,18 @@ const AdminOrderDashboard: React.FC = () => {
         setSelectedItemsForDeliver={setSelectedItemsForDeliver}
         onClose={() => { setShowDeliverModal(false); setSelectedItemsForDeliver([]); }}
         onSubmit={handleUpdateDeliverWrapper}
+        processingAction={processingAction}
+      />
+
+      <EditShippingModal
+        isOpen={showEditShippingModal}
+        item={selectedItemForEditShipping}
+        shipmentForm={editShipmentForm}
+        setShipmentForm={setEditShipmentForm}
+        showCustomPartnerInput={showCustomPartnerInputForEdit}
+        setShowCustomPartnerInput={setShowCustomPartnerInputForEdit}
+        onClose={() => { setShowEditShippingModal(false); setSelectedItemForEditShipping(null); setEditShipmentForm({ shipping_partner: '', tracking_id: '', tracking_url: '' }); setShowCustomPartnerInputForEdit(false); }}
+        onSubmit={handleUpdateItemShipmentWrapper}
         processingAction={processingAction}
       />
 

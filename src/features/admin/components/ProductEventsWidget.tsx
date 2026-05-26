@@ -705,7 +705,7 @@ const ProductEventsWidget: React.FC = () => {
   const [loading,          setLoading]         = useState(true);
   const [error,            setError]           = useState<string | null>(null);
   const [filter,           setFilter]          = useState<'all' | ProductEvent['event_type']>('all');
-  const [isTableCollapsed, setIsTableCollapsed]= useState(false);
+  const [isTableCollapsed, setIsTableCollapsed]= useState(true);
 
   useEffect(() => { fetchEvents(); }, []);
 

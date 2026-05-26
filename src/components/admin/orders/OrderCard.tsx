@@ -1,5 +1,6 @@
 import React from 'react';
-import { Package, Truck, CheckCircle, XCircle, Clock, Eye, DollarSign, Ban, Upload, Box } from 'lucide-react';
+import { Package, Truck, CheckCircle, XCircle, Clock, Eye, DollarSign, Ban, Upload, Box, Edit } from 'lucide-react';
+import { FaWhatsapp } from 'react-icons/fa';
 import type { Order, OrderItem, OrderActionFlags } from '../../../types/order-common';
 import { canRefundOrder } from '../../../types/order-common';
 import {
@@ -26,8 +27,44 @@ interface OrderCardProps {
   onPrintInvoice?: (order: Order) => void;
   onDownloadInvoice?: (order: Order) => void;
   onPrintPackaging?: (order: Order) => void;
+  onEditShipping?: (item: OrderItem) => void;
   downloadingInvoiceId?: string;
 }
+
+// Helper function to format phone number for WhatsApp
+const formatPhoneNumber = (phone: string | undefined | null): string => {
+  if (!phone) return '';
+  // Remove all non-digit characters
+  const cleaned = phone.replace(/\D/g, '');
+  // If it starts with 0, replace with 91 (India country code)
+  if (cleaned.startsWith('0')) {
+    return '91' + cleaned.slice(1);
+  }
+  // If it doesn't start with 91, add it
+  if (!cleaned.startsWith('91')) {
+    return '91' + cleaned;
+  }
+  return cleaned;
+};
+
+// Helper function to generate WhatsApp message
+const generateWhatsAppMessage = (
+  productName: string,
+  shippingPartner: string | null,
+  trackingId: string | null,
+  trackingUrl: string | null
+): string => {
+  let message = `Dear Customer,\n\n`;
+  message += 'Your order item has been shipped!\n';
+  message += `Product: ${productName}\n`;
+  message += `Shipping Partner: ${shippingPartner || 'N/A'}\n`;
+  message += `Tracking ID: ${trackingId || 'N/A'}\n`;
+  if (trackingUrl) {
+    message += `Track your shipment: ${trackingUrl}\n`;
+  }
+  message += `\nThank you for shopping with FiCi Shoes!`;
+  return encodeURIComponent(message);
+};
 
 const ItemActions: React.FC<{
   item: OrderItem;
@@ -147,6 +184,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
   onPrintInvoice,
   onDownloadInvoice,
   onPrintPackaging,
+  onEditShipping,
   downloadingInvoiceId,
 }) => {
   const isShippingAddress = (address: unknown): address is import('../../../types/order-common').ShippingAddress =>
@@ -247,13 +285,52 @@ export const OrderCard: React.FC<OrderCardProps> = ({
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium">{item.product_name}</p>
+                    <div className="flex items-start gap-2">
+                      <p className="font-medium">{item.product_name}</p>
+                      {item.item_status === 'shipped' && item.shipping_partner && item.tracking_id && (
+                        <a
+                          href={`https://wa.me/${formatPhoneNumber(order.guest_phone || (typeof order.shipping_address === 'object' && order.shipping_address?.phone) || '')}?text=${generateWhatsAppMessage(
+                            item.product_name || 'Product',
+                            item.shipping_partner,
+                            item.tracking_id,
+                            item.tracking_url
+                          )}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-green-500 hover:text-green-600 flex-shrink-0"
+                          title="Send shipping details via WhatsApp"
+                        >
+                          <FaWhatsapp className="w-4 h-4" />
+                        </a>
+                      )}
+                    </div>
                     <p className="text-gray-500">
                       Size: {item.size} | Qty: {item.quantity} | Status:
                       <span className={`ml-1 inline-block px-2 py-0.5 rounded-full text-xs font-medium ${getItemStatusClass(item.item_status || '')}`}>
                         {getItemStatusLabel(item.item_status || '')}
                       </span>
                     </p>
+                      <div className="flex flex-wrap items-center gap-x-2 text-xs text-gray-600 dark:text-gray-400 mt-1">
+                        <div className="flex items-center gap-1">
+                          <span className="font-medium">Courier:</span> {item.shipping_partner || 'N/A'}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="font-medium">Tracking:</span> {item.tracking_id || 'N/A'}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="font-medium">Tracking URL:</span> {item.tracking_url || 'N/A'}
+                        </div>
+                        {item.item_status === 'shipped' && onEditShipping && (
+                          <button
+                            onClick={() => onEditShipping(item)}
+                            className="text-blue-500 hover:text-blue-600 flex items-center gap-1"
+                            title="Edit shipping details"
+                          >
+                            <Edit className="w-4 h-4" /> Edit
+                          </button>
+                        )}
+                      </div>
+                    
                     <ItemActions
                       item={item}
                       order={order}

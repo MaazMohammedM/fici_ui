@@ -1,3 +1,38 @@
+// packagingLabelPdf.ts
+// ─────────────────────────────────────────────────────────────────────────────
+// Professional Packaging Label PDF Generator
+// Pure jsPDF vector output — no rasterisation, no html2canvas.
+// One A4 landscape page per order.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// DEVELOPER-EDITABLE PADDING CONSTANTS (all values in mm)
+// ═══════════════════════════════════════════════════════════════════════════════
+/** Left inner padding inside the label boundary */
+const PAD_LEFT   = 12;
+/** Right inner padding inside the label boundary */
+const PAD_RIGHT  = 12;
+/** Top inner padding inside the label boundary (below header band) */
+const PAD_TOP    = 10;
+/** Bottom inner padding inside the label boundary (above footer) */
+const PAD_BOTTOM = 10;
+
+// Convenience shorthand used internally — match 1mg's compact but readable layout
+const PAD_H = PAD_LEFT;  // horizontal pad alias used in older helpers
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECTION SPACING CONSTANTS (all values in mm)
+// ═══════════════════════════════════════════════════════════════════════════════
+const SECTION_SPACING = 4;       // Spacing between major sections
+const BARCODE_SPACING = 6;       // Spacing around barcode section
+const ADDRESS_LINE_H = 4.5;      // Line height for address text
+const FOOTER_HEIGHT = 28;        // Fixed footer height
+const FOOTER_SPACING = 8;        // Spacing above footer
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// TYPES
+// ═══════════════════════════════════════════════════════════════════════════════
+
 export type LabelPdf = {
   setFont:         (family: string, style: string) => void;
   setFontSize:     (size: number) => void;
@@ -14,18 +49,18 @@ export type LabelPdf = {
   internal:        { pageSize: { getWidth: () => number; getHeight: () => number } };
 };
 
-/** Subset of InvoiceData the label renderer needs.  Full InvoiceData is compatible. */
+/** Subset of InvoiceData the label renderer needs. Full InvoiceData is compatible. */
 export interface LabelInvoiceData {
-  orderId:        string;
-  invoiceNumber:  string;
-  orderDate:      string;
-  invoiceDate:    string;
-  paymentMethod:  string;
-  status:         string;
+  orderId:         string;
+  invoiceNumber:   string;
+  orderDate:       string;
+  invoiceDate:     string;
+  paymentMethod:   string;
+  status:          string;
   effectiveAmount: number;
-  discount:       number;
-  deliveryCharge: number;
-  grandTotal:     number;
+  discount:        number;
+  deliveryCharge:  number;
+  grandTotal:      number;
   customer: {
     name:   string;
     email?: string;
@@ -42,18 +77,21 @@ export interface LabelInvoiceData {
     landmark?: string;
   };
   items: Array<{
-    name:      string;
-    size?:     string;
-    color?:    string;
-    quantity:  number;
-    total:     number;
+    name:     string;
+    size?:    string;
+    color?:   string;
+    quantity: number;
+    total:    number;
   }>;
 }
 
-// ─── Seller constants ─────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// SELLER CONSTANTS
+// ═══════════════════════════════════════════════════════════════════════════════
 
 const SELLER = {
   name:       'Fici Shoes',
+  city:       'Ambur 635802',
   gstin:      '33BMAPM8509H1Z4',
   address:    'No.20, 1st Floor, Broad Bazaar, Flower Bazaar Lane, Ambur - 635802, Tamil Nadu.',
   phone:      '8122003006',
@@ -61,28 +99,25 @@ const SELLER = {
   gstRate:    5,
 } as const;
 
-// ─── Page / label geometry ────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// PAGE / LABEL GEOMETRY
+// ═══════════════════════════════════════════════════════════════════════════════
 
 /** A4 landscape page dimensions (mm) */
-const PAGE_W  = 297;
-const PAGE_H  = 210;
+const PAGE_W = 297;
+const PAGE_H = 210;
 
 /**
  * Each label occupies exactly half the A4 page width.
  * ONE label per page: 148.5 × 210 mm.
  */
-export const LABEL_W  = 148.5;   // mm  — label width  = page width / 2
-export const LABEL_H  = 210;     // mm  — label height = page height
+export const LABEL_W = 148.5;   // mm  — label width  = page width / 2
+export const LABEL_H = 210;     // mm  — label height = page height
 
-/** Inner horizontal padding inside each label */
-const PAD = 5; // mm
+// ═══════════════════════════════════════════════════════════════════════════════
+// CODE128-B BARCODE ENGINE — pure vector, sharp at any zoom/print resolution
+// ═══════════════════════════════════════════════════════════════════════════════
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CODE128-B BARCODE ENGINE
-// Pure vector: black filled rectangles, no images, sharp at any resolution.
-// ─────────────────────────────────────────────────────────────────────────────
-
-/** CODE128-B bar/space width patterns, indexed by symbol value (0-106). */
 const C128: Record<number, string> = {
   0:'212222',  1:'222122',  2:'222221',  3:'121223',  4:'121322',  5:'131222',
   6:'122213',  7:'122312',  8:'132212',  9:'221213', 10:'221312', 11:'231212',
@@ -104,16 +139,6 @@ const C128: Record<number, string> = {
   102:'411131',103:'211412',104:'211214',105:'211232',106:'233111',
 };
 
-/**
- * drawBarcode — renders a CODE128-B barcode as pure black vector rectangles.
- *
- * @param pdf   LabelPdf instance
- * @param text  ASCII string to encode (chars 32-126)
- * @param x     left edge of barcode area (mm)
- * @param y     top edge of barcode area (mm)
- * @param w     total barcode width (mm) — auto-scales, never overflows
- * @param h     bar height (mm)
- */
 export function drawBarcode(
   pdf:  LabelPdf,
   text: string,
@@ -124,48 +149,39 @@ export function drawBarcode(
 ): void {
   const START_B = 104;
   const STOP    = 106;
-
-  // Build symbol list: START_B + data + checksum + STOP
   const codes: number[] = [START_B];
-  for (let i = 0; i < text.length; i++) {
-    codes.push(text.charCodeAt(i) - 32);
-  }
+  for (let i = 0; i < text.length; i++) codes.push(text.charCodeAt(i) - 32);
   let checksum = START_B;
-  for (let i = 0; i < text.length; i++) {
-    checksum += (text.charCodeAt(i) - 32) * (i + 1);
-  }
+  for (let i = 0; i < text.length; i++) checksum += (text.charCodeAt(i) - 32) * (i + 1);
   codes.push(checksum % 103);
   codes.push(STOP);
 
-  // Build pattern string
   let pattern = '';
   for (const code of codes) pattern += C128[code] ?? '';
 
-  // Total module count → per-module width so barcode fills exactly w
   let totalModules = 0;
   for (const ch of pattern) totalModules += Number(ch);
   if (totalModules === 0) return;
   const modW = w / totalModules;
 
-  // Render: odd position = bar (filled black), even = space (skip)
   pdf.setFillColor(0, 0, 0);
   let curX = x;
   let isBar = true;
   for (const ch of pattern) {
     const bw = Number(ch) * modW;
     if (isBar) {
-      (pdf as unknown as { rect: (x: number, y: number, w: number, h: number, s: string) => void })
-        .rect(curX, y, bw, h, 'F');
+      (pdf as unknown as {
+        rect: (x: number, y: number, w: number, h: number, s: string) => void;
+      }).rect(curX, y, bw, h, 'F');
     }
     curX += bw;
     isBar = !isBar;
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// LAYOUT HELPER LIBRARY
-// All helpers are pure functions: receive pdf + geometry, draw, return new Y.
-// ─────────────────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// LAYOUT PRIMITIVES
+// ═══════════════════════════════════════════════════════════════════════════════
 
 /**
  * drawWrappedText — wraps `text` to `maxW` mm and draws it.
@@ -231,7 +247,7 @@ export function drawSection(
   pdf.setFont('helvetica', 'bold');
   pdf.setFontSize(7);
   pdf.setTextColor(255, 255, 255);
-  pdf.text(label, lx + PAD, y + bh - 2.0);
+  pdf.text(label, lx + PAD_LEFT, y + bh - 2.0);
   return y + bh;
 }
 
@@ -292,548 +308,467 @@ function caption(
   pdf.text(text.toUpperCase(), x, y);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// calculateDynamicHeights
-// Pre-measures every section so drawPackagingLabel knows how tall each block
-// is before drawing — critical for keeping everything inside LABEL_H = 105 mm.
-// ─────────────────────────────────────────────────────────────────────────────
-
-interface SectionHeights {
-  header:    number;  // brand + invoice meta band
-  meta:      number;  // order-id / date / payment strip
-  barcode:   number;  // barcode + human-readable text
-  deliverTo: number;  // recipient address block
-  payment:   number;  // COD box or PAID stamp
-  items:     number;  // item rows
-  totals:    number;  // summary rows
-  footer:    number;  // return addr + notice
+function fmtAmt(amount: number): string {
+  return new Intl.NumberFormat('en-IN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(amount);
 }
 
-export function calculateDynamicHeights(
-  pdf:     LabelPdf,
-  invoice: LabelInvoiceData,
-): SectionHeights {
-  const iW     = LABEL_W - PAD * 2;
-  const addr   = invoice.shippingAddress;
-  const isCOD  = invoice.paymentMethod.toLowerCase().includes('cod');
-  const lineH  = 4.0;
+// ═══════════════════════════════════════════════════════════════════════════════
+// drawPackagingLabel — renders ONE complete shipping label
+// ═══════════════════════════════════════════════════════════════════════════════
 
-  // Address block
-  const addrStr  = addr.address;
-  const addrH    = measureTextHeight(pdf, addrStr, iW, lineH);
-  const phoneH   = (addr.phone || invoice.customer.phone) ? lineH : 0;
-  const landmarkH = addr.landmark ? measureTextHeight(pdf, `Landmark: ${addr.landmark}`, iW, lineH) : 0;
-  const deliverTo =
-    6.5 +          // section band
-    2 +            // top pad
-    5.5 +          // name line (bold, bigger)
-    2.5 +          // name->addr gap (increased from 1.5 to prevent overlap)
-    addrH +
-    lineH +        // city/state
-    lineH +        // pincode/country
-    phoneH +
-    landmarkH +
-    3;             // bottom pad
-
-  // Items block
-  const itemHdrH = 6;
-  let itemsH = itemHdrH;
-  for (const item of invoice.items) {
-    const desc  = `${item.name}${item.size ? ` (${item.size})` : ''}`;
-    const lines = pdf.splitTextToSize(desc, iW * 0.60 - 1).length;
-    itemsH += lines * 3.8 + 3.5;   // row height per item
-  }
-
-  // Totals block
-  const hasDiscount = Number(invoice.discount) > 0;
-  const hasShipping = Number(invoice.deliveryCharge) > 0;
-  const summaryCount = 1             // grand total always
-    + (hasDiscount ? 1 : 0)
-    + (hasShipping ? 1 : 0)
-    + (isCOD       ? 1 : 0);         // COD fee row
-  const totalsH = summaryCount * 5.0 + 3;
-
-  return {
-    header:    9,
-    meta:      13,
-    barcode:   4 + 14 + 5,   // top-pad + bars + text (updated for taller barcode)
-    deliverTo,
-    payment:   10,
-    items:     itemsH,
-    totals:    totalsH,
-    footer:    16,
-  };
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// drawPackagingLabel
-// Draws ONE complete shipping label into the given bounding box.
-// Every section flows dynamically; no absolute Y assumptions beyond startY.
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Renders one premium B&W shipping label.
- *
- * @param pdf      LabelPdf instance
- * @param invoice  Order data
- * @param startX   Left edge of label on the page (mm)
- * @param startY   Top edge of label on the page (mm)
- */
 export function drawPackagingLabel(
-  pdf:     LabelPdf,
+  pdf: LabelPdf,
   invoice: LabelInvoiceData,
-  startX:  number,
-  startY:  number,
+  startX: number,
+  startY: number,
 ): void {
-  // ── Geometry shorthands ────────────────────────────────────────────────────
-  const LX   = startX;
-  const LY   = startY;
-  const LW   = LABEL_W;
-  const LH   = LABEL_H;
-  const RX   = LX + LW;
-  const BY   = LY + LH;          // bottom y of label
-  const iLX  = LX + PAD;        // inner left
-  const iRX  = RX - PAD;        // inner right
-  const iW   = LW - PAD * 2;    // inner width
 
-  const shortId  = invoice.orderId.replace(/-/g, '').slice(-12).toUpperCase();
-  const isCOD    = invoice.paymentMethod.toLowerCase().includes('cod');
-  const addr     = invoice.shippingAddress;
+  const LX = startX;
+  const LY = startY;
+  const LW = LABEL_W;
+  const LH = LABEL_H;
 
-  // White background for this label slot
+  const RX = LX + LW;
+  const BY = LY + LH;
+
+  const iLX = LX + PAD_LEFT;
+  const iRX = RX - PAD_RIGHT;
+  const iW = LW - PAD_LEFT - PAD_RIGHT;
+
+  const shortId = invoice.orderId.replace(/-/g, '').slice(-12).toUpperCase();
+
+  const isCOD =
+    invoice.paymentMethod.toLowerCase().includes('cod');
+
+  const addr = invoice.shippingAddress;
+
+  // Background
   pdf.setFillColor(255, 255, 255);
   pdf.rect(LX, LY, LW, LH, 'F');
 
-  // Outer border — 0.5 pt black, crisp on all printers
   outlineRect(pdf, LX, LY, LW, LH, 0, 0.5);
 
-  let y = LY; // running Y cursor
+  // =========================================================
+  // HEADER
+  // =========================================================
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // SECTION A — Header band
-  // Left: FICI SHOES (white bold) + "SHIPPING LABEL" caption
-  // Right: Invoice # and order date
-  // ══════════════════════════════════════════════════════════════════════════
-  const HDR_H = 9; // mm
-  pdf.setFillColor(0, 0, 0);
-  pdf.rect(LX, y, LW, HDR_H, 'F');
+  let y = LY + PAD_TOP;
 
-  // Brand name
-  pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(10.5);
-  pdf.setTextColor(255, 255, 255);
-  pdf.text(SELLER.name.toUpperCase(), iLX, y + 6.5);
-
-  // Right-side meta (invoice # + date), smaller
-  pdf.setFont('helvetica', 'normal');
-  pdf.setFontSize(6);
-  pdf.setTextColor(210, 210, 210);
-  pdf.text('SHIPPING LABEL', iRX, y + 3.5, { align: 'right' });
-  pdf.setFontSize(6.5);
-  pdf.text(`INV: ${invoice.invoiceNumber}`, iRX, y + 7.5, { align: 'right' });
-
-  y += HDR_H;
-
-  // ══════════════════════════════════════════════════════════════════════════
-  // SECTION B — Meta strip  (2 columns for narrower label, gray background)
-  // Col 1: SHIP FROM seller   Col 2: ORDER ID + PAYMENT
-  // ══════════════════════════════════════════════════════════════════════════
-  const META_H   = 13; // mm
-  const COL_W    = iW / 2;
-
-  pdf.setFillColor(247, 247, 247);
-  pdf.rect(LX, y, LW, META_H, 'F');
-  hRule(pdf, y, LX, RX, 0, 0.3);
-
-  // ── Col 1: SHIP FROM ──────────────────────────────────────────────────────
-  caption(pdf, 'SHIP FROM', iLX, y + 4);
-  pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(7.5);
-  pdf.setTextColor(0);
-  pdf.text(fitSingleLine(pdf, SELLER.name, COL_W - 2), iLX, y + 8.5);
-  pdf.setFont('helvetica', 'normal');
-  pdf.setFontSize(6.5);
-  pdf.setTextColor(60);
-  pdf.text(`Ph: ${SELLER.phone}`, iLX, y + 12.2);
-
-  // ── Divider ───────────────────────────────────────────────────────────────
-  const col2X = iLX + COL_W + 1;
-  vRule(pdf, iLX + COL_W, y + 2, y + META_H - 2, 200, 0.2);
-
-  // ── Col 2: ORDER ID & PAYMENT ───────────────────────────────────────────────
-  caption(pdf, 'ORDER ID', col2X, y + 4);
-  pdf.setFont('courier', 'bold');
-  pdf.setFontSize(7);
-  pdf.setTextColor(0);
-  pdf.text(fitSingleLine(pdf, shortId, COL_W - 2), col2X, y + 8.5);
-  
-  // Payment method on same line (smaller)
-  pdf.setFont('helvetica', 'normal');
-  pdf.setFontSize(5.5);
-  pdf.setTextColor(80);
-  pdf.text(isCOD ? 'COD' : invoice.paymentMethod.toUpperCase(), col2X, y + 12.2);
-
-  y += META_H;
-  hRule(pdf, y, LX, RX, 0, 0.3);
-
-  // ══════════════════════════════════════════════════════════════════════════
-  // SECTION C — Barcode  (CODE128-B vector, auto-width, pure black bars)
-  // ══════════════════════════════════════════════════════════════════════════
-  const BC_TOP = 4;    // top padding before bars
-  const BC_H   = 14;   // bar height mm — taller for 210 mm label
-  const BC_TXT = 5;    // space for human-readable text below bars
-
-  y += BC_TOP;
+  const headerH = 14;
 
   pdf.setFillColor(0, 0, 0);
-  drawBarcode(pdf, shortId, iLX, y, iW, BC_H);
+  pdf.rect(LX, y, LW, headerH, 'F');
 
-  // Human-readable text under barcode
-  pdf.setFont('courier', 'bold');
-  pdf.setFontSize(7);
-  pdf.setTextColor(0);
-  pdf.text(shortId, LX + LW / 2, y + BC_H + 3.5, { align: 'center' });
-
-  y += BC_H + BC_TXT + 1;
-  hRule(pdf, y, LX, RX, 180, 0.2);
-
-  // ══════════════════════════════════════════════════════════════════════════
-  // SECTION D — DELIVER TO  (recipient name + address block)
-  // Dynamic height — handles long addresses, landmarks, missing fields safely.
-  // ══════════════════════════════════════════════════════════════════════════
-  y = drawSection(pdf, 'DELIVER TO', LX, y, LW, 6.5);
-
-  y += 2; // top pad
-
-  // Recipient name — large bold (dominant visual hierarchy)
   pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(9.5);
-  pdf.setTextColor(0);
-  pdf.text(fitSingleLine(pdf, addr.name, iW), iLX, y + 5);
-  y += 8; // Increased from 6.5 to prevent overlap with address
+  pdf.setFontSize(13);
+  pdf.setTextColor(255);
+  pdf.text('FICI SHOES', iLX, y + 9);
 
-  // Address body
   pdf.setFont('helvetica', 'normal');
-  pdf.setFontSize(7.5);
-  pdf.setTextColor(25);
+  pdf.setFontSize(6.5);
 
-  const LINE_H = 4.0;
+  pdf.text('SHIPPING LABEL', iRX, y + 5, {
+    align: 'right',
+  });
 
-  const addrEnd = drawWrappedText(pdf, addr.address, iLX, y, iW, LINE_H);
-  y = addrEnd + LINE_H;
+  pdf.text(`INV: ${invoice.invoiceNumber}`, iRX, y + 10, {
+    align: 'right',
+  });
 
-  const cityState = `${addr.city}${addr.district ? ', ' + addr.district : ''}, ${addr.state}`;
-  pdf.text(cityState, iLX, y);
-  y += LINE_H;
+  y += headerH + SECTION_SPACING;
 
-  pdf.text(`${addr.pincode}  —  INDIA`, iLX, y);
-  y += LINE_H;
+  // =========================================================
+  // SHIP FROM + ORDER INFO
+  // =========================================================
 
-  const phone = addr.phone || invoice.customer.phone || '';
+  const metaTop = y;
+
+  const colGap = 8;
+  const leftW = (iW / 2) - colGap;
+  const rightX = iLX + leftW + colGap;
+
+  caption(pdf, 'SHIP FROM', iLX, metaTop + 3);
+
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(10);
+  pdf.setTextColor(0);
+  pdf.text('Fici Shoes', iLX, metaTop + 10);
+
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(8);
+  pdf.text('Ambur 635802', iLX, metaTop + 16);
+
+  pdf.text('Ph: 8122003006', iLX, metaTop + 22);
+
+  // Divider
+  vRule(pdf, LX + LW / 2, metaTop, metaTop + 26, 180, 0.25);
+
+  // RIGHT
+  caption(pdf, 'ORDER ID', rightX, metaTop + 3);
+
+  pdf.setFont('courier', 'bold');
+  pdf.setFontSize(10);
+  pdf.text(shortId, rightX, metaTop + 10);
+
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(8);
+
+  pdf.text(
+    isCOD ? 'CASH ON DELIVERY (COD)' : 'PREPAID',
+    rightX,
+    metaTop + 16,
+  );
+
+  const dateStr = new Date(invoice.orderDate)
+    .toLocaleDateString('en-IN', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
+
+  pdf.text(
+    `Order Date: ${dateStr}`,
+    rightX,
+    metaTop + 22,
+  );
+
+  y += 26 + SECTION_SPACING;
+
+  // =========================================================
+  // BARCODE
+  // =========================================================
+
+  hRule(pdf, y, LX, RX, 0, 0.35);
+
+  y += BARCODE_SPACING;
+
+  drawBarcode(
+    pdf,
+    shortId,
+    iLX + 10,
+    y,
+    iW - 20,
+    18,
+  );
+
+  pdf.setFont('courier', 'bold');
+  pdf.setFontSize(9);
+
+  pdf.text(
+    shortId,
+    LX + LW / 2,
+    y + 24,
+    {
+      align: 'center',
+    },
+  );
+
+  y += BARCODE_SPACING + 18 + 6;
+
+  // =========================================================
+  // DELIVER TO BAND
+  // =========================================================
+
+  pdf.setFillColor(0, 0, 0);
+  pdf.rect(LX, y, LW, 7, 'F');
+
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(8);
+  pdf.setTextColor(255);
+
+  pdf.text('DELIVER TO', iLX, y + 5);
+
+  y += 7 + SECTION_SPACING;
+
+  // =========================================================
+  // ADDRESS SECTION
+  // =========================================================
+
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(11);
+  pdf.setTextColor(0);
+
+  pdf.text(addr.name, iLX, y);
+
+  y += 6;
+
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(8.5);
+
+  const addressLines = pdf.splitTextToSize(
+    addr.address,
+    iW,
+  );
+
+  pdf.text(addressLines, iLX, y);
+
+  y += addressLines.length * ADDRESS_LINE_H;
+
+  pdf.text(
+    `${addr.city}, ${addr.state}`,
+    iLX,
+    y,
+  );
+
+  y += ADDRESS_LINE_H;
+
+  pdf.text(
+    `${addr.pincode}  —  INDIA`,
+    iLX,
+    y,
+  );
+
+  y += ADDRESS_LINE_H;
+
+  const phone =
+    addr.phone || invoice.customer.phone || '';
+
   if (phone) {
     pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(7.5);
     pdf.text(`Ph: ${phone}`, iLX, y);
-    y += LINE_H;
+    y += ADDRESS_LINE_H;
   }
 
   if (addr.landmark) {
     pdf.setFont('helvetica', 'italic');
-    pdf.setFontSize(7);
-    pdf.setTextColor(80);
-    const lmEnd = drawWrappedText(pdf, `Landmark: ${addr.landmark}`, iLX, y, iW, LINE_H);
-    y = lmEnd + LINE_H;
+    pdf.setFontSize(7.5);
+
+    const landmarkLines = pdf.splitTextToSize(
+      `Landmark: ${addr.landmark}`,
+      iW,
+    );
+
+    pdf.text(landmarkLines, iLX, y);
+
+    y += landmarkLines.length * ADDRESS_LINE_H;
   }
 
-  y += 2.5; // bottom pad
-  hRule(pdf, y, LX, RX, 0, 0.3);
+  y += SECTION_SPACING;
+  hRule(pdf, y, LX, RX, 0, 0.35);
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // SECTION E — Payment status badge (COD or PAID)
-  // Prominent, black border, bold text — no colour fills.
-  // ══════════════════════════════════════════════════════════════════════════
-  const PAY_H = 9.5;
-  y += 1;
+  // =========================================================
+  // PAYMENT BOX
+  // =========================================================
 
-  outlineRect(pdf, LX + PAD, y, LW - PAD * 2, PAY_H, 0, 0.5);
+  const PAY_H = 12;
+
+  outlineRect(
+    pdf,
+    iLX,
+    y,
+    iW,
+    12,
+    0,
+    0.45,
+  );
 
   if (isCOD) {
-    // Left: "CASH ON DELIVERY" label
-    pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(8);
-    pdf.setTextColor(0);
-    pdf.text('CASH ON DELIVERY', iLX + 2, y + PAY_H - 2.5);
 
-    // Right: amount to collect
     pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(8.5);
+    pdf.setFontSize(10);
+
+    pdf.text(
+      'CASH ON DELIVERY',
+      LX + LW / 2,
+      y + 5,
+      {
+        align: 'center',
+      },
+    );
+
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(12);
+
     pdf.text(
       `Rs. ${fmtAmt(invoice.effectiveAmount)}`,
-      iRX - 2,
-      y + PAY_H - 2.5,
-      { align: 'right' },
+      LX + LW / 2,
+      y + 10,
+      {
+        align: 'center',
+      },
     );
-
-    // Vertical divider
-    const midX = LX + LW / 2;
-    vRule(pdf, midX, y + 1.5, y + PAY_H - 1.5, 0, 0.2);
-
-    // Micro captions
-    pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(5.5);
-    pdf.setTextColor(100);
-    pdf.text('PAYMENT MODE', iLX + 2, y + 2.5);
-    pdf.text('AMOUNT TO COLLECT', midX + 2, y + 2.5);
 
   } else {
-    // PAID stamp
+
     pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(9.5);
-    pdf.setTextColor(0);
-    pdf.text('PAID', LX + LW / 2, y + PAY_H - 2, { align: 'center' });
+    pdf.setFontSize(7);
+
+    pdf.text(
+      `PREPAID`,
+      LX + LW / 2,
+      y + 4,
+      {
+        align: 'center',
+      },
+    );
 
     pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(6.5);
-    pdf.setTextColor(70);
+    pdf.setFontSize(11);
+
     pdf.text(
-      `${invoice.paymentMethod.toUpperCase()}  •  Rs. ${fmtAmt(invoice.effectiveAmount)}`,
+      'Payment already received. Do not collect any amount.',
       LX + LW / 2,
-      y + 3,
-      { align: 'center' },
+      y + 10,
+      {
+        align: 'center',
+      },
     );
   }
 
-  y += PAY_H + 1.5;
-  hRule(pdf, y, LX, RX, 0, 0.3);
+  y += PAY_H + SECTION_SPACING;
+  hRule(pdf, y, LX, RX, 0, 0.35);
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // SECTION F — Items table
-  // Dynamic rows; compact 3-column layout: Description | Qty | Amount
-  // ══════════════════════════════════════════════════════════════════════════
-  const COL_DESC = iW * 0.62;
-  const COL_QTY  = iW * 0.12;
-  // Amount column uses remaining width
-  const QTY_X    = iLX + COL_DESC;
-  const AMT_X    = iLX + COL_DESC + COL_QTY;
+  // =========================================================
+  // ITEMS TABLE
+  // =========================================================
 
-  y += 1;
+  pdf.setFillColor(25, 25, 25);
+  pdf.rect(LX, y, LW, 6, 'F');
 
-  // Header row — dark gray band
-  const ITM_HDR_H = 5.5;
-  pdf.setFillColor(30, 30, 30);
-  pdf.rect(LX, y, LW, ITM_HDR_H, 'F');
   pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(6.5);
-  pdf.setTextColor(255, 255, 255);
-  pdf.text('DESCRIPTION', iLX, y + ITM_HDR_H - 1.5);
-  pdf.text('QTY', QTY_X, y + ITM_HDR_H - 1.5);
-  pdf.text('AMOUNT', iRX, y + ITM_HDR_H - 1.5, { align: 'right' });
-  y += ITM_HDR_H;
+  pdf.setFontSize(7);
+  pdf.setTextColor(255);
 
-  const ROW_LH  = 3.8; // line height within a row
-  const ROW_PAD = 1.4; // top + bottom pad per row
+  pdf.text('DESCRIPTION', iLX, y + 4);
 
-  invoice.items.forEach((item, idx) => {
-    const desc       = `${item.name}${item.size ? ` (${item.size})` : ''}`;
-    const descLines  = pdf.splitTextToSize(desc, COL_DESC - 1);
-    const rowH       = descLines.length * ROW_LH + ROW_PAD * 2;
+  pdf.text('QTY', iRX - 10, y + 4);
 
-    // Alternating light row tint
-    if (idx % 2 === 0) {
-      pdf.setFillColor(251, 251, 251);
-      pdf.rect(LX, y, LW, rowH, 'F');
-    }
+  y += 6 + SECTION_SPACING;
 
-    // Description
+  invoice.items.forEach((item) => {
+
+    const desc =
+      `${item.name}${item.size ? ` (${item.size})` : ''}`;
+
+    const lines = pdf.splitTextToSize(
+      desc,
+      iW - 25,
+    );
+
+    const rowH =
+      Math.max(lines.length * 4.2, 8);
+
     pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(7);
-    pdf.setTextColor(20);
-    pdf.text(descLines, iLX, y + ROW_PAD + ROW_LH);
-
-    // Qty — centred in its column
-    pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(7);
+    pdf.setFontSize(7.5);
     pdf.setTextColor(0);
+
+    pdf.text(lines, iLX, y + 5);
+
+    pdf.setFont('helvetica', 'bold');
+
     pdf.text(
       String(item.quantity),
-      QTY_X + COL_QTY / 2,
-      y + ROW_PAD + ROW_LH,
-      { align: 'center' },
+      iRX - 8,
+      y + 5,
+      {
+        align: 'center',
+      },
     );
-
-    // Amount — right-aligned
-    pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(7);
-    pdf.setTextColor(0);
-    pdf.text(`Rs. ${fmtAmt(item.total)}`, iRX, y + ROW_PAD + ROW_LH, { align: 'right' });
 
     y += rowH;
-    hRule(pdf, y, LX, RX, 220, 0.15);
+
+    hRule(pdf, y, LX, RX, 210, 0.2);
   });
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // SECTION G — Totals summary
-  // Uses ONLY effective_amount as the final amount.
-  // GST is already included — we do NOT add it again.
-  // Discount row shown ONLY if discount > 0.
-  // ══════════════════════════════════════════════════════════════════════════
-  y += 2;
+  // =========================================================
+  // SUMMARY
+  // =========================================================
 
-  interface SummaryRow { label: string; value: string; bold?: boolean; }
-  const summaryRows: SummaryRow[] = [];
+  y += SECTION_SPACING;
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(10);  
+    // =========================================================
+  // FOOTER
+  // =========================================================
 
-  if (Number(invoice.discount) > 0) {
-    summaryRows.push({
-      label: 'Discount',
-      value: `- Rs. ${fmtAmt(invoice.discount)}`,
-    });
-  }
+  const footerTop = BY - FOOTER_HEIGHT - PAD_BOTTOM;
 
-  if (Number(invoice.deliveryCharge) > 0) {
-    summaryRows.push({
-      label: 'Shipping',
-      value: `Rs. ${fmtAmt(invoice.deliveryCharge)}`,
-    });
-  }
+  hRule(pdf, footerTop, LX, RX, 0, 0.35);
 
-  if (isCOD) {
-    summaryRows.push({ label: 'COD Fee', value: 'Rs. 0.00' });
-  }
+  let fy = footerTop + FOOTER_SPACING;
 
-  // Grand total — effective_amount, GST already inclusive
-  summaryRows.push({
-    label: 'TOTAL (incl. GST)',
-    value: `Rs. ${fmtAmt(invoice.effectiveAmount)}`,
-    bold:  true,
-  });
+  // Return address — left-aligned, clean format
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(7);
+  pdf.setTextColor(40);
+  const returnAddr = `Return: ${SELLER.name}, ${SELLER.address}`;
+  const returnAddrLines = pdf.splitTextToSize(returnAddr, iW);
+  pdf.text(returnAddrLines, iLX, fy);
+  fy += returnAddrLines.length * 4 + 3;
 
-  const SUM_LH = 4.8;
+  // GSTIN — left-aligned
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(7);
+  pdf.setTextColor(60);
+  pdf.text(`GSTIN: ${SELLER.gstin}`, iLX, fy);
+  fy += 4;
 
-  summaryRows.forEach((row) => {
-    const bold = row.bold ?? false;
+  // Website — right-aligned on same line as GSTIN
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(7);
+  pdf.setTextColor(60);
+  pdf.text(SELLER.contactUrl, iRX, fy - 4, { align: 'right' });
 
-    if (bold) {
-      hRule(pdf, y - 0.5, LX + PAD, RX - PAD, 0, 0.25);
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(8.5);
-    } else {
-      pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(7);
-    }
+  fy += 4;
 
-    pdf.setTextColor(bold ? 0 : 70);
-    pdf.text(row.label, iRX - 22, y + SUM_LH - 1, { align: 'right' });
-    pdf.setTextColor(0);
-    pdf.text(row.value, iRX, y + SUM_LH - 1, { align: 'right' });
+  // Legal note 1 — centered
+  pdf.setFont('helvetica', 'italic');
+  pdf.setFontSize(6.5);
+  pdf.setTextColor(100);
+  pdf.text(
+    'Computer generated document. No signature required.',
+    LX + LW / 2,
+    fy,
+    { align: 'center' },
+  );
+  fy += 3.5;
 
-    y += SUM_LH;
-  });
-
-  // ══════════════════════════════════════════════════════════════════════════
-  // SECTION H — Footer
-  // Return address | GSTIN | "Computer generated" notice | Policy
-  // Compact, minimal ink, print-safe.
-  // ══════════════════════════════════════════════════════════════════════════
-  // Pin footer to bottom of label slot; the exact y position is flexible.
-  // We use BY (bottom of label) minus a fixed footer height.
-  const FOOTER_H = 15;
-  const footerY  = BY - FOOTER_H;
-
-  // Only draw footer if there is room (prevents overlap with items on dense orders)
-  if (y < footerY - 1) {
-    hRule(pdf, footerY, LX, RX, 160, 0.2);
-    let fy = footerY + 3;
-
-    // Return address
-    pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(6);
-    pdf.setTextColor(80);
-    const retStr   = `Return: ${SELLER.name}, ${SELLER.address}`;
-    const retLines = pdf.splitTextToSize(retStr, iW);
-    pdf.text(retLines, iLX, fy);
-    fy += retLines.length * 3 + 1.5;
-
-    // GSTIN + website on same line
-    pdf.setFontSize(6);
-    pdf.setTextColor(110);
-    pdf.text(`GSTIN: ${SELLER.gstin}`, iLX, fy);
-    pdf.text(SELLER.contactUrl, iRX, fy, { align: 'right' });
-    fy += 3.5;
-
-    // "Computer generated" notice
-    pdf.setFont('helvetica', 'italic');
-    pdf.setFontSize(5.5);
-    pdf.setTextColor(150);
-    pdf.text(
-      'Computer generated document. No signature required.',
-      LX + LW / 2,
-      fy,
-      { align: 'center' },
-    );
-    fy += 3;
-
-    // Policy
-    pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(5.5);
-    pdf.setTextColor(140);
-    pdf.text(
-      'Exchange/replacement for size mismatch only. No returns. Retain this label.',
-      LX + LW / 2,
-      fy,
-      { align: 'center' },
-    );
-  }
+  // Legal note 2 — centered
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(6.5);
+  pdf.setTextColor(100);
+  pdf.text(
+    'Exchange/replacement for size mismatch only. No returns. Retain this label.',
+    LX + LW / 2,
+    fy,
+    { align: 'center' },
+  );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// renderPackagingLabelsPage
-// Draws ONE label on the current PDF page.
-// ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Places a single label on the current PDF page.
- *
- * @param pdf    LabelPdf instance (page must already be current)
- * @param order  Invoice for the label
- */
+// ═══════════════════════════════════════════════════════════════════════════════
+// renderPackagingLabelsPage
+// ═══════════════════════════════════════════════════════════════════════════════
+
 export function renderPackagingLabelsPage(
   pdf:   LabelPdf,
   order: LabelInvoiceData | null,
 ): void {
-  // White page background
   pdf.setFillColor(255, 255, 255);
   pdf.rect(0, 0, PAGE_W, PAGE_H, 'F');
-
-  // Render the single label centered on the page
-  if (order) {
-    drawPackagingLabel(pdf, order, 0, 0);
-  }
+  if (order) drawPackagingLabel(pdf, order, 0, 0);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// generatePackagingLabelsPdf  — MAIN PUBLIC EXPORT
-// ─────────────────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// generatePackagingLabelsPdf — MAIN PUBLIC EXPORT
+// ═══════════════════════════════════════════════════════════════════════════════
 
 export interface GeneratePackagingLabelsPdfOptions {
-  /** Array of invoice data objects — one per order.  Each gets its own label. */
-  orders:           LabelInvoiceData[];
-  /** Filename for the downloaded PDF (without extension). */
+  orders:            LabelInvoiceData[];
   downloadFileName?: string;
 }
 
 /**
- * Generates a professional A4 packaging-label PDF and triggers a browser download.
+ * Generates a professional A4 landscape packaging-label PDF and downloads it.
  *
- * • ONE label per A4 page (landscape), each label 148.5 × 210 mm.
- * • Paginates automatically for any number of orders.
- * • Pure jsPDF vector — no rasterisation, no html2canvas.
- * • Thermal-printer and laser-printer friendly.
- *
- * @example
- * await generatePackagingLabelsPdf({ orders: [inv1, inv2, inv3] });
- * // → Page 1: inv1
- * // → Page 2: inv2
- * // → Page 3: inv3
+ * • One label per A4 landscape page (297 × 210 mm).
+ * • Pure jsPDF vector — sharp at any zoom, thermal & laser printer ready.
+ * • COD: shows total amount prominently for delivery person, no per-item amounts.
+ * • Prepaid: shows "PREPAID" only, no amount.
+ * • Items table: DESCRIPTION | SIZE | QTY columns.
  */
 export async function generatePackagingLabelsPdf({
   orders,
@@ -845,21 +780,17 @@ export async function generatePackagingLabelsPdf({
 
   const { default: JsPDF } = await import('jspdf');
 
-  // A4 landscape — 297 × 210 mm — one label per page
   const pdf = new JsPDF({
     orientation: 'landscape',
     unit:        'mm',
     format:      'a4',
   }) as unknown as LabelPdf;
 
-  // One label per page
   for (let i = 0; i < orders.length; i++) {
     if (i > 0) pdf.addPage();
-
     renderPackagingLabelsPage(pdf, orders[i]);
   }
 
-  // Determine filename
   const firstId  = orders[0].orderId.replace(/-/g, '').slice(-12).toUpperCase();
   const filename = downloadFileName
     ?? (orders.length === 1
@@ -867,16 +798,4 @@ export async function generatePackagingLabelsPdf({
         : `Packaging_Labels_${orders.length}_orders`);
 
   pdf.save(`${filename}.pdf`);
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Internal helpers
-// ─────────────────────────────────────────────────────────────────────────────
-
-/** Format a number as Indian-locale amount string (no ₹ symbol — caller adds prefix). */
-function fmtAmt(amount: number): string {
-  return new Intl.NumberFormat('en-IN', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount);
 }

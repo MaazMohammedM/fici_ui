@@ -130,6 +130,11 @@ interface AdminStore {
     tracking_url: string;
   }) => Promise<void>;
   handleUpdateDeliver: (orderId: string, selectedItems: string[]) => Promise<void>;
+  handleUpdateItemShipment: (orderItemId: string, shipmentForm: {
+    shipping_partner: string;
+    tracking_id: string;
+    tracking_url: string;
+  }) => Promise<void>;
   
   // Refund actions
   processRazorpayRefund: (orderId: string, amount: number, reason: string, refReference: string) => Promise<void>;
@@ -1205,6 +1210,42 @@ export const useAdminStore = create<AdminStore>((set, get) => ({
     } catch (error: unknown) {
       console.error('Error marking items as delivered:', error);
       const errorMessage = `Failed to mark items as delivered: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      set({ error: errorMessage });
+      setTimeout(() => set({ error: null }), 5000);
+    } finally {
+      set({ processingAction: null });
+    }
+  },
+
+  handleUpdateItemShipment: async (orderItemId: string, shipmentForm: {
+    shipping_partner: string;
+    tracking_id: string;
+    tracking_url: string;
+  }) => {
+    try {
+      set({ processingAction: `edit-shipment-${orderItemId}` });
+
+      const user = useAuthStore.getState().user;
+
+      // Update the order item with new shipping details
+      const { error: updateError } = await supabase
+        .from('order_items')
+        .update({
+          shipping_partner: shipmentForm.shipping_partner,
+          tracking_id: shipmentForm.tracking_id,
+          tracking_url: shipmentForm.tracking_url,
+          // updated_at: new Date().toISOString(),
+        })
+        .eq('order_item_id', orderItemId);
+
+      if (updateError) throw updateError;
+
+      await get().fetchOrders();
+      set({ success: 'Shipping details updated successfully' });
+      setTimeout(() => set({ success: null }), 3000);
+    } catch (error: unknown) {
+      console.error('Error updating shipping details:', error);
+      const errorMessage = `Failed to update shipping details: ${error instanceof Error ? error.message : 'Unknown error'}`;
       set({ error: errorMessage });
       setTimeout(() => set({ error: null }), 5000);
     } finally {
