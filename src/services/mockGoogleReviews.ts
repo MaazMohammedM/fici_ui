@@ -42,7 +42,7 @@ export const mockPlaceDetails: GooglePlaceDetails = {
   user_ratings_total: 127,
   formatted_address: "Ambur, Tamil Nadu, India",
   formatted_phone_number: "+91 98765 43210",
-  website: "https://ficishoes.com"
+  website: "https://www.ficishoes.com"
 };
 
 export const getMockGoogleReviews = (): Promise<GooglePlaceDetails> => {

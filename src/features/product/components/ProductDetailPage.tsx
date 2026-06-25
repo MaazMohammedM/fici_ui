@@ -320,7 +320,7 @@ const ProductDetailPage: React.FC = () => {
         title={`${currentProduct.name} | Premium Leather Shoes | Fici | Ambur`}
         description={`${currentProduct.name} - Premium leather footwear direct from Ambur factory. ${currentProduct.description?.substring(0, 120) || 'Experience verified Ambur craftsmanship with 10+ years heritage.'} Wholesale prices available. Shop now with all over India shipping.`}
         keywords={`${currentProduct.name}, leather shoe manufacturer, ambur leather, ${currentProduct.category}, fici shoes ambur, wholesale shoe factory, leather manufacturing in india, ${currentProduct.name} ambur`}
-        url={`https://ficishoes.com/products/${article_id}`}
+        url={`https://www.ficishoes.com/products/${article_id}`}
         type="product"
       />
 
