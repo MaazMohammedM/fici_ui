@@ -7,6 +7,7 @@ interface Review {
   product_id: string;
   rating: number;
   comment: string;
+  title?: string;
   created_at: string;
   updated_at: string;
   user?: {
@@ -22,7 +23,7 @@ interface ReviewState {
   
   fetchProductReviews: (productId: string) => Promise<void>;
   addReview: (productId: string, rating: number, comment: string) => Promise<void>;
-  updateReview: (reviewId: string, rating: number, comment: string) => Promise<void>;
+  updateReview: (reviewId: string, rating: number, comment: string, title?: string) => Promise<void>;
   deleteReview: (reviewId: string) => Promise<void>;
   clearError: () => void;
 }
@@ -91,12 +92,12 @@ export const useReviewStore = create<ReviewState>((set, get) => ({
     }
   },
 
-  updateReview: async (reviewId: string, rating: number, comment: string) => {
+  updateReview: async (reviewId: string, rating: number, comment: string, title?: string) => {
     set({ loading: true, error: null });
     try {
       const { error } = await supabase
         .from('reviews')
-        .update({ rating, comment, updated_at: new Date().toISOString() })
+        .update({ rating, comment, title, updated_at: new Date().toISOString() })
         .eq('review_id', reviewId);
 
       if (error) {

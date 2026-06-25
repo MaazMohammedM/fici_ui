@@ -1,5 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:wght@400;500;600;700;800;900&family=Montserrat:wght@400;500;600;700&display=swap&family=Josefin+Sans:wght@400;500;600;700&display=swap&family=Josefin+Slab:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Playfair+Display:wght@400;500;600;700;800;900&display=swap');
 
 /* Dark mode variant for Tailwind v4 */
 @custom-variant dark (&:where(.dark, .dark *));
@@ -36,8 +36,9 @@
   --color-text-inverse: #F9FAFB;
   
   /* Typography */
-  --font-primary: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-  --font-secondary: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  --font-primary: 'Josefin Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-secondary: 'Josefin Slab', Georgia, 'Times New Roman', serif;
+  --font-brand: 'Josefin Sans', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   
   /* Shadows - Modern depth system */
   --shadow-xs: 0 1px 2px 0 rgb(0 0 0 / 0.05);
@@ -311,6 +312,13 @@
     font-family: var(--font-secondary);
   }
 
+  /* Dropdown font styling */
+  .font-dropdown {
+    font-family: var(--font-brand);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
   /* ---------- SCROLLBARS ---------- */
 
   .scrollbar-hide {
@@ -407,6 +415,7 @@
 
 html {
   scroll-behavior: smooth;
+  font-size: 18px; /* Increased from default 16px for larger text across all pages */
 }
 
 body {
@@ -414,6 +423,7 @@ body {
   font-family: var(--font-primary);
   color: var(--color-text-primary);
   line-height: 1.6;
+  font-size: 1rem; /* Base font size relative to html */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background-color: var(--color-light1);
@@ -451,4 +461,32 @@ body {
     0 12px 48px rgba(0, 0, 0, 0.3),
     0 6px 24px rgba(0, 0, 0, 0.4),
     inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* Fade in up animation */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.8s ease-out;
+}
+
+/* Marquee animation for banner */
+@keyframes marquee {
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(-100%); }
+}
+
+.animate-marquee {
+  display: inline-block;
+  white-space: nowrap;
+  animation: marquee 25s linear infinite;
 }

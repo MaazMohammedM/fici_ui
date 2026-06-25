@@ -1,27 +1,95 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { useProductStore } from "../../store/productStore";
 import { useLocation, useNavigate } from "react-router-dom";
 import ProductCard from "./components/ProductCard";
-import { Search, X, Filter } from "lucide-react";
+import UltraEmptyState from "./components/UltraEmptyState"; // Import the new component
+import { Search, X, ArrowUpDown, SlidersHorizontal } from "lucide-react";
+import { getAllFilterSizes } from "@utils/sizeUtils";
+import { CATEGORY_CONFIG } from "../admin/components/constants/productConfig";
+import FiciLoader from "../../components/ui/FiciLoader";
+import SEOHead from "@lib/components/SEOHead";
 
-const CATEGORY_OPTIONS = [
-  { value: "Footwear", label: "Footwear" },
-  { value: "Bags and Accessories", label: "Bags & Accessories" },
-];
+const CATEGORY_OPTIONS = Object.entries(CATEGORY_CONFIG).map(([key, config]) => ({
+  value: key,
+  label: config.label
+}));
 
 const GENDER_OPTIONS = [
   { value: "men", label: "Men" },
   { value: "women", label: "Women" },
 ];
-const SUBCATEGORY_OPTIONS = [
-  { value: "Shoes", label: "Shoes" },
-  { value: "Sandals", label: "Sandals" },
-  { value: "Bags", label: "Bags" },
-  { value: "Accessories", label: "Accessories" },
+
+// Function to get all subcategory options (for display)
+const getAllSubCategoryOptions = () => {
+  const allSubCategories: { value: string; label: string }[] = [];
+  
+  Object.values(CATEGORY_CONFIG).forEach(category => {
+    if (category.subCategories) {
+      category.subCategories.forEach(subCat => {
+        if (typeof subCat === 'string') {
+          allSubCategories.push({ value: subCat, label: subCat });
+        } else {
+          allSubCategories.push(subCat);
+        }
+      });
+    }
+  });
+  
+  const uniqueSubCategories = allSubCategories.filter((subCat, index, self) => 
+    index === self.findIndex(s => s.value === subCat.value)
+  ).sort((a, b) => a.label.localeCompare(b.label));
+  
+  return uniqueSubCategories;
+};
+
+// Function to get enabled subcategory options based on selected categories
+const getEnabledSubCategoryOptions = (selectedCategories: string[]) => {
+  const subCategories: { value: string; label: string }[] = [];
+  
+  selectedCategories.forEach(category => {
+    const categoryConfig = CATEGORY_CONFIG[category as keyof typeof CATEGORY_CONFIG];
+    if (categoryConfig?.subCategories) {
+      categoryConfig.subCategories.forEach(subCat => {
+        if (typeof subCat === 'string') {
+          subCategories.push({ value: subCat, label: subCat });
+        } else {
+          subCategories.push(subCat);
+        }
+      });
+    }
+  });
+  
+  const uniqueSubCategories = subCategories.filter((subCat, index, self) => 
+    index === self.findIndex(s => s.value === subCat.value)
+  ).sort((a, b) => a.label.localeCompare(b.label));
+  
+  return uniqueSubCategories;
+};
+
+const SORT_OPTIONS = [
+  { value: null, label: "Sort by" },
+  // { value: "stock_high_to_low", label: "Stock: High to Low" },
+  { value: "price_low_to_high", label: "Price: Low to High" },
+  { value: "price_high_to_low", label: "Price: High to Low" },
 ];
-// Use the predefined subcategory options
-const useAvailableSubcategories = () => {
-  return SUBCATEGORY_OPTIONS;
+
+const { men: menSizes, women: womenSizes, bags: bagSizes } = getAllFilterSizes();
+
+// Debounce hook for search input
+const useDebounce = <T,>(value: T, delay: number): T => {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
 };
 
 const ProductPage: React.FC = () => {
@@ -34,6 +102,8 @@ const ProductPage: React.FC = () => {
     loading,
     error,
     clearError,
+    sortBy,
+    setSortBy,
   } = useProductStore();
 
   const location = useLocation();
@@ -43,122 +113,324 @@ const ProductPage: React.FC = () => {
   const [searchInput, setSearchInput] = useState("");
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedGenders, setSelectedGenders] = useState<string[]>([]);
-  const [selectedSubCategories, setSelectedSubCategories] = useState<string[]>(
-    []
-  );
-  const [isSubcategoryOpen, setIsSubcategoryOpen] = useState(false);
+  const [selectedSubCategories, setSelectedSubCategories] = useState<string[]>([]);
+  const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
+  const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
 
   const productGridRef = useRef<HTMLDivElement>(null);
-  const subcategoryDropdownRef = useRef<HTMLDivElement>(null);
 
-  const availableSubcategories = useAvailableSubcategories();
-  const [subcategorySearch, setSubcategorySearch] = useState("");
-  const [filteredSubcategories, setFilteredSubcategories] = useState<{value: string; label: string}[]>(availableSubcategories);
+  // Debounced search input
+  const debouncedSearchInput = useDebounce(searchInput, 300);
 
-  // Filter subcategories based on search
-  useEffect(() => {
-    if (subcategorySearch) {
-      const filtered = availableSubcategories.filter(sc => 
-        sc.label.toLowerCase().includes(subcategorySearch.toLowerCase())
-      );
-      setFilteredSubcategories(filtered);
-    } else {
-      setFilteredSubcategories(availableSubcategories);
+  // Memoized active filter summary for display
+  const activeFilterSummary = useMemo(() => {
+    const summary: string[] = [];
+    
+    // Sizes first
+    if (selectedSizes.length > 0) {
+      const sizeLabels = selectedSizes.map(size => {
+        const [, sizeValue] = size.split('-');
+        return sizeValue;
+      });
+      summary.push(`Size ${sizeLabels.join(', ')}`);
     }
-  }, [subcategorySearch, availableSubcategories]);
+    
+    // Categories
+    if (selectedCategories.length > 0) {
+      const categoryLabels = selectedCategories.map(cat => 
+        CATEGORY_OPTIONS.find(c => c.value === cat)?.label || cat
+      );
+      summary.push(categoryLabels.join(', '));
+    }
+    
+    // Genders
+    if (selectedGenders.length > 0) {
+      const genderLabels = selectedGenders.map(g => 
+        GENDER_OPTIONS.find(opt => opt.value === g)?.label || g
+      );
+      summary.push(genderLabels.join(', '));
+    }
+    
+    // Subcategories
+    if (selectedSubCategories.length > 0) {
+      summary.push(selectedSubCategories.join(', '));
+    }
+    
+    // Sort by
+    if (sortBy) {
+      let sortLabel = '';
+      switch (sortBy) {
+        case 'price_low_to_high':
+          sortLabel = 'Price: Low to High';
+          break;
+        case 'price_high_to_low':
+          sortLabel = 'Price: High to Low';
+          break;
+        case 'stock_high_to_low':
+          sortLabel = 'Stock: High to Low';
+          break;
+      }
+      summary.push(sortLabel);
+    }
+    
+    // Search
+    if (debouncedSearchInput.trim()) {
+      summary.push(`"${debouncedSearchInput.trim()}"`);
+    }
+    
+    return summary;
+  }, [selectedCategories, selectedGenders, selectedSubCategories, selectedSizes, sortBy, debouncedSearchInput]);
 
-  // Parse URL params → fetch products + sync UI
+  // Memoized filter counts
+  const activeFilterCount = useMemo(() => {
+    return selectedCategories.length + 
+           selectedGenders.length + 
+           selectedSubCategories.length + 
+           selectedSizes.length + 
+           (sortBy ? 1 : 0) + 
+           (debouncedSearchInput.trim() ? 1 : 0);
+  }, [selectedCategories, selectedGenders, selectedSubCategories, selectedSizes, sortBy, debouncedSearchInput]);
+
+  // Use totalPages from store instead of calculating locally
+  // The store now correctly calculates totalPages based on database count
+
+
+
+  
+  // Reset to page 1 if current page exceeds total pages
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      const params = new URLSearchParams(location.search);
+      params.set("page", "1");
+      navigate({ pathname: "/products", search: params.toString() }, { replace: true });
+    }
+  }, [currentPage, totalPages, location.search, navigate]);
+
+  
+  // Server-side pagination is now handled in the store
+  // filteredProducts already contains the paginated results
+
+
+  const hasActiveFilters = activeFilterCount > 0;
+  const sizeOptions = useMemo(() => {
+    return {
+      men: menSizes.map(size => ({ value: `men-${size}`, label: size })),
+      women: womenSizes.map(size => ({ value: `women-${size}`, label: size })),
+      bags: bagSizes.map(size => ({ value: size, label: size }))
+    };
+  }, []);
+
+  // Memoized subcategory options based on selected categories
+  const subCategoryOptions = useMemo(() => {
+    return getEnabledSubCategoryOptions(selectedCategories);
+  }, [selectedCategories]);
+
+  // All subcategory options for display
+  const allSubCategoryOptions = useMemo(() => {
+    return getAllSubCategoryOptions();
+  }, []);
+
+  // Clear invalid subcategories when categories change (only if categories are selected)
+  useEffect(() => {
+    if (selectedSubCategories.length > 0 && selectedCategories.length > 0) {
+      const validSubCategories = getEnabledSubCategoryOptions(selectedCategories);
+      const validSubCategoryValues = new Set(validSubCategories.map(sub => sub.value));
+      
+      const invalidSubCategories = selectedSubCategories.filter(sub => !validSubCategoryValues.has(sub));
+      
+      if (invalidSubCategories.length > 0) {
+        const newSubCategories = selectedSubCategories.filter(sub => validSubCategoryValues.has(sub));
+        setSelectedSubCategories(newSubCategories);
+        
+        const params = new URLSearchParams(location.search);
+        params.delete("sub_category");
+        newSubCategories.forEach(sub => params.append("sub_category", sub));
+        params.delete("page");
+        navigate({ pathname: "/products", search: params.toString() }, { replace: true });
+      }
+    }
+  }, [selectedCategories]);
+
+  // Track if this is the initial load to prevent race conditions
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+
   useEffect(() => {
     const params = new URLSearchParams(location.search);
 
     const categoryParams = params.getAll("category");
     const genderParams = params.getAll("gender");
     const subCategoryParams = params.getAll("sub_category");
-    const q = params.get("q") || undefined;
+    const sizeParams = params.getAll("size");
+    const sortParam = params.get("sort") as 'price_low_to_high' | 'price_high_to_low' | 'stock_high_to_low' | null;
+    const q = params.get("q") || "";
     const pageStr = params.get("page");
     const page = pageStr ? Math.max(1, parseInt(pageStr, 10) || 1) : 1;
 
+    let syncedGenderParams = [...genderParams];
+    if (sizeParams.length > 0) {
+      const gendersFromSizes = new Set<string>();
+      
+      sizeParams.forEach(size => {
+        const [gender] = size.split('-');
+        if (gender === 'men' || gender === 'women') {
+          gendersFromSizes.add(gender);
+        }
+      });
+      
+      if (gendersFromSizes.size > 0) {
+        syncedGenderParams = Array.from(gendersFromSizes);
+        
+        const newParams = new URLSearchParams(params);
+        newParams.delete('gender');
+        syncedGenderParams.forEach(gender => newParams.append('gender', gender));
+        
+        const newUrl = `${location.pathname}?${newParams.toString()}`;
+        window.history.replaceState({}, '', newUrl);
+      }
+    }
+
     const filters: any = {};
     if (categoryParams.length) filters.category = categoryParams;
-    if (genderParams.length) filters.gender = genderParams;
+    if (syncedGenderParams.length) filters.gender = syncedGenderParams;
     if (subCategoryParams.length) filters.sub_category = subCategoryParams;
+    if (sizeParams.length) filters.size = sizeParams;
+    if (sortParam) filters.sortBy = sortParam;
     if (q) filters.search = q;
 
     fetchProducts(page, filters);
 
     // Sync UI state
     setSelectedCategories(categoryParams);
-    setSelectedGenders(genderParams);
+    setSelectedGenders(syncedGenderParams);
     setSelectedSubCategories(subCategoryParams);
-    setSearchInput(q || "");
+    setSelectedSizes(sizeParams);
+    if (sortParam) setSortBy(sortParam);
+    setSearchInput(q);
   }, [location.search, fetchProducts]);
 
-  // Initial load when no products in store (direct access)
+  // Separate effect to handle initial load completion after debounced input syncs
+  useEffect(() => {
+    if (isInitialLoad && debouncedSearchInput !== "") {
+      const currentSearchParam = new URLSearchParams(location.search).get("q") || "";
+      if (debouncedSearchInput === currentSearchParam) {
+        setIsInitialLoad(false);
+      }
+    }
+  }, [debouncedSearchInput, location.search, isInitialLoad]);
+
   useEffect(() => {
     const { filteredProducts } = useProductStore.getState();
-    if (filteredProducts.length === 0) {
+    const hasUrlParams = location.search !== '';
+    
+    if (filteredProducts.length === 0 && !hasUrlParams) {
       fetchProducts(1, {});
     }
-  }, []);
-
-  // Close dropdown when clicking outside or pressing Escape
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (subcategoryDropdownRef.current && !subcategoryDropdownRef.current.contains(event.target as Node)) {
-        setIsSubcategoryOpen(false);
-      }
-    };
-
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setIsSubcategoryOpen(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('keydown', handleEscape);
-    
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleEscape);
-    };
-  }, [isSubcategoryOpen]);
+  }, [fetchProducts, location.search]);
 
   // --- Handlers --------------------------------------------------
 
-  const handleSearch = () => {
+  const handleSearch = useCallback(() => {
     const params = new URLSearchParams(location.search);
-    const q = searchInput.trim();
+    const q = debouncedSearchInput.trim();
 
     if (q) params.set("q", q);
     else params.delete("q");
 
-    params.delete("page"); // reset page on search
+    params.delete("page");
     navigate({ pathname: "/products", search: params.toString() });
-  };
+  }, [location.search, debouncedSearchInput, navigate]);
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  useEffect(() => {
+    const currentSearchParam = new URLSearchParams(location.search).get("q") || "";
+    
+    // Don't trigger search during initial load - let URL params take precedence
+    if (isInitialLoad) {
+      return;
+    }
+    
+    // Only trigger search if user has actually typed something different from URL
+    if (debouncedSearchInput !== currentSearchParam) {
+      handleSearch();
+    }
+  }, [debouncedSearchInput, handleSearch, isInitialLoad]);
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       handleSearch();
     }
-  };
+  }, [handleSearch]);
 
-  const handleClearAll = () => {
+  const handleClearAll = useCallback(() => {
     setSearchInput("");
     setSelectedCategories([]);
     setSelectedGenders([]);
     setSelectedSubCategories([]);
+    setSelectedSizes([]);
     clearFilters();
+    setSortBy(null);
     navigate("/products");
-  };
+  }, [clearFilters, setSortBy, navigate]);
 
-  const toggleFilterArrayParam = (
+  const handleSizeSelection = useCallback((
+    sizeValue: string,
+    currentSizes: string[],
+    setSizes: React.Dispatch<React.SetStateAction<string[]>>,
+    currentGenders: string[],
+    setGenders: React.Dispatch<React.SetStateAction<string[]>>
+  ) => {
+    // Extract gender from size value (e.g., "men-8" -> "men", "women-6" -> "women")
+    const [gender] = sizeValue.split('-');
+    
+    // Update sizes
+    const nextSizes = currentSizes.includes(sizeValue)
+      ? currentSizes.filter((s) => s !== sizeValue)
+      : [...currentSizes, sizeValue];
+    
+    // Update genders based on size selection
+    let nextGenders = [...currentGenders];
+    
+    if (nextSizes.length > 0) {
+      // Add the gender of the selected size
+      if (!nextGenders.includes(gender)) {
+        nextGenders.push(gender);
+      }
+      
+      // Remove conflicting genders
+      if (gender === 'men') {
+        nextGenders = nextGenders.filter(g => g !== 'women');
+      } else if (gender === 'women') {
+        nextGenders = nextGenders.filter(g => g !== 'men');
+      }
+    } else if (nextSizes.length === 0) {
+      // If no sizes selected, remove all gender filters
+      nextGenders = [];
+    }
+    
+    // Update states
+    setSizes(nextSizes);
+    setGenders(nextGenders);
+    
+    // Update URL params
+    const params = new URLSearchParams(location.search);
+    
+    // Update size params
+    params.delete('size');
+    nextSizes.forEach((size) => params.append('size', size));
+    
+    // Update gender params
+    params.delete('gender');
+    nextGenders.forEach((g) => params.append('gender', g));
+    
+    params.delete('page');
+    navigate({ pathname: "/products", search: params.toString() });
+  }, [location.search, navigate]);
+
+  const toggleFilterArrayParam = useCallback((
     key: string,
     value: string,
     current: string[],
     setState: React.Dispatch<React.SetStateAction<string[]>>
   ) => {
-    // If value is 'all' or array is empty, set to empty array (show all)
     if (value === 'all' || (current.includes(value) && current.length === 1)) {
       setState([]);
       const params = new URLSearchParams(location.search);
@@ -168,7 +440,6 @@ const ProductPage: React.FC = () => {
       return;
     }
 
-    // Toggle the value in the array
     const next = current.includes(value)
       ? current.filter((v) => v !== value)
       : [...current, value];
@@ -180,391 +451,902 @@ const ProductPage: React.FC = () => {
     next.forEach((v) => params.append(key, v));
     params.delete("page");
     navigate({ pathname: "/products", search: params.toString() });
-  };
+  }, [location.search, navigate]);
 
-  const handleSubcategoryToggle = (value: string) => {
-    let next: string[] = [];
-    
-    if (value === 'select-all') {
-      // Select all filtered subcategories
-      next = [...new Set([...selectedSubCategories, ...filteredSubcategories.map(sc => sc.value)])];
-    } else if (value === 'clear-all') {
-      // Clear all selected subcategories
-      next = [];
-    } else {
-      // Toggle individual subcategory
-      next = selectedSubCategories.includes(value)
-        ? selectedSubCategories.filter((v) => v !== value)
-        : [...selectedSubCategories, value];
-    }
-
-    setSelectedSubCategories(next);
-
+  const handleSortChange = useCallback((newSort: 'price_low_to_high' | 'price_high_to_low' | 'stock_high_to_low' | null) => {
+    setSortBy(newSort);
     const params = new URLSearchParams(location.search);
-    params.delete("sub_category");
-    next.forEach((v) => params.append("sub_category", v));
+    if (newSort) {
+      params.set("sort", newSort);
+    } else {
+      params.delete("sort");
+    }
     params.delete("page");
     navigate({ pathname: "/products", search: params.toString() });
-  };
+  }, [location.search, navigate, setSortBy]);
 
-  const hasActiveFilters =
-    selectedCategories.length > 0 ||
-    selectedGenders.length > 0 ||
-    selectedSubCategories.length > 0 ||
-    !!searchInput.trim();
+  const handlePageChange = useCallback((page: number) => {
+    const params = new URLSearchParams(location.search);
+    if (page > 1) params.set("page", String(page));
+    else params.delete("page");
+    navigate({ pathname: "/products", search: params.toString() });
+    
+    if (productGridRef.current) {
+      productGridRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [location.search, navigate]);
 
-  // --- UI --------------------------------------------------------
+  const handleRefresh = useCallback(() => {
+    clearError();
+    fetchProducts(currentPage, {});
+  }, [clearError, fetchProducts, currentPage]);
 
+  const handleBrowseAll = useCallback(() => {
+    handleClearAll();
+  }, [handleClearAll]);
+
+  // =================================================================
+  // MAIN STATE-BASED RENDERING LOGIC
+  // This section handles all UI states: loading, error, empty, success
+  // =================================================================
+
+  
+  
+  const renderProductsContent = useMemo(() => {
+  // STATE 1: LOADING
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <FiciLoader message="Loading products..." />
+      </div>
+    );
+  }
+
+  // STATE 2: ERROR
+  if (error) {
+    return (
+      <UltraEmptyState
+        variant="error"
+        title="Error Loading Products"
+        description={error}
+        showRefreshButton={true}
+        onRefresh={handleRefresh}
+      />
+    );
+  }
+
+  // STATE 3: EMPTY
+  if (!filteredProducts || filteredProducts.length === 0) {
+    if (hasActiveFilters) {
+      return (
+        <UltraEmptyState
+          variant="noResults"
+          title="No products match your current filters."
+          description="Try removing one or more filters to see more results."
+          showClearFiltersButton={true}
+          showBrowseAllButton={true}
+          onClearFilters={handleClearAll}
+          onBrowseAll={handleBrowseAll}
+        />
+      );
+    }
+
+    return (
+      <UltraEmptyState
+        variant="comingSoon"
+        title="New Products Coming Soon"
+        description="We're constantly updating our collection with latest styles."
+        showRefreshButton={true}
+        onRefresh={handleRefresh}
+      />
+    );
+  }
+
+  // STATE 4: SUCCESS
   return (
-    <div className="min-h-screen bg-white dark:bg-dark1 py-4 sm:py-6 md:py-8">
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6">
-        {/* Header */}
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between mb-4 sm:mb-6">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-primary dark:text-inverse">
-              All Products
-            </h1>
-            <p className="text-xs sm:text-sm text-secondary mt-1">
-              Browse our curated collection. Use filters to narrow down by
-              category, style, and more.
-            </p>
+    <>
+      <div
+        ref={productGridRef}
+        className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6"
+      >
+        {filteredProducts.map((product) => (
+          <ProductCard 
+            key={`${product.product_id}-${product.article_id}`} 
+            product={product}
+            activeSizes={selectedSizes}
+            activeCategories={selectedCategories}
+            activeGenders={selectedGenders}
+            activeSubCategories={selectedSubCategories}
+          />
+        ))}
+      </div>
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex justify-center mt-8 sm:mt-10 mb-6 sm:mb-8">
+          <div className="flex items-center gap-1 bg-white dark:bg-gray-800 rounded-xl shadow-sm p-1 border border-gray-200 dark:border-gray-700">
+            {Array.from({ length: totalPages }, (_, idx) => {
+              const page = idx + 1;
+              const isCurrent = page === currentPage;
+
+              return (
+                <button
+                  key={page}
+                  onClick={() => handlePageChange(page)}
+                  className={`w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-lg text-xs sm:text-sm font-medium transition-colors ${
+                    isCurrent
+                      ? "bg-primary text-inverse dark:bg-inverse dark:text-primary"
+                      : "text-secondary hover:bg-gray-100 dark:hover:bg-dark3"
+                  }`}
+                >
+                  {page}
+                </button>
+              );
+            })}
           </div>
-          {filteredProducts.length > 0 && !loading && (
-            <p className="text-xs sm:text-sm text-muted text-right">
-              Showing{" "}
-              <span className="font-semibold text-primary dark:text-inverse">
-                {filteredProducts.length}
-              </span>{" "}
-              item{filteredProducts.length !== 1 ? "s" : ""}{" "}
-              {hasActiveFilters && "with filters applied"}
-            </p>
-          )}
+        </div>
+      )}
+    </>
+  );
+}, [
+  loading,
+  error,
+  filteredProducts,
+  totalPages,     
+  currentPage,
+  hasActiveFilters,
+  handleClearAll,
+  handleBrowseAll,
+  handleRefresh,
+  handlePageChange,
+  selectedSizes,
+  selectedCategories,
+  selectedGenders,
+  selectedSubCategories,
+]);
+
+  const FilterButton = useCallback(({ count, onClick }: { count: number; onClick: () => void }) => (
+    <button
+      onClick={onClick}
+      className="w-full flex items-center justify-center gap-1.5 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+    >
+      <SlidersHorizontal className="w-4 h-4 flex-shrink-0" />
+      <span className="truncate text-sm">Filters</span>
+      {count > 0 && (
+        <span className="px-1.5 py-0.5 bg-primary text-white text-xs rounded-full flex-shrink-0 min-w-[20px]">
+          {count}
+        </span>
+      )}
+    </button>
+  ), []);
+
+  // Generate dynamic SEO metadata based on filters
+  const getSEOMetadata = useCallback(() => {
+    const activeFilters = [];
+    const seoKeywords = ['leather shoe manufacturer', 'ambur leather', 'fici shoes ambur'];
+    
+    if (selectedGenders.length > 0) {
+      activeFilters.push(selectedGenders.map(g => g.charAt(0).toUpperCase() + g.slice(1)).join(' & '));
+      seoKeywords.push(...selectedGenders.map(g => `${g} leather shoes`));
+    }
+  
+  if (selectedCategories.length > 0) {
+    const categoryLabels = selectedCategories.map(c => 
+      CATEGORY_CONFIG[c as keyof typeof CATEGORY_CONFIG]?.label || c
+    );
+    activeFilters.push(categoryLabels.join(' & '));
+    seoKeywords.push(...categoryLabels.map(label => label.toLowerCase().replace(/\s+/g, '_')));
+  }
+  
+  if (selectedSubCategories.length > 0) {
+    activeFilters.push(selectedSubCategories.join(' & '));
+    seoKeywords.push(...selectedSubCategories.map(sub => sub.toLowerCase().replace(/\s+/g, '_')));
+  }
+
+  const filterDescription = activeFilters.length > 0 ? activeFilters.join(' - ') : 'All Products';
+  const title = activeFilters.length > 0 
+    ? `${filterDescription} | Premium Leather Collection | Fici | Ambur`
+    : 'Premium Leather Collection | Quality Footwear | Fici | Ambur';
+  
+  const description = activeFilters.length > 0
+    ? `Shop ${filterDescription.toLowerCase()} from Ambur's premier leather manufacturer. ${filteredProducts?.length || 0}+ styles with wholesale prices. Verified craftsmanship with all over India shipping.`
+    : `Browse complete leather footwear collection from Ambur's premier manufacturer. ${filteredProducts?.length || 0}+ styles including shoes, sandals, and accessories. Direct factory prices.`;
+
+  return { title, description, keywords: seoKeywords.join(', ') };
+}, [selectedGenders, selectedCategories, selectedSubCategories, filteredProducts]);
+
+const seoMetadata = getSEOMetadata();
+
+return (
+  <>
+    <SEOHead 
+      title={seoMetadata.title}
+      description={seoMetadata.description}
+      keywords={seoMetadata.keywords}
+      url="https://www.ficishoes.com/products"
+    />
+    
+    {/* Collection Structured Data */}
+    <script type="application/ld+json">
+      {JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "CollectionPage",
+        "name": seoMetadata.title,
+        "description": seoMetadata.description,
+        "url": "https://www.ficishoes.com/products",
+        "mainEntity": {
+          "@type": "ItemList",
+          "numberOfItems": filteredProducts?.length || 0,
+          "itemListElement": filteredProducts?.slice(0, 10).map((product, index) => ({
+            "@type": "Product",
+            "position": index + 1,
+            "name": product.name,
+            "url": `https://www.ficishoes.com/products/${product.article_id}`,
+            "image": product.thumbnail_url || product.images?.[0],
+            "category": product.category,
+            "brand": {
+              "@type": "Brand",
+              "name": "FICI Shoes"
+            },
+            "offers": {
+              "@type": "Offer",
+              "price": product.mrp_price,
+              "priceCurrency": "INR",
+              "availability": "https://schema.org/InStock"
+            }
+          }))
+        },
+        "provider": {
+          "@type": "Organization",
+          "name": "FICI Shoes by NMF International",
+          "address": {
+            "@type": "PostalAddress",
+            "addressLocality": "Ambur",
+            "addressRegion": "Tamil Nadu",
+            "addressCountry": "IN"
+          }
+        }
+      })}
+    </script>
+    
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Header */}
+        <div className="py-6 sm:py-8">
+          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">
+                All Products
+              </h1>
+              <p className="text-gray-600 dark:text-gray-400 mt-1">
+                Browse our curated collection
+              </p>
+            </div>
+            {filteredProducts && filteredProducts.length > 0 && !loading && (
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                <span className="font-medium">{filteredProducts.length}</span> items
+                {hasActiveFilters && ' with filters applied'}
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Search + Filters Card */}
-        <div className="bg-white dark:bg-dark2 rounded-xl shadow-sm border border-gray-100 dark:border-gray-700 mb-6 sm:mb-8 p-3 sm:p-4 md:p-5">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            {/* Search Bar */}
-            <div className="w-full sm:w-1/2 flex items-center rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-dark3 px-2 sm:px-3">
-              <Search className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 mr-1.5 sm:mr-2" />
-              <input
-                type="text"
-                placeholder="Search products…"
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                className="w-full py-2 sm:py-2.5 bg-transparent border-0 focus:outline-none text-sm sm:text-sm text-primary dark:text-inverse placeholder:text-gray-400"
-              />
-              {searchInput && (
-                <button
-                  onClick={handleClearAll}
-                  className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
+        {/* Search and Sort Bar */}
+        <div className="mb-6">
+          {/* Search Input */}
+          <div className="relative mb-3">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search products..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              className="w-full pl-10 pr-10 py-2 border border-gray-300 dark:border-gray-600 rounded-full bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+            />
+            {searchInput && (
               <button
-                onClick={handleSearch}
-                className="ml-1 sm:ml-2 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold bg-primary text-inverse hover:bg-primary-hover transition-colors"
+                onClick={() => setSearchInput('')}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
               >
-                Search
+                <X className="w-3 h-3 text-gray-400" />
               </button>
+            )}
+          </div>
+
+          {/* Sort and Filters - Side by side on all screens */}
+          <div className="flex items-center justify-between gap-2">
+            {/* Sort Dropdown - Compact width */}
+            <div className="flex-1 max-w-[45%] sm:max-w-[200px]">
+              <div className="flex items-center gap-1">
+                <ArrowUpDown className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                <select
+                  value={sortBy || ''}
+                  onChange={(e) => handleSortChange(e.target.value as 'price_low_to_high' | 'price_high_to_low' | null)}
+                  className="w-full px-2 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent min-w-0"
+                >
+                  {SORT_OPTIONS.map((option) => (
+                    <option key={option.value || 'default'} value={option.value || ''}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
-            {/* Compact filter indicator on mobile */}
-            <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3 text-xs sm:text-sm text-muted mt-1 sm:mt-0">
-              <div className="hidden sm:flex items-center gap-1">
-                <Filter className="w-4 h-4" />
-                <span>Filters</span>
-              </div>
-              {hasActiveFilters && (
+            {/* Filter Button - Compact width */}
+            <div className="flex-1 max-w-[45%]">
+              <FilterButton count={activeFilterCount} onClick={() => setIsMobileFiltersOpen(true)} />
+            </div>
+
+            {/* Desktop Clear Filters */}
+            {hasActiveFilters && (
+              <div className="hidden lg:block">
                 <button
                   onClick={handleClearAll}
-                  className="text-xs sm:text-sm text-primary hover:text-primary-hover underline-offset-2 hover:underline"
+                  className="px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 transition-colors"
                 >
                   Clear all
                 </button>
-              )}
-            </div>
-          </div>
-
-          {/* Filter Controls */}
-          <div className="mt-3 sm:mt-4 flex flex-col gap-3">
-            {/* Category + Gender chips (multi-select) */}
-            <div className="flex flex-wrap gap-2">
-              {/* Categories */}
-              <div className="flex items-center gap-1 flex-wrap">
-                <span className="text-[11px] sm:text-xs text-muted mr-1">
-                  Category:
-                </span>
-                {/* "All" chip */}
-                <button
-                  onClick={() => {
-                    setSelectedCategories([]);
-                    const params = new URLSearchParams(location.search);
-                    params.delete("category");
-                    params.delete("page");
-                    navigate({
-                      pathname: "/products",
-                      search: params.toString(),
-                    });
-                  }}
-                  className={`px-2.5 py-1 rounded-full text-[11px] sm:text-xs border transition ${
-                    selectedCategories.length === 0
-                      ? "bg-primary text-inverse border-primary"
-                      : "bg-white dark:bg-dark3 text-secondary border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-dark2"
-                  }`}
-                >
-                  All
-                </button>
-                {CATEGORY_OPTIONS.map((cat) => {
-                  const active = selectedCategories.includes(cat.value);
-                  return (
-                    <button
-                      key={cat.value}
-                      onClick={() =>
-                        toggleFilterArrayParam(
-                          "category",
-                          cat.value,
-                          selectedCategories,
-                          setSelectedCategories
-                        )
-                      }
-                      className={`px-2.5 py-1 rounded-full text-[11px] sm:text-xs border transition ${
-                        active
-                          ? "bg-primary/10 border-primary text-primary dark:bg-primary/20 dark:text-inverse"
-                          : "bg-white dark:bg-dark3 text-secondary border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-dark2"
-                      }`}
-                    >
-                      {cat.label}
-                    </button>
-                  );
-                })}
               </div>
-
-              {/* Genders */}
-              <div className="flex items-center gap-1 flex-wrap">
-                <span className="text-[11px] sm:text-xs text-muted mr-1">
-                  Gender:
-                </span>
-                {/* All genders */}
-                <button
-                  onClick={() => {
-                    setSelectedGenders([]);
-                    const params = new URLSearchParams(location.search);
-                    params.delete("gender");
-                    params.delete("page");
-                    navigate({
-                      pathname: "/products",
-                      search: params.toString(),
-                    });
-                  }}
-                  className={`px-2.5 py-1 rounded-full text-[11px] sm:text-xs border transition ${
-                    selectedGenders.length === 0
-                      ? "bg-primary text-inverse border-primary"
-                      : "bg-white dark:bg-dark3 text-secondary border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-dark2"
-                  }`}
-                >
-                  All
-                </button>
-                {GENDER_OPTIONS.map((g) => {
-                  const active = selectedGenders.includes(g.value);
-                  return (
-                    <button
-                      key={g.value}
-                      onClick={() =>
-                        toggleFilterArrayParam(
-                          "gender",
-                          g.value,
-                          selectedGenders,
-                          setSelectedGenders
-                        )
-                      }
-                      className={`px-2.5 py-1 rounded-full text-[11px] sm:text-xs border transition ${
-                        active
-                          ? "bg-primary/10 border-primary text-primary dark:bg-primary/20 dark:text-inverse"
-                          : "bg-white dark:bg-dark3 text-secondary border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-dark2"
-                      }`}
-                    >
-                      {g.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Subcategories */}
-            <div className="flex items-center gap-1 flex-wrap">
-              <span className="text-[11px] sm:text-xs text-muted mr-1">
-                Subcategory:
-              </span>
-              {/* All subcategories */}
-              <button
-                onClick={() => {
-                  setSelectedSubCategories([]);
-                  const params = new URLSearchParams(location.search);
-                  params.delete("sub_category");
-                  params.delete("page");
-                  navigate({
-                    pathname: "/products",
-                    search: params.toString(),
-                  });
-                }}
-                className={`px-2.5 py-1 rounded-full text-[11px] sm:text-xs border transition ${
-                  selectedSubCategories.length === 0
-                    ? "bg-primary text-inverse border-primary"
-                    : "bg-white dark:bg-dark3 text-secondary border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-dark2"
-                }`}
-              >
-                All
-              </button>
-              {SUBCATEGORY_OPTIONS.map((sub) => {
-                const active = selectedSubCategories.includes(sub.value);
-                return (
-                  <button
-                    key={sub.value}
-                    onClick={() =>
-                      toggleFilterArrayParam(
-                        "sub_category",
-                        sub.value,
-                        selectedSubCategories,
-                        setSelectedSubCategories
-                      )
-                    }
-                    className={`px-2.5 py-1 rounded-full text-[11px] sm:text-xs border transition ${
-                      active
-                        ? "bg-primary/10 border-primary text-primary dark:bg-primary/20 dark:text-inverse"
-                        : "bg-white dark:bg-dark3 text-secondary border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-dark2"
-                    }`}
-                  >
-                    {sub.label}
-                  </button>
-                );
-              })}
-            </div>
+            )}
           </div>
         </div>
 
-        {/* Main content: loading / error / results */}
-        {loading ? (
-          <div className="flex flex-col items-center justify-center text-center bg-white/70 dark:bg-dark2/70 border border-dashed border-gray-300 dark:border-gray-600 rounded-2xl p-6 sm:p-8 md:p-10 my-6 sm:my-8">
-            <div className="mb-6">
-              <img
-                src="/src/assets/fici_transparent.png"
-                alt="FICI Loading"
-                className="w-16 h-16 mx-auto animate-pulse opacity-70"
-              />
-            </div>
-            <p className="text-sm sm:text-base text-secondary">
-              Loading products…
-            </p>
-          </div>
-        ) : error ? (
-          <div className="flex flex-col items-center justify-center text-center bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl p-6 sm:p-8 md:p-10 my-6 sm:my-8">
-            <div className="text-red-600 dark:text-red-400 font-semibold mb-2">
-              Error loading products
-            </div>
-            <p className="text-sm sm:text-base text-red-600 dark:text-red-300 mb-4 max-w-md">
-              {error}
-            </p>
-            <button
-              onClick={() => {
-                clearError();
-                fetchProducts(1, {}, 0);
-              }}
-              className="btn-modern btn-primary px-5 py-2.5 text-sm"
-            >
-              Try Again
-            </button>
-          </div>
-        ) : filteredProducts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center text-center bg-white/80 dark:bg-dark2/80 border border-dashed border-gray-300 dark:border-gray-600 rounded-2xl p-6 sm:p-8 md:p-10 my-6 sm:my-8">
-            <div className="text-lg sm:text-xl md:text-2xl font-semibold mb-2 text-primary dark:text-inverse">
-              No products found
-            </div>
-            <p className="text-sm sm:text-base text-secondary mb-4 max-w-md">
-              Try adjusting the filters or clear all filters to view our full
-              collection.
-            </p>
-            <button
-              onClick={handleClearAll}
-              className="btn-modern btn-secondary px-5 py-2.5 text-sm"
-            >
-              Clear all filters
-            </button>
-          </div>
-        ) : (
-          <div
-            ref={productGridRef}
-            className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6"
-          >
-            {filteredProducts.map((product) => (
-              <ProductCard key={product.product_id} product={product} />
-            ))}
-          </div>
-        )}
+        {/* Desktop Layout: Sidebar + Main Content */}
+        <div className="hidden lg:flex lg:gap-8">
+          {/* Left Sidebar - Filters */}
+          <div className="w-64 flex-shrink-0">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-4 sticky top-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-base font-semibold text-gray-900 dark:text-white">Filters</h3>
+                {hasActiveFilters && (
+                  <button
+                    onClick={handleClearAll}
+                    className="text-sm text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300"
+                  >
+                    Clear all
+                  </button>
+                )}
+              </div>
 
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex justify-center mt-8 sm:mt-10 mb-6 sm:mb-8">
-            <div className="flex items-center gap-1 bg-white dark:bg-dark2 rounded-xl shadow-sm p-1 border border-gray-200 dark:border-gray-700">
-              {Array.from({ length: totalPages }, (_, idx) => {
-                const page = idx + 1;
-                const isCurrent = page === currentPage;
-                const isNearCurrent =
-                  page === currentPage - 1 ||
-                  page === currentPage + 1 ||
-                  page === 1 ||
-                  page === totalPages;
+              {/* Category Filter */}
+              <div className="mb-4">
+                <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-2">Category</h4>
+                <div className="space-y-1">
+                  {CATEGORY_OPTIONS.map((cat) => {
+                    const active = selectedCategories.includes(cat.value);
+                    return (
+                      <label key={cat.value} className="flex items-center cursor-pointer group">
+                        <input
+                          type="checkbox"
+                          checked={active}
+                          onChange={() =>
+                            toggleFilterArrayParam(
+                              'category',
+                              cat.value,
+                              selectedCategories,
+                              setSelectedCategories
+                            )
+                          }
+                          className="w-4 h-4 text-primary border-gray-300 dark:border-gray-600 rounded focus:ring-1 focus:ring-primary/50"
+                        />
+                        <span className={`ml-2 text-sm transition-colors ${
+                          active 
+                            ? 'text-primary font-medium bg-primary/5 px-2 py-0.5 rounded border border-primary/20' 
+                            : 'text-gray-700 dark:text-gray-300'
+                        }`}>
+                          {cat.label}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
 
-                if (isNearCurrent || isCurrent) {
-                  return (
-                    <button
-                      key={page}
-                      onClick={() => {
-                        const params = new URLSearchParams(location.search);
-                        if (page > 1) params.set("page", String(page));
-                        else params.delete("page");
-                        navigate({
-                          pathname: "/products",
-                          search: params.toString(),
-                        });
-                        if (productGridRef.current) {
-                          productGridRef.current.scrollIntoView({
-                            behavior: "smooth",
-                            block: "start",
-                          });
-                        }
-                      }}
-                      className={`w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-lg text-xs sm:text-sm font-medium transition-colors ${
-                        isCurrent
-                          ? "bg-primary text-inverse dark:bg-inverse dark:text-primary"
-                          : "text-secondary hover:bg-gray-100 dark:hover:bg-dark3"
-                      }`}
-                    >
-                      {page}
-                    </button>
-                  );
-                }
+              {/* Gender Filter */}
+              <div className="mb-4">
+                <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-2">Gender</h4>
+                <div className="space-y-1">
+                  {GENDER_OPTIONS.map((g) => {
+                    const active = selectedGenders.includes(g.value);
+                    return (
+                      <label key={g.value} className="flex items-center cursor-pointer group">
+                        <input
+                          type="checkbox"
+                          checked={active}
+                          onChange={() =>
+                            toggleFilterArrayParam(
+                              'gender',
+                              g.value,
+                              selectedGenders,
+                              setSelectedGenders
+                            )
+                          }
+                          className="w-4 h-4 text-primary border-gray-300 dark:border-gray-600 rounded focus:ring-1 focus:ring-primary/50"
+                        />
+                        <span className={`ml-2 text-sm transition-colors ${
+                          active 
+                            ? 'text-primary font-medium bg-primary/5 px-2 py-0.5 rounded border border-primary/20' 
+                            : 'text-gray-700 dark:text-gray-300'
+                        }`}>
+                          {g.label}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
 
-                if (page === 2 || page === totalPages - 1) {
-                  return (
-                    <span
-                      key={page}
-                      className="px-2 text-xs sm:text-sm text-muted"
-                    >
-                      …
-                    </span>
-                  );
-                }
+              {/* Subcategory Filter */}
+              <div className="mb-4">
+                <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-2">Subcategory</h4>
+                <div className="space-y-1">
+                  {allSubCategoryOptions.map((sub) => {
+                    const active = selectedSubCategories.includes(sub.value);
+                    const isEnabled = selectedCategories.length === 0 || subCategoryOptions.some((enabled) => enabled.value === sub.value);
+                    return (
+                      <label
+                        key={sub.value}
+                        className={`flex items-center cursor-pointer group ${!isEnabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={active}
+                          onChange={() => {
+                            toggleFilterArrayParam(
+                              'sub_category',
+                              sub.value,
+                              selectedSubCategories,
+                              setSelectedSubCategories
+                            );
+                          }}
+                          disabled={!isEnabled}
+                          className="w-4 h-4 text-primary border-gray-300 dark:border-gray-600 rounded focus:ring-1 focus:ring-primary/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                        />
+                        <span className={`ml-2 text-sm transition-colors ${
+                          active && isEnabled
+                            ? 'text-primary font-medium bg-primary/5 px-2 py-0.5 rounded border border-primary/20' 
+                            : isEnabled
+                              ? 'text-gray-700 dark:text-gray-300'
+                              : 'text-gray-400 dark:text-gray-500'
+                        }`}>
+                          {sub.label}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
 
-                return null;
-              })}
+              {/* Size Filter - Show for Footwear and Bags and Accessories categories */}
+              {(selectedCategories.includes('Footwear') || selectedCategories.includes('Bags and Accessories')) && (
+                <div className="mb-4">
+                  <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-2">Size</h4>
+
+                  {/* Men Sizes */}
+                  <div className="mb-3">
+                    <h5 className="text-xs text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wide">Men</h5>
+                    <div className="flex flex-wrap gap-1">
+                      {sizeOptions.men.map((size) => {
+                        const active = selectedSizes.includes(size.value);
+                        return (
+                          <button
+                            key={size.value}
+                            onClick={() =>
+                              handleSizeSelection(
+                                size.value,
+                                selectedSizes,
+                                setSelectedSizes,
+                                selectedGenders,
+                                setSelectedGenders
+                              )
+                            }
+                            className={`px-2 py-1 text-sm border rounded transition-colors ${
+                              active
+                                ? 'bg-primary text-white border-primary shadow-sm'
+                                : 'bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600'
+                            }`}
+                          >
+                            {size.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Women Sizes */}
+                  <div>
+                    <h5 className="text-xs text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wide">Women</h5>
+                    <div className="flex flex-wrap gap-1">
+                      {sizeOptions.women.map((size) => {
+                        const active = selectedSizes.includes(size.value);
+                        return (
+                          <button
+                            key={size.value}
+                            onClick={() =>
+                              handleSizeSelection(
+                                size.value,
+                                selectedSizes,
+                                setSelectedSizes,
+                                selectedGenders,
+                                setSelectedGenders
+                              )
+                            }
+                            className={`px-2 py-1 text-sm border rounded transition-colors ${
+                              active
+                                ? 'bg-primary text-white border-primary shadow-sm'
+                                : 'bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600'
+                            }`}
+                          >
+                            {size.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Bag Sizes */}
+                  {selectedCategories.includes('Bags and Accessories') && (
+                    <div>
+                      <h5 className="text-xs text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wide">Bag Sizes</h5>
+                      <div className="flex flex-wrap gap-1">
+                        {sizeOptions.bags.map((size) => {
+                          const active = selectedSizes.includes(size.value);
+                          return (
+                            <button
+                              key={size.value}
+                              onClick={() => {
+                                // For bags, don't affect gender filters
+                                const nextSizes = selectedSizes.includes(size.value)
+                                  ? selectedSizes.filter((s) => s !== size.value)
+                                  : [...selectedSizes, size.value];
+                                
+                                setSelectedSizes(nextSizes);
+                                
+                                // Update URL params
+                                const params = new URLSearchParams(location.search);
+                                params.delete('size');
+                                nextSizes.forEach((s) => params.append('size', s));
+                                params.delete('page');
+                                navigate({ pathname: "/products", search: params.toString() });
+                              }}
+                              className={`px-2 py-1 text-sm border rounded transition-colors ${
+                                active
+                                  ? 'bg-primary text-white border-primary shadow-sm'
+                                  : 'bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600'
+                              }`}
+                            >
+                              {size.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Show message when non-footwear and non-bags categories are selected */}
+              {selectedCategories.length > 0 && !selectedCategories.includes('Footwear') && !selectedCategories.includes('Bags and Accessories') && (
+                <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Size filters are available for Footwear and Bags and Accessories products.
+                  </p>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                {hasActiveFilters && (
+                  <button
+                    onClick={handleClearAll}
+                    className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    Clear all
+                  </button>
+                )}
+              </div>
             </div>
           </div>
-        )}
+
+          {/* Main Content Area */}
+          <div className="flex-1">
+            {/* Active Filters Summary Bar */}
+            {hasActiveFilters && (
+              <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-blue-700 dark:text-blue-300">Active Filters:</span>
+                    <span className="text-sm text-blue-600 dark:text-blue-400">{activeFilterSummary.join(' · ')}</span>
+                  </div>
+                  <button
+                    onClick={handleClearAll}
+                    className="text-sm px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+            )}
+            
+            {renderProductsContent}
+          </div>
+        </div>
       </div>
-    </div>
+
+      {/* Mobile Layout */}
+      <div className="lg:hidden">
+        {/* Active Filters Summary Bar - Mobile */}
+        {hasActiveFilters && (
+          <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-blue-700 dark:text-blue-300">Active Filters:</span>
+                <span className="text-sm text-blue-600 dark:text-blue-400">{activeFilterSummary.join(' · ')}</span>
+              </div>
+              <button
+                onClick={handleClearAll}
+                className="text-sm px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+        )}
+        {renderProductsContent}
+      </div>
+
+      {/* Mobile Filters Modal */}
+      {isMobileFiltersOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden">
+          <div className="fixed inset-0 bg-black/50" onClick={() => setIsMobileFiltersOpen(false)} />
+          <div className="fixed inset-x-0 bottom-0 bg-white dark:bg-gray-800 rounded-t-2xl max-h-[80vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Filters</h3>
+                <button
+                  onClick={() => setIsMobileFiltersOpen(false)}
+                  className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Category Filter */}
+              <div className="mb-4">
+                <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-2">Category</h4>
+                <div className="flex flex-wrap gap-2">
+                  {CATEGORY_OPTIONS.map((cat) => {
+                    const active = selectedCategories.includes(cat.value);
+                    return (
+                      <button
+                        key={cat.value}
+                        onClick={() =>
+                          toggleFilterArrayParam(
+                            'category',
+                            cat.value,
+                            selectedCategories,
+                            setSelectedCategories
+                          )
+                        }
+                        className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${
+                          active
+                            ? 'bg-primary text-white border-primary shadow-sm'
+                            : 'bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600'
+                        }`}
+                      >
+                        {cat.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Gender Filter */}
+              <div className="mb-4">
+                <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-2">Gender</h4>
+                <div className="flex flex-wrap gap-2">
+                  {GENDER_OPTIONS.map((g) => {
+                    const active = selectedGenders.includes(g.value);
+                    return (
+                      <button
+                        key={g.value}
+                        onClick={() =>
+                          toggleFilterArrayParam(
+                            'gender',
+                            g.value,
+                            selectedGenders,
+                            setSelectedGenders
+                          )
+                        }
+                        className={`px-3 py-1.5 rounded-lg text-sm border transition-colors ${
+                          active
+                            ? 'bg-primary text-white border-primary shadow-sm'
+                            : 'bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600'
+                        }`}
+                      >
+                        {g.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Subcategory Filter */}
+              <div className="mb-4">
+                <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-2">Subcategory</h4>
+                <div className="flex flex-wrap gap-2">
+                  {allSubCategoryOptions.map((sub) => {
+                    const active = selectedSubCategories.includes(sub.value);
+                    const isEnabled = selectedCategories.length === 0 || subCategoryOptions.some((enabled) => enabled.value === sub.value);
+                    return (
+                      <button
+                        key={sub.value}
+                        onClick={() => {
+                          toggleFilterArrayParam(
+                            'sub_category',
+                            sub.value,
+                            selectedSubCategories,
+                            setSelectedSubCategories
+                          );
+                        }}
+                        disabled={!isEnabled}
+                        className={`px-3 py-1.5 rounded-lg text-sm border ${
+                          active && isEnabled
+                            ? 'bg-primary text-white border-primary'
+                            : isEnabled
+                              ? 'bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600'
+                              : 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 border-gray-200 dark:border-gray-600 cursor-not-allowed'
+                        }`}
+                      >
+                        {sub.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Size Filter - Show for Footwear and Bags and Accessories categories */}
+              {(selectedCategories.includes('Footwear') || selectedCategories.includes('Bags and Accessories')) && (
+                <div className="mb-4">
+                  <h4 className="text-sm font-medium text-gray-900 dark:text-white mb-2">Size</h4>
+
+                  {/* Men Sizes */}
+                  <div className="mb-3">
+                    <h5 className="text-xs text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wide">Men</h5>
+                    <div className="flex flex-wrap gap-1">
+                      {sizeOptions.men.map((size) => {
+                        const active = selectedSizes.includes(size.value);
+                        return (
+                          <button
+                            key={size.value}
+                            onClick={() =>
+                              handleSizeSelection(
+                                size.value,
+                                selectedSizes,
+                                setSelectedSizes,
+                                selectedGenders,
+                                setSelectedGenders
+                              )
+                            }
+                            className={`px-2 py-1 text-sm border rounded transition-colors ${
+                              active
+                                ? 'bg-primary text-white border-primary shadow-sm'
+                                : 'bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600'
+                            }`}
+                          >
+                            {size.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Women Sizes */}
+                  <div>
+                    <h5 className="text-xs text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wide">Women</h5>
+                    <div className="flex flex-wrap gap-1">
+                      {sizeOptions.women.map((size) => {
+                        const active = selectedSizes.includes(size.value);
+                        return (
+                          <button
+                            key={size.value}
+                            onClick={() =>
+                              handleSizeSelection(
+                                size.value,
+                                selectedSizes,
+                                setSelectedSizes,
+                                selectedGenders,
+                                setSelectedGenders
+                              )
+                            }
+                            className={`px-2 py-1 text-sm border rounded transition-colors ${
+                              active
+                                ? 'bg-primary text-white border-primary shadow-sm'
+                                : 'bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600'
+                            }`}
+                          >
+                            {size.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Bag Sizes */}
+                  {selectedCategories.includes('Bags and Accessories') && (
+                    <div>
+                      <h5 className="text-xs text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wide">Bag Sizes</h5>
+                      <div className="flex flex-wrap gap-1">
+                        {sizeOptions.bags.map((size) => {
+                          const active = selectedSizes.includes(size.value);
+                          return (
+                            <button
+                              key={size.value}
+                              onClick={() => {
+                                // For bags, don't affect gender filters
+                                const nextSizes = selectedSizes.includes(size.value)
+                                  ? selectedSizes.filter((s) => s !== size.value)
+                                  : [...selectedSizes, size.value];
+                                
+                                setSelectedSizes(nextSizes);
+                                
+                                // Update URL params
+                                const params = new URLSearchParams(location.search);
+                                params.delete('size');
+                                nextSizes.forEach((s) => params.append('size', s));
+                                params.delete('page');
+                                navigate({ pathname: "/products", search: params.toString() });
+                              }}
+                              className={`px-2 py-1 text-sm border rounded transition-colors ${
+                                active
+                                  ? 'bg-primary text-white border-primary shadow-sm'
+                                  : 'bg-gray-50 dark:bg-gray-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600'
+                              }`}
+                            >
+                              {size.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Show message when non-footwear and non-bags categories are selected */}
+              {selectedCategories.length > 0 && !selectedCategories.includes('Footwear') && !selectedCategories.includes('Bags and Accessories') && (
+                <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Size filters are available for Footwear and Bags and Accessories products.
+                  </p>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                {hasActiveFilters && (
+                  <button
+                    onClick={handleClearAll}
+                    className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    Clear all
+                  </button>
+                )}
+                <button
+                  onClick={() => setIsMobileFiltersOpen(false)}
+                  className="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+                >
+                  Apply filters
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      </div>
+    </>
   );
 };
 

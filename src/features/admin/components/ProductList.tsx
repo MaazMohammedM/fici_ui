@@ -1,9 +1,14 @@
 // ✅ ProductList.tsx — List, update sizes, delete products
-import React from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAdminStore } from '../store/adminStore';
 import EditProductForm from './EditProductForm';
+import ProductFilters from '../../../components/shared/ProductFilters';
 import fallbackImage from '../../../assets/Fici_logo.png';
 import CachedImage from '../../../components/ui/CachedImage';
+import { getStockStatus, getActiveStatus, getStatusBadgeProps } from '../../../lib/admin/productStatus';
+import { getImageForUseCase } from '../../../lib/utils/imageOptimization';
+import {ArrowLeft, ArrowRight} from 'lucide-react';
 
 const ProductList: React.FC = () => {
   const { 
@@ -14,6 +19,145 @@ const ProductList: React.FC = () => {
     success,
     clearSuccess 
   } = useAdminStore();
+  const navigate = useNavigate();
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const productsPerPage = 12;
+
+  // Filter state
+  const [filters, setFilters] = useState({
+    categories: [],
+    genders: [],
+    subCategories: [],
+    sizes: [],
+    search: '',
+    sortBy: null as 'price_low_to_high' | 'price_high_to_low' | null,
+    stockStatus: 'all' as 'all' | 'inStock' | 'outOfStock',
+    activeStatus: 'all' as 'all' | 'active' | 'inactive'
+  });
+
+  // Handle filters change with proper type compatibility
+  const handleFiltersChange = useCallback((newFilters: {
+    categories: string[];
+    genders: string[];
+    subCategories: string[];
+    sizes: string[];
+    search: string;
+    sortBy: 'price_low_to_high' | 'price_high_to_low' | null;
+    stockStatus?: 'all' | 'inStock' | 'outOfStock';
+    activeStatus?: 'all' | 'active' | 'inactive';
+  }) => {
+    setFilters({
+      categories: newFilters.categories,
+      genders: newFilters.genders,
+      subCategories: newFilters.subCategories,
+      sizes: newFilters.sizes,
+      search: newFilters.search,
+      sortBy: newFilters.sortBy,
+      stockStatus: newFilters.stockStatus || 'all',
+      activeStatus: newFilters.activeStatus || 'all'
+    });
+  }, []);
+
+  // Filter products based on selected filters
+  const filteredProducts = useMemo(() => {
+    let filtered = [...products];
+
+    // Category filter
+    if (filters.categories.length > 0) {
+      filtered = filtered.filter(product => 
+        filters.categories.includes(product.category)
+      );
+    }
+
+    // Gender filter
+    if (filters.genders.length > 0) {
+      filtered = filtered.filter(product => 
+        filters.genders.includes(product.gender)
+      );
+    }
+
+    // Subcategory filter
+    if (filters.subCategories.length > 0) {
+      filtered = filtered.filter(product => 
+        product.sub_category && filters.subCategories.includes(product.sub_category)
+      );
+    }
+
+    // Search filter
+    if (filters.search.trim()) {
+      const searchLower = filters.search.toLowerCase().trim();
+      filtered = filtered.filter(product => 
+        product.name.toLowerCase().includes(searchLower) ||
+        product.article_id.toLowerCase().includes(searchLower) ||
+        (product.description && product.description.toLowerCase().includes(searchLower))
+      );
+    }
+
+    // Admin-specific stock status filter
+    if (filters.stockStatus === 'inStock') {
+      filtered = filtered.filter(product => {
+        const sizes = product.sizes || {};
+        return Object.values(sizes).some((stock: any) => stock > 0);
+      });
+    } else if (filters.stockStatus === 'outOfStock') {
+      filtered = filtered.filter(product => {
+        const sizes = product.sizes || {};
+        return Object.values(sizes).every((stock: any) => stock === 0);
+      });
+    }
+
+    // Admin-specific active status filter
+    if (filters.activeStatus === 'active') {
+      filtered = filtered.filter(product => product.is_active !== false);
+    } else if (filters.activeStatus === 'inactive') {
+      filtered = filtered.filter(product => product.is_active === false);
+    }
+
+    // Sort filter
+    if (filters.sortBy) {
+      filtered = filtered.sort((a, b) => {
+        const priceA = parseFloat(String(a.discount_price));
+        const priceB = parseFloat(String(b.discount_price));
+        return filters.sortBy === 'price_low_to_high' ? priceA - priceB : priceB - priceA;
+      });
+    }
+
+    return filtered;
+  }, [products, filters]);
+
+  // Calculate pagination
+  const indexOfLastProduct = currentPage * productsPerPage;
+  const indexOfFirstProduct = indexOfLastProduct - productsPerPage;
+  const currentProducts = filteredProducts.slice(indexOfFirstProduct, indexOfLastProduct);
+  const totalPages = Math.ceil(filteredProducts.length / productsPerPage);
+
+  // Pagination controls
+  const paginate = (pageNumber: number) => {
+    window.scrollTo(0, 0);
+    setCurrentPage(pageNumber);
+  };
+  const goToPreviousPage = () => {
+    window.scrollTo(0, 0);
+    setCurrentPage(prev => Math.max(prev - 1, 1));
+  };
+  const goToNextPage = () => {
+    window.scrollTo(0, 0);
+    setCurrentPage(prev => Math.min(prev + 1, totalPages));
+  };
+
+  // Reset to page 1 when filters change
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [filters]);
+
+  // Scroll to top when returning from edit mode
+  React.useEffect(() => {
+    if (!editingProduct) {
+      window.scrollTo(0, 0);
+    }
+  }, [editingProduct]);
 
 
   if (editingProduct) {
@@ -54,86 +198,323 @@ const ProductList: React.FC = () => {
         </div>
       )}
       
-      {products.length === 0 ? (
-        <div className="text-center py-8 text-gray-500">
-          No products found. Add your first product!
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {products.map((product) => (
-            <div key={product.product_id} className='border border-gray-200 dark:border-gray-700 p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow'>
-              {/* Product Image */}
-              <div className="mb-4">
-                <CachedImage
-                  src={product.thumbnail_url || ''}
-                  fallbackSrc={fallbackImage}
-                  alt={product.name}
-                  className="w-full h-48 object-cover rounded-lg"
-                  loadingFallback={
-                    <div className="w-full h-48 bg-gray-200 dark:bg-gray-700 animate-pulse rounded-lg" />
-                  }
-                />
-              </div>
-              
-              {/* Product Info */}
-              <div className="space-y-2">
-                <h3 className='text-lg font-semibold text-gray-900 dark:text-white'>
-                  {product.name}
-                </h3>
-                
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-500">MRP: ₹{product.mrp_price}</span>
-                  <span className="text-lg font-bold text-primary">₹{product.discount_price}</span>
-                </div>
-                
-                {product.sub_category && (
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Brand: {product.sub_category}</p>
-                )}
-                
-                <div className="flex gap-2">
-                  <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
-                    {product.category}
-                  </span>
-                  <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded">
-                    {product.gender}
-                  </span>
-                </div>
-                
-                {product.description && (
-                  <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
-                    {product.description}
-                  </p>
-                )}
-                
-                <div className="text-sm text-gray-500">
-                  <p>Article ID: {product.article_id}</p>
-                  <p>Sizes: {Object.entries(product.sizes || {}).map(([size, qty]) => `${size}: ${qty}`).join(', ')}</p>
-                </div>
-              </div>
-              
-              {/* Action Buttons */}
-              <div className="mt-4 flex gap-2">
-                <button
-                  onClick={() => setEditingProduct(product)}
-                  className="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded text-sm transition-colors"
-                >
-                  Edit
-                </button>
-                <button
-                  onClick={() => {
-                    if (confirm('Are you sure you want to delete this product?')) {
-                      deleteProduct(product.product_id);
-                    }
-                  }}
-                  className="flex-1 bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded text-sm transition-colors"
-                >
-                  Delete
-                </button>
-              </div>
-            </div>
+      {/* Filters Section */}
+      <div className="flex gap-8">
+        {/* Desktop Filters Sidebar */}
+        <ProductFilters 
+          onFiltersChange={handleFiltersChange}
+          isAdmin={true}
+          className="hidden lg:block"
+        />
+        
+        {/* Main Content */}
+        <div className="flex-1">
+          {/* Mobile Filters Bar */}
+         <div className="lg:hidden mb-4 space-y-4">
+  {/* Products Count */}
+  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+    Products ({filteredProducts.length})
+  </h3>
+
+  {/* Pagination + Filters Row */}
+  <div className="flex items-center justify-between gap-2">
+    {/* Pagination Controls */}
+    {totalPages > 1 && (
+      <div className="flex items-center gap-1 overflow-x-auto flex-1 scrollbar-hide">
+        <button
+          onClick={goToPreviousPage}
+          disabled={currentPage === 1}
+          className="
+            px-3 py-2
+            rounded-md
+            bg-white dark:bg-gray-800
+            border border-gray-300 dark:border-gray-600
+            text-sm font-small
+            text-gray-700 dark:text-gray-300
+            hover:bg-gray-50 dark:hover:bg-gray-700
+            disabled:opacity-50
+            disabled:cursor-not-allowed
+            whitespace-nowrap
+          "
+        >
+          <ArrowLeft/>
+        </button>
+
+        <div className="flex items-center gap-1">
+          {Array.from(
+            { length: Math.min(totalPages, 5) },
+            (_, i) => i + 1
+          ).map((pageNumber) => (
+            <button
+              key={pageNumber}
+              onClick={() => paginate(pageNumber)}
+              className={`
+                min-w-[40px]
+                h-10
+                rounded-md
+                text-sm
+                font-medium
+                ${
+                  currentPage === pageNumber
+                    ? 'bg-primary text-white'
+                    : 'bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300'
+                }
+              `}
+            >
+              {pageNumber}
+            </button>
           ))}
+
+          {totalPages > 5 && (
+            <>
+              <span className="px-1 text-gray-500">...</span>
+
+              <button
+                onClick={() => paginate(totalPages)}
+                className={`
+                  min-w-[40px]
+                  h-10
+                  rounded-md
+                  text-sm
+                  font-medium
+                  ${
+                    currentPage === totalPages
+                      ? 'bg-primary text-white'
+                      : 'bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300'
+                  }
+                `}
+              >
+                {totalPages}
+              </button>
+            </>
+          )}
         </div>
-      )}
+
+        <button
+          onClick={goToNextPage}
+          disabled={currentPage === totalPages}
+          className="
+            px-3 py-2
+            rounded-md
+            bg-white dark:bg-gray-800
+            border border-gray-300 dark:border-gray-600
+            text-sm font-medium
+            text-gray-700 dark:text-gray-300
+            hover:bg-gray-50 dark:hover:bg-gray-700
+            disabled:opacity-50
+            disabled:cursor-not-allowed
+            whitespace-nowrap
+          "
+        >
+          <ArrowRight/>
+        </button>
+      </div>
+    )}
+
+    {/* Filters */}
+    <div className="shrink-0">
+      <ProductFilters
+        onFiltersChange={handleFiltersChange}
+        isMobile={true}
+        isAdmin={true}
+        showActionButtons={true}
+      />
+    </div>
+  </div>
+</div> 
+          {/* Desktop Products Header */}
+          
+          <div className="hidden lg:block mb-4">
+            {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex justify-center items-center space-x-2 mt-8">
+              <button
+                onClick={goToPreviousPage}
+                disabled={currentPage === 1}
+                className="px-3 py-2 rounded-md bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Previous
+              </button>
+
+              <div className="flex space-x-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNumber) => (
+                  <button
+                    key={pageNumber}
+                    onClick={() => paginate(pageNumber)}
+                    className={`px-3 py-2 rounded-md text-sm font-medium ${
+                      currentPage === pageNumber
+                        ? 'bg-primary text-white'
+                        : 'bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    {pageNumber}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                onClick={goToNextPage}
+                disabled={currentPage === totalPages}
+                className="px-3 py-2 rounded-md bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
+            </div>
+          )}
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Products ({filteredProducts.length})
+            </h3>
+                      
+          </div>
+          {filteredProducts.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              {products.length === 0 ? (
+                "No products found. Add your first product!"
+              ) : (
+                "No products match your current filters."
+              )}
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {currentProducts.map((product) => {
+                  const stockStatus = getStockStatus(product);
+                  const activeStatus = getActiveStatus(product);
+                  const stockBadgeProps = getStatusBadgeProps(stockStatus.status, stockStatus.statusColor);
+                  const activeBadgeProps = getStatusBadgeProps(activeStatus.status, activeStatus.statusColor);
+                  
+                  return (
+                  <div key={product.product_id} className='border border-gray-200 dark:border-gray-700 p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow'>
+                  {/* Product Image */}
+                  <div className="mb-4">
+                    <CachedImage
+                      src={getImageForUseCase(product.thumbnail_url || '', 'LISTING')}
+                      fallbackSrc={fallbackImage}
+                      alt={product.name}
+                      className="w-full h-48 object-cover rounded-lg cursor-pointer hover:opacity-80 transition-opacity"
+                      loadingFallback={
+                        <div className="w-full h-48 bg-gray-200 dark:bg-gray-700 animate-pulse rounded-lg" />
+                      }
+                      onClick={() => navigate(`/products/${product.article_id}`)}
+                    />
+                  </div>
+                  
+                  {/* Product Info */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-start">
+                      <h3 className='text-lg font-semibold text-gray-900 dark:text-white flex-1'>
+                        {product.name}
+                      </h3>
+                      {/* Status Badges */}
+                      <div className="flex gap-1 flex-wrap">
+                        <span className={stockBadgeProps.className}>
+                          {stockBadgeProps.text}
+                        </span>
+                        <span className={activeBadgeProps.className}>
+                          {activeBadgeProps.text}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-500">MRP: ₹{product.mrp_price}</span>
+                      <span className="text-lg font-bold text-primary">₹{product.discount_price}</span>
+                    </div>
+                    
+                    {product.sub_category && (
+                      <p className="text-sm text-gray-600 dark:text-gray-400">Brand: {product.sub_category}</p>
+                    )}
+                    
+                    <div className="flex gap-2">
+                      <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
+                        {product.category}
+                      </span>
+                      <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded">
+                        {product.gender}
+                      </span>
+                    </div>
+                    
+                    {product.description && (
+                      <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
+                        {product.description}
+                      </p>
+                    )}
+                    
+                    <div className="text-sm text-gray-500">
+                      <p>Article ID: {product.article_id}</p>
+                      <p>Sizes: {Object.entries(product.sizes || {}).map(([size, qty]) => `${size}: ${qty}`).join(', ')}</p>
+                      <p>Images: {product.images?.length || 0} uploaded</p>
+                    </div>
+                  </div>
+                  
+                  {/* Action Buttons */}
+                  <div className="mt-4 flex gap-2">
+                    <button
+                      onClick={() => {
+                        window.scrollTo(0, 0);
+                        setEditingProduct(product);
+                      }}
+                      className="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded text-sm transition-colors"
+                      title="Edit product details, manage images, sizes, and more"
+                    >
+                      Edit & Images
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (confirm('Are you sure you want to delete this product?')) {
+                          deleteProduct(product.product_id);
+                        }
+                      }}
+                      className="flex-1 bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded text-sm transition-colors"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+                );
+              })}
+          </div>
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex justify-center items-center space-x-2 mt-8">
+              <button
+                onClick={goToPreviousPage}
+                disabled={currentPage === 1}
+                className="px-3 py-2 rounded-md bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Previous
+              </button>
+
+              <div className="flex space-x-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNumber) => (
+                  <button
+                    key={pageNumber}
+                    onClick={() => paginate(pageNumber)}
+                    className={`px-3 py-2 rounded-md text-sm font-medium ${
+                      currentPage === pageNumber
+                        ? 'bg-primary text-white'
+                        : 'bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    {pageNumber}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                onClick={goToNextPage}
+                disabled={currentPage === totalPages}
+                className="px-3 py-2 rounded-md bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
+            </div>
+          )}
+          </>
+          )}
+        </div>
+      </div>
     </div>
   );
 };

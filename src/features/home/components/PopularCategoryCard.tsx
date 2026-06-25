@@ -9,7 +9,7 @@ const PopularCategoryCard: React.FC<PopularCategoryCardProps> = ({ category, cat
   return (
     <div className='flex flex-col items-center gap-2'>
       <div className='w-40 h-40 bg-gradient-light dark:bg-gradient-dark rounded-full flex items-center justify-center'>
-        <img src={categoryImage} alt={category} className='w-full h-full object-cover rounded-full' />
+        <img src={categoryImage} alt={`${category} - Premium leather footwear from Ambur manufacturer`} className='w-full h-full object-cover rounded-full' />
       </div>
       <h3 className='text-lg font-bold font-primary text-primary dark:text-secondary'>{category}</h3>
     </div>

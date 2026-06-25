@@ -36,13 +36,11 @@ export const usePerformanceMonitoring = (options: UsePerformanceMonitoringOption
   const logMetric = useCallback((name: string, value: number, threshold?: number) => {
     if (enableLogging) {
       const status = threshold && value > threshold ? '⚠️ SLOW' : '✅ GOOD';
-      console.log(`[Performance] ${name}: ${value.toFixed(2)}ms ${status}`);
     }
   }, [enableLogging]);
 
   const reportMetric = useCallback((_name: string, _value: number) => {
     if (reportToAnalytics) {
-        console.log(`[Performance] ${_name}: ${_value.toFixed(2)}ms`);
       // In production, integrate with analytics services like Google Analytics 4
       // gtag('event', 'page_timing', {
       //   name: name,
@@ -237,10 +235,6 @@ export const useApiPerformance = () => {
       const result = await apiCall();
       const endTime = performance.now();
       const duration = endTime - startTime;
-      
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`[API Performance] ${endpoint}: ${duration.toFixed(2)}ms`);
-      }
       
       // Report to analytics in production
       if (process.env.NODE_ENV === 'production') {

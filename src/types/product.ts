@@ -16,6 +16,8 @@ export interface Product {
   discount_percentage: number;
   created_at: string;
   rating?: Rating;
+  tags?: string[];
+  size_prices?: Record<string, number> | null;
 }
 
 export interface Rating {

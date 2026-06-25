@@ -2,7 +2,9 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import type { Product } from '../../../types/product';
 import fallbackImage from '../../../assets/Fici_logo.png';
-import { ZoomIn, ZoomOut, X, Heart } from 'lucide-react';
+import { ZoomIn, ZoomOut, X, Heart, Share2 } from 'lucide-react';
+import ShareModal from './ShareModal';
+import { getDetailImageUrl, getThumbnailUrl } from '../../../lib/utils/imageOptimization';
 
 interface ProductImageGalleryProps {
   selectedVariant: Product | undefined;
@@ -20,7 +22,7 @@ interface ProductImageGalleryProps {
 }
 
 const LENS_SIZE = 250;
-const ZOOM_LEVEL = 3.5;
+const ZOOM_LEVEL = 2;
 
 const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
   selectedVariant,
@@ -31,74 +33,81 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
 }: ProductImageGalleryProps) => {
   const [selectedImage, setSelectedImage] = useState(0);
 
-  // Hover / lens state (desktop)
   const [isHovering, setIsHovering] = useState(false);
   const [showLens, setShowLens] = useState(false);
   const [lensPosition, setLensPosition] = useState({ x: 0, y: 0 });
   const [zoomPos, setZoomPos] = useState({ x: 50, y: 50 });
 
-  // Modal & slideshow
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalImageIndex, setModalImageIndex] = useState(0);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
-  // Touch/swipe
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const [touchEndX, setTouchEndX] = useState<number | null>(null);
 
-  // Zoom level detection and management
+  const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 768);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsDesktop(window.innerWidth >= 768);
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const [browserZoomLevel, setBrowserZoomLevel] = useState(100);
   const [isZoomDisabled, setIsZoomDisabled] = useState(false);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
 
-  // Reset selected image when variant changes
   useEffect(() => {
     setSelectedImage(0);
+    // Reset zoom state when variant changes
+    setIsHovering(false);
+    setShowLens(false);
+    setLensPosition({ x: 0, y: 0 });
+    setZoomPos({ x: 50, y: 50 });
   }, [selectedVariant]);
 
-  // Detect browser zoom level and disable zoom functionality at 150%+
   useEffect(() => {
     const detectZoomLevel = () => {
       let zoom = 100;
 
-      // Method 1: Use visualViewport API if available (most accurate)
       if (window.visualViewport) {
         zoom = Math.round(window.visualViewport.scale * 100);
       }
-      // Method 2: Fallback using devicePixelRatio
       else {
         zoom = Math.round((window.devicePixelRatio * window.screen.width) / window.innerWidth * 100);
       }
 
-      // Additional check for high DPI displays
       if (window.devicePixelRatio > 1) {
         const calculatedZoom = Math.round((window.innerWidth * window.devicePixelRatio) / window.screen.width * 100);
-        if (Math.abs(calculatedZoom - zoom) < 10) { // Within 10% tolerance
+        if (Math.abs(calculatedZoom - zoom) < 10) { 
           zoom = calculatedZoom;
         }
       }
 
-      console.log('Detected zoom level:', zoom);
       setBrowserZoomLevel(zoom);
       setIsZoomDisabled(zoom >= 150);
 
-      // Force reset hover and zoom state when zoom is disabled
       if (zoom >= 150) {
         setIsHovering(false);
         setShowLens(false);
       }
     };
 
-    // Listen for zoom changes with multiple methods
     const handleResize = () => detectZoomLevel();
     const handleVisualViewportChange = () => detectZoomLevel();
+
+    // Initial detection
+    detectZoomLevel();
 
     window.addEventListener('resize', handleResize);
     if (window.visualViewport) {
       window.visualViewport.addEventListener('resize', handleVisualViewportChange);
     }
 
-    // Also listen for orientation changes (mobile)
     window.addEventListener('orientationchange', handleResize);
 
     return () => {
@@ -108,27 +117,23 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
         window.visualViewport.removeEventListener('resize', handleVisualViewportChange);
       }
     };
-  }, []); // Empty dependency array - only run once on mount
+  }, []); 
 
   const parseImages = useCallback((images: unknown): string[] => {
     if (!images) return [];
 
-    // Handle null/undefined
     if (images === null || images === undefined) return [];
 
-    // Handle arrays
     if (Array.isArray(images)) {
       return images
         .filter((img): img is string => typeof img === 'string' && img.trim().length > 0)
         .map(img => img.trim());
     }
 
-    // Handle strings
     if (typeof images === 'string') {
       const trimmed = images.trim();
       if (!trimmed) return [];
 
-      // Check if it's a JSON string
       if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
         try {
           const parsed = JSON.parse(trimmed);
@@ -142,7 +147,6 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
         }
       }
 
-      // Check if it's comma-separated URLs
       if (trimmed.includes(',')) {
         return trimmed
           .split(',')
@@ -150,7 +154,6 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
           .filter(url => url.length > 0);
       }
 
-      // Single URL
       return [trimmed];
     }
 
@@ -159,25 +162,32 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
 
   const finalImages = useMemo(() => {
     if (!selectedVariant) {
-      console.log('No selectedVariant available');
       return [fallbackImage];
     }
 
     let imgs = parseImages(selectedVariant.images);
 
     if (imgs.length === 0 && selectedVariant.thumbnail_url) {
-      console.log('Using thumbnail_url as fallback:', selectedVariant.thumbnail_url);
       imgs = [selectedVariant.thumbnail_url];
     }
 
-    const result = imgs.length ? imgs : [fallbackImage];
-    return result;
+    // Optimize images for detail page
+    const optimizedImages = imgs.length 
+      ? imgs.map(img => getDetailImageUrl(img))
+      : [fallbackImage];
+
+    return optimizedImages;
   }, [selectedVariant, parseImages]);
 
-  // Notify parent component of zoom state changes - only when actual state changes
   useEffect(() => {
-    // Only call onZoomStateChange if the actual zoom state values have changed
-    // This prevents unnecessary re-renders when only the callback reference changes
+    // Reset zoom state when switching images
+    setIsHovering(false);
+    setShowLens(false);
+    setLensPosition({ x: 0, y: 0 });
+    setZoomPos({ x: 50, y: 50 });
+  }, [selectedImage]);
+
+  useEffect(() => {
     if (onZoomStateChange && typeof onZoomStateChange === 'function') {
       onZoomStateChange({
         isHovering,
@@ -193,55 +203,71 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
   const nextImage = useCallback(() => setSelectedImage(p => (p + 1) % finalImages.length), [finalImages.length]);
   const prevImage = useCallback(() => setSelectedImage(p => (p - 1 + finalImages.length) % finalImages.length), [finalImages.length]);
 
-  // Desktop: track mouse and compute lens + zoom position.
-  const handleMouseEnter = useCallback(() => {
-    // do not enable hover behavior on touch devices — but mouse events will not fire there typically
+  const handleMouseEnter = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (isZoomDisabled) {
-      console.log('Mouse enter blocked - zoom disabled');
       return;
     }
-    setIsHovering(true);
+    // Check if mouse is over the share or wishlist icon areas
+    const target = e.target as HTMLElement;
+    const isOverIcon = target.closest('[data-icon="share"], [data-icon="wishlist"]');
+    if (!isOverIcon) {
+      setIsHovering(true);
+    }
   }, [isZoomDisabled]);
 
-  const handleMouseLeave = useCallback(() => {
-    setIsHovering(false);
-    setShowLens(false);
+  const handleMouseLeave = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
+    // Check if mouse is still over the share or wishlist icon areas
+    const target = e.target as HTMLElement;
+    const relatedTarget = e.relatedTarget;
+    
+    // Safely check if relatedTarget exists and has the closest method
+    let isMovingToIcon = false;
+    if (relatedTarget && relatedTarget instanceof HTMLElement) {
+      isMovingToIcon = !!relatedTarget.closest('[data-icon="share"], [data-icon="wishlist"]');
+    }
+    
+    if (!isMovingToIcon) {
+      setIsHovering(false);
+      setShowLens(false);
+    }
   }, []);
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (isZoomDisabled) {
-      console.log('Mouse move blocked - zoom disabled');
       return;
     }
+    // Check if mouse is over the share or wishlist icon areas
+    const target = e.target as HTMLElement;
+    const isOverIcon = target.closest('[data-icon="share"], [data-icon="wishlist"]');
+    if (isOverIcon) {
+      setIsHovering(false);
+      setShowLens(false);
+      return;
+    }
+    
     if (!containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
-    // compute lens top-left limited inside container
     const rawX = e.clientX - rect.left;
     const rawY = e.clientY - rect.top;
     const left = Math.max(0, Math.min(rawX - LENS_SIZE / 2, rect.width - LENS_SIZE));
     const top = Math.max(0, Math.min(rawY - LENS_SIZE / 2, rect.height - LENS_SIZE));
     setLensPosition({ x: left, y: top });
 
-    // background position for zoom box (percentage)
     const px = (left / (rect.width - LENS_SIZE || 1)) * 100;
     const py = (top / (rect.height - LENS_SIZE || 1)) * 100;
     setZoomPos({ x: px, y: py });
 
-    // only show lens when mouse is moving inside container
     if (!showLens) setShowLens(true);
   }, [showLens, isZoomDisabled]);
 
-  // Toggle zoom lens with button (keeps old behavior: user can enable/disable)
   const toggleZoom = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     if (isZoomDisabled) {
-      console.log('Zoom toggle blocked - zoom disabled');
       return;
     }
     setShowLens(s => !s);
   }, [isZoomDisabled]);
 
-  // Modal controls
   const openImageModal = useCallback((index: number) => {
     setModalImageIndex(index);
     setIsModalOpen(true);
@@ -251,11 +277,18 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
     setIsModalOpen(false);
     document.body.style.overflow = 'unset';
   }, []);
+  const openShareModal = useCallback(() => {
+    setIsShareModalOpen(true);
+    document.body.style.overflow = 'hidden';
+  }, []);
+  const closeShareModal = useCallback(() => {
+    setIsShareModalOpen(false);
+    document.body.style.overflow = 'unset';
+  }, []);
   const navigateModalImage = useCallback((dir: 'prev' | 'next') => {
     setModalImageIndex(p => (dir === 'next' ? (p + 1) % finalImages.length : (p - 1 + finalImages.length) % finalImages.length));
   }, [finalImages.length]);
 
-  // Touch (swipe) handlers for mobile — don't show lens for touch devices
   const handleTouchStart = (e: React.TouchEvent) => {
     if (e.touches.length === 1) {
       setTouchStartX(e.touches[0].clientX);
@@ -297,20 +330,15 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
     return () => window.removeEventListener('keydown', onKey);
   }, [isModalOpen, closeImageModal, navigateModalImage, nextImage, prevImage]);
 
-  // image onError fallback with better error handling
   const handleImageError = useCallback((e: React.SyntheticEvent<HTMLImageElement>) => {
     const t = e.target as HTMLImageElement;
     console.warn('Image failed to load:', t.src);
 
-    // If it's not already the fallback image, try the fallback
     if (t.src !== fallbackImage) {
-      console.log('Trying fallback image:', fallbackImage);
       t.src = fallbackImage;
     } else {
-      // If even fallback fails, hide the image or show a placeholder
       console.error('Even fallback image failed to load');
       t.style.display = 'none';
-      // Optionally show a placeholder div
       const placeholder = t.nextElementSibling as HTMLElement;
       if (placeholder && placeholder.classList.contains('image-placeholder')) {
         placeholder.style.display = 'flex';
@@ -318,13 +346,23 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
     }
   }, []);
 
+  // Generate product URL and get price for sharing
+  const productUrl = useMemo(() => {
+    if (typeof window !== 'undefined') {
+      return `${window.location.origin}/products/${selectedVariant?.article_id || ''}`;
+    }
+    return '';
+  }, [selectedVariant]);
+
+  const productPrice = selectedVariant?.discount_price ? selectedVariant.discount_price.toString() : undefined;
+
   return (
     <div className="space-y-4">
       {/* Color disclaimer - Desktop: above image, Mobile: below image */}
       <div className="hidden md:block px-3">
         <div className="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 p-3 rounded-lg text-sm">
           <p className="text-yellow-700 dark:text-yellow-300">
-            <span className="font-medium">Product Color Information :</span>
+            <span className="font-medium">Product Color Information: </span>
             We do our best to show you exactly what each product looks like, but sometimes colors may look slightly different in person due to lighting and screen differences.
           </p>
         </div>
@@ -360,9 +398,9 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
           <div
             ref={containerRef}
             className="relative aspect-square bg-gray-100 dark:bg-gray-800 rounded-2xl overflow-hidden"
-            onMouseEnter={window.innerWidth >= 768 ? handleMouseEnter : undefined}
-            onMouseLeave={window.innerWidth >= 768 ? handleMouseLeave : undefined}
-            onMouseMove={window.innerWidth >= 768 ? handleMouseMove : undefined}
+            onMouseEnter={isDesktop ? handleMouseEnter : undefined}
+            onMouseLeave={isDesktop ? handleMouseLeave : undefined}
+            onMouseMove={isDesktop ? handleMouseMove : undefined}
             onTouchStart={handleTouchStart}
             onTouchMove={handleTouchMove}
             onTouchEnd={handleTouchEnd}
@@ -370,6 +408,7 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
             {/* Wishlist Icon - Top Right */}
             {onWishlistToggle && (
               <button
+                data-icon="wishlist"
                 onClick={(e) => { e.stopPropagation(); onWishlistToggle(); }}
                 className={`absolute top-2 right-2 z-30 p-2 rounded-full shadow-lg transition-all duration-200 ${
                   isWishlisted
@@ -382,6 +421,16 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
               </button>
             )}
 
+            {/* Share Icon - Below Wishlist */}
+            <button
+              data-icon="share"
+              onClick={(e) => { e.stopPropagation(); openShareModal(); }}
+              className="absolute top-12 right-2 z-30 p-2 rounded-full shadow-lg transition-all duration-200 bg-white/90 dark:bg-gray-800/90 text-gray-700 dark:text-gray-200 hover:bg-white dark:hover:bg-gray-700"
+              aria-label="Share product"
+            >
+              <Share2 className="w-4 h-4" />
+            </button>
+
             {/* Zoom disabled indicator */}
             {isZoomDisabled && (
               <div className="absolute top-3 left-3 bg-yellow-100 dark:bg-yellow-900/80 text-yellow-800 dark:text-yellow-200 px-2 py-1.5 rounded text-xs font-medium shadow-lg z-30">
@@ -393,7 +442,7 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
               src={finalImages[selectedImage]}
               alt={productName}
               className={`w-full h-full object-cover transition-all duration-300 ${
-                isZoomDisabled || window.innerWidth < 768 ? 'cursor-default' : (isHovering ? 'cursor-crosshair' : 'cursor-default')
+                isZoomDisabled || !isDesktop ? 'cursor-default' : (isHovering ? 'cursor-crosshair' : 'cursor-default')
               }`}
               onClick={() => openImageModal(selectedImage)}
               onError={handleImageError}
@@ -412,7 +461,7 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
             )}
 
             {/* Lens circle (desktop only) - Only show when zoom is NOT disabled and not on mobile */}
-            {isHovering && showLens && !isZoomDisabled && window.innerWidth >= 768 && (
+            {isHovering && showLens && !isZoomDisabled && isDesktop && (
               <div
                 className="absolute rounded-full pointer-events-none z-30"
                 style={{
@@ -446,27 +495,38 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
       {/* Thumbnails */}
       {finalImages.length > 1 && (
         <div className="flex space-x-2 overflow-x-auto pb-2 scrollbar-hide">
-          {finalImages.map((img, idx) => (
-            <button
-              key={idx}
-              onClick={() => setSelectedImage(idx)}
-              className={`flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden border-2 transition-transform ${idx === selectedImage ? 'border-accent scale-105 ring-2 ring-accent/50' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'}`}
-              aria-label={`Thumbnail ${idx + 1}`}
-            >
-              <img src={img} alt={`${productName} ${idx + 1}`} className="w-full h-full object-cover" onError={handleImageError} />
-            </button>
-          ))}
+          {finalImages.map((img, idx) => {
+            // Get original image for thumbnail optimization
+            const originalImage = parseImages(selectedVariant?.images)?.[idx] || selectedVariant?.thumbnail_url || fallbackImage;
+            const thumbnailUrl = getThumbnailUrl(originalImage);
+            
+            return (
+              <button
+                key={idx}
+                onClick={() => setSelectedImage(idx)}
+                className={`flex-shrink-0 w-12 h-12 rounded-lg overflow-hidden border-2 transition-transform ${idx === selectedImage ? 'border-accent scale-105 ring-2 ring-accent/50' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'}`}
+                aria-label={`Thumbnail ${idx + 1}`}
+              >
+                <img src={thumbnailUrl} alt={`${productName} - Premium leather shoes from Ambur manufacturer ${idx + 1}`} className="w-full h-full object-cover" onError={handleImageError} loading="lazy" decoding="async" />
+              </button>
+            );
+          })}
         </div>
       )}
 
       {/* Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/90 z-40 flex items-center justify-center p-4" onClick={closeImageModal}>
+        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
+          {/* Close button positioned in the overlay */}
+          <button 
+            onClick={closeImageModal} 
+            className="absolute top-4 right-4 text-white p-3 rounded-full bg-black/50 hover:bg-black/70 transition-all duration-200 z-50 shadow-lg"
+            aria-label="Close image modal"
+          >
+            <X className="w-6 h-6 sm:w-8 sm:h-8" />
+          </button>
+          
           <div className="relative w-full max-w-4xl max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
-            <button onClick={closeImageModal} className="absolute -top-10 right-0 text-white">
-              <X className="w-8 h-8" />
-            </button>
-
             <img
               src={finalImages[modalImageIndex]}
               alt={`${productName} - ${modalImageIndex + 1}`}
@@ -503,11 +563,21 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
       <div className="md:hidden px-3">
         <div className="bg-yellow-50 dark:bg-yellow-900/20 border-l-4 border-yellow-400 p-3 rounded-lg text-sm">
           <p className="text-yellow-700 dark:text-yellow-300">
-            <span className="font-medium">Product Color Information :</span>
+            <span className="font-medium">Product Color Information: </span>
             We do our best to show you exactly what each product looks like, but sometimes colors may look slightly different in person due to lighting and screen differences.
           </p>
         </div>
       </div>
+
+      {/* Share Modal */}
+      <ShareModal
+        isOpen={isShareModalOpen}
+        onClose={closeShareModal}
+        productName={productName}
+        productUrl={productUrl}
+        productImage={finalImages[selectedImage]}
+        productPrice={productPrice}
+      />
     </div>
   );
 };

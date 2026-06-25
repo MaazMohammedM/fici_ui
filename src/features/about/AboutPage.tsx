@@ -1,12 +1,25 @@
-import React from "react";
+import React, { useEffect } from "react";
+import SEOHead from "@lib/components/SEOHead";
 import ficiLogo from "../../assets/Fici_logo.png";
-import collageDesktop from "../../assets/collage_desktop.jpg";
-import collageMobile from "../../assets/collage_mobile.jpg";
+import showroomDesktop from "../../assets/showroom_desktop.jpg";
+import showroomMobile from "../../assets/showroom_mobile.jpg";
 
 const AboutPage: React.FC = () => {
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   return (
+    <>
+      <SEOHead
+        title="About - FICI Shoes - A Brand of NMF International | Premium Leather Footwear | Brand Story"
+        description="Fici Shoes is a premium brand of NMF International, crafting quality leather footwear since 2018. Discover our story of craftsmanship, comfort, and style from Ambur, Tamil Nadu."
+        keywords="Fici Shoes, NMF International, leather footwear, premium shoes, Ambur Tamil Nadu, quality craftsmanship, leather shoes, footwear brand"
+        url="https://www.ficishoes.com/about"
+      />
     <div className="flex-1 bg-[color:var(--color-light1)] dark:bg-[color:var(--color-dark1)]">
       <div className="max-w-7xl mx-auto px-4 py-8">
+        <h1 className="sr-only">About FiCi Shoes - Premium Leather Footwear from Ambur</h1>
         {/* Hero Section - Mobile Layout */}
         <div className="text-center lg:hidden mb-16">
           {/* Brand Logo - Mobile */}
@@ -18,25 +31,25 @@ const AboutPage: React.FC = () => {
             />
           </div>
 
-          <h1 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-6 tracking-tight">
+          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-6 tracking-tight">
             THE FiCi STORY
-          </h1>
+          </h2>
 
           <p className="text-lg md:text-xl text-gray-600 dark:text-gray-300 max-w-4xl mx-auto leading-relaxed">
-            At FiCi, we believe footwear is more than fashion — it’s an expression of confidence, comfort, and class.
-            Every step we craft is built on tradition, powered by innovation, and designed to win hearts everywhere.
+            <strong>Fici Shoes is a brand of NMF International</strong>, bringing you premium leather footwear that combines 
+            tradition, innovation, and exceptional craftsmanship. Every step we craft is built on quality, designed to win hearts everywhere.
           </p>
         </div>
 
         <div className="hidden lg:flex items-center justify-between mb-16">
           <div className="flex-1 pr-12">
-            <h1 className="text-5xl font-bold text-gray-900 dark:text-white mb-6 tracking-tight">
+            <h2 className="text-5xl font-bold text-gray-900 dark:text-white mb-6 tracking-tight">
               Our Mission
-            </h1>
+            </h2>
 
             <div className="text-xl text-gray-600 dark:text-gray-300 leading-relaxed space-y-6">
               <p>
-                At <strong>FiCi</strong>, our mission is simple yet powerful:{" "}
+                <strong>Fici Shoes is a brand of NMF International</strong>, and our mission is simple yet powerful:{" "}
                 <strong>
                   To win hearts by delivering craftsmanship, comfort, and class—one step at a time.
                 </strong>
@@ -82,22 +95,30 @@ const AboutPage: React.FC = () => {
           </div>
         </div>
 
+        {/* Showroom Images - Desktop Only */}
+        <div className="hidden lg:block mb-12">
+          <div className="rounded-2xl overflow-hidden shadow-xl">
+            <img
+              src={showroomDesktop}
+              alt="Fici Shoes Showroom - Ambur Store"
+              className="w-full h-auto object-cover"
+            />
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center mb-16">
           <div className="order-2 lg:order-1">
-            {/* Collage image - responsive, no side gaps */}
-            <div className="rounded-2xl overflow-hidden shadow-xl">
-              <picture>
-                <source srcSet={collageDesktop} media="(min-width: 640px)" />
-                <img
-                  src={collageMobile}
-                  alt="FiCi brand collage"
-                  className="w-full h-auto"
-                />
-              </picture>
+            {/* Showroom image - mobile only, no side gaps */}
+            <div className="lg:hidden rounded-2xl overflow-hidden shadow-xl">
+              <img
+                src={showroomMobile}
+                alt="Fici Shoes Showroom - Ambur Store Mobile"
+                className="w-full h-auto"
+              />
             </div>
           </div>
 
-          <div className="order-1 lg:order-2">
+          <div className="order-1 lg:order-2 lg:col-span-2">
             <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 dark:text-white mb-6 tracking-tight">
               Our Story
             </h2>
@@ -129,12 +150,12 @@ const AboutPage: React.FC = () => {
               </p>
               <p>
                 <strong>
-                  From manufacturer to brand-builder, from Ambur to across the nation—FiCi is more than just footwear.
-                  It’s a journey. And it’s just getting started.
+                  From manufacturer to brand-builder, from Ambur to across the nation—<strong>Fici Shoes is a proud brand of NMF International</strong>. 
+                  It's more than just footwear. It's a journey. And it's just getting started.
                 </strong>
               </p>
               <p>
-                <strong>FiCi by NMF INTERNATIONAL — Crafted in Ambur, Since 2018.</strong>
+                <strong>Fici Shoes by NMF INTERNATIONAL — Crafted in Ambur, Since 2018.</strong>
               </p>
             </div>
           </div>
@@ -197,8 +218,35 @@ const AboutPage: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* SEO Content Section - Detailed company information */}
+        <section className="py-12 sm:py-16 bg-white dark:bg-gray-900">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white mb-6">
+              Premium Handcrafted Leather Footwear from Ambur, India
+            </h2>
+            <div className="prose prose-lg max-w-none text-gray-700 dark:text-gray-300 space-y-4">
+              <p>
+                FiCi Shoes by NMF International brings you the finest handcrafted leather footwear from the leather capital of India - Ambur, Tamil Nadu. With over 10 years of heritage in leather craftsmanship, we combine traditional artistry with modern comfort to create premium leather shoes that stand the test of time.
+              </p>
+              <p>
+                Our collection features a wide range of leather footwear including formal lace-ups, slip-ons, Chelsea boots, leather chappals, and traditional sandals. Each pair is meticulously crafted using premium milled leather sourced from the finest tanneries, ensuring durability, comfort, and style. Whether you're looking for office wear, casual outings, or special occasions, our leather shoes are designed to make a statement.
+              </p>
+              <p>
+                At FiCi Shoes, we believe in delivering quality directly from the factory to your doorstep. Our wholesale prices make premium leather footwear accessible without compromising on craftsmanship. Every shoe undergoes rigorous quality checks to ensure it meets our high standards of excellence. From the stitching to the finishing, every detail reflects our commitment to quality.
+              </p>
+              <p>
+                We offer customization options to ensure the perfect fit and style for our customers. Our skilled artisans in Ambur can create bespoke leather shoes tailored to your preferences. We ship across India, bringing authentic Ambur leather craftsmanship to customers nationwide. Our customer service team is always ready to assist you with sizing, styling, and any queries you may have.
+              </p>
+              <p>
+                Shop with confidence at FiCi Shoes. We are a GST-registered business (GST: 33BMAPM8509H1Z4) committed to transparency and customer satisfaction. Our easy returns policy, secure payment options including Razorpay and Cash on Delivery, and responsive support ensure a seamless shopping experience. Join thousands of satisfied customers who trust FiCi Shoes for their premium leather footwear needs.
+              </p>
+            </div>
+          </div>
+        </section>
       </div>
     </div>
+    </>
   );
 };
 

@@ -11,6 +11,7 @@ interface SEOHeadProps {
   price?: string;
   currency?: string;
   availability?: 'in stock' | 'out of stock';
+  noIndex?: boolean;
 }
 
 const SEOHead: React.FC<SEOHeadProps> = ({
@@ -18,14 +19,21 @@ const SEOHead: React.FC<SEOHeadProps> = ({
   description = 'Discover premium leather shoes, sandals, and accessories. Handcrafted quality with modern style. Free shipping on orders above ₹999.',
   keywords = 'leather shoes, premium footwear, handcrafted shoes, men shoes, women shoes, sandals, boots',
   image = '/og-image.jpg',
-  url = window.location.href,
+  url = typeof window !== 'undefined' ? window.location.href : 'https://www.ficishoes.com',
   type = 'website',
   price,
   currency = 'INR',
-  availability = 'in stock'
+  availability = 'in stock',
+  noIndex = false
 }) => {
   const siteName = 'FiCi Shoes';
   const fullTitle = title.includes(siteName) ? title : `${title} ${siteName}`;
+  
+  // Fix canonical URL: ensure HTTPS and non-WWW
+  const canonicalUrl = url
+    .replace(/^http:/, 'https:')
+    .replace(/^https?:\/\/www\./, 'https://')
+    .split('?')[0]; // Remove query parameters for canonical
 
   return (
     <Helmet>
@@ -35,13 +43,14 @@ const SEOHead: React.FC<SEOHeadProps> = ({
       <meta name="keywords" content={keywords} />
       <meta name="author" content="FICI Shoes" />
       <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      <link rel="canonical" href={url} />
+      <link rel="canonical" href={canonicalUrl} />
+      <meta name="robots" content={noIndex ? "noindex, nofollow" : "index, follow"} />
 
       {/* Open Graph Tags */}
       <meta property="og:title" content={fullTitle} />
       <meta property="og:description" content={description} />
       <meta property="og:image" content={image} />
-      <meta property="og:url" content={url} />
+      <meta property="og:url" content={canonicalUrl} />
       <meta property="og:type" content={type} />
       <meta property="og:site_name" content={siteName} />
       <meta property="og:locale" content="en_IN" />
@@ -87,10 +96,10 @@ const SEOHead: React.FC<SEOHeadProps> = ({
             "@type": "WebSite",
             "name": siteName,
             "description": description,
-            "url": url,
+            "url": canonicalUrl,
             "potentialAction": {
               "@type": "SearchAction",
-              "target": `${window.location.origin}/search?q={search_term_string}`,
+              "target": `${canonicalUrl}/search?q={search_term_string}`,
               "query-input": "required name=search_term_string"
             }
           })}

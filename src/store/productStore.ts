@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { supabase } from '@lib/supabase';
 import type { Product, ProductDetail, Rating } from "../types/product";
+import { applyGlobalSorting, paginateProducts } from '@lib/globalSorting';
+import { hasAnyStock } from '@lib/utils/stockFilter';
 
 interface ProductState {
   products: Product[];
@@ -19,20 +21,32 @@ interface ProductState {
   totalPages: number;
   itemsPerPage: number;
   abortController: AbortController | null;
-
-  // Actions
-  fetchProducts: (page?: number, filters?: any, retryCount?: number) => Promise<void>;
+  sortBy: 'price_low_to_high' | 'price_high_to_low' | 'stock_high_to_low' | null;
+  highlightProducts: Product[];
+  fetchHighlightProducts: () => Promise<void>;
+  clearHighlightProductsCache: () => void;
+  setSortBy: (sortBy: 'price_low_to_high' | 'price_high_to_low' | 'stock_high_to_low' | null) => void;
+  clearFilters: () => void;
+  clearError: () => void;
+  fetchSingleProductByArticleId: (articleId: string) => Promise<void>;
+  filterProducts: (filters: ProductFilters) => void;
+  searchProducts: (query: string) => void;
+  setPage: (page: number) => void;
+  fetchProducts: (page?: number, filters?: ProductFilters, retryCount?: number) => Promise<void>;
   fetchTopDeals: () => Promise<void>;
   fetchProductByArticleId: (articleId: string) => Promise<void>;
   fetchRelatedProducts: (category: string, currentProductId: string) => Promise<void>;
-  filterProducts: (filters: any) => void;
-  searchProducts: (query: string) => void;
-  clearFilters: () => void;
-  setPage: (page: number) => void;
-  clearError: () => void;
-  fetchSingleProductByArticleId: (articleId: string) => Promise<void>;
-  highlightProducts: Product[];
-  fetchHighlightProducts: () => Promise<void>;
+}
+
+interface ProductFilters {
+  category?: string | string[];
+  sub_category?: string | string[];
+  gender?: string | string[];
+  size?: string[];
+  search?: string;
+  sortBy?: 'price_low_to_high' | 'price_high_to_low' | 'stock_high_to_low' | null;
+  priceRange?: string;
+  _sizeFilters?: string[];
 }
 
 // Helper function to safely parse JSON - only for sizes
@@ -54,13 +68,42 @@ const safeParseSizes = (value: any): Record<string, number> => {
   return {};
 };
 
+// Transform image URLs with fallback support
+const transformImageUrl = (url: string): string => {
+  if (!url || typeof url !== 'string') return url;
+  
+  // Get the base URL from environment variable (use Cloudflare proxy)
+  const baseUrl = 'https://supabase-proxy.furqhaanmohammed001.workers.dev';
+  
+  // If it's already using the configured domain, return as-is
+  if (url.includes(baseUrl)) {
+    return url;
+  }
+  
+  // Replace old Supabase URLs with the configured domain
+  return url.replace(
+    /https:\/\/[a-zA-Z0-9-]+\.supabase\.co\/storage\/v1\/object\/public\/ficishoesimages\//g,
+    `${baseUrl}/storage/v1/object/public/ficishoesimages/`
+  );
+};
+
 // Helper function to parse images - handles comma-separated strings
 const parseImages = (images: any): string[] => {
   if (!images) return [];
   
-  // If it's already an array, filter valid URLs
+  // Helper to process individual URLs
+  const processUrl = (url: string): string => {
+    const trimmed = url.trim();
+    if (!trimmed) return '';
+    return transformImageUrl(trimmed);
+  };
+  
+  // If it's already an array, filter valid URLs and transform
   if (Array.isArray(images)) {
-    return images.filter(img => img && typeof img === 'string' && img.trim() !== '');
+    return images
+      .filter(img => img && typeof img === 'string' && img.trim() !== '')
+      .map(processUrl)
+      .filter(url => url !== '');
   }
   
   // If it's a string, check if it's comma-separated URLs
@@ -70,19 +113,26 @@ const parseImages = (images: any): string[] => {
     
     // Check if it starts with http (likely comma-separated URLs)
     if (trimmed.startsWith('http')) {
-      return trimmed.split(',').map(url => url.trim()).filter(url => url !== '');
+      return trimmed
+        .split(',')
+        .map(processUrl)
+        .filter(url => url !== '');
     }
     
     // Try to parse as JSON
     try {
       const parsed = JSON.parse(trimmed);
       if (Array.isArray(parsed)) {
-        return parsed.filter(img => img && typeof img === 'string' && img.trim() !== '');
+        return parsed
+          .filter(img => img && typeof img === 'string' && img.trim() !== '')
+          .map(processUrl)
+          .filter(url => url !== '');
       }
       return [];
     } catch (e) {
       // If JSON parsing fails and it's not a URL, treat as single image
-      return [trimmed];
+      const transformed = processUrl(trimmed);
+      return transformed ? [transformed] : [];
     }
   }
   
@@ -124,10 +174,10 @@ export const useProductStore = create<ProductState>((set, get) => ({
   totalPages: 1,
   itemsPerPage: 12,
   abortController: null,
+  sortBy: null,
 
   fetchProducts: async (page = 1, filters = {}, retryCount = 0) => {
     const maxRetries = 3;
-    const timeoutMs = 30000; // Increased to 30 seconds for better reliability
 
     // Cancel any ongoing request
     if (get().abortController) {
@@ -137,107 +187,64 @@ export const useProductStore = create<ProductState>((set, get) => ({
     const abortController = new AbortController();
     set({ loading: true, error: null, abortController });
 
-    const fetchWithTimeout = async () => {
-      return new Promise<{ data: any[]; count: number | null }>(async (resolve, reject) => {
-        const timeoutId = setTimeout(() => {
-          reject(new Error('Request timeout'));
-        }, timeoutMs);
-
-        try {
-          let query = supabase
-            .from('products')
-            .select('*', { count: 'exact' });
-
-          // Apply filters with support for multiple values
-          if (filters.category && filters.category.length > 0) {
-            if (Array.isArray(filters.category)) {
-              // Handle multiple categories
-              if (filters.category.length > 0) {
-                query = query.in('category', filters.category);
-              }
-            } else if (filters.category !== 'all') {
-              // Handle single category
-              query = query.eq('category', filters.category);
-            }
-          }
-
-          if (filters.sub_category && filters.sub_category.length > 0) {
-            if (Array.isArray(filters.sub_category)) {
-              // Handle multiple subcategories
-              if (filters.sub_category.length > 0) {
-                query = query.in('sub_category', filters.sub_category);
-              }
-            } else if (filters.sub_category !== 'all') {
-              // Handle single subcategory
-              query = query.eq('sub_category', filters.sub_category);
-            }
-          }
-
-          if (filters.gender && filters.gender.length > 0) {
-            if (Array.isArray(filters.gender)) {
-              // Handle multiple genders
-              if (filters.gender.length > 0) {
-                query = query.in('gender', filters.gender);
-              }
-            } else if (filters.gender !== 'all') {
-              // Handle single gender
-              query = query.eq('gender', filters.gender);
-            }
-          }
-
-          if (filters.search) {
-            query = query.or(`name.ilike.%${filters.search}%,description.ilike.%${filters.search}%,sub_category.ilike.%${filters.search}%`);
-          }
-
-          // Apply pagination
-          const offset = (page - 1) * get().itemsPerPage;
-          query = query.range(offset, offset + get().itemsPerPage - 1);
-
-          // Order by creation date
-          query = query.order('created_at', { ascending: false });
-
-          const { data, error, count } = await query;
-
-          clearTimeout(timeoutId);
-
-          if (error) {
-            console.error('Fetch error:', error);
-            reject(error);
-            return;
-          }
-
-          resolve({ data: data || [], count });
-        } catch (error) {
-          clearTimeout(timeoutId);
-          reject(error);
-        }
-      });
-    };
-
     try {
-      const { data, count } = await fetchWithTimeout();
+      // Fetch ALL products without pagination for global sorting
+      // Only fetch essential fields for listing page - exclude full images array
+      const { data, error } = await supabase
+        .from('products')
+        .select(`
+          product_id,
+          article_id,
+          name,
+          category,
+          sub_category,
+          gender,
+          thumbnail_url,
+          mrp_price,
+          discount_price,
+          sizes,
+          is_active,
+          created_at
+        `, { count: 'exact' })
+        .eq('is_active', true);
 
-      // Process products with proper image parsing and discount calculation
-      const processedProducts: Product[] = (data || []).map((product: any) => {
-        return {
-          ...product,
-          sizes: safeParseSizes(product.sizes),
-          images: parseImages(product.images),
-          thumbnail_url: product.thumbnail_url || null,
-          discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price),
-          mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0
-        };
+      if (error) throw error;
+
+      const processedProducts: Product[] = (data || []).map((product: any) => ({
+        ...product,
+        sizes: safeParseSizes(product.sizes),
+        images: [], // Empty array for listing pages - images fetched only when needed
+        thumbnail_url: product.thumbnail_url ? transformImageUrl(product.thumbnail_url) : product.thumbnail_url,
+        discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price),
+        mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0,
+        discount_price: parseFloat(product.discount_price) || 0, // Convert to number for proper sorting
+        color: product.article_id?.split('_')[1] || 'default' // Extract color from article_id
+      }));
+
+      // Apply global sorting (stock first, then price)
+      const globallySortedProducts = applyGlobalSorting(processedProducts, {
+        sortBy: filters.sortBy,
+        search: filters.search,
+        category: Array.isArray(filters.category) ? filters.category : (filters.category ? [filters.category] : undefined),
+        gender: Array.isArray(filters.gender) ? filters.gender : (filters.gender ? [filters.gender] : undefined),
+        subCategory: Array.isArray(filters.sub_category) ? filters.sub_category : (filters.sub_category ? [filters.sub_category] : undefined),
+        sizeFilters: (filters as any)._sizeFilters
       });
 
-      const totalPages = Math.ceil((count || 0) / get().itemsPerPage);
+      // Apply pagination to globally sorted results
+      const paginatedProducts = paginateProducts(globallySortedProducts, page, get().itemsPerPage);
+
+      // Calculate totalPages based on filtered products count, not total database count
+      const totalPages = Math.ceil(globallySortedProducts.length / get().itemsPerPage);
 
       set({
-        products: processedProducts,
-        filteredProducts: processedProducts,
+        products: paginatedProducts,
+        filteredProducts: paginatedProducts,
         currentPage: page,
         totalPages,
         loading: false,
-        abortController: null // Clear abort controller on success
+        abortController: null,
+        sortBy: filters.sortBy || null
       });
 
     } catch (error) {
@@ -251,10 +258,9 @@ export const useProductStore = create<ProductState>((set, get) => ({
 
       // Retry logic with exponential backoff
       if (retryCount < maxRetries) {
-        const delay = Math.min(1000 * Math.pow(2, retryCount), 5000); // Max 5 seconds delay
+        const delay = Math.min(1000 * Math.pow(2, retryCount), 5000);
 
         setTimeout(() => {
-          // Use the current state to avoid stale closures
           const currentState = get();
           currentState.fetchProducts(page, filters, retryCount + 1);
         }, delay);
@@ -277,19 +283,33 @@ export const useProductStore = create<ProductState>((set, get) => ({
       selectedGender: null,
       selectedSubCategory: null,
       selectedPriceRange: null,
-      searchQuery: ''
+      searchQuery: '',
+      sortBy: null
     });
   },
 
   fetchTopDeals: async () => {
     set({ loading: true, error: null });
     try {
-      // Fetch products with discount calculation and filter for good deals
+      // Fetch more products to account for out-of-stock filtering
+      // Only fetch essential fields for listing page
       const { data, error } = await supabase
         .from('products_with_discount')
-        .select('*')
+        .select(`
+          product_id,
+          article_id,
+          name,
+          category,
+          gender,
+          thumbnail_url,
+          mrp_price,
+          discount_price,
+          discount_percentage,
+          sizes,
+          created_at
+        `)
         .order('created_at', { ascending: false })
-        .limit(10);
+        .limit(20); // Fetch more to ensure we have enough after filtering
 
       if (error) {
         console.error('Fetch top deals error:', error);
@@ -301,9 +321,12 @@ export const useProductStore = create<ProductState>((set, get) => ({
         return {
           ...product,
           sizes: safeParseSizes(product.sizes),
-          images: parseImages(product.images),
+          images: [], // Empty array for listing pages - images fetched only when needed
+          thumbnail_url: product.thumbnail_url ? transformImageUrl(product.thumbnail_url) : product.thumbnail_url,
           discount_percentage: product.discount_percentage || calculateDiscountPercentage(product.mrp_price, product.discount_price),
-          mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0
+          mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0,
+          discount_price: parseFloat(product.discount_price) || 0, // Convert to number for proper sorting
+          color: product.article_id?.split('_')[1] || 'default' // Extract color from article_id
         };
       });
 
@@ -311,7 +334,7 @@ export const useProductStore = create<ProductState>((set, get) => ({
       const topDeals = parsedProducts
         .filter(product => product.discount_percentage > 10)
         .sort((a, b) => b.discount_percentage - a.discount_percentage)
-        .slice(0, 6);
+        .slice(0, 12); // Take more to account for stock filtering
 
       set({ topDeals });
     } catch (error) {
@@ -325,12 +348,14 @@ export const useProductStore = create<ProductState>((set, get) => ({
     set({ loading: true, error: null, currentProduct: null });
 
     try {
+      // Always extract base article ID to fetch ALL variants
+      // This ensures all colors are shown regardless of which specific color URL is accessed
       const baseArticleId = articleId.split('_')[0];
-
-      // First, fetch the product variants
+      
       const { data: productsData, error: productsError } = await supabase
         .from('products')
         .select('*')
+        .eq('is_active', true)
         .like('article_id', `${baseArticleId}_%`);
 
       if (productsError) throw productsError;
@@ -370,9 +395,11 @@ export const useProductStore = create<ProductState>((set, get) => ({
           ...product,
           sizes: safeParseSizes(product.sizes),
           images: parseImages(product.images),
-          thumbnail_url: product.thumbnail_url || null,
+          thumbnail_url: product.thumbnail_url ? transformImageUrl(product.thumbnail_url) : product.thumbnail_url,
           discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price),
-          rating: rating
+          rating: rating,
+          mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0,
+          discount_price: parseFloat(product.discount_price) || 0 // Convert to number for proper sorting
         }));
 
         const firstProduct = processedProducts[0];
@@ -410,30 +437,32 @@ export const useProductStore = create<ProductState>((set, get) => ({
   },
   
 
-   fetchSingleProductByArticleId: async (articleId: string) => {
-    set({ loading: true, error: null });
-    
+  fetchSingleProductByArticleId: async (articleId: string) => {
+    set({ loading: true, error: null, currentProduct: null });
+
     try {
-      // First get the base article ID
-      const baseArticleId = articleId.split('_')[0];
+      // Check if this is a full article ID (contains underscore) or base ID
+      const isFullArticleId = articleId.includes('_');
       
-      // Fetch the specific product
-      const { data: productData, error: productError } = await supabase
+      let query = supabase
         .from('products')
         .select('*')
-        .eq('article_id', articleId)
-        .single();
-        
-      if (productError) throw productError;
-      
-      if (productData) {
-        // Fetch all variants
-        const { data: variantsData, error: variantsError } = await supabase
-          .from('products')
-          .select('*')
-          .like('article_id', `${baseArticleId}_%`);
-          
-        if (variantsError) throw variantsError;
+        .eq('is_active', true);
+
+      if (isFullArticleId) {
+        // Fetch the specific variant
+        query = query.eq('article_id', articleId);
+      } else {
+        // Fetch all variants for the base article ID
+        query = query.like('article_id', `${articleId}_%`);
+      }
+
+      const { data: variantsData, error: variantsError } = await query;
+
+      if (variantsError) throw variantsError;
+
+      if (variantsData && variantsData.length > 0) {
+        const productData = variantsData[0];
         
         // Fetch average rating from reviews table instead of product_ratings
         const { data: reviewsData, error: reviewsError } = await supabase
@@ -462,17 +491,19 @@ export const useProductStore = create<ProductState>((set, get) => ({
           };
         }
         
-        const processedProducts = variantsData.map(product => {
-          return {
-            ...product,
-            sizes: safeParseSizes(product.sizes),
-            images: parseImages(product.images),
-            thumbnail_url: product.thumbnail_url || null,
-            discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price),
-            rating: rating,
-            mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0  // ✅ Fallback to discount_price if mrp_price is missing
-          };
-        });
+        const processedProducts = variantsData.map(product => ({
+          ...product,
+          sizes: safeParseSizes(product.sizes),
+          images: parseImages(product.images),
+          thumbnail_url: product.thumbnail_url ? transformImageUrl(product.thumbnail_url) : product.thumbnail_url,
+          discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price),
+          rating: rating,
+          mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0,
+          discount_price: parseFloat(product.discount_price) || 0 // Convert to number for proper sorting
+        }));
+
+        const baseArticleId = processedProducts[0].article_id.split('_')[0];
+
 
         const productDetail: ProductDetail = {
           article_id: baseArticleId,
@@ -511,8 +542,9 @@ export const useProductStore = create<ProductState>((set, get) => ({
       let query = supabase
         .from('products')
         .select('*')
+        .eq('is_active', true)
         .neq('product_id', currentProductId)
-        .limit(4);
+        .limit(8); // Fetch more to ensure we have enough after filtering
 
       // Try to get products from same category first
       if (category) {
@@ -528,12 +560,13 @@ export const useProductStore = create<ProductState>((set, get) => ({
       }
 
       // If not enough products from same category, get random products
-      if (!data || data.length < 4) {
+      if (!data || data.length < 8) {
         const { data: randomData, error: randomError } = await supabase
           .from('products')
           .select('*')
+          .eq('is_active', true)
           .neq('product_id', currentProductId)
-          .limit(4 - (data?.length || 0));
+          .limit(8 - (data?.length || 0));
 
         if (!randomError && randomData) {
           const allProducts = [...(data || []), ...randomData];
@@ -542,9 +575,10 @@ export const useProductStore = create<ProductState>((set, get) => ({
               ...product,
               sizes: safeParseSizes(product.sizes),
               images: parseImages(product.images), // Use the new parseImages function
-              thumbnail_url: product.thumbnail_url || null,
+              thumbnail_url: product.thumbnail_url ? transformImageUrl(product.thumbnail_url) : product.thumbnail_url,
               discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price),
-              mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0  // ✅ Fallback to discount_price if mrp_price is missing
+              mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0,  // Fallback to discount_price if mrp_price is missing
+              discount_price: parseFloat(product.discount_price) || 0 // Convert to number for proper sorting
             };
           });
 
@@ -561,9 +595,10 @@ export const useProductStore = create<ProductState>((set, get) => ({
           ...product,
           sizes: safeParseSizes(product.sizes),
           images: parseImages(product.images), // Use the new parseImages function
-          thumbnail_url: product.thumbnail_url || null,
+          thumbnail_url: product.thumbnail_url ? transformImageUrl(product.thumbnail_url) : product.thumbnail_url,
           discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price),
-          mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0  // ✅ Fallback to discount_price if mrp_price is missing
+          mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0,  // Fallback to discount_price if mrp_price is missing
+          discount_price: parseFloat(product.discount_price) || 0 // Convert to number for proper sorting
         };
       });
 
@@ -583,20 +618,28 @@ export const useProductStore = create<ProductState>((set, get) => ({
     const cachedProducts = localStorage.getItem('highlightProducts');
 
     // Return cached products if they exist and it's the same day
-    if (cachedProducts && lastFetched === now) {
+    // BUT only if cache is less than 1 hour old to ensure deactivated products are removed quickly
+    const cacheTimestamp = localStorage.getItem('highlightProductsCacheTimestamp');
+    const cacheAge = cacheTimestamp ? Date.now() - parseInt(cacheTimestamp) : Infinity;
+    const oneHour = 60 * 60 * 1000; // 1 hour in milliseconds
+    
+    if (cachedProducts && lastFetched === now && cacheAge < oneHour) {
       set({ highlightProducts: JSON.parse(cachedProducts) });
       return;
     }
 
     try {
-      // Get all products
+      // Get more products to account for out-of-stock filtering
       const { data: products, error } = await supabase
         .from('products')
         .select('*')
-        .in('sub_category', ['Shoes', 'Sandals', 'Bags']);
+        .eq('is_active', true)
+        .eq('category', 'Footwear')
+        .limit(50); // Fetch more to ensure we have enough after filtering
 
       if (error) throw error;
 
+     
       // Shuffle function
       const shuffleArray = (array: any[]) => {
         const newArray = [...array];
@@ -607,17 +650,16 @@ export const useProductStore = create<ProductState>((set, get) => ({
         return newArray;
       };
 
-      // Shuffle products within each category
-      const shuffledShoes = shuffleArray(products.filter((p: Product) => p.sub_category === 'Shoes'));
-      const shuffledSandals = shuffleArray(products.filter((p: Product) => p.sub_category === 'Sandals'));
-      const shuffledBags = shuffleArray(products.filter((p: Product) => p.sub_category === 'Bags'));
-
-      // Select products after shuffling
-      const selectedProducts = [
-        ...shuffledShoes.slice(0, 2),
-        ...shuffledSandals.slice(0, 2),
-        ...shuffledBags.slice(0, 1)
-      ];
+      // Since we're fetching all footwear products, just shuffle and take the top ones
+      // Filter to only include products with stock first
+      const inStockProducts = products.filter((p: Product) => hasAnyStock(p));
+      
+      
+      // Shuffle all in-stock products
+      const shuffledProducts = shuffleArray(inStockProducts);
+      
+      // Take top products (more than needed to account for filtering in NewArrivals)
+      const selectedProducts = shuffledProducts.slice(0, 20);
 
       // Shuffle the final selection to mix categories
       const shuffledSelection = shuffleArray(selectedProducts);
@@ -628,22 +670,26 @@ export const useProductStore = create<ProductState>((set, get) => ({
           ...product,
           sizes: safeParseSizes(product.sizes),
           images: parseImages(product.images), // Use the new parseImages function
-          thumbnail_url: product.thumbnail_url || null,
+          thumbnail_url: product.thumbnail_url ? transformImageUrl(product.thumbnail_url) : product.thumbnail_url,
           discount_percentage: calculateDiscountPercentage(product.mrp_price, product.discount_price),
-          mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0  // ✅ Fallback to discount_price if mrp_price is missing
+          mrp: parseFloat(product.mrp_price) || parseFloat(product.discount_price) || 0,  // Fallback to discount_price if mrp_price is missing
+          discount_price: parseFloat(product.discount_price) || 0 // Convert to number for proper sorting
         };
       });
 
-      // Cache the results
+      // Cache the results with timestamp
       localStorage.setItem('highlightProducts', JSON.stringify(processedProducts));
       localStorage.setItem('highlightProductsLastFetched', now);
+      localStorage.setItem('highlightProductsCacheTimestamp', Date.now().toString());
 
-      // Set the highlight products state
+      // Update the state with processed products
       set({ highlightProducts: processedProducts });
+
     } catch (error) {
       console.error('Error fetching highlight products:', error);
     }
-  },  
+  },
+
   filterProducts: (filters) => {
     const { products } = get();
     let filtered = [...products];
@@ -669,19 +715,32 @@ export const useProductStore = create<ProductState>((set, get) => ({
     }
 
     if (filters.search) {
-      const searchLower = filters.search.toLowerCase();
-      filtered = filtered.filter(product =>
-        product.name.toLowerCase().includes(searchLower) ||
-        product.description?.toLowerCase().includes(searchLower) ||
-        product.sub_category?.toLowerCase().includes(searchLower)
-      );
+      const searchLower = filters.search.toLowerCase().trim();
+      if (searchLower) {
+        // Split search terms for flexible matching
+        const searchTerms = searchLower.split(/\s+/).filter(term => term.length > 0);
+        
+        filtered = filtered.filter(product => {
+          // Check if any search term matches any field
+          return searchTerms.some(term => (
+            product.name?.toLowerCase().includes(term) ||
+            product.description?.toLowerCase().includes(term) ||
+            product.category?.toLowerCase().includes(term) ||
+            product.sub_category?.toLowerCase().includes(term) ||
+            product.gender?.toLowerCase().includes(term) ||
+            product.article_id?.toLowerCase().includes(term) ||
+            // Search in tags if they exist
+            (product.tags && product.tags.some((tag: string) => tag.toLowerCase().includes(term)))
+          ));
+        });
+      }
     }
 
     set({
       filteredProducts: filtered,
-      selectedCategory: filters.category || null,
-      selectedGender: filters.gender || null,
-      selectedSubCategory: filters.sub_category || null,
+      selectedCategory: Array.isArray(filters.category) ? filters.category[0] : filters.category || null,
+      selectedGender: Array.isArray(filters.gender) ? filters.gender[0] : filters.gender || null,
+      selectedSubCategory: Array.isArray(filters.sub_category) ? filters.sub_category[0] : filters.sub_category || null,
       selectedPriceRange: filters.priceRange || null,
       searchQuery: filters.search || ''
     });
@@ -691,24 +750,35 @@ export const useProductStore = create<ProductState>((set, get) => ({
     set({ searchQuery: query, currentPage: 1 });
     const { selectedCategory, selectedGender, selectedSubCategory, selectedPriceRange } = get();
     get().fetchProducts(1, {
-      category: selectedCategory,
-      gender: selectedGender,
-      sub_category: selectedSubCategory,
-      priceRange: selectedPriceRange,
+      category: selectedCategory || undefined,
+      gender: selectedGender || undefined,
+      sub_category: selectedSubCategory || undefined,
+      priceRange: selectedPriceRange || undefined,
       search: query
     });
   },
 
   setPage: (page) => {
     set({ currentPage: page });
+    const { selectedCategory, selectedGender, selectedSubCategory, selectedPriceRange } = get();
     get().fetchProducts(page, {
-      category: get().selectedCategory,
-      gender: get().selectedGender,
-      sub_category: get().selectedSubCategory,
-      priceRange: get().selectedPriceRange,
+      category: selectedCategory || undefined,
+      gender: selectedGender || undefined,
+      sub_category: selectedSubCategory || undefined,
+      priceRange: selectedPriceRange || undefined,
       search: get().searchQuery
     });
   },
 
-  clearError: () => set({ error: null })
+  clearError: () => set({ error: null }),
+
+  clearHighlightProductsCache: () => {
+    localStorage.removeItem('highlightProducts');
+    localStorage.removeItem('highlightProductsLastFetched');
+    localStorage.removeItem('highlightProductsCacheTimestamp');
+  },
+  
+  setSortBy: (sortBy: 'price_low_to_high' | 'price_high_to_low' | 'stock_high_to_low' | null) => {
+    set({ sortBy });
+  }
 }));

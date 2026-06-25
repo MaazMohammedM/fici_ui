@@ -1,0 +1,488 @@
+import React from 'react';
+import { Package, Truck, CheckCircle, XCircle, Clock, Eye, DollarSign, Ban, Upload, Box, Edit } from 'lucide-react';
+import { FaWhatsapp } from 'react-icons/fa';
+import type { Order, OrderItem, OrderActionFlags } from '../../../types/order-common';
+import { canRefundOrder } from '../../../types/order-common';
+import {
+  getStatusColor,
+  getStatusIcon,
+  getItemStatusLabel,
+  getItemStatusClass,
+} from '../../../utils/adminOrderUtils';
+
+interface OrderCardProps {
+  order: Order;
+  actionStates?: OrderActionFlags;
+  onView: (order: Order) => void;
+  onShip: (order: Order) => void;
+  onCancel: (order: Order) => void;
+  onDeliver: (order: Order) => void;
+  onRefundItem: (item: OrderItem) => void;
+  onRefundOrder: (order: Order) => void;
+  onDeliverReplacement?: (item: OrderItem) => void;
+  onApproveReplacement?: (item: OrderItem) => void;
+  onRejectReplacement?: (item: OrderItem) => void;
+  onShipReplacement?: (item: OrderItem) => void;
+  onMarkReturned?: (item: OrderItem) => void;
+  onPrintInvoice?: (order: Order) => void;
+  onDownloadInvoice?: (order: Order) => void;
+  onPrintPackaging?: (order: Order) => void;
+  onEditShipping?: (item: OrderItem) => void;
+  downloadingInvoiceId?: string;
+}
+
+// Helper function to format phone number for WhatsApp
+const formatPhoneNumber = (phone: string | undefined | null): string => {
+  if (!phone) return '';
+  // Remove all non-digit characters
+  const cleaned = phone.replace(/\D/g, '');
+  // If it starts with 0, replace with 91 (India country code)
+  if (cleaned.startsWith('0')) {
+    return '91' + cleaned.slice(1);
+  }
+  // If it doesn't start with 91, add it
+  if (!cleaned.startsWith('91')) {
+    return '91' + cleaned;
+  }
+  return cleaned;
+};
+
+// Helper function to generate WhatsApp message
+const generateWhatsAppMessage = (
+  productName: string,
+  shippingPartner: string | null,
+  trackingId: string | null,
+  trackingUrl: string | null
+): string => {
+  let message = `Dear Customer,\n\n`;
+  message += 'Your order item has been shipped!\n';
+  message += `Product: ${productName}\n`;
+  message += `Shipping Partner: ${shippingPartner || 'N/A'}\n`;
+  message += `Tracking ID: ${trackingId || 'N/A'}\n`;
+  if (trackingUrl) {
+    message += `Track your shipment: ${trackingUrl}\n`;
+  }
+  message += `\nThank you for shopping with FiCi Shoes!`;
+  return encodeURIComponent(message);
+};
+
+// Helper function to generate delivered WhatsApp message
+const generateDeliveredWhatsAppMessage = (
+  orderId: string,
+  itemCount: number
+): string => {
+  let message = `Dear Customer,\n\n`;
+  message += `Delivered: Your FiCi Shoes package with ${itemCount} item(s) from your order #${orderId} was successfully delivered.\n\n`;
+  message += 'Please rate your delivery & product experience.\n\n';
+  message += 'As a homegrown brand, Sharing your experience with friends and family means the world to us.\n';
+  message += 'Review us on Google: https://g.page/r/CXExFUgTbNenEBE/review\n\n';
+  message += 'Hoping to serve you again soon!\n\n';
+  message += 'Thank you for shopping with FiCi Shoes!';
+  return encodeURIComponent(message);
+};
+
+const ItemActions: React.FC<{
+  item: OrderItem;
+  order: Order;
+  onRefundItem: (item: OrderItem) => void;
+  onApproveReplacement?: (item: OrderItem) => void;
+  onRejectReplacement?: (item: OrderItem) => void;
+  onShipReplacement?: (item: OrderItem) => void;
+  onDeliverReplacement?: (item: OrderItem) => void;
+}> = ({ item, order, onRefundItem, onApproveReplacement, onRejectReplacement, onShipReplacement, onDeliverReplacement }) => (
+  <div className="flex gap-1 mt-1 flex-wrap">
+    {order.payment_method === 'razorpay' &&
+      ['delivered', 'cancelled'].includes(item.item_status || '') &&
+      item.item_status !== 'refunded' && (
+        <button
+          onClick={() => onRefundItem(item)}
+          className="text-xs px-2 py-1 bg-teal-600 text-white rounded hover:bg-teal-700"
+        >
+          Refund
+        </button>
+      )}
+
+    {item.item_status === 'replacement_requested' && (
+      <div className="space-y-2 w-full">
+        {item.replacement_reason && (
+          <div className="text-xs text-gray-600 dark:text-gray-300 bg-orange-50 dark:bg-orange-900/20 p-2 rounded">
+            <span className="font-medium">Reason:</span> {item.replacement_reason}
+          </div>
+        )}
+        <div className="flex gap-1">
+          <button
+            onClick={() => onApproveReplacement?.(item)}
+            className="text-xs px-2 py-1 bg-purple-600 text-white rounded hover:bg-purple-700"
+          >
+            Approve Replacement
+          </button>
+          <button
+            onClick={() => onRejectReplacement?.(item)}
+            className="text-xs px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700"
+          >
+            Reject Replacement
+          </button>
+        </div>
+      </div>
+    )}
+
+    {item.item_status === 'cancelled' && item.cancel_reason && (
+      <div className="text-xs text-gray-600 dark:text-gray-300 bg-red-50 dark:bg-red-900/20 p-2 rounded w-full">
+        <span className="font-medium">Cancel Reason:</span> {item.cancel_reason}
+      </div>
+    )}
+
+    {item.item_status === 'replacement_initiated' && (
+      <div className="space-y-2 w-full">
+        <div className="text-xs text-gray-600 dark:text-gray-300">
+          <span className="font-medium">Approved – Pending Shipment</span>
+          {item.replacement_reason && (
+            <><br /><span className="font-medium">Original Request Reason:</span> {item.replacement_reason}</>
+          )}
+        </div>
+        <button
+          onClick={() => onShipReplacement?.(item)}
+          className="text-xs px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
+        >
+          Ship Replacement
+        </button>
+      </div>
+    )}
+
+    {item.item_status === 'replacement_shipped' && (
+      <div className="space-y-2 w-full">
+        <div className="text-xs text-gray-600 dark:text-gray-300">
+          <span className="font-medium">Courier:</span> {item.shipping_partner || 'N/A'}
+          <br />
+          <span className="font-medium">Tracking:</span> {item.tracking_id || 'N/A'}
+        </div>
+        {onDeliverReplacement && (
+          <button
+            onClick={() => onDeliverReplacement(item)}
+            className="text-xs px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700"
+          >
+            Mark as Delivered
+          </button>
+        )}
+      </div>
+    )}
+
+    {item.item_status === 'replacement_delivered' && (
+      <p className="text-xs text-gray-600 dark:text-gray-300 font-medium">Replacement Delivered</p>
+    )}
+
+    {item.item_status === 'replacement_rejected' && (
+      <div className="text-xs text-red-600 dark:text-red-300">
+        <span className="font-medium">Replacement Rejected</span>
+        {item.replacement_reason && (
+          <><br /><span className="font-medium">Reason:</span> {item.replacement_reason}</>
+        )}
+      </div>
+    )}
+  </div>
+);
+
+export const OrderCard: React.FC<OrderCardProps> = ({
+  order,
+  actionStates,
+  onView,
+  onShip,
+  onCancel,
+  onDeliver,
+  onRefundItem,
+  onRefundOrder,
+  onDeliverReplacement,
+  onApproveReplacement,
+  onRejectReplacement,
+  onShipReplacement,
+  onMarkReturned,
+  onPrintInvoice,
+  onDownloadInvoice,
+  onPrintPackaging,
+  onEditShipping,
+  downloadingInvoiceId,
+}) => {
+  const isShippingAddress = (address: unknown): address is import('../../../types/order-common').ShippingAddress =>
+    typeof address === 'object' && address !== null;
+
+  return (
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 sm:p-6 border border-gray-200 dark:border-gray-700">
+      <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+        {/* ── Left: order info ── */}
+        <div className="flex-1">
+          {/* Header */}
+          <div className="flex items-center gap-3 mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Order #{order.order_id.slice(-8)}
+            </h3>
+            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(order.status)}`}>
+              {getStatusIcon(order.status)}
+              <span className="ml-1 capitalize">{order.status}</span>
+            </span>
+          </div>
+
+          {/* Basic info grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div>
+              <p className="text-sm text-gray-500">Order Date & Time</p>
+              <p className="font-medium">
+                {new Date(order.order_date).toLocaleString('en-IN', {
+                  day: 'numeric', month: 'short', year: 'numeric',
+                  hour: '2-digit', minute: '2-digit',
+                })}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Total Amount</p>
+              <p className="font-medium">
+                ₹{(order.effective_amount ?? order.total_amount)?.toLocaleString('en-IN')}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Payment Method</p>
+              <p className="font-medium capitalize">{order.payment_method}</p>
+            </div>
+          </div>
+
+          {/* Customer */}
+          <div className="mb-4">
+            <p className="text-sm text-gray-500 mb-1">Customer</p>
+            <p className="font-medium">
+              {order.user_id
+                ? `User ID: ${order.user_id}`
+                : `${order.guest_email || 'N/A'} (${order.guest_phone || 'N/A'})`}
+            </p>
+          </div>
+
+          {/* Address */}
+          <div className="mb-4">
+            <p className="text-sm text-gray-500 mb-1">Shipping Address</p>
+            <div className="text-sm">
+              {isShippingAddress(order.shipping_address) ? (
+                <>
+                  <p>{order.shipping_address.name || 'N/A'}</p>
+                  <p>{order.shipping_address.address || 'N/A'}</p>
+                  <p>
+                    {order.shipping_address.city || 'N/A'},
+                    {order.shipping_address.district ? ` ${order.shipping_address.district},` : ''}
+                    {' '}{order.shipping_address.state || 'N/A'} - {order.shipping_address.pincode || 'N/A'}
+                  </p>
+                  <p>{order.shipping_address.phone || 'N/A'}</p>
+                </>
+              ) : (
+                <p>{order.shipping_address as string || 'N/A'}</p>
+              )}
+            </div>
+          </div>
+
+          {/* Items */}
+          <div className="mb-4">
+            <p className="text-sm text-gray-500 mb-2">Items ({order.order_items?.length || 0})</p>
+            <div className="space-y-2">
+              {order.order_items?.slice(0, 3).map((item) => (
+                <div key={item.order_item_id} className="flex items-start gap-3 text-sm">
+                  {item.thumbnail_url ? (
+                    <img
+                      src={item.thumbnail_url}
+                      alt={item.product_name}
+                      className="w-8 h-8 object-cover rounded flex-shrink-0"
+                      loading="lazy"
+                      decoding="async"
+                      onError={(e) => {
+                        if (!e.currentTarget.src.includes('placeholder-image.jpg')) {
+                          e.currentTarget.src = '/placeholder-image.jpg';
+                        }
+                      }}
+                    />
+                  ) : (
+                    <div className="w-8 h-8 bg-gray-200 rounded flex items-center justify-center flex-shrink-0">
+                      <Package className="w-4 h-4 text-gray-400" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start gap-2">
+                      <p className="font-medium">{item.product_name}</p>
+                      {item.item_status === 'shipped' && item.shipping_partner && item.tracking_id && (
+                        <a
+                          href={`https://wa.me/${formatPhoneNumber(order.guest_phone || (typeof order.shipping_address === 'object' && order.shipping_address?.phone) || '')}?text=${generateWhatsAppMessage(
+                            item.product_name || 'Product',
+                            item.shipping_partner,
+                            item.tracking_id,
+                            item.tracking_url
+                          )}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-green-500 hover:text-green-600 flex-shrink-0"
+                          title="Send shipping details via WhatsApp"
+                        >
+                          <FaWhatsapp className="w-4 h-4" />
+                        </a>
+                      )}
+                      {item.item_status === 'delivered' && (
+                        <a
+                          href={`https://wa.me/${formatPhoneNumber(order.guest_phone || (typeof order.shipping_address === 'object' && order.shipping_address?.phone) || '')}?text=${generateDeliveredWhatsAppMessage(
+                            order.order_id.slice(-8),
+                            item.quantity || 1
+                          )}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-green-500 hover:text-green-600 flex-shrink-0"
+                          title="Send delivery confirmation via WhatsApp"
+                        >
+                          <FaWhatsapp className="w-4 h-4" />
+                        </a>
+                      )}
+                    </div>
+                    <p className="text-gray-500">
+                      Size: {item.size} | Qty: {item.quantity} | Status:
+                      <span className={`ml-1 inline-block px-2 py-0.5 rounded-full text-xs font-medium ${getItemStatusClass(item.item_status || '')}`}>
+                        {getItemStatusLabel(item.item_status || '')}
+                      </span>
+                    </p>
+                      <div className="flex flex-wrap items-center gap-x-2 text-xs text-gray-600 dark:text-gray-400 mt-1">
+                        <div className="flex items-center gap-1">
+                          <span className="font-medium">Courier:</span> {item.shipping_partner || 'N/A'}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="font-medium">Tracking:</span> {item.tracking_id || 'N/A'}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="font-medium">Tracking URL:</span> {item.tracking_url || 'N/A'}
+                        </div>
+                        {item.item_status === 'shipped' && onEditShipping && (
+                          <button
+                            onClick={() => onEditShipping(item)}
+                            className="text-blue-500 hover:text-blue-600 flex items-center gap-1"
+                            title="Edit shipping details"
+                          >
+                            <Edit className="w-4 h-4" /> Edit
+                          </button>
+                        )}
+                      </div>
+                    
+                    <ItemActions
+                      item={item}
+                      order={order}
+                      onRefundItem={onRefundItem}
+                      onApproveReplacement={onApproveReplacement}
+                      onRejectReplacement={onRejectReplacement}
+                      onShipReplacement={onShipReplacement}
+                      onDeliverReplacement={onDeliverReplacement}
+                    />
+                  </div>
+                  <p className="font-medium flex-shrink-0">
+                    ₹{(item.price_at_purchase * item.quantity).toLocaleString('en-IN')}
+                  </p>
+                </div>
+              ))}
+              {(order.order_items?.length || 0) > 3 && (
+                <p className="text-sm text-gray-500">+{(order.order_items?.length || 0) - 3} more items</p>
+              )}
+            </div>
+          </div>
+
+          {/* WhatsApp icon for all items delivered */}
+          {order.order_items && order.order_items.length > 0 && order.order_items.every(item => item.item_status === 'delivered') && (
+            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <a
+                href={`https://wa.me/${formatPhoneNumber(order.guest_phone || (typeof order.shipping_address === 'object' && order.shipping_address?.phone) || '')}?text=${generateDeliveredWhatsAppMessage(
+                  order.order_id.slice(-8),
+                  order.order_items.length
+                )}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 text-green-600 hover:text-green-700 text-sm font-medium"
+                title="Send delivery confirmation for all items via WhatsApp"
+              >
+                <FaWhatsapp className="w-5 h-5" />
+                <span>All items in order delivered - Send WhatsApp message</span>
+              </a>
+            </div>
+          )}
+        </div>
+
+        {/* ── Right: actions ── */}
+        <div className="flex flex-col sm:flex-row lg:flex-col gap-2 lg:min-w-[120px]">
+          <button
+            onClick={() => onView(order)}
+            className="flex items-center justify-center gap-2 text-primary hover:text-primary-active text-sm px-3 py-2 rounded border border-primary/20 hover:border-primary/40 bg-white dark:bg-gray-800 hover:bg-primary/5 transition-colors"
+          >
+            <Eye className="w-4 h-4" />
+            <span>View</span>
+          </button>
+
+          {canRefundOrder(order) && (
+            <button
+              onClick={() => onRefundOrder(order)}
+              className="flex items-center justify-center gap-2 text-orange-600 hover:text-orange-700 text-sm px-3 py-2 rounded border border-orange-200 hover:border-orange-300 bg-white dark:bg-gray-800 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors"
+            >
+              <DollarSign className="w-4 h-4" />
+              <span>Refund</span>
+            </button>
+          )}
+
+          {actionStates?.canShip && (
+            <button
+              onClick={() => onShip(order)}
+              className="flex items-center justify-center gap-2 text-blue-600 hover:text-blue-700 text-sm px-3 py-2 rounded border border-blue-200 hover:border-blue-300 bg-white dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+            >
+              <Truck className="w-4 h-4" />
+              <span>Ship</span>
+            </button>
+          )}
+
+          {actionStates?.canCancel && (
+            <button
+              onClick={() => onCancel(order)}
+              className="flex items-center justify-center gap-2 text-red-600 hover:text-red-700 text-sm px-3 py-2 rounded border border-red-200 hover:border-red-300 bg-white dark:bg-gray-800 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+            >
+              <Ban className="w-4 h-4" />
+              <span>Cancel</span>
+            </button>
+          )}
+
+          {actionStates?.canDeliver && (
+            <button
+              onClick={() => onDeliver(order)}
+              className="flex items-center justify-center gap-2 text-green-600 hover:text-green-700 text-sm px-3 py-2 rounded border border-green-200 hover:border-green-300 bg-white dark:bg-gray-800 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors"
+            >
+              <CheckCircle className="w-4 h-4" />
+              <span>Deliver</span>
+            </button>
+          )}
+
+          {order.status === 'delivered' && onPrintInvoice && (
+            <button
+              onClick={() => onPrintInvoice(order)}
+              className="flex items-center justify-center gap-2 text-indigo-600 hover:text-indigo-700 text-sm px-3 py-2 rounded border border-indigo-200 hover:border-indigo-300 bg-white dark:bg-gray-800 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors"
+            >
+              <Upload className="w-4 h-4" />
+              <span>Print Invoice</span>
+            </button>
+          )}
+
+          {onDownloadInvoice && (
+            <button
+              onClick={() => onDownloadInvoice(order)}
+              disabled={downloadingInvoiceId === order.order_id}
+              className="flex items-center justify-center gap-2 text-purple-600 hover:text-purple-700 text-sm px-3 py-2 rounded border border-purple-200 hover:border-purple-300 bg-white dark:bg-gray-800 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Upload className="w-4 h-4" />
+              <span>{downloadingInvoiceId === order.order_id ? 'Downloading...' : 'Download Invoice'}</span>
+            </button>
+          )}
+
+          {onPrintPackaging && (
+            <button
+              onClick={() => onPrintPackaging(order)}
+              className="flex items-center justify-center gap-2 text-amber-600 hover:text-amber-700 text-sm px-3 py-2 rounded border border-amber-200 hover:border-amber-300 bg-white dark:bg-gray-800 hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-colors"
+            >
+              <Box className="w-4 h-4" />
+              <span>Print Packaging</span>
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};

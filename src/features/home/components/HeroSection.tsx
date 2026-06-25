@@ -7,31 +7,27 @@ import React, { useState, useEffect } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 // Import desktop images
-import pc1 from "../../../assets/1000805156_pc.jpg";
-import pc2 from "../../../assets/1000805146_pc.jpg";
-import pc3 from "../../../assets/1000805147_pc.jpg";
+import pc1 from "../../../assets/desktop_slide_1.png";
+import pc2 from "../../../assets/desktop_slide_2.png";
 import pc4 from "../../../assets/1000805148_pc.jpg";
 import pc5 from "../../../assets/1000805157_pc.jpg";
 import pc6 from "../../../assets/1000805149_pc.jpg";
 
 // Import mobile images
-import mobile1 from "../../../assets/1000806046_mobile.jpg";
+import mobile1 from "../../../assets/1000806049_mobile.png";
 import mobile2 from "../../../assets/1000806060_mobile.jpg";
 import mobile3 from "../../../assets/1000806089_mobile.jpg";
-import mobile4 from "../../../assets/1000806090_mobile.jpg";
 import mobile5 from "../../../assets/1000806094_mobile.jpg";
 import mobile6 from "../../../assets/1000806095_mobile.jpg";
 
-const desktopImages = [pc1, pc2, pc3, pc4, pc5, pc6];
-const mobileImages = [mobile1, mobile2, mobile3, mobile4, mobile5, mobile6];
+const desktopImages = [pc1, pc2, pc4, pc5, pc6];
+const mobileImages = [mobile1, mobile2, mobile3, mobile5, mobile6];
 
 const heroSlides = [
-  { id: "1", ctaLink: "/products" },
+  { id: "1", ctaLink: "/products/Whoxmspr_brown" },
   { id: "2", ctaLink: "/products?gender=men" },
   { id: "3", ctaLink: "/products?gender=women" },
-  { id: "4", ctaLink: "/products" },
-  { id: "5", ctaLink: "/about" },
-  { id: "6", ctaLink: "/about" },
+  { id: "4", ctaLink: "/about" },
 ];
 
 const HeroSection: React.FC = () => {
@@ -92,9 +88,9 @@ const HeroSection: React.FC = () => {
               }
             }}
           >
-            {/* Image container - ensures full visibility with object-contain */}
-            <div className="absolute inset-0 flex items-center justify-center">
-              <picture className="w-full h-full flex items-center justify-center">
+            {/* Image container - ensures full coverage with object-cover */}
+            <div className="absolute inset-0">
+              <picture className="w-full h-full">
                 <source 
                   media="(min-width: 640px)" 
                   srcSet={desktopImages[index]}
@@ -102,13 +98,9 @@ const HeroSection: React.FC = () => {
                 <img
                   src={mobileImages[index]}
                   alt={`Featured collection ${index + 1}`}
-                  className="w-full h-full object-contain object-center"
+                  className="w-full h-full object-cover"
                   loading={index === 0 ? "eager" : "lazy"}
                   decoding="async"
-                  style={{
-                    maxWidth: '100%',
-                    maxHeight: '100%',
-                  }}
                 />
               </picture>
             </div>

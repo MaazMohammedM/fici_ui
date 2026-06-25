@@ -2,11 +2,14 @@
 import { supabase } from '@lib/supabase';
 import fallbackImage from '@/assets/Fici Logo.png';
 
+const CUSTOM_DOMAIN = 'https://api.ficishoes.com';
+
 export const getImageUrl = (path: string): string => {
   if (!path || typeof path !== 'string') return fallbackImage;
   if (path.startsWith('http')) return path;
-  const { data } = supabase.storage.from('ficishoesimages').getPublicUrl(path);
-  return data?.publicUrl || fallbackImage;
+  
+  // Construct URL manually using custom domain instead of Supabase's getPublicUrl
+  return `${CUSTOM_DOMAIN}/storage/v1/object/public/ficishoesimages/${path}`;
 };
 
 export const getOptimizedImageUrl = (path: string, width: number = 400): string => {

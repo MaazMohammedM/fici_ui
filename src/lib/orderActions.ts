@@ -1,19 +1,26 @@
 import { supabase } from '@/lib/supabase';
 
-export type OrderAction = 'cancel_item' | 'ship_item' | 'deliver_item' | 'refund_item' | 'request_return' | 'approve_return';
+export type OrderAction = 'cancel_item' | 'ship_item' | 'deliver_item' | 'refund_item' | 'request_replacement' | 'approve_replacement' | 'reject_replacement' | 'ship_replacement' | 'deliver_replacement' | 'mark_replacement_returned' | 'request_return' | 'cancel_order';
 
 // Update the interface at the top of the file
 export interface UpdateOrderItemStatusParams {
   action: OrderAction;
-  orderItemId: string;
+  orderItemId?: string;
+  order_id?: string;
   reason?: string;
+  reason_code?: string;
+  requested_size?: string | null;
   guestSessionId?: string;
+  approvedBy?: string;
   isAdmin?: boolean;
   adminUserId?: string;
   // Add shipping details
   shipping_partner?: string;
   tracking_id?: string;
   tracking_url?: string;
+  // Add refund details
+  refund_amount?: number;
+  refund_type?: 'full' | 'partial';
   // Add metadata for additional context
   metadata?: Record<string, any>;
 }
@@ -28,54 +35,77 @@ export interface UpdateOrderItemStatusParams {
 export async function updateOrderItemStatus({
   action,
   orderItemId,
+  order_id,
   reason,
+  reason_code,
+  requested_size,
   guestSessionId,
+  approvedBy,
   isAdmin = false,
   adminUserId,
   shipping_partner,
   tracking_id,
   tracking_url,
+  refund_amount,
+  refund_type,
   metadata
 }: UpdateOrderItemStatusParams) {
-  console.log('🔄 updateOrderItemStatus:', { 
-    action, 
-    orderItemId,
-    isAdmin,
-    hasShippingDetails: Boolean(shipping_partner || tracking_id)
-  });
 
   try {
-    // Get the current user's session for authorization
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    
-    if (sessionError) {
-      console.error('❌ Session error:', sessionError.message);
-      throw new Error('Authentication error. Please sign in again.');
+    // For guest users, we don't need to get authenticated session
+    // Only get session for admin actions
+    let session = null;
+    if (isAdmin) {
+      const { data: { session: adminSession }, error: sessionError } = await supabase.auth.getSession();
+      
+      if (sessionError) {
+        console.error('❌ Session error:', sessionError.message);
+        throw new Error('Authentication error. Please sign in again.');
+      }
+      session = adminSession;
     }
 
     // Prepare request headers (let Supabase set Content-Type automatically)
     const headers: Record<string, string> = {};
 
-    // Build request body
+    // Build request body to match edge function expectations
     const body: any = {
-      action,
-      order_item_id: orderItemId,
-      timestamp: new Date().toISOString()
+      action
     };
+
+    // Add order_item_id for item-level actions (except cancel_order)
+    if (action !== 'cancel_order' && orderItemId) {
+      body.order_item_id = orderItemId;
+    }
+
+    // Add order_id for cancel_order action
+    if (action === 'cancel_order' && order_id) {
+      body.order_id = order_id;
+    }
 
     // Add optional fields if provided
     if (reason) body.reason = reason;
+    if (reason_code) body.reason_code = reason_code;
+    if (requested_size) body.requested_size = requested_size;
     if (guestSessionId) body.guest_session_id = guestSessionId;
     if (metadata) body.metadata = metadata;
+    if (approvedBy) body.approved_by = approvedBy;
 
-    // Add shipping details for ship_item action
-    if (action === 'ship_item') {
+    // Add shipping details for ship_item and ship_replacement actions
+    if (action === 'ship_item' || action === 'ship_replacement') {
+
       if (!shipping_partner || !tracking_id) {
         throw new Error('Shipping partner and tracking ID are required');
       }
       body.shipping_partner = shipping_partner;
       body.tracking_id = tracking_id;
       if (tracking_url) body.tracking_url = tracking_url;
+    }
+
+    // Add refund details for refund_item action
+    if (action === 'refund_item') {
+      if (refund_amount) body.refund_amount = refund_amount;
+      if (refund_type) body.refund_type = refund_type;
     }
 
     // Add admin auth if applicable
@@ -86,15 +116,23 @@ export async function updateOrderItemStatus({
       }
     }
 
-    console.log('📤 Sending request to update order item status:', {
+
+    console.log('🚀 Calling edge function update-item-status with:', {
       action,
-      orderItemId,
-      hasShipping: action === 'ship_item'
+      body: JSON.stringify(body, null, 2),
+      guestSessionId,
+      headers: Object.keys(headers)
     });
 
     const response = await supabase.functions.invoke('update-item-status', {
       headers,
       body
+    });
+
+    console.log('📥 Edge function response:', {
+      status: response.data ? 'success' : 'error',
+      error: response.error,
+      body: response.data
     });
 
     // Handle response
@@ -105,7 +143,6 @@ export async function updateOrderItemStatus({
       throw new Error(response.error.message || 'Failed to update order status');
     }
 
-    console.log('✅ Order item status updated successfully');
     return response.data;
 
   } catch (error) {

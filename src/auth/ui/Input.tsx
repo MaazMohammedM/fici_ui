@@ -17,6 +17,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
   rightIcon,
   variant = 'default',
   className = '',
+  disabled,
   ...props
 }, ref) => {
   const inputClasses = `
@@ -29,6 +30,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
       ? 'border-red-300 dark:border-red-500' 
       : 'border-gray-300 dark:border-gray-600'
     }
+    ${disabled ? 'opacity-60 cursor-not-allowed bg-gray-100 dark:bg-gray-900 pointer-events-none' : ''}
     ${className}
   `.trim();
 
@@ -46,6 +48,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(({
         <input
           ref={ref}
           className={inputClasses}
+          disabled={disabled}
           {...props}
         />
         {rightIcon && (

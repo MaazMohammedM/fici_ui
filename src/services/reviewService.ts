@@ -38,7 +38,7 @@ export const fetchProductReviews = async (productId: string): Promise<Review[]> 
       .filter(review => review.user_id)
       .map(review => review.user_id);
 
-    let userProfiles: Record<string, any> = {};
+    const userProfiles: Record<string, any> = {};
 
     if (registeredUserIds.length > 0) {
       const { data: profiles, error: profilesError } = await supabase

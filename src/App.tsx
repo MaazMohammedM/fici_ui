@@ -1,6 +1,6 @@
 // src/App.tsx
-import React, { Suspense, useState } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import React, { Suspense, useState, useEffect } from 'react';
+import { BrowserRouter as Router, StaticRouter, Routes, Route } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
 import { Toaster } from 'sonner';
 import ProtectedRoute from '@auth/ProtectedRoute';
@@ -10,6 +10,7 @@ import Footer from 'component/Footer';
 import SEOHead from '@lib/components/SEOHead';
 import ScrollToTop from './components/ScrollToTop';
 import { useTrackVisit } from './hooks/useTrackVisit';
+import { useMetaPixelPageView } from './hooks/useMetaPixelPageView';
 import FiciLoader from './components/ui/FiciLoader';
 import FloatingWhatsApp from './components/FloatingWhatsApp';
 import AlertModal from './components/ui/AlertModal';
@@ -32,12 +33,14 @@ const OrderHistoryPage = React.lazy(() => import('@features/orders/OrderHistoryP
 const CheckoutPage = React.lazy(() => import('@features/checkout/CheckoutPage'));
 const ShoeCarePage = React.lazy(() => import('@features/shoe-care/ShoeCarePage'));
 const WishlistPage = React.lazy(() => import('@features/wishlist/WishlistPage'));
+const AmburLeatherExcellencePage = React.lazy(() => import('@features/seo/AmburLeatherExcellencePage'));
 const NotFoundPage = React.lazy(() => import('@features/error/NotFoundPage'));
 const PrivacyPolicy = React.lazy(() => import('@features/policy/PrivacyPolicy'));
 const TermsOfService = React.lazy(() => import('@features/policy/TermsOfService'));
 const ShippingReturnsPolicy = React.lazy(() => import('@features/policy/ShippingReturnsPolicy'));
 const GuestOrderLookup = React.lazy(() => import('./features/orders/GuestOrderLookup'));
 const OrderDetailsPage = React.lazy(() => import('./features/orders/OrderDetailsPage'));
+const FAQPage = React.lazy(() => import('./features/faq/FAQPage'));
 
 const LoadingSpinner = () => (
   <div className="min-h-screen bg-gradient-light dark:bg-gradient-dark flex items-center justify-center px-4">
@@ -50,6 +53,7 @@ const LoadingSpinner = () => (
 
 const AppContent = () => {
   useTrackVisit();
+  useMetaPixelPageView();
   
   // State for reload confirmation modal
   const [showReloadModal, setShowReloadModal] = useState(false);
@@ -71,28 +75,29 @@ const AppContent = () => {
     });
     setShowReloadModal(true);
   };
-  
+
   return (
     <div className="min-h-screen flex flex-col bg-gradient-light dark:bg-gradient-dark">
       <SEOHead />
       <Header />
-      <main className="flex-1 flex flex-col">
+      <main id="app-content" className="flex-1 flex flex-col min-h-0">
         <Suspense fallback={<LoadingSpinner />}>
+            <ScrollToTop />
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/contact" element={<ContactPage />} />
-            <Route path="/cart" element={<CartPage />} />
+            <Route path="/cart" element={<><SEOHead noIndex={true} title="Shopping Cart" /><CartPage /></>} />
             <Route path="/about" element={<AboutPage />} />
-            <Route path="/auth/signin" element={<SignIn />} />
-            <Route path="/auth/signup" element={<Register />} />
-            <Route path="/auth/callback" element={<AuthCallback />} />
-            <Route path="/auth/forgot-password" element={<ForgotPassword />} />
-            <Route path="/auth/reset-password" element={<ResetPassword />} />
+            <Route path="/auth/signin" element={<><SEOHead noIndex={true} title="Sign In" /><SignIn /></>} />
+            <Route path="/auth/signup" element={<><SEOHead noIndex={true} title="Sign Up" /><Register /></>} />
+            <Route path="/auth/callback" element={<><SEOHead noIndex={true} title="Authentication Callback" /><AuthCallback /></>} />
+            <Route path="/auth/forgot-password" element={<><SEOHead noIndex={true} title="Forgot Password" /><ForgotPassword /></>} />
+            <Route path="/auth/reset-password" element={<><SEOHead noIndex={true} title="Reset Password" /><ResetPassword /></>} />
             <Route
               path="/profile"
               element={
                 <ProtectedRoute>
-                  <ProfilePage />
+                  <><SEOHead noIndex={true} title="My Profile" /><ProfilePage /></>
                 </ProtectedRoute>
               }
             />
@@ -100,13 +105,15 @@ const AppContent = () => {
               path="/admin/*"
               element={
                 <ProtectedRoute>
-                  <AdminPage />
+                  <><SEOHead noIndex={true} title="Admin Panel" /><AdminPage /></>
                 </ProtectedRoute>
               }
             />
             <Route path="/products" element={<ProductPage />} />
             <Route path="/products/:article_id" element={<ProductDetailPage />} />
             <Route path="/shoe-care" element={<ShoeCarePage />} />
+            <Route path="/ambur-leather-excellence" element={<AmburLeatherExcellencePage />} />
+            <Route path="/faq" element={<FAQPage />} />
             <Route
               path="/wishlist"
               element={
@@ -126,18 +133,18 @@ const AppContent = () => {
                     </div>
                   }
                 >
-                  <WishlistPage />
+                  <><SEOHead noIndex={true} title="My Wishlist" /><WishlistPage /></>
                 </ErrorBoundary>
               }
             />
-            <Route path="/privacy" element={<PrivacyPolicy />} />
-            <Route path="/terms" element={<TermsOfService />} />
-            <Route path="/shipping" element={<ShippingReturnsPolicy />} />
+            <Route path="/privacy" element={<><SEOHead noIndex={true} title="Privacy Policy" /><PrivacyPolicy /></>} />
+            <Route path="/terms" element={<><SEOHead noIndex={true} title="Terms of Service" /><TermsOfService /></>} />
+            <Route path="/shipping" element={<><SEOHead noIndex={true} title="Shipping and Returns Policy" /><ShippingReturnsPolicy /></>} />
             <Route
               path="/orders"
               element={
                 <ProtectedRoute>
-                  <OrderHistoryPage />
+                  <><SEOHead noIndex={true} title="Order History" /><OrderHistoryPage /></>
                 </ProtectedRoute>
               }
             />
@@ -145,7 +152,7 @@ const AppContent = () => {
               path="/orders/:orderId"
               element={
                 <Suspense fallback={<FiciLoader />}>
-                  <OrderDetailsPage isGuest={false} />
+                  <><SEOHead noIndex={true} title="Order Details" /><OrderDetailsPage isGuest={false} /></>
                 </Suspense>
               }
             />
@@ -168,7 +175,7 @@ const AppContent = () => {
                     </div>
                   }
                 >
-                  <GuestOrderLookup />
+                  <><SEOHead noIndex={true} title="Guest Order Lookup" /><GuestOrderLookup /></>
                 </ErrorBoundary>
               }
             />
@@ -176,7 +183,7 @@ const AppContent = () => {
               path="/guest/orders/:orderId"
               element={
                 <Suspense fallback={<FiciLoader />}>
-                  <OrderDetailsPage isGuest={true} />
+                  <><SEOHead noIndex={true} title="Guest Order Details" /><OrderDetailsPage isGuest={true} /></>
                 </Suspense>
               }
             />
@@ -199,7 +206,7 @@ const AppContent = () => {
                     </div>
                   }
                 >
-                  <CheckoutPage />
+                  <><SEOHead noIndex={true} title="Checkout" /><CheckoutPage /></>
                 </ErrorBoundary>
               }
             />
@@ -226,16 +233,29 @@ const AppContent = () => {
   );
 };
 
-const App = () => {
+const App = ({ location }: { location?: string }) => {
+  // Detect if we're in SSG mode (location prop is passed during pre-rendering)
+  const isSSG = typeof location !== 'undefined';
+
   return (
     <HelmetProvider>
-      <Router>
-        <ErrorBoundary>
-          <ScrollToTop />
-          <AppContent />
-          <Toaster richColors position="top-right" />
-        </ErrorBoundary>
-      </Router>
+      {isSSG ? (
+        <StaticRouter location={location || '/'}>
+          <ErrorBoundary>
+            <ScrollToTop />
+            <AppContent />
+            <Toaster richColors position="top-right" />
+          </ErrorBoundary>
+        </StaticRouter>
+      ) : (
+        <Router>
+          <ErrorBoundary>
+            <ScrollToTop />
+            <AppContent />
+            <Toaster richColors position="top-right" />
+          </ErrorBoundary>
+        </Router>
+      )}
     </HelmetProvider>
   );
 };

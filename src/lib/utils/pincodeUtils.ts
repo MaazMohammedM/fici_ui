@@ -29,7 +29,6 @@ export interface LocalPincode {
  */
 export const fetchPincodeDetails = async (pincode: string): Promise<PincodeDetails | null> => {
   try {
-    console.log('Fetching pincode details for:', pincode);
     
     // Try to get exact match first
     const { data, error } = await supabase
@@ -38,7 +37,6 @@ export const fetchPincodeDetails = async (pincode: string): Promise<PincodeDetai
       .eq('pincode', pincode)
       .limit(1); // Use limit(1) instead of maybeSingle to handle multiple rows
 
-    console.log('Supabase query result:', { data, error });
 
     if (error) {
       console.error('Error fetching pincode details:', error);
@@ -48,8 +46,6 @@ export const fetchPincodeDetails = async (pincode: string): Promise<PincodeDetai
         .select('pincode, city, state, active, is_serviceable, cod_allowed, min_order_amount, shipping_fee, cod_fee, free_shipping_threshold, created_at, updated_at, delivery_time, districts')
         .ilike('pincode', pincode)
         .limit(1);
-
-      console.log('Case-insensitive query result:', { caseInsensitiveData, caseInsensitiveError });
 
       if (caseInsensitiveError) {
         console.error('Error with case-insensitive search:', caseInsensitiveError);
@@ -61,7 +57,6 @@ export const fetchPincodeDetails = async (pincode: string): Promise<PincodeDetai
 
     // Return the first result if found
     const result = data && data.length > 0 ? data[0] : null;
-    console.log('Final result:', result);
     return result;
   } catch (error) {
     console.error('Error fetching pincode details:', error);

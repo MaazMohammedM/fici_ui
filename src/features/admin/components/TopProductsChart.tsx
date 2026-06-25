@@ -62,6 +62,8 @@ const TopProductsChart: React.FC<TopProductsChartProps> = ({ products, loading }
                   src={product.thumbnail_url}
                   alt={product.name}
                   className="w-12 h-12 object-cover rounded-lg"
+                  loading="lazy"
+                  decoding="async"
                 />
               )}
               

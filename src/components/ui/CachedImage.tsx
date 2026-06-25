@@ -5,6 +5,8 @@ interface CachedImageProps extends React.ImgHTMLAttributes<HTMLImageElement> {
   fallbackSrc?: string;
   loadingFallback?: React.ReactNode;
   errorFallback?: React.ReactNode;
+  loading?: 'lazy' | 'eager';
+  decoding?: 'async' | 'auto' | 'sync';
 }
 
 const CachedImage: React.FC<CachedImageProps> = ({
@@ -12,6 +14,8 @@ const CachedImage: React.FC<CachedImageProps> = ({
   fallbackSrc,
   loadingFallback,
   errorFallback,
+  loading = 'lazy',
+  decoding = 'async',
   ...props
 }) => {
   const { imageUrl, isLoading, error } = useCachedImage(src, fallbackSrc);
@@ -27,11 +31,17 @@ const CachedImage: React.FC<CachedImageProps> = ({
   }
 
   // Use the cached image URL or fallback
-  return <img src={imageUrl} {...props} onError={(e) => {
-    if (fallbackSrc && e.currentTarget.src !== fallbackSrc) {
-      e.currentTarget.src = fallbackSrc;
-    }
-  }} />;
+  return <img 
+    src={imageUrl} 
+    loading={loading}
+    decoding={decoding}
+    {...props} 
+    onError={(e) => {
+      if (fallbackSrc && e.currentTarget.src !== fallbackSrc) {
+        e.currentTarget.src = fallbackSrc;
+      }
+    }} 
+  />;
 };
 
 export default CachedImage;

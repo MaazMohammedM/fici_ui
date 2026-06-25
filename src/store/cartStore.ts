@@ -12,10 +12,12 @@ export interface CartItem {
   image: string;
   price: number;
   mrp: number;
+  discount_price: number;
   quantity: number;
   discount_percentage: number;
   thumbnail_url: string;
-  availableSizes?: string[]; // Add available sizes for dropdown selection
+  availableSizes?: string[];
+  is_active?: boolean;
 }
 
 interface CartState {
@@ -27,6 +29,7 @@ interface CartState {
   addToCart: (item: Omit<CartItem, 'id'>) => void;
   removeFromCart: (id: string) => void;
   updateQuantity: (id: string, quantity: number) => void;
+  updateProductDetails: (product: any) => void;
   updateSize: (id: string, newSize: string) => void;
   clearCart: () => void;
   getCartTotal: () => number;
@@ -77,18 +80,37 @@ export const useCartStore = create<CartState>()(
         set({ items: get().items.filter(item => item.id !== id) });
       },
 
-      updateQuantity: (id, quantity) => {
-        if (quantity <= 0) {
-          get().removeFromCart(id);
-          return;
-        }
-        
-        set({
-          items: get().items.map(item =>
+      updateQuantity: (id, quantity) =>
+        set((state) => ({
+          items: state.items.map((item) =>
             item.id === id ? { ...item, quantity } : item
-          )
-        });
-      },
+          ),
+        })),
+
+      updateProductDetails: (updatedProduct) =>
+        set((state) => ({
+          items: state.items.map((item) =>
+            item.product_id === updatedProduct.product_id
+              ? {
+                  ...item,
+                  name: updatedProduct.name || item.name,
+                  price: parseFloat(updatedProduct.discount_price || updatedProduct.mrp_price || updatedProduct.price || item.price || '0'),
+                  mrp: parseFloat(updatedProduct.mrp_price || item.mrp || '0'),
+                  discount_price: parseFloat(updatedProduct.discount_price || item.discount_price || '0'),
+                  availableSizes: updatedProduct.sizes ? 
+                    (function() {
+                      try {
+                        const parsed = JSON.parse(updatedProduct.sizes);
+                        return Array.isArray(parsed) ? parsed : Object.keys(parsed).filter(key => parsed[key] > 0);
+                      } catch {
+                        return item.availableSizes || [];
+                      }
+                    })() : (item.availableSizes || []),
+                  is_active: updatedProduct.is_active !== undefined ? updatedProduct.is_active : item.is_active,
+                }
+              : item
+          ).filter(item => item.is_active !== false), // Remove inactive items
+        })),
 
       updateSize: (id, newSize) => {
         set({

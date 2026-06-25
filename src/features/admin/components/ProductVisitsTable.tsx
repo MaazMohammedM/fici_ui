@@ -6,7 +6,7 @@ interface ProductVisit {
   name: string;
   visit_count: number;
   thumbnail_url?: string;
-  last_visited?: string;
+  last_visited_at?: string;
 }
 
 interface ProductVisitsTableProps {
@@ -63,20 +63,20 @@ const ProductVisitsTable: React.FC<ProductVisitsTableProps> = ({
           </div>
           <div>
           {onSearch && (
-            <form onSubmit={handleSearch} className="flex items-center space-x-2">
-              <div className="relative">
+            <form onSubmit={handleSearch} className="flex flex-col sm:flex-row sm:items-center sm:space-x-2 space-y-2 sm:space-y-0">
+              <div className="relative flex-1 sm:flex-initial">
                 <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
                   placeholder="Search products..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full sm:w-64 pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                 />
               </div>
               <button
                 type="submit"
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium whitespace-nowrap"
               >
                 Search
               </button>
@@ -110,6 +110,8 @@ const ProductVisitsTable: React.FC<ProductVisitsTableProps> = ({
                         src={product.thumbnail_url}
                         alt={product.name}
                         className="w-10 h-10 object-cover rounded-lg mr-4"
+                        loading="lazy"
+                        decoding="async"
                       />
                     )}
                     <div>
@@ -131,8 +133,16 @@ const ProductVisitsTable: React.FC<ProductVisitsTableProps> = ({
                   </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {product.last_visited 
-                    ? new Date(product.last_visited).toLocaleDateString()
+                  {product.last_visited_at 
+                    ? new Date(product.last_visited_at).toLocaleString('en-IN', {
+                        timeZone: 'Asia/Kolkata',
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: true
+                      })
                     : 'N/A'
                   }
                 </td>

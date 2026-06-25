@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '@lib/supabase';
 import { updateOrderItemStatus } from '@/lib/orderActions';
-import type { Order, Review, OrderFilters, OrderItem } from '../types/order';
+import type { Order, Review, OrderFilters, OrderItem, CancelOrderItemsParams } from '../types/order';
 
 // Utility function to calculate aggregate order status based on item statuses
 export const calculateAggregateOrderStatus = (items: OrderItem[]): Order['status'] => {
@@ -78,6 +78,8 @@ interface OrderState {
   adminShipOrderItem: (orderItemId: string, adminUserId: string) => Promise<void>;
   adminDeliverOrderItem: (orderItemId: string, adminUserId: string) => Promise<void>;
   adminRefundOrderItem: (orderItemId: string, reason: string, adminUserId: string) => Promise<void>;
+  // Bulk cancel method
+  cancelOrderItems: (params: CancelOrderItemsParams) => Promise<void>;
 }
 
 export const useOrderStore = create<OrderState>((set, get) => ({
@@ -140,6 +142,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
         discount: order.discount || 0,
         delivery_charge: order.delivery_charge || 0,
         total_amount: order.total_amount || 0,
+        effective_amount: order.effective_amount || 0,
         status: order.status || "pending",
         payment_status: order.payment_status || "pending",
         payment_method: order.payment_method || "razorpay",
@@ -169,7 +172,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   async fetchGuestOrders(email: string, phone: string, tpin?: string) {
     set({ loading: true, error: null });
     try {
-      let query = supabase
+      const query = supabase
         .from('orders')
         .select(`
           *,
@@ -182,32 +185,38 @@ export const useOrderStore = create<OrderState>((set, get) => ({
 
       if (error) throw error;
 
-      const transformedOrders: Order[] = (data || []).map((order: any) => ({
-        id: order.order_id,
-        user_id: order.user_id,
-        guest_session_id: order.guest_session_id,
-        guest_email: order.guest_email,
-        guest_phone: order.guest_phone,
-        guest_name: order.guest_name,
-        guest_tpin: order.guest_tpin,
-        items: order.order_items || [],
-        subtotal: order.subtotal || 0,
-        discount: order.discount || 0,
-        delivery_charge: order.delivery_charge || 0,
-        total_amount: order.total_amount || 0,
-        status: order.status || 'pending',
-        payment_status: order.payment_status || 'pending',
-        payment_method: order.payment_method || 'razorpay',
-        shipping_address: order.shipping_address || {},
-        created_at: order.created_at || order.order_date || new Date().toISOString(),
-        order_date: order.order_date,
-        is_guest_order: true
-      }));
+      const transformedOrders: Order[] = (data || [])
+        .filter((order: any) => !(order.payment_method === 'razorpay' && order.status === 'pending'))
+        .map((order: any) => ({
+          id: order.order_id,
+          user_id: order.user_id,
+          guest_session_id: order.guest_session_id,
+          guest_email: order.guest_email,
+          guest_phone: order.guest_phone,
+          guest_name: order.guest_name,
+          guest_tpin: order.guest_tpin,
+          items: order.order_items || [],
+          subtotal: order.subtotal || 0,
+          discount: order.discount || 0,
+          delivery_charge: order.delivery_charge || 0,
+          total_amount: order.total_amount || 0,
+          effective_amount: order.effective_amount || 0,
+          status: order.status || 'pending',
+          payment_status: order.payment_status || 'pending',
+          payment_method: order.payment_method || 'razorpay',
+          shipping_address: order.shipping_address || {},
+          created_at: order.created_at || order.order_date || new Date().toISOString(),
+          order_date: order.order_date,
+          is_guest_order: true
+        }));
+
+      // Adjust the count to exclude razorpay pending orders
+      const adjustedCount = count ? count - (data || []).filter((order: any) => order.payment_method === 'razorpay' && order.status === 'pending').length : 0;
 
       set({
         orders: transformedOrders,
         pagination: {
-          total: count || 0,
+          total: adjustedCount,
           page: 1,
           limit: 50,
           totalPages: 1
@@ -262,6 +271,7 @@ export const useOrderStore = create<OrderState>((set, get) => ({
         discount: data.discount || 0,
         delivery_charge: data.delivery_charge || 0,
         total_amount: data.total_amount || 0,
+        effective_amount: data.effective_amount || 0,
         status: data.status || 'pending',
         payment_status: data.payment_status || 'pending',
         payment_method: data.payment_method || 'razorpay',
@@ -581,18 +591,9 @@ export const useOrderStore = create<OrderState>((set, get) => ({
   async requestReturnItem(orderItemId: string, reason: string, userId?: string, guestSessionId?: string, imageFile?: File) {
     set({ loading: true, error: null });
     try {
-      // Use the new Edge Function for requesting returns
-      await updateOrderItemStatus({
-        action: 'request_return',
-        orderItemId,
-        reason,
-        guestSessionId
-      });
-
-      // Update local state
-      get().updateOrderItemStatus(orderItemId, 'returned');
-
-      set({ loading: false });
+      // Note: The edge function doesn't handle return requests
+      // This function should be removed or updated based on requirements
+      throw new Error('Return requests are not supported through the edge function');
     } catch (error: any) {
       console.error('Error requesting return:', error);
       set({ error: error.message || 'Failed to request return', loading: false });
@@ -706,6 +707,106 @@ export const useOrderStore = create<OrderState>((set, get) => ({
     } catch (error: any) {
       console.error('Error admin refunding order item:', error);
       set({ error: error.message || 'Failed to refund item', loading: false });
+      throw error;
+    }
+  },
+
+  // Bulk cancel order items - shared logic for both user and admin
+  async cancelOrderItems(params: CancelOrderItemsParams) {
+    const { orderId, orderItemIds, cancelReason, comments, isAdmin = false } = params;
+    
+    set({ loading: true, error: null });
+    try {
+      // Validate that all items belong to the order and are cancellable
+      const { data: itemsToCancel, error: checkError } = await supabase
+        .from('order_items')
+        .select('order_item_id, order_id, item_status')
+        .eq('order_id', orderId)
+        .in('order_item_id', orderItemIds);
+
+      if (checkError) throw new Error(`Failed to verify items: ${checkError.message}`);
+      if (!itemsToCancel || itemsToCancel.length === 0) {
+        throw new Error('No matching items found to cancel. Please refresh and try again.');
+      }
+
+      // Check if all items are in a cancellable state
+      const nonCancellableItems = itemsToCancel.filter(item => item.item_status !== 'pending');
+      if (nonCancellableItems.length > 0) {
+        throw new Error('Only pending items can be cancelled');
+      }
+
+      // Update all items to cancelled status
+      const { error: itemsError } = await supabase
+        .from('order_items')
+        .update({ 
+          item_status: 'cancelled', 
+          cancel_reason: cancelReason,
+          updated_at: new Date().toISOString()
+        })
+        .in('order_item_id', orderItemIds)
+        .eq('order_id', orderId);
+
+      if (itemsError) throw new Error(`Failed to cancel items: ${itemsError.message}`);
+
+      // Update local state for each cancelled item
+      orderItemIds.forEach(orderItemId => {
+        get().updateOrderItemStatus(orderItemId, 'cancelled');
+      });
+
+      // Fetch all items for the order to determine new aggregate status
+      const { data: allItems, error: fetchError } = await supabase
+        .from('order_items')
+        .select('item_status')
+        .eq('order_id', orderId);
+
+      if (fetchError) throw new Error(`Failed to fetch items: ${fetchError.message}`);
+
+      // Calculate new aggregate order status
+      const statuses = allItems?.map(item => item.item_status) || [];
+      const allCancelled = statuses.every(s => s === 'cancelled');
+      const someCancelled = statuses.some(s => s === 'cancelled');
+      
+      let newOrderStatus: Order['status'];
+      if (allCancelled) {
+        newOrderStatus = 'cancelled';
+      } else if (someCancelled) {
+        // Check if there are delivered items
+        const hasDelivered = statuses.some(s => s === 'delivered');
+        const hasShipped = statuses.some(s => s === 'shipped');
+        
+        if (hasDelivered) {
+          newOrderStatus = 'partially_delivered';
+        } else if (hasShipped) {
+          newOrderStatus = 'partially_cancelled';
+        } else {
+          newOrderStatus = 'partially_cancelled';
+        }
+      } else {
+        newOrderStatus = 'pending';
+      }
+
+      // Update order status and timestamps
+      const orderUpdateData: any = {
+        status: newOrderStatus,
+        updated_at: new Date().toISOString()
+      };
+
+      if (allCancelled) {
+        orderUpdateData.cancelled_at = new Date().toISOString();
+        if (comments) orderUpdateData.comments = comments;
+      }
+
+      const { error: orderUpdateError } = await supabase
+        .from('orders')
+        .update(orderUpdateData)
+        .eq('order_id', orderId);
+
+      if (orderUpdateError) throw new Error(`Failed to update order: ${orderUpdateError.message}`);
+
+      set({ loading: false });
+    } catch (error: any) {
+      console.error('Error cancelling order items:', error);
+      set({ error: error.message || 'Failed to cancel items', loading: false });
       throw error;
     }
   },

@@ -7,41 +7,29 @@ import type { Order, OrderItem, Review } from '../../../types/order';
 interface ReviewModalProps {
   order: Order;
   item: OrderItem;
-  existingReview?: Review | null;
+  existingReview?: {
+    rating: number;
+    comment: string;
+    title?: string;
+    review_id?: string;
+  } | null;
   onClose: () => void;
-  onSubmit?: () => void;
+  onSubmit?: (reviewData: {
+    rating: number;
+    comment: string;
+    title: string;
+  }) => void;
 }
 
 const ReviewModal: React.FC<ReviewModalProps> = ({ order, item, existingReview, onClose, onSubmit }) => {
-  console.log('ReviewModal rendered with props:', { 
-    orderId: order?.id, 
-    itemId: item?.order_item_id,
-    hasExistingReview: !!existingReview,
-    item
-  });
   
   const { submitReview, updateReview, loading } = useOrderStore();
   const { user, guestSession } = useAuthStore();
   const [rating, setRating] = useState(existingReview?.rating || 0);
   const [hoveredRating, setHoveredRating] = useState(0);
-  const [title, setTitle] = useState(existingReview?.title || '');
   const [comment, setComment] = useState(existingReview?.comment || '');
+  const [title, setTitle] = useState(existingReview?.title || '');
   const [submitting, setSubmitting] = useState(false);
-  
-  // Log when the component mounts/updates
-  useEffect(() => {
-    console.log('ReviewModal mounted/updated', { 
-      isVisible: true, 
-      orderId: order?.id,
-      itemId: item?.order_item_id,
-      hasUser: !!user,
-      isGuest: !user
-    });
-    
-    return () => {
-      console.log('ReviewModal unmounting');
-    };
-  }, [order?.id, item?.order_item_id, user]);
 
   const isEditing = !!existingReview;
   const isGuest = !user;
@@ -50,30 +38,30 @@ const ReviewModal: React.FC<ReviewModalProps> = ({ order, item, existingReview, 
   useEffect(() => {
     if (existingReview) {
       setRating(existingReview.rating);
-      setTitle(existingReview.title || '');
       setComment(existingReview.comment || '');
+      setTitle(existingReview.title || '');
     }
   }, [existingReview]);
 
     const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (rating === 0) return;
+    if (rating === 0 || !title.trim()) return;
 
     setSubmitting(true);
     try {
-      if (isEditing && existingReview) {
+      if (isEditing && existingReview?.review_id) {
         await updateReview(existingReview.review_id, {
           rating,
-          title: title.trim(),
           comment: comment.trim(),
+          title: title.trim(),
         });
       } else {
         // Handle both registered and guest users
         const reviewData: any = {
           product_id: item.product_id,
           rating,
-          title: title.trim(),
           comment: comment.trim(),
+          title: title.trim(),
           is_verified_purchase: true,
           review_type: reviewType,
         };
@@ -87,9 +75,13 @@ const ReviewModal: React.FC<ReviewModalProps> = ({ order, item, existingReview, 
         await submitReview(reviewData);
       }
       
-      // Call the onSubmit callback if provided
+      // Call onSubmit callback if provided
       if (onSubmit) {
-        onSubmit();
+        onSubmit({
+          rating,
+          comment: comment.trim(),
+          title: title.trim()
+        });
       } else {
         // Fallback to onClose if onSubmit is not provided
         onClose();
@@ -166,99 +158,95 @@ const ReviewModal: React.FC<ReviewModalProps> = ({ order, item, existingReview, 
         </div>
 
         {/* Review Form */}
-        <form onSubmit={handleSubmit} className="p-6">
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Title */}
+          <div className="mb-6">
+            <label htmlFor="title" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Review Title
+            </label>
+            <input
+              id="title"
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Summarize your experience in a few words..."
+              className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+              maxLength={100}
+              required
+            />
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              {title.length}/100 characters
+            </p>
+          </div>
+
           {/* Rating */}
           <div className="mb-6">
-            <label className="block text-sm font-medium text-primary dark:text-secondary mb-3 font-primary">
-              Rating *
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+              Rating
             </label>
-            <div className="flex items-center gap-1 mb-2">
+            <div className="flex items-center gap-2">
               {[1, 2, 3, 4, 5].map((star) => (
                 <button
                   key={star}
                   type="button"
+                  onClick={() => setRating(star)}
                   onMouseEnter={() => setHoveredRating(star)}
                   onMouseLeave={() => setHoveredRating(0)}
-                  onClick={() => setRating(star)}
-                  className="p-1 transition-transform hover:scale-110 focus:outline-none focus:ring-2 focus:ring-primary rounded"
+                  className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                 >
                   <Star
-                    className={`w-8 h-8 transition-colors ${
+                    className={`w-6 h-6 ${
                       star <= (hoveredRating || rating)
-                        ? 'text-accent fill-accent'
+                        ? 'text-yellow-400 fill-current'
                         : 'text-gray-300 dark:text-gray-600'
                     }`}
                   />
                 </button>
               ))}
+              <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">
+                {rating > 0 ? `${rating}/5` : 'Select rating'}
+              </span>
             </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400 font-primary">
-              {getRatingText(hoveredRating || rating)}
-            </p>
-          </div>
-
-          {/* Title */}
-          <div className="mb-6">
-            <label htmlFor="title" className="block text-sm font-medium text-primary dark:text-secondary mb-2 font-primary">
-              Review Title
-            </label>
-            <input
-              type="text"
-              id="title"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Summarize your experience..."
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark1 text-primary dark:text-secondary placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200 font-primary"
-              maxLength={100}
-            />
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 font-primary">
-              {title.length}/100 characters
-            </p>
           </div>
 
           {/* Comment */}
           <div className="mb-6">
-            <label htmlFor="comment" className="block text-sm font-medium text-primary dark:text-secondary mb-2 font-primary">
+            <label htmlFor="comment" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Your Review
             </label>
             <textarea
               id="comment"
               value={comment}
               onChange={(e) => setComment(e.target.value)}
-              placeholder="Tell others about your experience with this product..."
+              placeholder="Share your experience with this product..."
               rows={4}
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-dark1 text-primary dark:text-secondary placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-200 resize-none font-primary"
+              className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
               maxLength={500}
+              required
             />
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 font-primary">
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               {comment.length}/500 characters
             </p>
           </div>
 
           {/* Submit Button */}
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 font-primary"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={rating === 0 || submitting || loading}
-              className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-primary hover:bg-primary-active disabled:bg-gray-400 text-white rounded-lg transition-all duration-200 font-semibold disabled:cursor-not-allowed transform hover:scale-105 disabled:transform-none font-primary"
-            >
-              {submitting || loading ? (
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <>
-                  {isEditing ? <Edit3 className="w-4 h-4" /> : <Send className="w-4 h-4" />}
-                  {isEditing ? 'Update Review' : 'Submit Review'}
-                </>
-              )}
-            </button>
-          </div>
+          <button
+            type="submit"
+            disabled={rating === 0 || !title.trim() || submitting}
+            className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors duration-200 font-medium"
+          >
+            {submitting ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                {isEditing ? 'Updating...' : 'Submitting...'}
+              </>
+            ) : (
+              <>
+                <Send className="w-4 h-4" />
+                {isEditing ? 'Update Review' : 'Submit Review'}
+              </>
+            )}
+          </button>
         </form>
       </div>
     </div>

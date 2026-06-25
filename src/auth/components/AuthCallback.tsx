@@ -1,6 +1,7 @@
 import { memo, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@lib/supabase';
+import { createClient } from '@supabase/supabase-js';
 import { useAuthStore } from '@store/authStore';
 import { Loader2, AlertCircle, CheckCircle, ArrowRight } from 'lucide-react';
 import { Button } from '../ui';
@@ -19,10 +20,66 @@ const AuthCallback = memo(() => {
       try {
         setStep('loading');
 
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        // Check for OAuth tokens in URL hash
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        const access_token = hashParams.get('access_token');
+        const refresh_token = hashParams.get('refresh_token');
+        const error = hashParams.get('error');
+        const error_description = hashParams.get('error_description');
+        
+        if (error) {
+          throw new Error(error_description || `OAuth error: ${error}`);
+        }
 
-        if (sessionError || !session?.user) {
-          throw new Error(sessionError?.message || 'Authentication failed');
+        let session = null;
+
+        if (access_token && refresh_token) {
+          // Create direct Supabase client for session establishment
+          const supabaseDirect = createClient(
+            'https://qegaebazravcwofibtry.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFlZ2FlYmF6cmF2Y3dvZmlidHJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM5ODE4NzksImV4cCI6MjA2OTU1Nzg3OX0.YKP1oM0WIWzuaa47S6OTVEitBalCNqBQxgoLw0yiUg0',
+            {
+              auth: {
+                autoRefreshToken: true,
+                persistSession: true,
+                detectSessionInUrl: false
+              }
+            }
+          );
+
+          const { data: { session: directSession }, error: sessionError } = await supabaseDirect.auth.setSession({
+            access_token,
+            refresh_token
+          });
+          
+          if (sessionError) {
+            throw new Error(`Session setting error: ${sessionError.message}`);
+          }
+          
+          session = directSession;
+
+          // Now sync the session to the main Supabase client
+          try {
+            await supabase.auth.setSession({
+              access_token,
+              refresh_token
+            });
+          } catch (syncError) {
+            // Continue anyway, as the auth store will handle the user
+          }
+        } else {
+          // Try to get session from main Supabase client
+          const { data: { session: mainSession }, error: sessionError } = await supabase.auth.getSession();
+          
+          if (sessionError) {
+            throw new Error(`Session retrieval error: ${sessionError.message}`);
+          }
+          
+          session = mainSession;
+        }
+
+        if (!session?.user) {
+          throw new Error('No user session found after OAuth callback');
         }
 
         const user = session.user;
@@ -35,6 +92,11 @@ const AuthCallback = memo(() => {
         await new Promise(resolve => setTimeout(resolve, 1000));
 
         setStep('success');
+
+        // Clean up URL by removing OAuth tokens from hash
+        if (window.location.hash && (window.location.hash.includes('access_token') || window.location.hash.includes('refresh_token'))) {
+          window.history.replaceState(null, '', window.location.pathname + window.location.search);
+        }
 
         // Redirect after a short delay
         setTimeout(() => navigate('/'), 1500);

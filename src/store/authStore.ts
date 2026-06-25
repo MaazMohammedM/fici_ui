@@ -1,7 +1,9 @@
 // src/store/authStore.ts
 import { create } from 'zustand';
+import { createClient } from '@supabase/supabase-js';
 import { persist } from 'zustand/middleware';
 import { supabase } from '@lib/supabase';
+import { GuestService } from '../lib/services/guestService';
 import type { 
   GuestSession, 
   GuestContactInfo, 
@@ -14,20 +16,37 @@ import type {
 interface AuthState extends AuthenticationState {
   role: string | null;
   firstName: string | null;
+  userProfile: any | null;
   loading: boolean;
+  initialized: boolean;
   error: string | null;
 
   authType: 'guest' | 'user' | null;
 
+  // OTP verification tracking (scoped to session+checkoutAttempt)
+  lastVerifiedEmail: string | null;
+  lastVerifiedPhone: string | null;
+  lastVerifiedSessionId: string | null;
+  lastVerifiedAt: string | null;
+  lastVerifiedCheckoutId: string | null;
+
   setUser: (user: any | undefined) => void;
+  setUserProfile: (profile: any | null) => void;
 
   setRole: (role: string | null) => void;
   setFirstName: (name: string | null) => void;
+  setInitialized: (initialized: boolean) => void;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (userData: { firstName: string; lastName: string; email: string; password: string }) => Promise<void>;
+  signUp: (userData: { firstName: string; lastName: string; email: string; mobile?: string; password: string }) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
   clearError: () => void;
+  updatePhoneNumber: (phoneNumber: string) => Promise<void>;
+
+  // OTP verification methods
+  setOtpVerification: (email: string, phone: string | null, sessionId: string, checkoutId?: string | null) => void;
+  clearOtpVerification: () => void;
+  isIdentityStillVerified: (currentEmail: string, currentPhone: string | null, currentSessionId: string, currentCheckoutId?: string | null) => boolean;
 
   setGuestSessionFromAuth: (session: GuestSession) => void;
 
@@ -38,7 +57,6 @@ interface AuthState extends AuthenticationState {
   extendGuestSession: () => Promise<boolean>;
   clearGuestSession: () => void;
 
-  checkGuestOrders: (email: string, phone?: string) => Promise<GuestOrderSummary>;
   mergeGuestOrders: (userId: string, guest_session_id?: string) => Promise<GuestOrderMergeResult>;
 
   getAuthenticationType: () => 'user' | 'guest' | 'none';
@@ -46,33 +64,88 @@ interface AuthState extends AuthenticationState {
   getCurrentSessionId: () => string | null;
 }
 
-export const useAuthStore = create<AuthState>()(
-  persist(
-    (set, get) => ({
+export const useAuthStore = create<AuthState>()((set, get) => ({
       // initial
       isAuthenticated: false,
       isGuest: false,
       user: undefined,
       guestSession: undefined,
       guestContactInfo: undefined,
+      userProfile: null,
 
       role: null,
       firstName: null,
       loading: false,
+      initialized: false,
       error: null,
       authType: null,
 
-      setUser: (user) =>
+      // OTP verification tracking
+      lastVerifiedEmail: null,
+      lastVerifiedPhone: null,
+      lastVerifiedSessionId: null,
+      lastVerifiedAt: null,
+      lastVerifiedCheckoutId: null,
+
+      setUser: (user) => {
         set({
           user,
           isAuthenticated: !!user,
           isGuest: false,
           authType: user ? 'user' : null,
-        }),
+        });
+        
+        // Ensure user profile is created when user is set
+        if (user) {
+          ensureUserProfile(user).catch(error => {
+            console.error('Error ensuring profile in setUser:', error);
+          });
+        }
+      },
 
+      setUserProfile: (userProfile) => set({ userProfile }),
       setRole: (role) => set({ role }),
       setFirstName: (name) => set({ firstName: name }),
+      setInitialized: (initialized) => set({ initialized }),
       clearError: () => set({ error: null }),
+
+      updatePhoneNumber: async (phoneNumber: string) => {
+        const { user } = get();
+        if (!user) {
+          set({ error: 'User not authenticated' });
+          return;
+        }
+
+        set({ loading: true, error: null });
+        try {
+          const { error: updateError } = await supabase
+            .from('user_profiles')
+            .update({ 
+              phone_number: phoneNumber,
+              phone_verified: true 
+            })
+            .eq('user_id', user.id);
+
+          if (updateError) throw updateError;
+
+          // Update local state
+          const currentProfile = get().userProfile;
+          if (currentProfile) {
+            set({
+              userProfile: {
+                ...currentProfile,
+                phone_number: phoneNumber,
+                phone_verified: true
+              }
+            });
+          }
+        } catch (error: any) {
+          set({ error: error.message || 'Failed to update phone number' });
+          throw error;
+        } finally {
+          set({ loading: false });
+        }
+      },
 
       // Improved signIn: handle both immediate user return and session fallback
       signIn: async (email: string, password: string): Promise<void> => {
@@ -152,16 +225,7 @@ export const useAuthStore = create<AuthState>()(
               loading: false,
             });
 
-            // Check for guest orders after authentication
-            try {
-              const guestOrders = await get().checkGuestOrders(email);
-              if (guestOrders?.has_guest_orders) {
-                await get().mergeGuestOrders(user.id);
-                get().clearGuestSession();
-              }
-            } catch (e) {
-              console.warn('Guest order merge failed:', e);
-            }
+            // Guest order checking disabled
 
             const redirectPath = sessionStorage.getItem('redirectAfterLogin');
             if (redirectPath) {
@@ -183,6 +247,7 @@ export const useAuthStore = create<AuthState>()(
         firstName: string;
         lastName: string;
         email: string;
+        mobile?: string;
         password: string;
       }) => {
         set({ loading: true, error: null });
@@ -194,7 +259,8 @@ export const useAuthStore = create<AuthState>()(
               data: {
                 first_name: userData.firstName,
                 last_name: userData.lastName,
-                role: 'customer',
+                mobile: userData.mobile || null,
+                role: 'user',
               },
             },
           });
@@ -209,6 +275,7 @@ export const useAuthStore = create<AuthState>()(
                 email: userData.email,
                 first_name: userData.firstName,
                 last_name: userData.lastName,
+                phone_number: userData.mobile || null,
                 role: 'user' // ✅ Use correct default role
               });
 
@@ -231,13 +298,7 @@ export const useAuthStore = create<AuthState>()(
               loading: false,
             });
 
-            // Check for guest orders after profile is created
-            const guestOrders = await get().checkGuestOrders(userData.email);
-
-            if (guestOrders?.has_guest_orders) {
-              await get().mergeGuestOrders(data.user.id);
-              get().clearGuestSession();
-            }
+            // Guest order checking disabled
 
             const redirectPath = sessionStorage.getItem('redirectAfterLogin');
             if (redirectPath) {
@@ -258,12 +319,37 @@ export const useAuthStore = create<AuthState>()(
       signInWithGoogle: async () => {
         set({ loading: true, error: null });
         try {
-          const { error } = await supabase.auth.signInWithOAuth({
+          // Create direct Supabase client for Google OAuth to avoid X-Frame-Options issues
+          // This client will use the direct Supabase URL for OAuth authorize only
+          const supabaseDirect = createClient(
+            'https://qegaebazravcwofibtry.supabase.co',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFlZ2FlYmF6cmF2Y3dvZmlidHJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTM5ODE4NzksImV4cCI6MjA2OTU1Nzg3OX0.YKP1oM0WIWzuaa47S6OTVEitBalCNqBQxgoLw0yiUg0',
+            {
+              auth: {
+                autoRefreshToken: false, // Don't interfere with main session
+                persistSession: false,   // Don't persist this session
+                detectSessionInUrl: false // Don't detect session in URL
+              }
+            }
+          );
+
+          // Use production URL in production, or when explicitly set for testing
+          const baseUrl = import.meta.env.PROD 
+            ? import.meta.env.VITE_PRODUCTION_URL || 'https://www.ficishoes.com'
+            : import.meta.env.VITE_PRODUCTION_URL || window.location.origin;
+          
+          const { error } = await supabaseDirect.auth.signInWithOAuth({
             provider: 'google',
-            options: { redirectTo: `${window.location.origin}/auth/callback` },
+            options: { 
+              redirectTo: `${baseUrl}/auth/callback`,
+              queryParams: {
+                access_type: 'offline',
+                prompt: 'consent',
+              }
+            },
           });
           if (error) throw error;
-          // session will be handled by callback route
+          // session will be handled by callback route using main supabase client (Cloudflare worker)
         } catch (err: any) {
           set({ error: err.message, loading: false });
           throw err;
@@ -302,7 +388,6 @@ export const useAuthStore = create<AuthState>()(
       createGuestSession: async (contactInfo: GuestContactInfo) => {
         try {
           // Always use edge function to create or fetch a valid guest session
-          const { GuestService } = await import('@lib/services/guestService');
           const session = await GuestService.createSession(contactInfo as any);
           if (!session) return null;
 
@@ -315,9 +400,9 @@ export const useAuthStore = create<AuthState>()(
             authType: 'guest'
           });
 
-          // Persist to localStorage for cross-page availability
+          // Store in sessionStorage for current session only
           if (session.guest_session_id) {
-            localStorage.setItem('guest_session_id', session.guest_session_id);
+            sessionStorage.setItem('guest_session_id', session.guest_session_id);
           }
 
           return session;
@@ -372,26 +457,82 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      clearGuestSession: () =>
+      clearGuestSession: () => {
+        // Clear sessionStorage data
+        sessionStorage.removeItem('guest_session_id');
+        
         set({
           guestSession: undefined,
           guestContactInfo: undefined,
           isGuest: false,
           authType: get().user ? 'user' : null,
+          // Clear OTP verification when guest session is cleared
+          lastVerifiedEmail: null,
+          lastVerifiedPhone: null,
+          lastVerifiedSessionId: null,
+          lastVerifiedAt: null,
+        });
+      },
+
+      // OTP verification methods
+      setOtpVerification: (email: string, phone: string | null, sessionId: string, checkoutId?: string | null) =>
+        set({
+          lastVerifiedEmail: email,
+          lastVerifiedPhone: phone,
+          lastVerifiedSessionId: sessionId,
+          lastVerifiedAt: new Date().toISOString(),
+          lastVerifiedCheckoutId: checkoutId || null,
         }),
 
-      checkGuestOrders: async (email: string, phone?: string) => {
-        try {
-          const { data, error } = await supabase.functions.invoke('check-guest-orders', {
-            body: { email, phone },
-          });
-          if (error) throw error;
-          return data as GuestOrderSummary;
-        } catch (error) {
-          console.error('Failed to check guest orders:', error);
-          return { has_guest_orders: false, guest_orders_count: 0, merge_available: false };
+      clearOtpVerification: () =>
+        set({
+          lastVerifiedEmail: null,
+          lastVerifiedPhone: null,
+          lastVerifiedSessionId: null,
+          lastVerifiedAt: null,
+          lastVerifiedCheckoutId: null,
+        }),
+
+      isIdentityStillVerified: (currentEmail: string, currentPhone: string | null, currentSessionId: string, currentCheckoutId?: string | null) => {
+        const state = get();
+        // Must have all verification data
+        if (!state.lastVerifiedEmail || !state.lastVerifiedSessionId || !state.lastVerifiedAt) {
+          return false;
         }
+
+        // Check if session ID matches (most important)
+        if (state.lastVerifiedSessionId !== currentSessionId) {
+          return false;
+        }
+
+        // If we have a checkout-scoped verification, enforce checkoutId match
+        if (state.lastVerifiedCheckoutId && currentCheckoutId && state.lastVerifiedCheckoutId !== currentCheckoutId) {
+          return false;
+        }
+
+        // Check if email matches
+        if (state.lastVerifiedEmail !== currentEmail) {
+          return false;
+        }
+
+        // Check if phone matches (if phone was verified)
+        if (state.lastVerifiedPhone && state.lastVerifiedPhone !== currentPhone) {
+          return false;
+        }
+
+        // Check if verification is recent (within 1 hour for guests, 24 hours for registered users)
+        const verificationTime = new Date(state.lastVerifiedAt);
+        const now = new Date();
+        const timeDiff = now.getTime() - verificationTime.getTime();
+        const maxAge = state.isGuest ? 60 * 60 * 1000 : 24 * 60 * 60 * 1000; // 1 hour vs 24 hours
+        
+        if (timeDiff > maxAge) {
+          return false;
+        }
+
+        return true;
       },
+
 
       mergeGuestOrders: async (userId: string, guest_session_id?: string) => {
         try {
@@ -431,8 +572,8 @@ export const useAuthStore = create<AuthState>()(
         if (state.guestSession?.guest_session_id) {
           return state.guestSession.guest_session_id;
         }
-        // Check for guest session in localStorage as fallback
-        const storedSessionId = localStorage.getItem('guest_session_id');
+        // Check for guest session in sessionStorage as fallback
+        const storedSessionId = sessionStorage.getItem('guest_session_id');
         if (storedSessionId) {
           return storedSessionId;
         }
@@ -442,17 +583,7 @@ export const useAuthStore = create<AuthState>()(
         }
         return null;
       },
-    }),
-    {
-      name: 'auth-storage',
-      partialize: (state) => ({
-        guestSession: state.guestSession,
-        guestContactInfo: state.guestContactInfo,
-        isGuest: state.isGuest,
-        authType: state.authType,
-      }),
-    }
-  )
+    })
 );
 
 const ensureUserProfile = async (user: any) => {
@@ -537,6 +668,8 @@ let authStoreInitialized = false;
           useAuthStore.getState().setUser(undefined);
         }
       });
+      // Mark as initialized for callback scenarios
+      useAuthStore.getState().setInitialized(true);
       return;
     }
 
@@ -568,5 +701,8 @@ let authStoreInitialized = false;
     console.error('Auth store initialization failed:', err);
     // Ensure we have a clean state on failure
     useAuthStore.getState().setUser(undefined);
+  } finally {
+    // Mark initialization as complete
+    useAuthStore.getState().setInitialized(true);
   }
 })();

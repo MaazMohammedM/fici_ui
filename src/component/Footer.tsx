@@ -1,20 +1,19 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Mail, Phone, MapPin } from 'lucide-react';
-import { FaInstagram, FaWhatsapp } from 'react-icons/fa';
-import { FaFacebook, FaX } from 'react-icons/fa6';
-import logo from '../assets/fici_transparent.png';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import logo from '../assets/fici_transparent.webp';
 import razorpayPayments from '../assets/razorpay-with-all-cards-upi-seeklogo.png';
 
 const Footer: React.FC = () => {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="bg-[color:var(--color-dark1)] text-white">
+    <footer className="bg-[#11224C] text-white">
       {/* Full-bleed white logo strip (all breakpoints) */}
       <div className="w-full bg-white py-3 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-center">
-          <img src={logo} alt="FICI Logo" className="h-14 sm:h-20 w-auto object-contain" />
+          <img src={logo} alt="FICI Logo - Premium leather shoe manufacturer in Ambur" className="h-14 sm:h-20 w-auto object-contain" />
         </div>
       </div>
 
@@ -23,7 +22,7 @@ const Footer: React.FC = () => {
         <div className="flex flex-col items-center text-center gap-1.5 sm:gap-2 mb-3 sm:mb-5">
           <p className="text-gray-300 text-sm sm:text-[15px] leading-snug max-w-lg">
             Premium leather footwear crafted with passion and precision.<br/> Discover the perfect blend
-            of style, comfort, and quality.
+            of style, comfort and quality.
           </p>
 
           {/* Social */}
@@ -33,36 +32,63 @@ const Footer: React.FC = () => {
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Facebook"
-              className="p-2 rounded-full bg-white/5 hover:bg-white/10 transition-colors"
+              className="p-2 rounded-full bg-white/5 hover:bg-white/10 transition-colors flex items-center justify-center"
             >
-              <FaFacebook className="w-5 h-5 text-gray-300" />
+              <FontAwesomeIcon
+                icon={["fab", "facebook"]}
+                className="w-4 h-4"
+                style={{ color: "#1877F2" }}
+              />
             </a>
             <a
               href="https://x.com/ficiShoes"
               target="_blank"
               rel="noopener noreferrer"
               aria-label="X"
-              className="p-2 rounded-full bg-white/5 hover:bg-white/10 transition-colors"
+              className="p-2 rounded-full bg-white/5 hover:bg-white/10 transition-colors flex items-center justify-center"
             >
-              <FaX className="w-5 h-5 text-gray-300" />
+              <FontAwesomeIcon
+                icon={["fab", "x-twitter"]}
+                className="w-4 h-4"
+                style={{ color: "#000000" }}
+              />
             </a>
             <a
               href="https://www.instagram.com/FICI_Shoes"
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Instagram"
-              className="p-2 rounded-full bg-white/5 hover:bg-white/10 transition-colors"
+              className="p-2 rounded-full bg-white/5 hover:bg-white/10 transition-colors flex items-center justify-center"
             >
-              <FaInstagram className="w-5 h-5 text-gray-300" />
+              <FontAwesomeIcon
+                icon={["fab", "instagram"]}
+                className="w-4 h-4"
+                style={{ color: "#E1306C" }}
+              />
             </a>
             <a
               href="https://wa.me/918122003006"
               target="_blank"
               rel="noopener noreferrer"
               aria-label="WhatsApp"
-              className="p-2 rounded-full bg-white/5 hover:bg-white/10 transition-colors"
+              className="p-2 rounded-full bg-white/5 hover:bg-white/10 transition-colors flex items-center justify-center"
             >
-              <FaWhatsapp className="w-5 h-5 text-gray-300" />
+              <FontAwesomeIcon
+                icon={["fab", "whatsapp"]}
+                className="w-4 h-4"
+                style={{ color: "#25D366" }}
+              />
+            </a>
+            <a
+              href="https://www.linkedin.com/company/fici-shoes/"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="LinkedIn"
+              className="p-2 rounded-full bg-white/5 hover:bg-white/10 transition-colors flex items-center justify-center"
+            >
+              <div className="w-5 h-5 flex items-center justify-center bg-blue-600 rounded-full">
+                <span className="text-white font-bold text-xs">in</span>
+              </div>
             </a>
           </div>
         </div>
@@ -75,7 +101,12 @@ const Footer: React.FC = () => {
             <ul className="space-y-2">
               <li>
                 <Link to="/about" className="text-gray-300 hover:text-white text-sm sm:text-base transition-colors">
-                  Our Story
+                  Our Ambur Heritage
+                </Link>
+              </li>
+              <li>
+                <Link to="/ambur-leather-excellence" className="text-gray-300 hover:text-white text-sm sm:text-base transition-colors">
+                  Ambur Leather Excellence
                 </Link>
               </li>
               <li>
@@ -100,22 +131,27 @@ const Footer: React.FC = () => {
               </li>
               <li>
                 <Link to="/contact" className="text-gray-300 hover:text-white text-sm sm:text-base transition-colors">
-                  Contact Us
+                  Contact Leather Manufacturers
                 </Link>
+              </li>
+              <li>
+                {/* <Link to="/faq" className="text-gray-300 hover:text-white text-sm sm:text-base transition-colors">
+                  FAQ
+                </Link> */}
               </li>
             </ul>
           </div>
 
           {/* Categories */}
           <div className="order-2">
-            <h3 className="text-lg sm:text-xl font-semibold mb-3">Categories</h3>
+            <h3 className="text-lg sm:text-xl font-semibold mb-3">Leather Categories</h3>
             <ul className="space-y-2">
               <li>
                 <Link
                   to="/products?sub_category=Shoes"
                   className="text-gray-300 hover:text-white text-sm sm:text-base transition-colors"
                 >
-                  Shoes
+                  Premium Leather Shoes
                 </Link>
               </li>
               <li>
@@ -123,15 +159,15 @@ const Footer: React.FC = () => {
                   to="/products?sub_category=Sandals"
                   className="text-gray-300 hover:text-white text-sm sm:text-base transition-colors"
                 >
-                  Sandals
+                  Handcrafted Leather Sandals
                 </Link>
               </li>
               <li>
                 <Link
-                  to="/products?sub_category=Bags&?sub_category=Accessories"
+                  to="/products?sub_category=Bags&sub_category=Accessories"
                   className="text-gray-300 hover:text-white text-sm sm:text-base transition-colors"
                 >
-                  Bags & Accessories
+                  Leather Bags & Accessories
                 </Link>
               </li>
               <li>
@@ -139,7 +175,7 @@ const Footer: React.FC = () => {
                   to="/products?gender=men"
                   className="text-gray-300 hover:text-white text-sm sm:text-base transition-colors"
                 >
-                  Men's Collection
+                  Men's Leather Collection
                 </Link>
               </li>
               <li>
@@ -147,7 +183,15 @@ const Footer: React.FC = () => {
                   to="/products?gender=women"
                   className="text-gray-300 hover:text-white text-sm sm:text-base transition-colors"
                 >
-                  Women's Collection
+                  Women's Leather Collection
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/ambur-leather-excellence"
+                  className="text-gray-300 hover:text-white text-sm sm:text-base transition-colors"
+                >
+                  Manufacturing Process
                 </Link>
               </li>
             </ul>
@@ -177,10 +221,10 @@ const Footer: React.FC = () => {
               <div className="flex items-center gap-3">
                 <Mail className="w-5 h-5 text-gray-400" />
                 <a
-                  href="mailto:nmfinternational@gmail.com"
+                  href="mailto:support@ficishoes.com"
                   className="text-gray-300 text-sm sm:text-base hover:text-white transition-colors"
                 >
-                  nmfinternational@gmail.com
+                  support@ficishoes.com
                 </a>
               </div>
             </div>
@@ -219,7 +263,11 @@ const Footer: React.FC = () => {
         </div>
         {/* Bottom Section */}
         <div className="border-t border-white/10 mt-6 sm:mt-8 pt-4 sm:pt-5 flex flex-col sm:flex-row justify-between items-center gap-3 sm:gap-4">
-          <p className="text-gray-400 text-xs sm:text-sm text-center sm:text-left">© {currentYear} FICI. All rights reserved.</p>
+          <div className="flex flex-col sm:flex-row items-center gap-2 text-center sm:text-left">
+            <p className="text-gray-400 text-xs sm:text-sm"> {currentYear} FICI. All rights reserved.</p>
+            <span className="text-gray-400 text-xs sm:text-sm hidden sm:inline">|</span>
+            <p className="text-gray-400 text-xs sm:text-sm">FiCi Shoes is a brand of NMF International, Ambur.</p>
+          </div>
         </div>
       </div>
     </footer>
