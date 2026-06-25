@@ -140,7 +140,7 @@ export class LCPOptimizer {
     this.addPreconnect([
       'https://fonts.googleapis.com',
       'https://fonts.gstatic.com',
-      'https://ficishoes.com'
+      'https://www.ficishoes.com'
     ]);
 
     // Apply critical CSS if provided

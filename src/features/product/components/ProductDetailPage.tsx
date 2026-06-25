@@ -337,8 +337,8 @@ const ProductDetailPage: React.FC = () => {
             "@type": "Brand",
             "name": "Fici",
             "alternateName": "FICI Shoes by NMF International",
-            "url": "https://ficishoes.com",
-            "logo": "https://ficishoes.com/favicons/fici_128x128.webp"
+            "url": "https://www.ficishoes.com",
+            "logo": "https://www.ficishoes.com/favicons/fici_128x128.webp"
           },
           "manufacturer": {
             "@type": "Organization",
@@ -352,7 +352,7 @@ const ProductDetailPage: React.FC = () => {
               "postalCode": "635802"
             },
             "telephone": "+91-8122003006",
-            "url": "https://ficishoes.com"
+            "url": "https://www.ficishoes.com"
           },
           "category": currentProduct.category,
           "material": "Genuine Leather",
@@ -403,32 +403,9 @@ const ProductDetailPage: React.FC = () => {
             }
           },
           "image": productVariant.selectedVariant?.thumbnail_url || productVariant.selectedVariant?.images?.[0] || currentProduct.variants?.[0]?.thumbnail_url,
-          "url": `https://ficishoes.com/products/${article_id}`,
+          "url": `https://www.ficishoes.com/products/${article_id}`,
           "sku": productVariant.selectedVariant?.product_id || currentProduct.article_id,
           "mpn": currentProduct.article_id,
-          "aggregateRating": {
-            "@type": "AggregateRating",
-            "ratingValue": "4.5",
-            "reviewCount": "128",
-            "bestRating": "5",
-            "worstRating": "1"
-          },
-          "review": [
-            {
-              "@type": "Review",
-              "author": {
-                "@type": "Person",
-                "name": "Verified Customer"
-              },
-              "reviewRating": {
-                "@type": "Rating",
-                "ratingValue": "5",
-                "bestRating": "5"
-              },
-              "reviewBody": "Excellent quality leather shoes! The craftsmanship is outstanding and they're very comfortable. Worth every penny.",
-              "datePublished": "2024-01-15"
-            }
-          ],
           "additionalProperty": [
             {
               "@type": "PropertyValue",
@@ -449,7 +426,7 @@ const ProductDetailPage: React.FC = () => {
           "isRelatedTo": relatedProducts.slice(0, 3).map(product => ({
             "@type": "Product",
             "name": product.name,
-            "url": `https://ficishoes.com/products/${product.article_id}`
+            "url": `https://www.ficishoes.com/products/${product.article_id}`
           }))
         })}
       </script>

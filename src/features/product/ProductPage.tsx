@@ -663,7 +663,7 @@ return (
       title={seoMetadata.title}
       description={seoMetadata.description}
       keywords={seoMetadata.keywords}
-      url="https://ficishoes.com/products"
+      url="https://www.ficishoes.com/products"
     />
     
     {/* Collection Structured Data */}
@@ -673,7 +673,7 @@ return (
         "@type": "CollectionPage",
         "name": seoMetadata.title,
         "description": seoMetadata.description,
-        "url": "https://ficishoes.com/products",
+        "url": "https://www.ficishoes.com/products",
         "mainEntity": {
           "@type": "ItemList",
           "numberOfItems": filteredProducts?.length || 0,
@@ -681,7 +681,7 @@ return (
             "@type": "Product",
             "position": index + 1,
             "name": product.name,
-            "url": `https://ficishoes.com/products/${product.article_id}`,
+            "url": `https://www.ficishoes.com/products/${product.article_id}`,
             "image": product.thumbnail_url || product.images?.[0],
             "category": product.category,
             "brand": {

@@ -7,8 +7,8 @@ declare global {
   }
 }
 
-// Check if we're in production (only ficishoes.com)
-const isProduction = typeof window !== 'undefined' && window.location.hostname === 'ficishoes.com';
+// Check if we're in production (ficishoes.com or www.ficishoes.com)
+const isProduction = typeof window !== 'undefined' && ['ficishoes.com', 'www.ficishoes.com'].includes(window.location.hostname);
 
 // Safe wrapper for fbq calls
 const trackEvent = (eventName: string, parameters?: Record<string, any>) => {

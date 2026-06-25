@@ -50,10 +50,10 @@ const AmburLeatherExcellencePage: React.FC = () => {
             }
           },
           "datePublished": "2024-01-01",
-          "dateModified": "2024-01-01",
+          "dateModified": "2025-06-25",
           "mainEntityOfPage": {
             "@type": "WebPage",
-            "@id": "https://ficishoes.com/ambur-leather-excellence"
+            "@id": "https://www.ficishoes.com/ambur-leather-excellence"
           }
         })}
       </script>

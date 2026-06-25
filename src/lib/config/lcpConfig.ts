@@ -115,7 +115,7 @@ export const LCP_CONFIG = {
       preconnect: [
         'https://fonts.googleapis.com',
         'https://fonts.gstatic.com',
-        'https://ficishoes.com'
+        'https://www.ficishoes.com'
       ],
       dnsPrefetch: [
         '//fonts.googleapis.com',

@@ -187,7 +187,6 @@ const Header: React.FC = () => {
         ],
       },
       { label: 'Shoe Care', path: '/shoe-care' },
-      // { label: 'Ambur Leather', path: '/ambur-leather-excellence' },
       { label: 'About', path: '/about' },
       { label: 'Contact', path: '/contact' },
       { label: 'Orders', path: '/orders' },

@@ -19,7 +19,7 @@ const SEOHead: React.FC<SEOHeadProps> = ({
   description = 'Discover premium leather shoes, sandals, and accessories. Handcrafted quality with modern style. Free shipping on orders above ₹999.',
   keywords = 'leather shoes, premium footwear, handcrafted shoes, men shoes, women shoes, sandals, boots',
   image = '/og-image.jpg',
-  url = window.location.href,
+  url = typeof window !== 'undefined' ? window.location.href : 'https://www.ficishoes.com',
   type = 'website',
   price,
   currency = 'INR',

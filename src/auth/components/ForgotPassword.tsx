@@ -42,7 +42,7 @@ const ForgotPassword: React.FC = () => {
     try {
       // Use production URL in production, or when explicitly set for testing
       const baseUrl = import.meta.env.PROD 
-        ? import.meta.env.VITE_PRODUCTION_URL || 'https://ficishoes.com'
+        ? import.meta.env.VITE_PRODUCTION_URL || 'https://www.ficishoes.com'
         : import.meta.env.VITE_PRODUCTION_URL || window.location.origin;
       
       const { error } = await supabase.auth.resetPasswordForEmail(data.email, {
