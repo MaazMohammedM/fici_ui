@@ -263,7 +263,6 @@ const ProductImageGallery: React.FC<ProductImageGalleryProps> = ({
   const toggleZoom = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     if (isZoomDisabled) {
-      console.log('Zoom toggle blocked - zoom disabled');
       return;
     }
     setShowLens(s => !s);

@@ -1,19 +1,8 @@
-import { StrictMode } from 'react';
-import { createRoot } from 'react-dom/client';
-import './index.css';
-import App from './App.tsx';
-import '@fortawesome/fontawesome-free/css/all.min.css';
-import "./lib/fontawesome";
-import { AuthProvider } from 'context/AuthContext.tsx';
+// src/main-ssg.tsx
+// SSG entry point for vite-plugin-ssg
+import App from './App';
 
-// Polyfill Buffer for Node.js compatibility (if needed)
-if (typeof window !== 'undefined') {
-  // Buffer is externalized in Vite config, so we don't import it directly
-  // The polyfill is handled in index.html
-  window.global = window.global || window;
-}
-
-// SSG options for vite-plugin-ssg
+// Export ssgOptions as required by vite-plugin-ssg
 export const ssgOptions = {
   includedRoutes: async () => {
     // Static routes
@@ -66,10 +55,5 @@ export const ssgOptions = {
   },
 };
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <AuthProvider>
-      <App />
-    </AuthProvider>
-  </StrictMode>
-);
+// Export the App component for rendering
+export default App;

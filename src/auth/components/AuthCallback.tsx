@@ -20,9 +20,6 @@ const AuthCallback = memo(() => {
       try {
         setStep('loading');
 
-        console.log('AuthCallback: Processing OAuth callback');
-        console.log('AuthCallback: Current URL:', window.location.href);
-
         // Check for OAuth tokens in URL hash
         const hashParams = new URLSearchParams(window.location.hash.substring(1));
         const access_token = hashParams.get('access_token');
@@ -50,7 +47,6 @@ const AuthCallback = memo(() => {
             }
           );
 
-          console.log('AuthCallback: Setting session with tokens from URL hash');
           const { data: { session: directSession }, error: sessionError } = await supabaseDirect.auth.setSession({
             access_token,
             refresh_token
@@ -61,7 +57,6 @@ const AuthCallback = memo(() => {
           }
           
           session = directSession;
-          console.log('AuthCallback: Session established with direct client:', session.user?.email);
 
           // Now sync the session to the main Supabase client
           try {
@@ -69,9 +64,7 @@ const AuthCallback = memo(() => {
               access_token,
               refresh_token
             });
-            console.log('AuthCallback: Session synced with main Supabase client');
           } catch (syncError) {
-            console.warn('AuthCallback: Failed to sync session with main client:', syncError);
             // Continue anyway, as the auth store will handle the user
           }
         } else {

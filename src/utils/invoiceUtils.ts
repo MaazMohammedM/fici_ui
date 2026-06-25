@@ -1014,7 +1014,6 @@ export const generateInvoicePDF = async (invoice: InvoiceData): Promise<Blob> =>
 };
 
 export const sendInvoiceEmail = async (invoice: InvoiceData, recipientEmail: string): Promise<void> => {
-  console.log('Sending invoice to:', recipientEmail, '| Invoice:', invoice.invoiceNumber);
   await new Promise((r) => setTimeout(r, 1000));
   showSuccessAlert(`Invoice ${invoice.invoiceNumber} sent to ${recipientEmail}`);
 };

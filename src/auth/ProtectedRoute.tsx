@@ -3,6 +3,9 @@ import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { Loader2 } from 'lucide-react'
 
+// Connectivity
+import { AuthConnectivityGuard, useAuthConnectivity } from './components/AuthConnectivityGuard';
+
 interface ProtectedRouteProps {
   children: React.ReactNode
   redirectTo?: string
@@ -15,6 +18,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   requiredRole
 }) => {
   const { user, loading } = useAuth()
+  const { shouldBlockAction } = useAuthConnectivity()
   const location = useLocation()
 
   if (loading) {
@@ -38,6 +42,25 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     if (location.pathname.startsWith('/orders')) {
       return <>{children}</>;
     }
+    // Check connectivity before redirecting
+    if (shouldBlockAction) {
+      // Show connectivity modal instead of redirecting
+      return (
+        <AuthConnectivityGuard>
+          <div className="min-h-screen flex items-center justify-center bg-gradient-light dark:bg-gradient-dark">
+            <div className="text-center">
+              <Loader2 className="w-8 h-8 animate-spin mx-auto text-accent mb-4" />
+              <h2 className="text-xl font-semibold text-primary dark:text-secondary mb-2">
+                Checking Connection...
+              </h2>
+              <p className="text-sm text-primary/70 dark:text-secondary/70">
+                Please ensure you have a stable internet connection to continue.
+              </p>
+            </div>
+          </div>
+        </AuthConnectivityGuard>
+      );
+    }
     // Otherwise redirect to sign-in page
     return <Navigate to={redirectTo} state={{ from: location }} replace />
   }
@@ -58,7 +81,11 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     )
   }
 
-  return <>{children}</>
+  return (
+    <AuthConnectivityGuard>
+      <>{children}</>
+    </AuthConnectivityGuard>
+  );
 }
 
 export default ProtectedRoute

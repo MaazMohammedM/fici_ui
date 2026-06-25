@@ -649,7 +649,6 @@ const ShippingDetails = ({ item }: { item: OrderItem }) => {
           })() && (
                 <button
                   onClick={() => {
-                    console.log('🔍 OrderItemCard replacement button clicked:', { item, isGuest });
                     if (isGuest) {
                       handleGuestAction('replacement');
                     } else {

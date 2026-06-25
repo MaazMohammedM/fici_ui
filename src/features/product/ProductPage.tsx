@@ -649,7 +649,7 @@ const ProductPage: React.FC = () => {
     : 'Premium Leather Collection | Quality Footwear | Fici | Ambur';
   
   const description = activeFilters.length > 0
-    ? `Shop ${filterDescription.toLowerCase()} from Ambur's premier leather manufacturer. ${filteredProducts?.length || 0}+ styles with wholesale prices. Verified craftsmanship with worldwide shipping.`
+    ? `Shop ${filterDescription.toLowerCase()} from Ambur's premier leather manufacturer. ${filteredProducts?.length || 0}+ styles with wholesale prices. Verified craftsmanship with all over India shipping.`
     : `Browse complete leather footwear collection from Ambur's premier manufacturer. ${filteredProducts?.length || 0}+ styles including shoes, sandals, and accessories. Direct factory prices.`;
 
   return { title, description, keywords: seoKeywords.join(', ') };

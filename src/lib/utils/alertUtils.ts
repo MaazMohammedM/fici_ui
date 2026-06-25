@@ -12,7 +12,6 @@ export interface AlertOptions {
 
 export const showAlert = (options: AlertOptions): void => {
   // This would typically integrate with your alert/modal system
-  console.log('Alert:', options);
 };
 
 export const showSuccessAlert = (message: string, title?: string): void => {

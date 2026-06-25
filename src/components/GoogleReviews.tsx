@@ -15,19 +15,22 @@ const GoogleIcon: React.FC<{ className?: string }> = ({ className = "w-5 h-5" })
 
 const GoogleReviews: React.FC = () => {
   const useMock = import.meta.env.VITE_USE_MOCK_REVIEWS === 'true';
-  const { reviews, placeDetails, loading, error, refetch } = useMock ? 
-    useMockGoogleReviews() : 
+  const { reviews, placeDetails, loading, error, refetch } = useMock ?
+    useMockGoogleReviews() :
     useGoogleReviews({ useFallback: true });
-  
+
+  // Reviews are already filtered and sorted by the hook (latest 5 with valid text)
+  const displayReviews = reviews;
+
   const [currentIndex, setCurrentIndex] = useState(0);
   const [expandedReviews, setExpandedReviews] = useState<Set<number>>(new Set());
 
   const handleNext = useCallback(() => {
-    setCurrentIndex((prev) => (prev === reviews.length - 1 ? 0 : prev + 1));
-  }, [reviews.length]);
+    setCurrentIndex((prev) => (prev === displayReviews.length - 1 ? 0 : prev + 1));
+  }, [displayReviews.length]);
 
   const handlePrevious = () => {
-    setCurrentIndex((prev) => (prev === 0 ? reviews.length - 1 : prev - 1));
+    setCurrentIndex((prev) => (prev === 0 ? displayReviews.length - 1 : prev - 1));
   };
 
   const toggleReviewExpansion = (reviewIndex: number) => {
@@ -100,7 +103,7 @@ const GoogleReviews: React.FC = () => {
               <ChevronLeft className="w-4 h-4" />
             </button>
             <div className="flex gap-2">
-              {reviews.map((_, index) => (
+              {displayReviews.map((_, index) => (
                 <button
                   key={index}
                   onClick={() => setCurrentIndex(index)}
@@ -120,20 +123,20 @@ const GoogleReviews: React.FC = () => {
 
           <div className="relative">
             <div className="overflow-hidden">
-              <div 
+              <div
                 className="flex transition-transform duration-700 ease-in-out"
                 style={{ transform: `translateX(-${currentIndex * 100}%)` }}
               >
-                {reviews.map((review, index) => {
+                {displayReviews.map((review, index) => {
                   const isExpanded = expandedReviews.has(index);
                   const shouldTruncate = review.text.length > 200 && !isExpanded;
                   const displayText = shouldTruncate ? `${review.text.substring(0, 200)}...` : review.text;
-                  
+
                   return (
                     <div key={index} className="w-full flex-shrink-0 px-2 sm:px-4 lg:px-6">
                       <div className="bg-white/80 backdrop-blur-xl rounded-3xl p-4 sm:p-6 lg:p-10 shadow-[0_8px_32px_rgba(0,0,0,0.08)] border border-white/50 relative hover:shadow-[0_20px_50px_rgba(0,0,0,0.12)] transition-all duration-300">
                         <Quote className="absolute top-4 right-4 sm:top-6 sm:right-6 w-8 h-8 sm:w-10 sm:h-10 text-blue-100 opacity-60" />
-                        
+
                         <div className="flex items-center gap-3 sm:gap-4 mb-4 sm:mb-6">
                           <img
                             src={review.profile_photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(review.author_name)}&background=random`}
@@ -159,7 +162,7 @@ const GoogleReviews: React.FC = () => {
                           <p className="text-base sm:text-lg lg:text-2xl text-gray-700 leading-relaxed font-medium italic">
                             "{displayText}"
                           </p>
-                          
+
                           {/* View More/Less Button */}
                           {review.text.length > 200 && (
                             <div className="mt-3 sm:mt-4 flex justify-center">
@@ -176,7 +179,7 @@ const GoogleReviews: React.FC = () => {
                             </div>
                           )}
                         </div>
-                        
+
                         <div className="flex items-center justify-between pt-4 sm:pt-6 border-t border-gray-100">
                           <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-500">
                             <span className="font-medium"></span>
@@ -194,7 +197,7 @@ const GoogleReviews: React.FC = () => {
             </div>
 
             {/* Desktop Navigation - Always visible - positioned relative to card content only */}
-            {reviews.length > 1 && (
+            {displayReviews.length > 1 && (
               <div className="hidden lg:block">
                 <button
                   onClick={handlePrevious}
@@ -217,7 +220,7 @@ const GoogleReviews: React.FC = () => {
           {/* Desktop Swipe Indicator - outside the card container */}
           <div className="hidden lg:flex justify-center mt-6">
             <div className="flex gap-2">
-              {reviews.map((_, index) => (
+              {displayReviews.map((_, index) => (
                 <button
                   key={index}
                   onClick={() => setCurrentIndex(index)}
@@ -232,7 +235,7 @@ const GoogleReviews: React.FC = () => {
         {/* Premium CTA Section */}
         <div className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-4">
           <a
-            href="https://share.google/acc1GM3bmgYr8X8lP"
+            href="https://g.page/r/CXExFUgTbNenEBE/review"
             target="_blank"
             rel="noopener noreferrer"
             className="group relative inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-2xl hover:from-blue-700 hover:to-blue-800 transition-all duration-300 font-bold shadow-lg hover:shadow-xl hover:scale-105"

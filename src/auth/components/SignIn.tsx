@@ -19,8 +19,12 @@ import {
 // Schemas
 import { SignInSchema, type SignInFormData } from '../../lib/validation/schemas';
 
+// Connectivity
+import { AuthConnectivityGuard, useAuthConnectivity } from './AuthConnectivityGuard';
+
 const SignIn = memo(() => {
   const navigate = useNavigate();
+  const { shouldBlockAction } = useAuthConnectivity();
   const {
     loading: isLoading,
     error,
@@ -56,6 +60,10 @@ const SignIn = memo(() => {
   }, [user, navigate]);
 
   const onSubmit = async (data: SignInFormData) => {
+    if (shouldBlockAction) {
+      return;
+    }
+    
     try {
       clearError();
       await signIn(data.email, data.password);
@@ -71,8 +79,9 @@ const SignIn = memo(() => {
   };
 
   return (
-    <AuthLayout title="Welcome Back" subtitle="Sign in to your account to continue">
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 sm:space-y-6">
+    <AuthConnectivityGuard>
+      <AuthLayout title="Welcome Back" subtitle="Sign in to your account to continue">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 sm:space-y-6">
         {error && (
           <ErrorAlert 
             message={typeof error === 'string' ? error : (error as { message: string }).message || 'An error occurred'} 
@@ -122,6 +131,7 @@ const SignIn = memo(() => {
         </p>
       </form>
     </AuthLayout>
+    </AuthConnectivityGuard>
   );
 });
 

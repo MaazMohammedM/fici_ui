@@ -7,6 +7,9 @@ import { Link } from 'react-router-dom';
 import { supabase } from '@lib/supabase';
 import { Input, Button } from '../ui';
 
+// Connectivity
+import { AuthConnectivityGuard, useAuthConnectivity } from './AuthConnectivityGuard';
+
 const ForgotPasswordSchema = z.object({
   email: z.string().email('Please enter a valid email address')
 });
@@ -14,6 +17,7 @@ const ForgotPasswordSchema = z.object({
 type ForgotPasswordFormData = z.infer<typeof ForgotPasswordSchema>;
 
 const ForgotPassword: React.FC = () => {
+  const { shouldBlockAction } = useAuthConnectivity();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isEmailSent, setIsEmailSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,6 +32,10 @@ const ForgotPassword: React.FC = () => {
   });
 
   const onSubmit = async (data: ForgotPasswordFormData) => {
+    if (shouldBlockAction) {
+      return;
+    }
+    
     setIsSubmitting(true);
     setError(null);
 
@@ -55,7 +63,8 @@ const ForgotPassword: React.FC = () => {
 
   if (isEmailSent) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
+      <AuthConnectivityGuard>
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
         <div className="max-w-md w-full space-y-8">
           <div className="text-center">
             <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 dark:bg-green-900">
@@ -116,11 +125,13 @@ const ForgotPassword: React.FC = () => {
           </div>
         </div>
       </div>
+      </AuthConnectivityGuard>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
+    <AuthConnectivityGuard>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900 dark:text-white">
@@ -168,6 +179,7 @@ const ForgotPassword: React.FC = () => {
         </form>
       </div>
     </div>
+    </AuthConnectivityGuard>
   );
 };
 

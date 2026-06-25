@@ -18,9 +18,9 @@ interface SEOHeadProps {
 }
 
 const DEFAULT_TITLE = 'Leather Shoe Manufacturer | Fici | Ambur';
-const DEFAULT_DESCRIPTION = 'Premium leather shoe manufacturer in Ambur, India. Direct from factory wholesale prices. Verified Ambur craftsmanship with 30+ years heritage. Shop handcrafted leather shoes with worldwide shipping. GST: 33BMAPM8509H1Z4.';
+const DEFAULT_DESCRIPTION = 'Premium leather shoe manufacturer in Ambur, India. Direct from factory wholesale prices. Verified Ambur craftsmanship with 10+ years heritage. Shop handcrafted leather shoes, sandals, loafers with all over India shipping. GST: 33BMAPM8509H1Z4.';
 const DEFAULT_IMAGE = ficiImage;
-const SITE_URL = 'https://ficishoes.com';
+const SITE_URL = 'https://www.ficishoes.com';
 
 const SEOHead = ({
   title = '',
@@ -36,9 +36,9 @@ const SEOHead = ({
   noIndex = false,
 }: SEOHeadProps) => {
   const { pathname } = useLocation();
-  // Ensure consistent canonical URL (HTTPS, non-WWW)
+  // Ensure consistent canonical URL (HTTPS, WWW)
   const currentUrl = `${SITE_URL}${pathname}`;
-  const canonicalUrl = currentUrl.replace(/^http:\/\//, 'https://').replace(/^www\./, '');
+  const canonicalUrl = currentUrl.replace(/^http:\/\//, 'https://').replace(/^https:\/\/(?:www\.)?/, 'https://www.');
   const pageTitle = title ? `${title} | Fici | Ambur` : DEFAULT_TITLE;
 
   return (

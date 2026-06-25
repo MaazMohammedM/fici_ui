@@ -43,7 +43,7 @@ const BestSellers: React.FC = () => {
               Best Sellers
             </h2>
             <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 max-w-lg mx-auto sm:mx-0">
-              Discover our most popular products loved by customers worldwide
+              Discover our most popular products loved by customers all over India
             </p>
           </div>
           <div className="flex-shrink-0 w-full sm:w-auto flex justify-end">

@@ -28,7 +28,6 @@ export const fetchGoogleReviews = async (
 
     return await response.json();
   } catch (error) {
-    console.error('Error fetching Google reviews:', error);
     throw error;
   }
 };

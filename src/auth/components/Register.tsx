@@ -24,9 +24,13 @@ import { SignUpSchema, type SignUpFormData } from '../../lib/validation/schemas'
 import { useEffect, useState, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 
+// Connectivity
+import { AuthConnectivityGuard, useAuthConnectivity } from './AuthConnectivityGuard';
+
 const Register = memo(() => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { shouldBlockAction } = useAuthConnectivity();
   const { 
     loading: isLoading, 
     error, 
@@ -57,6 +61,10 @@ const Register = memo(() => {
   
 
   const onSubmit = async (data: SignUpFormData) => {
+    if (shouldBlockAction) {
+      return;
+    }
+    
     await signUp({
       firstName: data.firstName,
       lastName: data.lastName,
@@ -126,10 +134,11 @@ const Register = memo(() => {
   };
 
   return (
-    <AuthLayout 
-      title="Create Account" 
-      subtitle="Join us and start shopping today"
-    >
+    <AuthConnectivityGuard>
+      <AuthLayout 
+        title="Create Account" 
+        subtitle="Join us and start shopping today"
+      >
       {/* Error Display - Moved outside form to appear near title */}
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
@@ -272,6 +281,7 @@ const Register = memo(() => {
         </form>
       </div>
     </AuthLayout>
+    </AuthConnectivityGuard>
 );
 });
 

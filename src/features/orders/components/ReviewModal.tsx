@@ -30,21 +30,6 @@ const ReviewModal: React.FC<ReviewModalProps> = ({ order, item, existingReview, 
   const [comment, setComment] = useState(existingReview?.comment || '');
   const [title, setTitle] = useState(existingReview?.title || '');
   const [submitting, setSubmitting] = useState(false);
-  
-  // Log when the component mounts/updates
-  useEffect(() => {
-    console.log('ReviewModal mounted/updated', { 
-      isVisible: true, 
-      orderId: order?.id,
-      itemId: item?.order_item_id,
-      hasUser: !!user,
-      isGuest: !user
-    });
-    
-    return () => {
-      console.log('ReviewModal unmounting');
-    };
-  }, [order?.id, item?.order_item_id, user]);
 
   const isEditing = !!existingReview;
   const isGuest = !user;

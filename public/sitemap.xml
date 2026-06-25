@@ -1,167 +1,309 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
-        xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
-  
-  <!-- Homepage -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
-    <loc>https://ficishoes.com/</loc>
-    <lastmod>2025-02-04</lastmod>
+    <loc>https://www.ficishoes.com/</loc>
+    <lastmod>2026-06-19T10:46:18.805Z</lastmod>
     <changefreq>daily</changefreq>
-    <priority>1.0</priority>
+    <priority>1</priority>
   </url>
-
-  <!-- About Page -->
   <url>
-    <loc>https://ficishoes.com/about</loc>
-    <lastmod>2025-02-04</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
-  </url>
-
-  <!-- Contact Page -->
-  <url>
-    <loc>https://ficishoes.com/contact</loc>
-    <lastmod>2025-02-04</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>0.9</priority>
-  </url>
-
-  <!-- Products Page -->
-  <url>
-    <loc>https://ficishoes.com/products</loc>
-    <lastmod>2025-02-04</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>1.0</priority>
-  </url>
-
-  <!-- Shoe Care Page -->
-  <url>
-    <loc>https://ficishoes.com/shoe-care</loc>
-    <lastmod>2025-02-04</lastmod>
+    <loc>https://www.ficishoes.com/about</loc>
+    <lastmod>2026-06-19T10:46:18.807Z</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
   </url>
-
-  <!-- FAQ Page -->
   <url>
-    <loc>https://ficishoes.com/faq</loc>
-    <lastmod>2025-02-04</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.9</priority>
-  </url>
-
-  <!-- Privacy Policy -->
-  <url>
-    <loc>https://ficishoes.com/privacy</loc>
-    <lastmod>2025-02-04</lastmod>
-    <changefreq>yearly</changefreq>
-    <priority>0.5</priority>
-  </url>
-
-  <!-- Terms of Service -->
-  <url>
-    <loc>https://ficishoes.com/terms</loc>
-    <lastmod>2025-02-04</lastmod>
-    <changefreq>yearly</changefreq>
-    <priority>0.5</priority>
-  </url>
-
-  <!-- Shipping & Returns -->
-  <url>
-    <loc>https://ficishoes.com/shipping</loc>
-    <lastmod>2025-02-04</lastmod>
-    <changefreq>yearly</changefreq>
-    <priority>0.5</priority>
-  </url>
-
-  <!-- Size Guide -->
-  <url>
-    <loc>https://ficishoes.com/size-guide</loc>
-    <lastmod>2025-02-04</lastmod>
+    <loc>https://www.ficishoes.com/contact</loc>
+    <lastmod>2026-06-19T10:46:18.807Z</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
-
-  <!-- Product Category Pages -->
   <url>
-    <loc>https://ficishoes.com/products?sub_category=Shoes</loc>
-    <lastmod>2025-02-04</lastmod>
+    <loc>https://www.ficishoes.com/products</loc>
+    <lastmod>2026-06-19T10:46:18.807Z</lastmod>
     <changefreq>daily</changefreq>
-    <priority>0.8</priority>
+    <priority>0.9</priority>
   </url>
-
   <url>
-    <loc>https://ficishoes.com/products?sub_category=Sandals</loc>
-    <lastmod>2025-02-04</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-
-  <url>
-    <loc>https://ficishoes.com/products?sub_category=Bags&amp;sub_category=Accessories</loc>
-    <lastmod>2025-02-04</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-
-  <url>
-    <loc>https://ficishoes.com/products?gender=men</loc>
-    <lastmod>2025-02-04</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-
-  <url>
-    <loc>https://ficishoes.com/products?gender=women</loc>
-    <lastmod>2025-02-04</lastmod>
-    <changefreq>daily</changefreq>
-    <priority>0.8</priority>
-  </url>
-
-  <!-- User Account Pages -->
-  <url>
-    <loc>https://ficishoes.com/profile</loc>
-    <lastmod>2025-02-04</lastmod>
+    <loc>https://www.ficishoes.com/shoe-care</loc>
+    <lastmod>2026-06-19T10:46:18.807Z</lastmod>
     <changefreq>monthly</changefreq>
-    <priority>0.5</priority>
+    <priority>0.6</priority>
   </url>
-
   <url>
-    <loc>https://ficishoes.com/cart</loc>
-    <lastmod>2025-02-04</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.5</priority>
-  </url>
-
-  <url>
-    <loc>https://ficishoes.com/wishlist</loc>
-    <lastmod>2025-02-04</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.5</priority>
-  </url>
-
-  <url>
-    <loc>https://ficishoes.com/orders</loc>
-    <lastmod>2025-02-04</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.5</priority>
-  </url>
-
-  <!-- Authentication pages removed from sitemap - should not be indexed -->
-  <!-- 
-  <url>
-    <loc>https://ficishoes.com/auth/signin</loc>
-    <lastmod>2025-02-04</lastmod>
+    <loc>https://www.ficishoes.com/ambur-leather-excellence</loc>
+    <lastmod>2026-06-19T10:46:18.807Z</lastmod>
     <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://www.ficishoes.com/faq</loc>
+    <lastmod>2026-06-19T10:46:18.807Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://www.ficishoes.com/privacy</loc>
+    <lastmod>2026-06-19T10:46:18.807Z</lastmod>
+    <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>
-
   <url>
-    <loc>https://ficishoes.com/auth/signup</loc>
-    <lastmod>2025-02-04</lastmod>
-    <changefreq>monthly</changefreq>
+    <loc>https://www.ficishoes.com/terms</loc>
+    <lastmod>2026-06-19T10:46:18.807Z</lastmod>
+    <changefreq>yearly</changefreq>
     <priority>0.3</priority>
   </url>
-  -->
-
+  <url>
+    <loc>https://www.ficishoes.com/shipping</loc>
+    <lastmod>2026-06-19T10:46:18.807Z</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://www.ficishoes.com/products/Psxc28_brown</loc>
+    <lastmod>2026-06-19T10:46:18.808Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.ficishoes.com/products/Woxmsch265_brown</loc>
+    <lastmod>2026-06-19T10:46:18.808Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.ficishoes.com/products/Psxc28_dk.tan</loc>
+    <lastmod>2026-06-19T10:46:18.808Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.ficishoes.com/products/Woxcfs77_tan</loc>
+    <lastmod>2026-06-19T10:46:18.808Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.ficishoes.com/products/Pslc22_black</loc>
+    <lastmod>2026-06-19T10:46:18.808Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.ficishoes.com/products/Tc98_brown</loc>
+    <lastmod>2026-06-19T10:46:18.808Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.ficishoes.com/products/Dbss11_tan</loc>
+    <lastmod>2026-06-19T10:46:18.808Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.ficishoes.com/products/Dbss11_black</loc>
+    <lastmod>2026-06-19T10:46:18.808Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.ficishoes.com/products/lbdcp02_black</loc>
+    <lastmod>2026-06-19T10:46:18.808Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.ficishoes.com/products/lbsc01_black</loc>
+    <lastmod>2026-06-19T10:46:18.809Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.ficishoes.com/products/bpbl01_black</loc>
+    <lastmod>2026-06-19T10:46:18.809Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.ficishoes.com/products/Whoxtu66_tan</loc>
+    <lastmod>2026-06-19T10:46:18.809Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.ficishoes.com/products/Trslxt12_black</loc>
+    <lastmod>2026-06-19T10:46:18.809Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.ficishoes.com/products/Casl99_black</loc>
+    <lastmod>2026-06-19T10:46:18.809Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.ficishoes.com/products/Casl99_tan</loc>
+    <lastmod>2026-06-19T10:46:18.809Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.ficishoes.com/products/Woxsn34_dk.grey</loc>
+    <lastmod>2026-06-19T10:46:18.809Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.ficishoes.com/products/Toxd54_black</loc>
+    <lastmod>2026-06-19T10:46:18.809Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.ficishoes.com/products/Wtox76_tan</loc>
+    <lastmod>2026-06-19T10:46:18.809Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.ficishoes.com/products/Whoxcp83_tan</loc>
+    <lastmod>2026-06-19T10:46:18.809Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.ficishoes.com/products/Plrsmchbt_darknavy</loc>
+    <lastmod>2026-06-19T10:46:18.809Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.ficishoes.com/products/Trslxt12_dk.tan</loc>
+    <lastmod>2026-06-19T10:46:18.809Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.ficishoes.com/products/Cflda54_dk.navy</loc>
+    <lastmod>2026-06-19T10:46:18.809Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.ficishoes.com/products/Woxs85_brown</loc>
+    <lastmod>2026-06-19T10:46:18.809Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.ficishoes.com/products/Wcox1144_tan</loc>
+    <lastmod>2026-06-19T10:46:18.809Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.ficishoes.com/products/Chdrpl23_black</loc>
+    <lastmod>2026-06-19T10:46:18.809Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.ficishoes.com/products/Ulapxc98_navyblue</loc>
+    <lastmod>2026-06-19T10:46:18.809Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.ficishoes.com/products/Pldch47_tan</loc>
+    <lastmod>2026-06-19T10:46:18.809Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.ficishoes.com/products/Uxlmp79_brown</loc>
+    <lastmod>2026-06-19T10:46:18.809Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.ficishoes.com/products/Trslxt12_tan</loc>
+    <lastmod>2026-06-19T10:46:18.809Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.ficishoes.com/products/Wtoxbr07_tan</loc>
+    <lastmod>2026-06-19T10:46:18.809Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.ficishoes.com/products/Nrc62_tan</loc>
+    <lastmod>2026-06-19T10:46:18.809Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.ficishoes.com/products/Casl99_btown</loc>
+    <lastmod>2026-06-19T10:46:18.809Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.ficishoes.com/products/Psxc28_black</loc>
+    <lastmod>2026-06-19T10:46:18.809Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.ficishoes.com/products/Pslc22_dk.tan</loc>
+    <lastmod>2026-06-19T10:46:18.809Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.ficishoes.com/products/Uaprxsl_tan</loc>
+    <lastmod>2026-06-19T10:46:18.809Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.ficishoes.com/products/Ulxsl1276_black</loc>
+    <lastmod>2026-06-19T10:46:18.809Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.ficishoes.com/products/Casl99_grey</loc>
+    <lastmod>2026-06-19T10:46:18.809Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.ficishoes.com/products/Dabrde_tan</loc>
+    <lastmod>2026-06-19T10:46:18.809Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.ficishoes.com/products/Pllv68_black</loc>
+    <lastmod>2026-06-19T10:46:18.809Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.ficishoes.com/products/Xcsl517_tan</loc>
+    <lastmod>2026-06-19T10:46:18.809Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://www.ficishoes.com/products/Dabrde_black</loc>
+    <lastmod>2026-06-19T10:46:18.809Z</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
 </urlset>

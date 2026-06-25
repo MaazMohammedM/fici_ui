@@ -1,6 +1,6 @@
 // src/App.tsx
-import React, { Suspense, useState } from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import React, { Suspense, useState, useEffect } from 'react';
+import { BrowserRouter as Router, StaticRouter, Routes, Route } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
 import { Toaster } from 'sonner';
 import ProtectedRoute from '@auth/ProtectedRoute';
@@ -75,7 +75,7 @@ const AppContent = () => {
     });
     setShowReloadModal(true);
   };
-  
+
   return (
     <div className="min-h-screen flex flex-col bg-gradient-light dark:bg-gradient-dark">
       <SEOHead />
@@ -233,16 +233,29 @@ const AppContent = () => {
   );
 };
 
-const App = () => {
+const App = ({ location }: { location?: string }) => {
+  // Detect if we're in SSG mode (location prop is passed during pre-rendering)
+  const isSSG = typeof location !== 'undefined';
+
   return (
     <HelmetProvider>
-      <Router>
-        <ErrorBoundary>
-          <ScrollToTop />
-          <AppContent />
-          <Toaster richColors position="top-right" />
-        </ErrorBoundary>
-      </Router>
+      {isSSG ? (
+        <StaticRouter location={location || '/'}>
+          <ErrorBoundary>
+            <ScrollToTop />
+            <AppContent />
+            <Toaster richColors position="top-right" />
+          </ErrorBoundary>
+        </StaticRouter>
+      ) : (
+        <Router>
+          <ErrorBoundary>
+            <ScrollToTop />
+            <AppContent />
+            <Toaster richColors position="top-right" />
+          </ErrorBoundary>
+        </Router>
+      )}
     </HelmetProvider>
   );
 };

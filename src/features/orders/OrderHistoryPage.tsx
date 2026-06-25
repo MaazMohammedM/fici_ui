@@ -267,20 +267,24 @@ const OrderHistoryPage: React.FC = () => {
       const itemStatuses = items.map((item: any) => item.item_status || 'pending');
       const allCancelled = itemStatuses.every((s: string) => s === 'cancelled');
       const allDelivered = itemStatuses.every((s: string) => s === 'delivered');
+      const allShipped = itemStatuses.every((s: string) => s === 'shipped');
       const someCancelled = itemStatuses.some((s: string) => s === 'cancelled' || s === 'refunded');
       const someDelivered = itemStatuses.some((s: string) => s === 'delivered');
+      const someShipped = itemStatuses.some((s: string) => s === 'shipped');
       const someProcessing = itemStatuses.some((s: string) => s === 'shipped' || s === 'pending');
       const someReplacementRejected = itemStatuses.some((s: string) => s === 'replacement_rejected');
       const someReplacementRequested = itemStatuses.some((s: string) => s === 'replacement_requested');
       const someReplacementInitiated = itemStatuses.some((s: string) => s === 'replacement_initiated');
       const someReplacementShipped = itemStatuses.some((s: string) => s === 'replacement_shipped');
-      
+
       if (allCancelled) return 'This order has been cancelled.';
       if (allDelivered) return 'All items have been delivered successfully.';
+      if (allShipped) return 'Item is shipped and will be delivered soon.';
       if (someReplacementRejected) return 'Some replacement requests were rejected. Check individual items for details.';
       if (someReplacementRequested) return 'Replacement requests are being processed.';
       if (someReplacementInitiated) return 'Some replacements have been approved and will ship soon.';
       if (someReplacementShipped) return 'Some replacements have been shipped.';
+      if (someShipped && !someCancelled && !someDelivered) return 'Item is shipped and will be delivered soon.';
       if (someCancelled && someProcessing) return 'Some items cancelled. Others are being processed.';
       if (someCancelled && someDelivered) return 'Partially fulfilled order.';
     }
@@ -345,14 +349,17 @@ const OrderHistoryPage: React.FC = () => {
   if (!user && !isGuest) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <h1 className="sr-only">Order History - FICI Shoes</h1>
         <div className="max-w-2xl mx-auto px-4 py-6 sm:py-8">
           <div className="mb-8">
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
               View Your Guest Order
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400">
-              Enter the email or mobile number used during checkout and the OTP sent to you.
-            </p>
+            </h2>
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+              <p className="text-blue-900 dark:text-blue-100 font-medium text-base leading-relaxed">
+                Enter the email or mobile number from your order and the 6-digit Secret Code sent to your email after placing order.
+              </p>
+            </div>
           </div>
 
           <div className="bg-white dark:bg-dark2 rounded-2xl shadow-lg p-6">
@@ -369,8 +376,8 @@ const OrderHistoryPage: React.FC = () => {
               <div className="relative">
                 <Input
                   type={showOtp ? 'text' : 'password'}
-                  label="OTP"
-                  placeholder="Enter 6-digit OTP"
+                  label="Secret Code"
+                  placeholder="Enter 6-digit Secret Code"
                   leftIcon={Phone}
                   error={errors.otp?.message}
                   {...register('otp')}
@@ -400,12 +407,14 @@ const OrderHistoryPage: React.FC = () => {
             </form>
 
             <div className="mt-6 text-center">
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Already have an account?{' '}
-                <Link to="/auth/signin" className="text-blue-600 hover:text-blue-700 font-medium">
-                  Sign in here
-                </Link>
-              </p>
+              <div className="inline-block bg-blue-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 sm:px-4 sm:py-2">
+                <p className="text-xs sm:text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                  Already have an account?{' '}
+                  <Link to="/auth/signin" className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-semibold">
+                    Sign in here
+                  </Link>
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -417,12 +426,13 @@ const OrderHistoryPage: React.FC = () => {
   if (orders.length === 0) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <h1 className="sr-only">Order History - FICI Shoes</h1>
         <div className="max-w-7xl mx-auto px-4 py-6 sm:py-8">
           <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
                 Order History
-              </h1>
+              </h2>
               <p className="text-gray-600 dark:text-gray-400 mt-1">
                 View and track your orders
               </p>
@@ -490,12 +500,13 @@ const OrderHistoryPage: React.FC = () => {
   // --- Main UI ---
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <h1 className="sr-only">Order History - FICI Shoes</h1>
       <div className="max-w-7xl mx-auto px-4 py-6 sm:py-8">
         <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
               Order History
-            </h1>
+            </h2>
             <p className="text-gray-600 dark:text-gray-400 mt-1">
               View and track your orders
             </p>
@@ -775,7 +786,7 @@ const OrderHistoryPage: React.FC = () => {
         {/* Page Info - Only show if there are filtered orders */}
         {filteredOrders.length > 0 && (
           <div className="text-center text-sm text-gray-600 dark:text-gray-400 mt-4">
-            Showing {filteredOrders.length} of {pagination.total} orders (Page {pagination.page} of {pagination.totalPages})
+            Showing {filteredOrders.length} of {Math.max(pagination.total, filteredOrders.length)} orders (Page {pagination.page} of {Math.max(pagination.totalPages, 1)})
           </div>
         )}
             </>

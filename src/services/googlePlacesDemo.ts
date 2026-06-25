@@ -47,7 +47,6 @@ export const useGoogleDemoKey = () => {
           formatted_address: result.formattedAddress
         };
       } catch (error) {
-        console.log('Demo API failed, this is expected with demo keys');
         throw error;
       }
     }

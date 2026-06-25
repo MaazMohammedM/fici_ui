@@ -150,13 +150,6 @@ const detectSourceFromUserAgent = (userAgent: string): string => {
 
 // Update traffic source with enhanced analysis
 export const updateTrafficSource = async (url: string, userAgent: string, referrer: string) => {
-  // COMMENTED OUT FOR TESTING - UNCOMMENT WHEN TESTING IS COMPLETED
-  // Don't track traffic sources for admin users or development/preview environments
-  // if (isTestEnvironment()) {
-  //   console.log('Skipping traffic source tracking for admin/preview environment');
-  //   return true; // Return true to indicate success but no tracking
-  // }
-  
   const analysis = analyzeTrafficSource(url, userAgent, referrer);
   
   try {
@@ -352,15 +345,12 @@ export const trackTrafficSourceOnce = async (url: string, userAgent: string, ref
     // Only mark as tracked if not admin/preview environment
     if (!isAdmin && !isLocalhost && !isNetlifyPreview) {
       sessionStorage.setItem(sessionKey, 'true');
-    } else {
-      console.log('Traffic source tracking skipped for admin/preview environment - not marking as tracked');
     }
   }
-  
+
   return tracked;
 };
 
-// Utility to debounce function calls
 export const debounce = <F extends (...args: any[]) => any>(
   func: F,
   wait: number

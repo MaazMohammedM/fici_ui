@@ -50,6 +50,38 @@ export interface GooglePlaceDetails {
   website?: string;
 }
 
+// Utility function to check if a review has valid text
+export const hasValidReviewText = (review: GoogleReview): boolean => {
+  const text = review.text?.trim() || '';
+  const minLength = 15;
+
+  // Exclude empty, null, or whitespace-only reviews
+  if (!text || text.length === 0) {
+    return false;
+  }
+
+  // Exclude reviews that are too short
+  if (text.length < minLength) {
+    return false;
+  }
+
+  // Exclude common low-effort reviews
+  const invalidTexts = ['.', '-', 'good', 'nice', 'ok', 'okay', 'great', 'excellent', 'awesome', 'bad', 'poor'];
+  if (invalidTexts.includes(text.toLowerCase())) {
+    return false;
+  }
+
+  return true;
+};
+
+// Reusable helper to get latest reviews with valid text
+export const getLatestReviewText = (reviews: GoogleReview[], limit: number = 5): GoogleReview[] => {
+  return reviews
+    .filter(hasValidReviewText)
+    .sort((a, b) => (b.time || 0) - (a.time || 0))
+    .slice(0, limit);
+};
+
 export const loadGoogleMapsScript = (apiKey: string): Promise<void> => {
   // Return existing promise if already loading
   if (loadPromise) {
@@ -110,7 +142,7 @@ export const loadGoogleMapsScript = (apiKey: string): Promise<void> => {
 export const fetchGooglePlacesReviews = async (
   placeId: string
 ): Promise<GooglePlaceDetails> => {
-  
+
   if (!window.google?.maps) {
     console.error('❌ Google Maps API not loaded on window object');
     throw new Error('Google Maps API not loaded');
@@ -120,10 +152,10 @@ export const fetchGooglePlacesReviews = async (
   try {
     // Use the modern Place class approach as per Google's documentation
     const { Place } = await window.google.maps.importLibrary('places');
-    
+
     // Create a Place instance with the place ID
     const place = new Place({ id: placeId });
-    
+
     // Request the fields we need using the modern fetchFields method
     const fields = [
       'displayName',
@@ -134,7 +166,7 @@ export const fetchGooglePlacesReviews = async (
       'nationalPhoneNumber',
       'websiteURI'
     ];
-    
+
     const result = await place.fetchFields({ fields });
 
     // The modern Place API returns the place object directly
@@ -146,16 +178,39 @@ export const fetchGooglePlacesReviews = async (
       place_id: placeId,
       name: placeData.displayName?.text || placeData.name || placeData.formattedAddress || 'Unknown Place',
       rating: placeData.rating || 0,
-      reviews: (placeData.reviews || []).map((review: any) => ({
-        author_name: review.authorAttribution?.displayName || review.author_name || 'Anonymous',
-        author_url: review.authorAttribution?.uri || review.author_url || '#',
-        language: review.language || 'en',
-        profile_photo_url: review.authorAttribution?.photoURI || review.profile_photo_url || '',
-        rating: review.rating || 0,
-        relative_time_description: review.relativeTimeDescription || review.relative_time_description || '',
-        text: review.originalText?.text || review.text || '',
-        time: review.publishTime || review.time || Date.now()
-      })),
+      reviews: (placeData.reviews || []).map((review: any) => {
+        // Handle timestamp - modern API returns Date object, legacy returns Unix timestamp
+        let timestamp: number;
+        if (review.publishTime) {
+          // publishTime is a Date object from modern API
+          timestamp = Math.floor(review.publishTime.getTime() / 1000);
+        } else if (review.time) {
+          // Check if time is a Date object or Unix timestamp
+          if (review.time instanceof Date) {
+            timestamp = Math.floor(review.time.getTime() / 1000);
+          } else if (typeof review.time === 'number') {
+            timestamp = review.time;
+          } else {
+            timestamp = Date.now() / 1000;
+          }
+        } else {
+          timestamp = Math.floor(Date.now() / 1000);
+        }
+
+        // Extract review text from new Places API (originalText.text) with fallback to legacy (text)
+        const reviewText = review.originalText?.text || review.text || '';
+
+        return {
+          author_name: review.authorAttribution?.displayName || review.author_name || 'Anonymous',
+          author_url: review.authorAttribution?.uri || review.author_url || '#',
+          language: review.language || 'en',
+          profile_photo_url: review.authorAttribution?.photoURI || review.profile_photo_url || '',
+          rating: review.rating || 0,
+          relative_time_description: review.relativeTimeDescription || review.relative_time_description || '',
+          text: reviewText,
+          time: timestamp
+        };
+      }),
       user_ratings_total: placeData.userRatingCount || placeData.user_ratings_total || 0,
       formatted_address: placeData.formattedAddress || placeData.adrAddress,
       formatted_phone_number: placeData.nationalPhoneNumber || placeData.formattedPhoneNumber,

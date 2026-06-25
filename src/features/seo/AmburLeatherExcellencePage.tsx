@@ -1,6 +1,5 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Helmet } from 'react-helmet-async';
 import SEOHead from '@lib/components/SEOHead';
 import ContentSection from '@components/SEO/ContentSection';
 import { 
@@ -22,8 +21,8 @@ const AmburLeatherExcellencePage: React.FC = () => {
     <>
       <SEOHead 
         title="Ambur Leather Excellence | Premium Manufacturing | Fici | Ambur"
-        description="Discover Ambur's premier leather shoe manufacturing heritage. 30+ years of craftsmanship, wholesale factory prices, worldwide shipping. Experience verified Ambur leather excellence direct from manufacturers."
-        keywords="ambur leather excellence, ambur shoes, leather manufacturing in india, wholesale shoe factory, ambur leather manufacturers, leather shoe manufacturer, fici shoes ambur, ambur shoe factory list, verified ambur craftsmanship"
+        description="Discover Ambur's premier leather shoe manufacturing heritage. 10+ years of craftsmanship, wholesale factory prices, all over India shipping. Experience verified Ambur leather excellence direct from manufacturers. Shop leather shoes, sandals, loafers."
+        keywords="ambur leather excellence, ambur shoes, ambur leather, ambur leather factory, ambur leather shops, ambur leather sandals, leather manufacturing in india, wholesale shoe factory, ambur leather manufacturers, leather shoe manufacturer, fici shoes ambur, ambur shoe factory list, verified ambur craftsmanship, top 20 leather shoes brands in india"
         type="article"
       />
       
@@ -33,7 +32,7 @@ const AmburLeatherExcellencePage: React.FC = () => {
           "@context": "https://schema.org",
           "@type": "Article",
           "headline": "Ambur Leather Excellence - Premier Manufacturing Heritage",
-          "description": "Discover Ambur's legacy as India's leather shoe manufacturing hub with 30+ years of craftsmanship excellence.",
+          "description": "Discover Ambur's legacy as India's leather shoe manufacturing hub with 10+ years of craftsmanship excellence.",
           "author": {
             "@type": "Organization",
             "name": "Fici Shoes by NMF International"
@@ -97,7 +96,7 @@ const AmburLeatherExcellencePage: React.FC = () => {
                 <div className="w-16 h-16 bg-amber-100 dark:bg-amber-900 rounded-full flex items-center justify-center mb-3">
                   <Award className="w-8 h-8 text-amber-600 dark:text-amber-400" />
                 </div>
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-white">30+ Years</h3>
+                <h3 className="text-2xl font-bold text-gray-900 dark:text-white">10+ Years</h3>
                 <p className="text-gray-600 dark:text-gray-300">Manufacturing Heritage</p>
               </div>
               <div className="flex flex-col items-center">
@@ -111,7 +110,7 @@ const AmburLeatherExcellencePage: React.FC = () => {
                 <div className="w-16 h-16 bg-amber-100 dark:bg-amber-900 rounded-full flex items-center justify-center mb-3">
                   <Globe className="w-8 h-8 text-amber-600 dark:text-amber-400" />
                 </div>
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-white">Worldwide</h3>
+                <h3 className="text-2xl font-bold text-gray-900 dark:text-white">All Over India</h3>
                 <p className="text-gray-600 dark:text-gray-300">Shipping Available</p>
               </div>
               <div className="flex flex-col items-center">
@@ -131,7 +130,7 @@ const AmburLeatherExcellencePage: React.FC = () => {
             <div className="lg:col-span-2 space-y-8">
               {/* Heritage Section */}
               <ContentSection 
-                title="The Ambur Leather Legacy: 30+ Years of Excellence"
+                title="The Ambur Leather Legacy: 10+ Years of Excellence"
                 previewLength={350}
               >
                 <p className="mb-4">
@@ -187,7 +186,7 @@ const AmburLeatherExcellencePage: React.FC = () => {
                 </p>
                 
                 <p className="mt-6">
-                  This comprehensive manufacturing process ensures that every pair of shoes leaving our facility represents the pinnacle of Ambur's leather craftsmanship. It's this attention to detail and commitment to quality that has made Ambur leather shoes sought after worldwide.
+                  This comprehensive manufacturing process ensures that every pair of shoes leaving our facility represents the pinnacle of Ambur's leather craftsmanship. It's this attention to detail and commitment to quality that has made Ambur leather shoes sought after all over India.
                 </p>
               </ContentSection>
 
@@ -216,7 +215,7 @@ const AmburLeatherExcellencePage: React.FC = () => {
                 </p>
                 
                 <p>
-                  By choosing to work directly with Ambur's leading leather manufacturers, you're not just buying shoes – you're investing in a partnership built on trust, quality, and mutual success. Join the hundreds of businesses worldwide that have discovered the Ambur advantage.
+                  By choosing to work directly with Ambur's leading leather manufacturers, you're not just buying shoes – you're investing in a partnership built on trust, quality, and mutual success. Join the hundreds of businesses all over India that have discovered the Ambur advantage.
                 </p>
               </ContentSection>
 
@@ -295,7 +294,7 @@ const AmburLeatherExcellencePage: React.FC = () => {
                     <Truck className="w-5 h-5 text-amber-500 mt-0.5 flex-shrink-0" />
                     <div>
                       <h4 className="font-medium text-gray-900 dark:text-white">Global Shipping</h4>
-                      <p className="text-sm text-gray-600 dark:text-gray-300">Worldwide delivery with tracking</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-300">All over India delivery with tracking</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
@@ -347,7 +346,7 @@ const AmburLeatherExcellencePage: React.FC = () => {
               Ready to Experience Ambur Leather Excellence?
             </h2>
             <p className="text-xl text-amber-100 mb-8 max-w-3xl mx-auto">
-              Join thousands of satisfied customers worldwide who have discovered the unmatched quality and craftsmanship of Ambur leather shoes.
+              Join thousands of satisfied customers all over India who have discovered the unmatched quality and craftsmanship of Ambur leather shoes.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link 

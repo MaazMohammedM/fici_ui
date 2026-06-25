@@ -124,14 +124,18 @@ export const OrderHeader: React.FC<OrderHeaderProps> = ({
       const itemStatuses = items.map((item: any) => item.item_status || 'pending');
       const allCancelled = itemStatuses.every((s: string) => s === 'cancelled');
       const allDelivered = itemStatuses.every((s: string) => s === 'delivered');
+      const allShipped = itemStatuses.every((s: string) => s === 'shipped');
       const someCancelled = itemStatuses.some((s: string) => s === 'cancelled' || s === 'refunded');
       const someDelivered = itemStatuses.some((s: string) => s === 'delivered');
+      const someShipped = itemStatuses.some((s: string) => s === 'shipped');
       const someProcessing = itemStatuses.some((s: string) => s === 'shipped' || s === 'pending');
-      
+
       if (allCancelled) return 'This order has been cancelled.';
       if (allDelivered) return 'All items have been delivered successfully.';
+      if (allShipped) return 'Item is shipped and will be delivered soon.';
       if (someCancelled && someProcessing) return 'Some items cancelled. Others are being processed.';
       if (someCancelled && someDelivered) return 'Partially fulfilled order.';
+      if (someShipped && !someCancelled && !someDelivered) return 'Item is shipped and will be delivered soon.';
     }
 
     if (order.payment_method === 'cod' && order.status === 'pending') {

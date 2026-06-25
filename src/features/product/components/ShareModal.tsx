@@ -115,7 +115,7 @@ const ShareModal: React.FC<ShareModalProps> = ({
           url: addUtmParams(productUrl, 'mobile_native')
         });
       } catch (error) {
-        console.log('Native share cancelled or failed:', error);
+        // Native share cancelled or failed
       }
     }
   };

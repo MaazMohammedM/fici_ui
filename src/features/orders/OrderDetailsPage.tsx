@@ -1095,15 +1095,6 @@ const OrderDetailsPage = ({ isGuest = false }: { isGuest?: boolean }) => {
             
             // Fetch available sizes
             fetchProductSizes();
-            
-            // Force a re-render by using setTimeout
-            setTimeout(() => {
-              console.log('🔍 State after setting:', {
-                selectedItem: item.product_name,
-                showReplacementForm: true,
-                availableSizesForReplacement: [] // Will be updated after fetch
-              });
-            }, 0);
           }}
           existingReviews={existingReviews}
           existingReplacements={existingReplacements}

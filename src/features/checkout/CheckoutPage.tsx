@@ -1897,6 +1897,7 @@ const productSavings = useMemo(() => {
   // MAIN CHECKOUT PAGE
   return (
     <>
+      <h1 className="sr-only">Checkout - Complete Your Order at FICI Shoes</h1>
       <div className="min-h-screen bg-white dark:bg-dark1 text-gray-900 dark:text-gray-100 transition-colors duration-200">
         <main className="max-w-7xl mx-auto px-4 py-4 sm:py-8">
 

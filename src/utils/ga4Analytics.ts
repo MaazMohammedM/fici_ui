@@ -41,7 +41,6 @@ export const trackEvent = (eventName: string, params: GA4EventParams = {}) => {
 
   // Check if gtag is available
   if (!isGtagAvailable()) {
-    console.log(`GA4: gtag not available, skipping ${eventName} tracking`);
     return;
   }
 
@@ -55,8 +54,6 @@ export const trackEvent = (eventName: string, params: GA4EventParams = {}) => {
 
     // Track the event with GA4
     (window as any).gtag('event', eventName, eventParams);
-    
-    // console.log(`GA4: Tracked ${eventName}`, eventParams);
   } catch (error) {
     console.error(`GA4: Error tracking ${eventName}`, error);
   }

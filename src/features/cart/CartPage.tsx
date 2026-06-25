@@ -473,6 +473,7 @@ const CartPage: React.FC = () => {
 
   return (
     <main className="min-h-screen bg-white dark:bg-gray-900">
+      <h1 className="sr-only">Your Shopping Cart - FICI Shoes</h1>
       {filteredCartItems.length === 0 ? (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-800 dark:to-gray-900">
           {/* Header integrated with empty cart */}
@@ -480,13 +481,13 @@ const CartPage: React.FC = () => {
             <div className="flex items-center gap-4 mb-6">
               <button
                 onClick={() => navigate('/')}
-                className="btn-modern btn-secondary flex items-center gap-2"
+                className="btn-modern btn-secondary flex items-center gap-2 px-3 py-1.5 text-sm sm:px-4 sm:py-2"
               >
-                <ArrowLeft className="w-5 h-5" />
+                <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
                 Back to Home
               </button>
             </div>
-            <h1 className="text-3xl md:text-4xl font-bold text-center text-text-primary dark:text-text-inverse mb-2">
+            <h1 className="text-2xl md:text-3xl font-bold text-center text-text-primary dark:text-text-inverse mb-2 whitespace-nowrap">
               Your Shopping Cart
             </h1>
             <p className="text-center text-text-secondary dark:text-text-muted mb-12">
@@ -529,22 +530,36 @@ const CartPage: React.FC = () => {
         </div>
       ) : (
         <div className="min-h-screen bg-white dark:bg-gray-900">
-          <div className="container mx-auto px-4 py-6 sm:py-8 lg:py-10">
-            <div className="flex items-center gap-4 mb-6">
+          <div className="container mx-auto px-4 py-2 sm:py-4">
+            <div className="flex items-center gap-4 mb-3">
               <button
                 onClick={() => navigate('/')}
-                className="btn-modern btn-secondary flex items-center gap-2"
+                className="btn-modern btn-secondary flex items-center gap-2 px-3 py-1.5 text-sm sm:px-4 sm:py-2"
               >
-                <ArrowLeft className="w-5 h-5" />
+                <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
                 Back to Home
               </button>
             </div>
-            <h1 className="text-3xl md:text-4xl font-bold text-center text-text-primary dark:text-text-inverse mb-2">
+            <h1 className="text-2xl md:text-3xl font-bold text-center text-text-primary dark:text-text-inverse mb-2 whitespace-nowrap">
               Your Shopping Cart
             </h1>
-            <p className="text-center text-text-secondary dark:text-text-muted mb-8">
+            <p className="text-center text-text-secondary dark:text-text-muted mb-4">
               {filteredCartItems.length} item{filteredCartItems.length > 1 ? 's' : ''} in your cart
             </p>
+            <div className="max-w-2xl mx-auto mb-6 px-2">
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg px-2 py-2">
+                <p className="text-center text-xs sm:text-sm text-blue-800 dark:text-blue-200 leading-tight">
+                  Facing issues? Contact via{' '}
+                  <a href="https://wa.me/919876543210" target="_blank" rel="noopener noreferrer" className="underline hover:text-blue-900 dark:hover:text-blue-100 font-medium">
+                    WhatsApp
+                  </a>{' '}
+                  or{' '}
+                  <a href="mailto:support@ficishoes.com" className="underline hover:text-blue-900 dark:hover:text-blue-100 font-medium">
+                    support@ficishoes.com
+                  </a>
+                </p>
+              </div>
+            </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               {/* Cart Items */}

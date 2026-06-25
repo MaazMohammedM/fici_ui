@@ -32,10 +32,9 @@ export const useTrackVisit = () => {
       // Fallback to localStorage if store access fails
       isAdmin = localStorage.getItem('userRole') === 'admin';
     }
-    
+
     // Don't track traffic sources for admin users or development/preview environments
     if (isAdmin || isLocalhost || isNetlifyPreview) {
-      console.log('Skipping traffic source tracking for admin/preview environment in useTrackVisit');
       return;
     }
 

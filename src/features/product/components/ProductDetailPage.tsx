@@ -216,7 +216,7 @@ const ProductDetailPage: React.FC = () => {
     }
   }, [currentProduct, productVariant.selectedVariant]);
 
-  if (loading || !currentProduct) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <FiciLoader
@@ -225,6 +225,37 @@ const ProductDetailPage: React.FC = () => {
           aria-label="Loading product details"
         />
       </div>
+    );
+  }
+
+  // Check if product is not found (includes inactive products)
+  if (!currentProduct) {
+    return (
+      <>
+        <div className="min-h-screen flex items-center justify-center bg-gradient-light dark:bg-gradient-dark py-20">
+          <div className="text-center p-8 max-w-lg mx-auto bg-white dark:bg-dark2 rounded-2xl shadow-xl border border-gray-100 dark:border-gray-700">
+            <div className="flex justify-center mb-6">
+              <div className="w-20 h-20 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                <svg className="w-10 h-10 text-red-500 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                </svg>
+              </div>
+            </div>
+            <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+              Product Unavailable
+            </h2>
+            <p className="text-gray-600 dark:text-gray-300 mb-8 text-lg leading-relaxed">
+              This product might have been moved or deleted. Please check our collection for similar products.
+            </p>
+            <button
+              onClick={() => navigate('/products')}
+              className="w-full px-8 py-4 bg-accent text-white rounded-xl hover:bg-accent/90 transition-all duration-200 font-semibold text-lg shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+            >
+              View All Products
+            </button>
+          </div>
+        </div>
+      </>
     );
   }
 
@@ -285,14 +316,16 @@ const ProductDetailPage: React.FC = () => {
 
   return (
     <>
-      <SEOHead 
+      <SEOHead
         title={`${currentProduct.name} | Premium Leather Shoes | Fici | Ambur`}
-        description={`${currentProduct.name} - Premium leather footwear direct from Ambur factory. ${currentProduct.description?.substring(0, 120) || 'Experience verified Ambur craftsmanship with 30+ years heritage.'} Wholesale prices available. Shop now with worldwide shipping.`}
+        description={`${currentProduct.name} - Premium leather footwear direct from Ambur factory. ${currentProduct.description?.substring(0, 120) || 'Experience verified Ambur craftsmanship with 10+ years heritage.'} Wholesale prices available. Shop now with all over India shipping.`}
         keywords={`${currentProduct.name}, leather shoe manufacturer, ambur leather, ${currentProduct.category}, fici shoes ambur, wholesale shoe factory, leather manufacturing in india, ${currentProduct.name} ambur`}
         url={`https://ficishoes.com/products/${article_id}`}
         type="product"
       />
-      
+
+      <h1 className="sr-only">{currentProduct.name} - Premium Leather Shoes from FICI</h1>
+
       {/* Enhanced Product Schema JSON-LD */}
       <script type="application/ld+json">
         {JSON.stringify({

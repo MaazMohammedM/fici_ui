@@ -1,8 +1,21 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Edit } from 'lucide-react';
 import type { Order, OrderItem } from '../../../types/order-common';
 import { getThumbnailUrl } from '../../../lib/utils/imageOptimization';
 import type { ShipmentFormState } from '../../../types/adminOrders';
+
+// Tracking URL mapping for courier partners
+const TRACKING_URLS: Record<string, string> = {
+  stcourier: 'https://stcourier.com/track/shipment',
+  professional: 'https://www.tpcindia.com/',
+  dtdc: 'https://www.dtdc.com/track-your-shipment/',
+  india_post: 'https://www.indiapost.gov.in/',
+  shree_maruti: 'https://shreemaruti.com/track-shipment/',
+  delhivery: 'https://www.delhivery.com/track-v2/package/',
+};
+
+// Partners that support tracking ID in URL
+const PARTNERS_WITH_TRACKING_ID = ['delhivery'];
 
 /* ─── ShipmentModal ────────────────────────────────────────────── */
 interface ShipmentModalProps {
@@ -47,6 +60,20 @@ export const ShipmentModal: React.FC<ShipmentModalProps> = ({
     selectedItemsForShip.length === 0 ||
     !isShippingPartnerValid ||
     !shipmentForm.tracking_id;
+
+  // Auto-populate tracking URL based on partner and tracking ID
+  useEffect(() => {
+    if (shipmentForm.shipping_partner && shipmentForm.shipping_partner !== 'other') {
+      const baseUrl = TRACKING_URLS[shipmentForm.shipping_partner];
+      if (baseUrl) {
+        if (PARTNERS_WITH_TRACKING_ID.includes(shipmentForm.shipping_partner) && shipmentForm.tracking_id) {
+          setShipmentForm((prev) => ({ ...prev, tracking_url: `${baseUrl}${shipmentForm.tracking_id}` }));
+        } else if (!PARTNERS_WITH_TRACKING_ID.includes(shipmentForm.shipping_partner)) {
+          setShipmentForm((prev) => ({ ...prev, tracking_url: baseUrl }));
+        }
+      }
+    }
+  }, [shipmentForm.shipping_partner, shipmentForm.tracking_id, setShipmentForm]);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
@@ -120,9 +147,11 @@ export const ShipmentModal: React.FC<ShipmentModalProps> = ({
             >
               <option value="">Select Partner</option>
               <option value="stcourier">ST Courier</option>
-              <option value="professional">Professional</option>
+              <option value="professional">Professional (TPC)</option>
               <option value="dtdc">DTDC</option>
               <option value="india_post">India Post</option>
+              <option value="shree_maruti">Shree Maruti</option>
+              <option value="delhivery">Delhivery</option>
               <option value="other">Other</option>
             </select>
           </div>
@@ -229,6 +258,20 @@ export const EditShippingModal: React.FC<EditShippingModalProps> = ({
     !isShippingPartnerValid ||
     !shipmentForm.tracking_id;
 
+  // Auto-populate tracking URL based on partner and tracking ID
+  useEffect(() => {
+    if (shipmentForm.shipping_partner && shipmentForm.shipping_partner !== 'other') {
+      const baseUrl = TRACKING_URLS[shipmentForm.shipping_partner];
+      if (baseUrl) {
+        if (PARTNERS_WITH_TRACKING_ID.includes(shipmentForm.shipping_partner) && shipmentForm.tracking_id) {
+          setShipmentForm((prev) => ({ ...prev, tracking_url: `${baseUrl}${shipmentForm.tracking_id}` }));
+        } else if (!PARTNERS_WITH_TRACKING_ID.includes(shipmentForm.shipping_partner)) {
+          setShipmentForm((prev) => ({ ...prev, tracking_url: baseUrl }));
+        }
+      }
+    }
+  }, [shipmentForm.shipping_partner, shipmentForm.tracking_id, setShipmentForm]);
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
       <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4 my-8">
@@ -252,10 +295,11 @@ export const EditShippingModal: React.FC<EditShippingModalProps> = ({
             >
               <option value="">Select Partner</option>
               <option value="stcourier">ST Courier</option>
-              <option value="professional">Professional</option>
+              <option value="professional">Professional (TPC)</option>
               <option value="dtdc">DTDC</option>
               <option value="india_post">India Post</option>
               <option value="shree_maruti">Shree Maruti</option>
+              <option value="delhivery">Delhivery</option>
               <option value="other">Other</option>
             </select>
           </div>

@@ -169,15 +169,15 @@ export const useSEO = (seoData: SEOData) => {
 export const SEOConfigs = {
   home: {
     title: 'Leather Shoe Manufacturer | Fici | Ambur',
-    description: 'Premium leather shoe manufacturer in Ambur, India. Direct from factory wholesale prices. Verified Ambur craftsmanship with 30+ years heritage. Shop handcrafted leather shoes with worldwide shipping.',
-    keywords: ['leather shoe manufacturer', 'ambur leather', 'ambur shoes', 'leather manufacturing in india', 'wholesale shoe factory', 'fici shoes ambur', 'nmf international'],
+    description: 'Premium leather shoe manufacturer in Ambur, India. Direct from factory wholesale prices. Verified Ambur craftsmanship with 10+ years heritage. Shop handcrafted leather shoes, sandals, loafers with all over India shipping.',
+    keywords: ['leather shoe manufacturer', 'ambur leather', 'ambur shoes', 'ambur leather factory', 'ambur leather shops', 'leather manufacturing in india', 'wholesale shoe factory', 'fici shoes ambur', 'nmf international', 'top 20 leather shoes brands in india', 'ambur leather sandals', 'leather chappals for womens', 'buy mens sandals'],
     type: 'website' as const
   },
   
   products: {
     title: 'Leather Shoes Collection | Premium Quality | Fici | Ambur',
-    description: 'Browse our complete collection of premium leather shoes direct from Ambur factory. Wholesale prices available. Experience verified craftsmanship with worldwide shipping.',
-    keywords: ['leather shoes collection', 'ambur leather shoes', 'wholesale shoe factory', 'premium leather footwear', 'fici shoes ambur', 'leather manufacturing'],
+    description: 'Browse our complete collection of premium leather shoes, sandals, loafers direct from Ambur factory. Wholesale prices available. Experience verified craftsmanship with all over India shipping.',
+    keywords: ['leather shoes collection', 'ambur leather shoes', 'ambur leather sandals', 'loafer shoes men', 'leather slippers for women', 'monk shoes', 'driving shoes', 'wholesale shoe factory', 'premium leather footwear', 'fici shoes ambur', 'leather manufacturing', 'ambur leather factory'],
     type: 'website' as const
   },
   

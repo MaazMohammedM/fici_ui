@@ -66,6 +66,21 @@ const generateWhatsAppMessage = (
   return encodeURIComponent(message);
 };
 
+// Helper function to generate delivered WhatsApp message
+const generateDeliveredWhatsAppMessage = (
+  orderId: string,
+  itemCount: number
+): string => {
+  let message = `Dear Customer,\n\n`;
+  message += `Delivered: Your FiCi Shoes package with ${itemCount} item(s) from your order #${orderId} was successfully delivered.\n\n`;
+  message += 'Please rate your delivery & product experience.\n\n';
+  message += 'As a homegrown brand, Sharing your experience with friends and family means the world to us.\n';
+  message += 'Review us on Google: https://g.page/r/CXExFUgTbNenEBE/review\n\n';
+  message += 'Hoping to serve you again soon!\n\n';
+  message += 'Thank you for shopping with FiCi Shoes!';
+  return encodeURIComponent(message);
+};
+
 const ItemActions: React.FC<{
   item: OrderItem;
   order: Order;
@@ -303,6 +318,20 @@ export const OrderCard: React.FC<OrderCardProps> = ({
                           <FaWhatsapp className="w-4 h-4" />
                         </a>
                       )}
+                      {item.item_status === 'delivered' && (
+                        <a
+                          href={`https://wa.me/${formatPhoneNumber(order.guest_phone || (typeof order.shipping_address === 'object' && order.shipping_address?.phone) || '')}?text=${generateDeliveredWhatsAppMessage(
+                            order.order_id.slice(-8),
+                            item.quantity || 1
+                          )}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-green-500 hover:text-green-600 flex-shrink-0"
+                          title="Send delivery confirmation via WhatsApp"
+                        >
+                          <FaWhatsapp className="w-4 h-4" />
+                        </a>
+                      )}
                     </div>
                     <p className="text-gray-500">
                       Size: {item.size} | Qty: {item.quantity} | Status:
@@ -351,6 +380,25 @@ export const OrderCard: React.FC<OrderCardProps> = ({
               )}
             </div>
           </div>
+
+          {/* WhatsApp icon for all items delivered */}
+          {order.order_items && order.order_items.length > 0 && order.order_items.every(item => item.item_status === 'delivered') && (
+            <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <a
+                href={`https://wa.me/${formatPhoneNumber(order.guest_phone || (typeof order.shipping_address === 'object' && order.shipping_address?.phone) || '')}?text=${generateDeliveredWhatsAppMessage(
+                  order.order_id.slice(-8),
+                  order.order_items.length
+                )}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 text-green-600 hover:text-green-700 text-sm font-medium"
+                title="Send delivery confirmation for all items via WhatsApp"
+              >
+                <FaWhatsapp className="w-5 h-5" />
+                <span>All items in order delivered - Send WhatsApp message</span>
+              </a>
+            </div>
+          )}
         </div>
 
         {/* ── Right: actions ── */}

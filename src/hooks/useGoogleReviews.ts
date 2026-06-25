@@ -1,12 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import type { 
-  GoogleReview, 
-  GooglePlaceDetails, 
-  GoogleReviewsResponse, 
-  UseGoogleReviewsOptions, 
-  UseGoogleReviewsReturn 
+import type {
+  GoogleReview,
+  GooglePlaceDetails,
+  GoogleReviewsResponse,
+  UseGoogleReviewsOptions,
+  UseGoogleReviewsReturn
 } from '../types/google-reviews';
-import { loadGoogleMapsScript, fetchGooglePlacesReviews } from '../services/googlePlacesJsApi';
+import { loadGoogleMapsScript, fetchGooglePlacesReviews, getLatestReviewText } from '../services/googlePlacesJsApi';
 import { getMockGoogleReviews } from '../services/mockGoogleReviews';
 
 const DEFAULT_PLACE_ID = 'ChIJARxtruMIrTsRcTEVSBNs16c'; // Empire State Building - has many reviews
@@ -55,46 +55,45 @@ export const useGoogleReviews = (options: UseGoogleReviewsOptions = {}): UseGoog
       // Fetch reviews using the JavaScript API
       const data = await fetchGooglePlacesReviews(placeId);
 
-      const filteredReviews = data.reviews
-        .filter(review => review.rating >= minRating)
-        .slice(0, maxReviews);
+      // Filter by rating first
+      const ratingFiltered = data.reviews.filter(review => review.rating >= minRating);
 
-      setReviews(filteredReviews);
+      // Get latest reviews with valid text
+      const latestTextReviews = getLatestReviewText(ratingFiltered, maxReviews);
+
+      setReviews(latestTextReviews);
       setPlaceDetails(data);
     } catch (err) {
-      console.error('❌ Error fetching Google reviews:', err);
-      
+      console.error('Error fetching Google reviews:', err);
+
       let errorMessage = 'Failed to fetch reviews';
       if (err instanceof Error) {
-        console.error('Error details:', err.message);
-        
         if (err.message.includes('ApiTargetBlockedMapError')) {
-          errorMessage = '🚫 Google Maps API is blocked for this domain. Add your domain to API key restrictions in Google Cloud Console.';
+          errorMessage = 'Google Maps API is blocked for this domain. Add your domain to API key restrictions in Google Cloud Console.';
         } else if (err.message.includes('REQUEST_DENIED')) {
-          errorMessage = '🚫 Google Maps API access denied. Check if Places API is enabled and API key is valid.';
+          errorMessage = 'Google Maps API access denied. Check if Places API is enabled and API key is valid.';
         } else if (err.message.includes('INVALID_REQUEST')) {
-          errorMessage = '🚫 Invalid place ID or request parameters. Check the place ID: ' + placeId;
+          errorMessage = 'Invalid place ID or request parameters. Check the place ID: ' + placeId;
         } else if (err.message.includes('PERMISSION_DENIED')) {
-          errorMessage = '🚫 Permission denied. The new Places API may not be enabled for your project.';
+          errorMessage = 'Permission denied. The new Places API may not be enabled for your project.';
         } else {
-          errorMessage = `❌ Google Places API error: ${err.message}`;
+          errorMessage = `Google Places API error: ${err.message}`;
         }
       }
-      
+
       setError(errorMessage);
-      
+
       // Only use fallback if explicitly enabled
       if (useFallback) {
         try {
           const mockData = await getMockGoogleReviews();
-          const filteredReviews = mockData.reviews
-            .filter(review => review.rating >= minRating)
-            .slice(0, maxReviews);
-          setReviews(filteredReviews);
+          const ratingFiltered = mockData.reviews.filter(review => review.rating >= minRating);
+          const latestTextReviews = getLatestReviewText(ratingFiltered, maxReviews);
+          setReviews(latestTextReviews);
           setPlaceDetails(mockData);
           setError(null); // Clear error since we have fallback data
         } catch (fallbackError) {
-          console.error('❌ Fallback data also failed:', fallbackError);
+          console.error('Fallback data also failed:', fallbackError);
           setError('Unable to load reviews at this time.');
         }
       }

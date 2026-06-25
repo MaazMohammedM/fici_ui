@@ -108,7 +108,6 @@ const CheckoutAddressSection: React.FC<CheckoutAddressSectionProps> = ({
         <AddressCard
           selectedId={selectedAddress?.id}
           onSelect={(addr) => {
-            console.log('CheckoutPage: Address selected:', addr.id, addr.name);
             onAddressSelect(addr);
           }}
           userProfile={userProfile}

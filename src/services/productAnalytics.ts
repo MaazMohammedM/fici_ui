@@ -41,7 +41,6 @@ export const trackProductVisit = async (data: ProductVisitData) => {
   try {
     // Don't track for admin users or development/preview environments
     if (isTestEnvironment()) {
-      console.log('Skipping product visit tracking for admin/preview environment');
       return null;
     }
     
@@ -83,8 +82,7 @@ export const trackProductVisit = async (data: ProductVisitData) => {
       throw error;
     }
     
-    console.log('Product visit tracked successfully:', { product_id: data.product_id, name: data.name, visit_count: newCount });
-    return visitData;
+
   } catch (error) {
     console.error('Error in trackProductVisit:', error);
     console.error('Product visit outer error for:', { product_id: data.product_id, name: data.name });
