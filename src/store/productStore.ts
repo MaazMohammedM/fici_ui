@@ -361,8 +361,19 @@ export const useProductStore = create<ProductState>((set, get) => ({
       if (productsError) throw productsError;
 
       if (productsData && productsData.length > 0) {
-        // Get the product_id from the first variant to fetch reviews
-        const productId = productsData[0].product_id;
+        // Find the specific variant that matches the requested article_id
+        // If only base ID was provided (no underscore), use first variant
+        const requestedVariant = productsData.find(p => p.article_id === articleId) || productsData[0];
+        
+        // DEV: Log description from database
+        if (import.meta.env.DEV) {
+          console.log('[ProductStore] Requested article_id:', articleId);
+          console.log('[ProductStore] Using description from variant:', requestedVariant.article_id);
+          console.log('[ProductStore] Description from Supabase:', requestedVariant.description);
+        }
+        
+        // Get the product_id from the requested variant to fetch reviews
+        const productId = requestedVariant.product_id;
 
         // Fetch average rating from reviews table instead of product_ratings
         const { data: reviewsData, error: reviewsError } = await supabase
@@ -402,8 +413,7 @@ export const useProductStore = create<ProductState>((set, get) => ({
           discount_price: parseFloat(product.discount_price) || 0 // Convert to number for proper sorting
         }));
 
-        const firstProduct = processedProducts[0];
-        const baseId = firstProduct.article_id.split('_')[0];
+        const baseId = requestedVariant.article_id.split('_')[0];
 
         const variantsWithColors = processedProducts.map(product => {
           return {
@@ -416,12 +426,12 @@ export const useProductStore = create<ProductState>((set, get) => ({
         set({
           currentProduct: {
             article_id: baseId,
-            name: firstProduct.name,
-            description: firstProduct.description,
-            sub_category: firstProduct.sub_category,
+            name: requestedVariant.name,
+            description: requestedVariant.description,
+            sub_category: requestedVariant.sub_category,
             variants: variantsWithColors,
-            category: firstProduct.category,
-            gender: firstProduct.gender,
+            category: requestedVariant.category,
+            gender: requestedVariant.gender,
             rating: rating,
             total_reviews: rating?.count || 0
           },
@@ -462,13 +472,15 @@ export const useProductStore = create<ProductState>((set, get) => ({
       if (variantsError) throw variantsError;
 
       if (variantsData && variantsData.length > 0) {
-        const productData = variantsData[0];
+        // Find the specific variant that matches the requested article_id
+        // If only base ID was provided (no underscore), use first variant
+        const requestedVariant = variantsData.find(p => p.article_id === articleId) || variantsData[0];
         
         // Fetch average rating from reviews table instead of product_ratings
         const { data: reviewsData, error: reviewsError } = await supabase
           .from('reviews')
           .select('rating')
-          .eq('product_id', productData.product_id);
+          .eq('product_id', requestedVariant.product_id);
 
         let rating: Rating | undefined;
         if (!reviewsError && reviewsData && reviewsData.length > 0) {
@@ -507,12 +519,12 @@ export const useProductStore = create<ProductState>((set, get) => ({
 
         const productDetail: ProductDetail = {
           article_id: baseArticleId,
-          name: productData.name,
-          description: productData.description,
-          sub_category: productData.sub_category,
+          name: requestedVariant.name,
+          description: requestedVariant.description,
+          sub_category: requestedVariant.sub_category,
           variants: processedProducts,
-          category: productData.category,
-          gender: productData.gender,
+          category: requestedVariant.category,
+          gender: requestedVariant.gender,
           rating: rating,
           total_reviews: rating?.count || 0
         };
