@@ -229,7 +229,8 @@ const ProductDetailPage: React.FC = () => {
   }
 
   // Check if product is not found (includes inactive products)
-  if (!currentProduct) {
+  // Only show unavailable screen after loading is complete
+  if (!loading && !currentProduct) {
     return (
       <>
         <div className="min-h-screen flex items-center justify-center bg-gradient-light dark:bg-gradient-dark py-20">
