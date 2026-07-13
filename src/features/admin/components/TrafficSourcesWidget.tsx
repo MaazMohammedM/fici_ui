@@ -9,6 +9,8 @@ type TrafficRow = {
   campaign: string | null;
   visit_count: number | null;
   last_visited_at: string | null;
+  referrer: string | null;
+  current_url: string | null;
 };
 
 type Aggregated = {
@@ -28,8 +30,8 @@ const TrafficSourcesWidget: React.FC = () => {
       try {
         const { data, error } = await supabase
           .from('traffic_sources')
-          .select('source, medium, campaign, visit_count, last_visited_at')
-          .limit(1000);
+          .select('source, medium, campaign, visit_count, last_visited_at, referrer, current_url')
+          .limit(10000);
         if (error) throw error;
         const rows = (data || []) as TrafficRow[];
         const aggregated = aggregateTrafficSources(rows);

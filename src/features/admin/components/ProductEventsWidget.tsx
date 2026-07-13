@@ -312,46 +312,46 @@ function getSourceIcon(source: string | undefined) {
   const canonical = getCanonicalSourceName(source);
   const canonicalLower = canonical.toLowerCase();
 
-  // Social media icons from FontAwesome
-  if (canonicalLower.includes('facebook') || canonicalLower === 'fb') {
+  // Social media icons from FontAwesome - use exact matching for canonical names
+  if (canonicalLower === 'facebook' || canonicalLower === 'fb') {
     return <FontAwesomeIcon icon={["fab", "facebook"]} className="w-3 h-3" style={{ color: "#1877F2" }} />;
   }
-  if (canonicalLower.includes('instagram')) {
+  if (canonicalLower === 'instagram') {
     return <FontAwesomeIcon icon={["fab", "instagram"]} className="w-3 h-3" style={{ color: "#E1306C" }} />;
   }
-  if (canonicalLower.includes('whatsapp') || canonicalLower.includes('wa')) {
+  if (canonicalLower === 'whatsapp' || canonicalLower === 'wa') {
     return <FontAwesomeIcon icon={["fab", "whatsapp"]} className="w-3 h-3" style={{ color: "#25D366" }} />;
   }
-  if (canonicalLower.includes('twitter') || canonicalLower.includes('x.com')) {
+  if (canonicalLower === 'twitter' || canonicalLower === 'x.com' || canonicalLower === 'x') {
     return <FontAwesomeIcon icon={["fab", "x-twitter"]} className="w-3 h-3" style={{ color: "#000000" }} />;
   }
-  if (canonicalLower.includes('linkedin')) {
+  if (canonicalLower === 'linkedin') {
     return <FontAwesomeIcon icon={["fab", "linkedin"]} className="w-3 h-3" style={{ color: "#0077B5" }} />;
   }
-  if (canonicalLower.includes('pinterest')) {
+  if (canonicalLower === 'pinterest') {
     return <FontAwesomeIcon icon={["fab", "pinterest"]} className="w-3 h-3" style={{ color: "#E60023" }} />;
   }
-  if (canonicalLower.includes('youtube')) {
+  if (canonicalLower === 'youtube') {
     return <FontAwesomeIcon icon={["fab", "youtube"]} className="w-3 h-3" style={{ color: "#FF0000" }} />;
   }
-  if (canonicalLower.includes('telegram')) {
+  if (canonicalLower === 'telegram') {
     return <FontAwesomeIcon icon={["fab", "telegram"]} className="w-3 h-3" style={{ color: "#0088CC" }} />;
   }
-  if (canonicalLower.includes('snapchat')) {
+  if (canonicalLower === 'snapchat') {
     return <FontAwesomeIcon icon={["fab", "snapchat"]} className="w-3 h-3" style={{ color: "#FFFC00" }} />;
   }
-  if (canonicalLower.includes('reddit')) {
+  if (canonicalLower === 'reddit') {
     return <FontAwesomeIcon icon={["fab", "reddit"]} className="w-3 h-3" style={{ color: "#FF4500" }} />;
   }
-  if (canonicalLower.includes('tiktok')) {
+  if (canonicalLower === 'tiktok') {
     return <FontAwesomeIcon icon={["fab", "tiktok"]} className="w-3 h-3" style={{ color: "#000000" }} />;
   }
 
   // Generic icons for other sources
-  if (canonicalLower.includes('google')) {
+  if (canonicalLower === 'google') {
     return <GoogleIcon className="w-3 h-3" />;
   }
-  if (canonicalLower.includes('mobile_app')) {
+  if (canonicalLower === 'mobile app' || canonicalLower === 'mobile_app') {
     return <Smartphone className="w-3 h-3 text-gray-600 dark:text-gray-300" />;
   }
   if (canonicalLower === 'direct') {

@@ -83,7 +83,6 @@ const AuthCallback = memo(() => {
         }
 
         const user = session.user;
-        console.log('AuthCallback: Setting user in store:', user.id);
 
         // Set user in store - profile will be handled by auth store automatically
         setUser(user);

@@ -12,10 +12,14 @@ export interface NormalizationInput {
 
 /**
  * Normalize traffic source to canonical display name
- * Handles WhatsApp, GBP, and case-insensitive grouping
+ * Handles WhatsApp, GBP, LinkedIn, Facebook, Instagram, Mobile App, and case-insensitive grouping
  */
 export function normalizeTrafficSource(input: NormalizationInput): string {
   const { source, referrer, current_url } = input;
+  
+  if (!source) return 'Direct';
+  
+  const sourceLower = source.toLowerCase();
   
   // Extract UTM parameters from URL if available
   const getUtmSource = (url: string | null | undefined): string | null => {
@@ -29,8 +33,10 @@ export function normalizeTrafficSource(input: NormalizationInput): string {
   };
   
   const utmSource = getUtmSource(current_url);
+  const utmLower = utmSource?.toLowerCase() || '';
+  const referrerLower = referrer?.toLowerCase() || '';
   
-  // Normalize WhatsApp variants
+  // Normalize WhatsApp variants (highest priority)
   if (isWhatsApp(source, referrer, utmSource)) {
     return 'Whatsapp';
   }
@@ -40,13 +46,28 @@ export function normalizeTrafficSource(input: NormalizationInput): string {
     return 'GBP';
   }
   
-  // Case-insensitive normalization for other sources
-  if (source) {
-    return capitalizeFirstLetter(source.toLowerCase());
+  // Normalize LinkedIn variants
+  if (isLinkedIn(source)) {
+    return 'LinkedIn';
   }
   
-  // Default to direct if no source
-  return 'Direct';
+  // Normalize Facebook variants
+  if (isFacebook(source)) {
+    return 'Facebook';
+  }
+  
+  // Normalize Instagram variants
+  if (isInstagram(source)) {
+    return 'Instagram';
+  }
+  
+  // Normalize Mobile App variants
+  if (isMobileApp(source)) {
+    return 'Mobile App';
+  }
+  
+  // Case-insensitive normalization for other sources
+  return capitalizeFirstLetter(sourceLower);
 }
 
 /**
@@ -61,8 +82,12 @@ function isWhatsApp(
   const referrerLower = referrer?.toLowerCase() || '';
   const utmLower = utmSource?.toLowerCase() || '';
   
-  // Check source field
-  if (sourceLower === 'whatsapp' || sourceLower === 'wa') {
+  // Check source field - all WhatsApp variants
+  if (sourceLower === 'whatsapp' || 
+      sourceLower === 'wa' ||
+      sourceLower === 'whatsapp.com' ||
+      sourceLower === 'wa.me' ||
+      sourceLower.startsWith('whatsapp_')) {
     return true;
   }
   
@@ -91,17 +116,97 @@ function isGBP(
   const sourceLower = source?.toLowerCase() || '';
   const utmLower = utmSource?.toLowerCase() || '';
   
-  // Check source field
+  // Check source field - all GBP variants
   if (sourceLower === 'gbp' || 
       sourceLower === 'google business profile' ||
-      sourceLower === 'googlebusinessprofile') {
+      sourceLower === 'googlebusinessprofile' ||
+      sourceLower === 'google-business') {
     return true;
   }
   
   // Check UTM source
   if (utmLower === 'gbp' || 
       utmLower === 'google business profile' ||
-      utmLower === 'googlebusinessprofile') {
+      utmLower === 'googlebusinessprofile' ||
+      utmLower === 'google-business') {
+    return true;
+  }
+  
+  return false;
+}
+
+/**
+ * Detect if traffic is from LinkedIn
+ */
+function isLinkedIn(source: string | null | undefined): boolean {
+  const sourceLower = source?.toLowerCase() || '';
+  
+  // Check all LinkedIn variants
+  if (sourceLower === 'linkedin' || 
+      sourceLower === 'linkedin.com' ||
+      sourceLower === 'lnkd.in' ||
+      sourceLower === 'linkedin ads' ||
+      sourceLower === 'linkedin_ads' ||
+      sourceLower === 'social_linkedin') {
+    return true;
+  }
+  
+  return false;
+}
+
+/**
+ * Detect if traffic is from Facebook
+ */
+function isFacebook(source: string | null | undefined): boolean {
+  const sourceLower = source?.toLowerCase() || '';
+  
+  // Check all Facebook variants
+  if (sourceLower === 'facebook' || 
+      sourceLower === 'facebook.com' ||
+      sourceLower === 'fb' ||
+      sourceLower === 'fb.com' ||
+      sourceLower === 'facebook ads' ||
+      sourceLower === 'facebook_ads' ||
+      sourceLower === 'social_facebook') {
+    return true;
+  }
+  
+  return false;
+}
+
+/**
+ * Detect if traffic is from Instagram
+ */
+function isInstagram(source: string | null | undefined): boolean {
+  const sourceLower = source?.toLowerCase() || '';
+  
+  // Check all Instagram variants
+  if (sourceLower === 'instagram' || 
+      sourceLower === 'instagram.com' ||
+      sourceLower === 'ig' ||
+      sourceLower === 'instagram ads' ||
+      sourceLower === 'instagram_ads' ||
+      sourceLower === 'social_instagram') {
+    return true;
+  }
+  
+  return false;
+}
+
+/**
+ * Detect if traffic is from Mobile App
+ */
+function isMobileApp(source: string | null | undefined): boolean {
+  const sourceLower = source?.toLowerCase() || '';
+  
+  // Check all Mobile App variants
+  if (sourceLower === 'mobile app' || 
+      sourceLower === 'mobile_app' ||
+      sourceLower === 'mobileapp' ||
+      sourceLower === 'mobile-native' ||
+      sourceLower === 'mobile_native' ||
+      sourceLower === 'mobile-copy' ||
+      sourceLower === 'mobile_copy') {
     return true;
   }
   
@@ -121,15 +226,21 @@ function capitalizeFirstLetter(str: string): string {
  * Combines counts for equivalent sources
  */
 export function aggregateTrafficSources(
-  rows: Array<{ source: string | null; visit_count: number | null; last_visited_at?: string | null }>
+  rows: Array<{ 
+    source: string | null; 
+    visit_count: number | null; 
+    last_visited_at?: string | null;
+    referrer?: string | null;
+    current_url?: string | null;
+  }>
 ): Array<{ source: string; total: number; last_visited_at?: string | null }> {
   const map = new Map<string, { total: number; last_visited_at?: string | null }>();
   
   for (const row of rows) {
     const normalized = normalizeTrafficSource({ 
       source: row.source,
-      referrer: null,
-      current_url: null
+      referrer: row.referrer || null,
+      current_url: row.current_url || null
     });
     
     const existing = map.get(normalized);

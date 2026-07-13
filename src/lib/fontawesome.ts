@@ -3,12 +3,14 @@ import {
   faFacebook,
   faInstagram,
   faXTwitter,
-  faWhatsapp
+  faWhatsapp,
+  faLinkedin
 } from "@fortawesome/free-brands-svg-icons";
 
 library.add(
   faFacebook,
   faInstagram,
   faXTwitter,
-  faWhatsapp
+  faWhatsapp,
+  faLinkedin
 );
