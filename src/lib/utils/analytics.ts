@@ -1,156 +1,42 @@
 import { supabase } from '../supabase';
-import { useAuthStore } from '../../store/authStore';
+import {
+  analyzeTrafficSource,
+  generateSessionId,
+  getDeviceInfo,
+  parseBrowser,
+  parseOS,
+  isProductionEnvironment,
+} from './trackingHelpers';
 
-// Reusable environment check function
-const isTestEnvironment = (): boolean => {
-  if (typeof window === 'undefined') return true;
-  
-  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-  const isNetlifyPreview = window.location.hostname.includes('netlify.app');
-  
-  // Check admin role from auth store
-  let isAdmin = false;
-  try {
-    // Get auth store state directly
-    const authState = useAuthStore.getState();
-    const storeRole = authState?.role;
-    const storeUser = authState?.user;
-    
-    isAdmin = storeRole?.toLowerCase() === 'admin' || 
-              storeUser?.user_metadata?.role?.toLowerCase() === 'admin';
-    
-    // Fallback to localStorage check
-    if (!isAdmin) {
-      isAdmin = localStorage.getItem('userRole') === 'admin';
-    }
-  } catch (error) {
-    // Fallback to localStorage if store access fails
-    isAdmin = localStorage.getItem('userRole') === 'admin';
-  }
-  
-  return isAdmin || isLocalhost || isNetlifyPreview;
-};
-
-// Enhanced traffic source analysis
-export const analyzeTrafficSource = (url: string, userAgent: string, referrer: string) => {
-  const urlObj = new URL(url);
-  const params = new URLSearchParams(urlObj.search);
-  
-  // Check UTM parameters first
-  let source = params.get('utm_source')?.toLowerCase();
-  let medium = params.get('utm_medium')?.toLowerCase() || 'none';
-  const campaign = params.get('utm_campaign')?.toLowerCase() || 'none';
-  
-  // Check if current URL is WhatsApp-related (before referrer analysis)
-  if (!source && (url.includes('whatsapp') || url.includes('wa.me') || url.includes('api.whatsapp'))) {
-    source = 'whatsapp';
-    medium = 'social';
-  }
-  // If no UTM, analyze referrer
-  else if (!source && referrer) {
-    const refHost = new URL(referrer).hostname.toLowerCase();
-    source = getSourceFromReferrer(refHost);
-    medium = source ? 'referral' : 'none';
-  }
-  
-if (!source && referrer) {
-  const refHost = new URL(referrer).hostname.toLowerCase();
-  source = getSourceFromReferrer(refHost);
-  medium = source ? 'social' : 'direct';
-}
-if (!source) {
-  source = detectSourceFromUserAgent(userAgent);
-  medium = source === 'whatsapp' ? 'social' : 'direct';
-}
-
-    if (medium === 'none') {
-    if (['google', 'bing', 'yahoo', 'duckduckgo'].includes(source)) {
-      medium = 'search';
-    } else if (['facebook', 'instagram', 'twitter', 'linkedin', 'tiktok', 'snapchat', 'pinterest', 'reddit'].includes(source)) {
-      medium = 'social';
-    } else if (['email', 'mail', 'outlook', 'gmail'].includes(source)) {
-      medium = 'email';
-    } else if (source === 'direct') {
-      medium = 'direct';
-    } else if (source === 'mobile_app') {
-      medium = 'mobile';
-    }
-  }
-  
-  return {
-    source: source || 'direct',
-    medium: medium || 'direct',
-    campaign: campaign || 'none',
-    referrer: referrer || 'direct'
-  };
-};
-
-const getSourceFromReferrer = (host: string): string | null => {
-  if (!host) return null;
-  if (host.includes('facebook')) return 'facebook';
-  if (host.includes('instagram')) return 'instagram';
-  if (host.includes('linkedin')) return 'linkedin';
-  if (host.includes('twitter') || host.includes('t.co') || host.includes('x.com')) return 'twitter';
-  if (host.includes('google.')) return 'google';
-  if (host.includes('bing.')) return 'bing';
-  if (host.includes('whatsapp') || host.includes('wa.me') || host.includes('api.whatsapp')) return 'whatsapp';
-  return host;
-};
-
-const detectSourceFromUserAgent = (userAgent: string): string => {
-  const ua = userAgent.toLowerCase();
-
-  // --- SOCIAL / MESSAGING APPS (highest priority) ---
-  if (ua.includes('whatsapp')) return 'whatsapp';
-  if (ua.includes('instagram') || ua.includes('fb_iab')) return 'instagram';
-  if (ua.includes('facebook')) return 'facebook';
-  if (ua.includes('twitter') || ua.includes('x.com')) return 'twitter';
-  if (ua.includes('linkedin')) return 'linkedin';
-  if (ua.includes('telegram')) return 'telegram';
-  if (ua.includes('snapchat')) return 'snapchat';
-  if (ua.includes('pinterest')) return 'pinterest';
-  if (ua.includes('reddit')) return 'reddit';
-  if (ua.includes('tiktok')) return 'tiktok';
-  if (ua.includes('youtube')) return 'youtube';
-
-  // --- EMAIL CLIENTS ---
-  if (ua.includes('outlook') || ua.includes('gmail') || ua.includes('mail')) {
-    return 'email';
-  }
-
-  // --- SEARCH BOTS / SEARCH APPS ---
-  if (ua.includes('googlebot') || ua.includes('google')) return 'google';
-  if (ua.includes('bingbot') || ua.includes('bing')) return 'bing';
-  if (ua.includes('yahoo')) return 'yahoo';
-  if (ua.includes('duckduckbot') || ua.includes('duckduckgo')) return 'duckduckgo';
-
-  // --- MOBILE (generic) ---
-  if (
-    ua.includes('mobile') ||
-    ua.includes('android') ||
-    ua.includes('iphone') ||
-    ua.includes('ipad') ||
-    ua.includes('ios')
-  ) {
-    return 'mobile_app';
-  }
-
-  // --- BROWSERS → DIRECT (IMPORTANT FIX) ---
-  if (
-    ua.includes('chrome') ||
-    ua.includes('firefox') ||
-    ua.includes('safari') ||
-    ua.includes('edge')
-  ) {
-    return 'direct';
-  }
-
-  return 'direct';
-};
 
 // Update traffic source with enhanced analysis
+// Tracks only landing visit per session with comprehensive metadata
 export const updateTrafficSource = async (url: string, userAgent: string, referrer: string) => {
+  // Skip tracking in development environments
+  if (!isProductionEnvironment()) {
+    return true;
+  }
+
   const analysis = analyzeTrafficSource(url, userAgent, referrer);
+  const deviceInfo = getDeviceInfo();
+  const sessionId = generateSessionId();
+  const currentUrl = typeof window !== 'undefined' ? window.location.href : url;
+  const pagePath = typeof window !== 'undefined' ? window.location.pathname : new URL(url).pathname;
+  
+  // Build metadata object
+  const metadata = {
+    browser: parseBrowser(deviceInfo.user_agent),
+    os: parseOS(deviceInfo.user_agent),
+    device_type: deviceInfo.device_type,
+    language: deviceInfo.language,
+    timezone: deviceInfo.timezone,
+    screen_width: deviceInfo.screen_width,
+    screen_height: deviceInfo.screen_height,
+    viewport_width: deviceInfo.viewport_width,
+    viewport_height: deviceInfo.viewport_height,
+    user_agent: deviceInfo.user_agent,
+    landing_page: pagePath,
+  };
   
   try {
     // Direct table update since RPC function doesn't exist
@@ -165,12 +51,18 @@ export const updateTrafficSource = async (url: string, userAgent: string, referr
     const now = new Date().toISOString();
     
     if (existingRecord) {
-      // Update existing record
+      // Update existing record (UPSERT behavior)
       const { error: updateError } = await supabase
         .from('traffic_sources')
         .update({
           visit_count: (existingRecord.visit_count || 0) + 1,
-          last_visited_at: now
+          last_visited_at: now,
+          // Update session tracking fields on each visit
+          session_id: sessionId,
+          current_url: currentUrl,
+          page_path: pagePath,
+          device_type: deviceInfo.device_type,
+          metadata: metadata,
         })
         .eq('id', existingRecord.id);
       
@@ -190,7 +82,13 @@ export const updateTrafficSource = async (url: string, userAgent: string, referr
           referrer: analysis.referrer,
           visit_count: 1,
           last_visited_at: now,
-          created_at: now
+          created_at: now,
+          // New fields
+          session_id: sessionId,
+          current_url: currentUrl,
+          page_path: pagePath,
+          device_type: deviceInfo.device_type,
+          metadata: metadata,
         });
       
       if (insertError) {
@@ -216,7 +114,7 @@ export const trackProductVisit = async (product: {
 }) => {
   try {
     // Don't track for admin users or development/preview environments
-    if (isTestEnvironment()) {
+    if (!isProductionEnvironment()) {
       return true; // Return true to indicate success but no tracking
     }
     
@@ -308,44 +206,21 @@ export const trackProductPageVisit = async (product: {
   }
 };
 
-// Track traffic source only once per session
+// Track traffic source only once per session (landing visit)
 export const trackTrafficSourceOnce = async (url: string, userAgent: string, referrer: string) => {
   // Check if traffic source has already been tracked in this session
   const sessionKey = 'traffic_source_tracked';
   
   if (typeof window !== 'undefined' && sessionStorage.getItem(sessionKey)) {
-    return true; // Already tracked
+    return true; // Already tracked this session
   }
   
-  // Track traffic source
+  // Track traffic source (landing visit)
   const tracked = await updateTrafficSource(url, userAgent, referrer);
   
-  // Only mark as tracked if actual tracking occurred (not skipped for admin)
+  // Mark as tracked if successful
   if (tracked && typeof window !== 'undefined') {
-    // Check if tracking was actually skipped by checking if we're in admin/preview environment
-    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    const isNetlifyPreview = window.location.hostname.includes('netlify.app');
-    
-    let isAdmin = false;
-    try {
-      const authState = useAuthStore.getState();
-      const storeRole = authState?.role;
-      const storeUser = authState?.user;
-      
-      isAdmin = storeRole?.toLowerCase() === 'admin' || 
-                storeUser?.user_metadata?.role?.toLowerCase() === 'admin';
-      
-      if (!isAdmin) {
-        isAdmin = localStorage.getItem('userRole') === 'admin';
-      }
-    } catch (error) {
-      isAdmin = localStorage.getItem('userRole') === 'admin';
-    }
-    
-    // Only mark as tracked if not admin/preview environment
-    if (!isAdmin && !isLocalhost && !isNetlifyPreview) {
-      sessionStorage.setItem(sessionKey, 'true');
-    }
+    sessionStorage.setItem(sessionKey, 'true');
   }
 
   return tracked;

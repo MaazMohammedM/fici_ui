@@ -1,6 +1,7 @@
 import React from 'react';
 import { supabase } from '@lib/supabase';
 import { MessageCircle, Instagram, Facebook, Twitter, Linkedin, Search, Globe, Mail, Youtube } from 'lucide-react';
+import { aggregateTrafficSources, getCanonicalSourceName } from '@/lib/utils/trafficSourceNormalizer';
 
 type TrafficRow = {
   source: string | null;
@@ -31,15 +32,8 @@ const TrafficSourcesWidget: React.FC = () => {
           .limit(1000);
         if (error) throw error;
         const rows = (data || []) as TrafficRow[];
-        const map = new Map<string, Aggregated>();
-        for (const r of rows) {
-          const key = (r.source || 'direct').toLowerCase();
-          const prev = map.get(key);
-          const total = (prev?.total || 0) + (r.visit_count || 0);
-          const last = prev?.last_visited_at || r.last_visited_at || null;
-          map.set(key, { source: key, total, last_visited_at: last });
-        }
-        const list = Array.from(map.values()).sort((a, b) => b.total - a.total).slice(0, 8);
+        const aggregated = aggregateTrafficSources(rows);
+        const list = aggregated.sort((a, b) => b.total - a.total).slice(0, 8);
         if (mounted) setData(list);
       } catch (e: any) {
         if (mounted) setError(e?.message || 'Failed to load traffic sources');
@@ -93,8 +87,10 @@ const TrafficSourcesWidget: React.FC = () => {
 
 const getSourceIcon = (source: string) => {
   const iconClass = 'w-4 h-4 text-gray-500 dark:text-gray-400';
+  const canonical = getCanonicalSourceName(source);
+  const canonicalLower = canonical.toLowerCase();
   
-  switch (source) {
+  switch (canonicalLower) {
     case 'whatsapp':
       return <MessageCircle className={iconClass} />;
     case 'instagram':

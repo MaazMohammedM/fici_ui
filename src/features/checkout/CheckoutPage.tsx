@@ -325,11 +325,30 @@ const CheckoutPage: React.FC = () => {
 
   // Cart verification modal state
   const [showCartVerification, setShowCartVerification] = useState(false);
+  const initiateCheckoutFiredRef = useRef(false);
 
   // Show cart verification on page load if there are items
   useEffect(() => {
     if (cartItems.length > 0) {
       setShowCartVerification(true);
+      
+      // Track InitiateCheckout event with Meta Pixel (once per session)
+      if (!initiateCheckoutFiredRef.current) {
+        const totalValue = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        metaPixelEvents.initiateCheckout({
+          content_ids: cartItems.map(item => item.product_id),
+          content_type: 'product',
+          value: totalValue,
+          currency: 'INR',
+          num_items: cartItems.reduce((sum, item) => sum + item.quantity, 0),
+          contents: cartItems.map(item => ({
+            id: item.product_id,
+            quantity: item.quantity,
+            item_price: item.price
+          }))
+        });
+        initiateCheckoutFiredRef.current = true;
+      }
     }
   }, [cartItems.length]);
 

@@ -138,7 +138,8 @@ export const useProductActions = ({
         id: selectedVariant.product_id,
         quantity: quantity,
         item_price: Number(selectedVariant.discount_price) || 0
-      }]
+      }],
+      num_items: quantity
     });
 
     setSuccessMessageType('cart');
@@ -218,6 +219,15 @@ export const useProductActions = ({
         setIsWishlisted(true);
         setSuccessMessageType('wishlist_add');
         setShowSuccessMessage(true);
+
+        // Track AddToWishlist event with Meta Pixel
+        metaPixelEvents.addToWishlist({
+          content_ids: [selectedVariant.product_id],
+          content_type: 'product',
+          value: Number(selectedVariant.discount_price) || 0,
+          currency: 'INR',
+          content_name: selectedVariant?.name || currentProduct.name
+        });
 
         // Track wishlist addition
         let thumbnailUrl = selectedVariant?.thumbnail_url || selectedVariant?.images?.[0] || '';

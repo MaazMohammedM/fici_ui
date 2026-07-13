@@ -22,6 +22,7 @@ import {
   Globe,
 } from 'lucide-react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { normalizeTrafficSource, getCanonicalSourceName } from '@/lib/utils/trafficSourceNormalizer';
 
 // ─── Raw event from Supabase ──────────────────────────────────────────────────
 
@@ -200,8 +201,15 @@ function buildAnalyticsGroups(events: ProductEvent[]): ProductAnalyticsGroup[] {
     if (dt === 'mobile' || dt === 'desktop' || dt === 'tablet') g.devices[dt]++;
     else g.devices.unknown++;
 
-    // Traffic source (from top-level columns)
-    if (ev.source) g.sourceCounts.set(ev.source, (g.sourceCounts.get(ev.source) ?? 0) + 1);
+    // Traffic source (from top-level columns) - normalize for grouping
+    if (ev.source) {
+      const normalized = normalizeTrafficSource({ 
+        source: ev.source,
+        referrer: ev.referrer,
+        current_url: ev.current_url
+      });
+      g.sourceCounts.set(normalized, (g.sourceCounts.get(normalized) ?? 0) + 1);
+    }
     if (ev.medium) g.mediumCounts.set(ev.medium, (g.mediumCounts.get(ev.medium) ?? 0) + 1);
 
     // Browser (from top-level column)
@@ -301,51 +309,52 @@ const GoogleIcon: React.FC<{ className?: string }> = ({ className = "w-3 h-3" })
 function getSourceIcon(source: string | undefined) {
   if (!source) return null;
 
-  const sourceLower = source.toLowerCase();
+  const canonical = getCanonicalSourceName(source);
+  const canonicalLower = canonical.toLowerCase();
 
   // Social media icons from FontAwesome
-  if (sourceLower.includes('facebook') || sourceLower === 'fb') {
+  if (canonicalLower.includes('facebook') || canonicalLower === 'fb') {
     return <FontAwesomeIcon icon={["fab", "facebook"]} className="w-3 h-3" style={{ color: "#1877F2" }} />;
   }
-  if (sourceLower.includes('instagram')) {
+  if (canonicalLower.includes('instagram')) {
     return <FontAwesomeIcon icon={["fab", "instagram"]} className="w-3 h-3" style={{ color: "#E1306C" }} />;
   }
-  if (sourceLower.includes('whatsapp') || sourceLower.includes('wa')) {
+  if (canonicalLower.includes('whatsapp') || canonicalLower.includes('wa')) {
     return <FontAwesomeIcon icon={["fab", "whatsapp"]} className="w-3 h-3" style={{ color: "#25D366" }} />;
   }
-  if (sourceLower.includes('twitter') || sourceLower.includes('x.com')) {
+  if (canonicalLower.includes('twitter') || canonicalLower.includes('x.com')) {
     return <FontAwesomeIcon icon={["fab", "x-twitter"]} className="w-3 h-3" style={{ color: "#000000" }} />;
   }
-  if (sourceLower.includes('linkedin')) {
+  if (canonicalLower.includes('linkedin')) {
     return <FontAwesomeIcon icon={["fab", "linkedin"]} className="w-3 h-3" style={{ color: "#0077B5" }} />;
   }
-  if (sourceLower.includes('pinterest')) {
+  if (canonicalLower.includes('pinterest')) {
     return <FontAwesomeIcon icon={["fab", "pinterest"]} className="w-3 h-3" style={{ color: "#E60023" }} />;
   }
-  if (sourceLower.includes('youtube')) {
+  if (canonicalLower.includes('youtube')) {
     return <FontAwesomeIcon icon={["fab", "youtube"]} className="w-3 h-3" style={{ color: "#FF0000" }} />;
   }
-  if (sourceLower.includes('telegram')) {
+  if (canonicalLower.includes('telegram')) {
     return <FontAwesomeIcon icon={["fab", "telegram"]} className="w-3 h-3" style={{ color: "#0088CC" }} />;
   }
-  if (sourceLower.includes('snapchat')) {
+  if (canonicalLower.includes('snapchat')) {
     return <FontAwesomeIcon icon={["fab", "snapchat"]} className="w-3 h-3" style={{ color: "#FFFC00" }} />;
   }
-  if (sourceLower.includes('reddit')) {
+  if (canonicalLower.includes('reddit')) {
     return <FontAwesomeIcon icon={["fab", "reddit"]} className="w-3 h-3" style={{ color: "#FF4500" }} />;
   }
-  if (sourceLower.includes('tiktok')) {
+  if (canonicalLower.includes('tiktok')) {
     return <FontAwesomeIcon icon={["fab", "tiktok"]} className="w-3 h-3" style={{ color: "#000000" }} />;
   }
 
   // Generic icons for other sources
-  if (sourceLower.includes('google')) {
+  if (canonicalLower.includes('google')) {
     return <GoogleIcon className="w-3 h-3" />;
   }
-  if (sourceLower.includes('mobile_app')) {
+  if (canonicalLower.includes('mobile_app')) {
     return <Smartphone className="w-3 h-3 text-gray-600 dark:text-gray-300" />;
   }
-  if (sourceLower === 'direct') {
+  if (canonicalLower === 'direct') {
     return <Globe className="w-3 h-3 text-gray-600 dark:text-gray-300" />;
   }
 

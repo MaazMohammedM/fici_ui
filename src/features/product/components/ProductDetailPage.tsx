@@ -205,16 +205,22 @@ const ProductDetailPage: React.FC = () => {
   useEffect(() => {
     if (currentProduct && productVariant.selectedVariant) {
       const variant = productVariant.selectedVariant;
+      const value = typeof variant.discount_price === 'number' ? variant.discount_price : parseFloat(variant.discount_price || variant.mrp_price);
       metaPixelEvents.viewContent({
         content_ids: [variant.product_id],
         content_type: 'product',
-        value: typeof variant.discount_price === 'number' ? variant.discount_price : parseFloat(variant.discount_price || variant.mrp_price),
+        value: value,
         currency: 'INR',
         content_name: variant.name,
-        content_category: variant.category || currentProduct.sub_category
+        content_category: variant.category || currentProduct.sub_category,
+        contents: [{
+          id: variant.product_id,
+          quantity: 1,
+          item_price: value
+        }]
       });
     }
-  }, [currentProduct, productVariant.selectedVariant]);
+  }, [currentProduct?.article_id]);
 
   if (loading) {
     return (
