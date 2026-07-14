@@ -88,7 +88,6 @@ export const getStatesFromJson = async (): Promise<string[]> => {
     const merged = Array.from(new Set([...fromJson, ...ALL_INDIAN_STATES])).sort();
     return merged;
   } catch (error) {
-    console.error('Error fetching states from JSON:', error);
     // Fallback to canonical states only
     return [...ALL_INDIAN_STATES].sort();
   }
@@ -107,7 +106,6 @@ export const getCitiesFromJson = async (state?: string): Promise<string[]> => {
     const cities = filtered.map((r) => String(r.city).trim()).filter(Boolean);
     return Array.from(new Set(cities)).sort((a, b) => a.localeCompare(b));
   } catch (error) {
-    console.error('Error fetching cities from JSON:', error);
     return [];
   }
 };
@@ -388,7 +386,6 @@ export const usePincodeStore = create<PincodeState>((set, get) => ({
       if (error) throw error;
       return count ?? 0;
     } catch (error) {
-      console.error('Error getting bulk update count:', error);
       throw error;
     }
   },
@@ -400,10 +397,6 @@ export const usePincodeStore = create<PincodeState>((set, get) => ({
     try {
       const f = filters as Record<string, unknown>;
       
-      console.log('=== BULK UPDATE DEBUG ===');
-      console.log('Filters received:', JSON.stringify(filters, null, 2));
-      console.log('Updates received:', JSON.stringify(updates, null, 2));
-      console.log('Dry run:', dryRun);
 
       // ── 1. Build query with filters ──────────────────────────────────────
       // Don't use head: true initially to see if data is returned
@@ -411,53 +404,36 @@ export const usePincodeStore = create<PincodeState>((set, get) => ({
 
       // Geographic filters
       if (Array.isArray(f.states) && f.states.length > 0) {
-        console.log('Applying states filter:', f.states);
         query = query.in('state', f.states as string[]);
       }
       if (Array.isArray(f.cities) && f.cities.length > 0) {
-        console.log('Applying cities filter:', f.cities);
         query = query.in('city', f.cities as string[]);
       }
       if (Array.isArray(f.pincodes) && f.pincodes.length > 0) {
-        console.log('Applying pincodes filter:', f.pincodes);
         query = query.in('pincode', f.pincodes as string[]);
       }
       if (Array.isArray(f.districts) && f.districts.length > 0) {
-        console.log('Applying districts filter:', f.districts);
         query = query.contains('districts', f.districts as string[]);
       }
 
       // Boolean filters
-      console.log('Boolean filter values:');
-      console.log('  active:', f.active, 'type:', typeof f.active);
-      console.log('  is_serviceable:', f.is_serviceable, 'type:', typeof f.is_serviceable);
-      console.log('  cod_allowed:', f.cod_allowed, 'type:', typeof f.cod_allowed);
-      console.log('  cod_fees_applicable:', f.cod_fees_applicable, 'type:', typeof f.cod_fees_applicable);
-      console.log('  is_returnable:', f.is_returnable, 'type:', typeof f.is_returnable);
-      console.log('  is_exchangeable:', f.is_exchangeable, 'type:', typeof f.is_exchangeable);
       
       if (typeof f.active === 'boolean') {
-        console.log('Applying active filter:', f.active);
         query = query.eq('active', f.active);
       }
       if (typeof f.is_serviceable === 'boolean') {
-        console.log('Applying is_serviceable filter:', f.is_serviceable);
         query = query.eq('is_serviceable', f.is_serviceable);
       }
       if (typeof f.cod_allowed === 'boolean') {
-        console.log('Applying cod_allowed filter:', f.cod_allowed);
         query = query.eq('cod_allowed', f.cod_allowed);
       }
       if (typeof f.cod_fees_applicable === 'boolean') {
-        console.log('Applying cod_fees_applicable filter:', f.cod_fees_applicable);
         query = query.eq('cod_fees_applicable', f.cod_fees_applicable);
       }
       if (typeof f.is_returnable === 'boolean') {
-        console.log('Applying is_returnable filter:', f.is_returnable);
         query = query.eq('is_returnable', f.is_returnable);
       }
       if (typeof f.is_exchangeable === 'boolean') {
-        console.log('Applying is_exchangeable filter:', f.is_exchangeable);
         query = query.eq('is_exchangeable', f.is_exchangeable);
       }
 
@@ -482,46 +458,15 @@ export const usePincodeStore = create<PincodeState>((set, get) => ({
       if (f.exchange_window_days_eq !== undefined) query = query.eq('exchange_window_days', f.exchange_window_days_eq);
 
       // ── 2. Count matching rows ──────────────────────────────────────────
-      console.log('Executing count query...');
       const { count: rawCount, data: countData, error: countError } = await query;
-      console.log('Count result:', rawCount);
-      console.log('Count data length:', countData?.length);
-      console.log('Count error:', countError);
-      console.log('Count data sample:', countData?.slice(0, 3));
       
       if (countError) throw countError;
 
       // Supabase sometimes returns null for count even when data is present
       // Use data length as fallback when count is null
       const totalCount = rawCount ?? (countData?.length ?? 0);
-      console.log('Total count:', totalCount);
-
-      // DEBUG: Check if there are any rows with cod_fees_applicable = true in the database
-      if (totalCount === 0 && typeof f.cod_fees_applicable === 'boolean') {
-        console.log('DEBUG: Checking database for rows with cod_fees_applicable =', f.cod_fees_applicable);
-        const { count: debugCount, data: debugData, error: debugError } = await supabase
-          .from('pincodes')
-          .select('*', { count: 'exact' })
-          .eq('cod_fees_applicable', f.cod_fees_applicable);
-        console.log('DEBUG count for cod_fees_applicable =', f.cod_fees_applicable, ':', debugCount);
-        console.log('DEBUG data length:', debugData?.length);
-        console.log('DEBUG error:', debugError);
-        
-        // Also check total rows in database
-        const { count: totalRows, data: totalData, error: totalError } = await supabase
-          .from('pincodes')
-          .select('*', { count: 'exact' });
-        console.log('DEBUG total rows in database:', totalRows);
-        console.log('DEBUG total data length:', totalData?.length);
-        console.log('DEBUG total error:', totalError);
-        
-        // Check if user is authenticated
-        const { data: { session } } = await supabase.auth.getSession();
-        console.log('DEBUG session:', session ? 'authenticated' : 'not authenticated');
-      }
 
       if (totalCount === 0) {
-        console.log('ERROR: No pincodes match the specified filters');
         set({ loading: false });
         return { affectedCount: 0, error: 'No pincodes match the specified filters', dryRun };
       }

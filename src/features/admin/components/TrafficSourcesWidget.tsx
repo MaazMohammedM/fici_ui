@@ -35,7 +35,7 @@ const TrafficSourcesWidget: React.FC = () => {
         if (error) throw error;
         const rows = (data || []) as TrafficRow[];
         const aggregated = aggregateTrafficSources(rows);
-        const list = aggregated.sort((a, b) => b.total - a.total).slice(0, 8);
+        const list = aggregated.sort((a, b) => b.total - a.total).slice(0, 10);
         if (mounted) setData(list);
       } catch (e: any) {
         if (mounted) setError(e?.message || 'Failed to load traffic sources');

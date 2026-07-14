@@ -60,8 +60,7 @@ const safeParseSizes = (value: any): Record<string, number> => {
       const unescaped = value.replace(/\\"/g, '"').replace(/^"|"$/g, '');
       return JSON.parse(unescaped);
     } catch (error) {
-      console.error('Error parsing sizes JSON:', error);
-      return {};
+      return {}
     }
   }
   
@@ -151,7 +150,6 @@ const calculateDiscountPercentage = (mrpPrice: string, discountPrice: string): n
     
     return Math.round(((mrp - discount) / mrp) * 100);
   } catch (error) {
-    console.error('Error calculating discount percentage:', error);
     return 0;
   }
 };
@@ -248,7 +246,6 @@ export const useProductStore = create<ProductState>((set, get) => ({
       });
 
     } catch (error) {
-      console.error('Error fetching products:', error);
 
       // Don't retry on abort errors
       if (error instanceof Error && (error.name === 'AbortError' || error.message.includes('aborted'))) {
@@ -312,7 +309,6 @@ export const useProductStore = create<ProductState>((set, get) => ({
         .limit(20); // Fetch more to ensure we have enough after filtering
 
       if (error) {
-        console.error('Fetch top deals error:', error);
         set({ error: 'Failed to fetch top deals' });
         return;
       }
@@ -338,7 +334,6 @@ export const useProductStore = create<ProductState>((set, get) => ({
 
       set({ topDeals });
     } catch (error) {
-      console.error('Error fetching top deals:', error);
       set({ error: 'Failed to fetch top deals' });
       set({ loading: false });
     }
@@ -365,12 +360,6 @@ export const useProductStore = create<ProductState>((set, get) => ({
         // If only base ID was provided (no underscore), use first variant
         const requestedVariant = productsData.find(p => p.article_id === articleId) || productsData[0];
         
-        // DEV: Log description from database
-        if (import.meta.env.DEV) {
-          console.log('[ProductStore] Requested article_id:', articleId);
-          console.log('[ProductStore] Using description from variant:', requestedVariant.article_id);
-          console.log('[ProductStore] Description from Supabase:', requestedVariant.description);
-        }
         
         // Get the product_id from the requested variant to fetch reviews
         const productId = requestedVariant.product_id;
@@ -441,7 +430,6 @@ export const useProductStore = create<ProductState>((set, get) => ({
         set({ currentProduct: null, error: 'Product not found', loading: false });
       }
     } catch (err) {
-      console.error('Error fetching product:', err);
       set({ error: 'Failed to fetch product details', loading: false });
     }
   },
@@ -542,7 +530,6 @@ export const useProductStore = create<ProductState>((set, get) => ({
       }
 
     } catch (error) {
-      console.error('Error fetching product:', error);
       set({ error: 'Failed to fetch product details', loading: false });
     }
   },
@@ -566,7 +553,6 @@ export const useProductStore = create<ProductState>((set, get) => ({
       const { data, error } = await query;
 
       if (error) {
-        console.error('Fetch related products error:', error);
         set({ error: 'Failed to fetch related products' });
         return;
       }
@@ -620,7 +606,6 @@ export const useProductStore = create<ProductState>((set, get) => ({
       });
 
     } catch (error) {
-      console.error('Error fetching related products:', error);
       set({ error: 'Failed to fetch related products', loading: false });
     }
   },
@@ -698,7 +683,6 @@ export const useProductStore = create<ProductState>((set, get) => ({
       set({ highlightProducts: processedProducts });
 
     } catch (error) {
-      console.error('Error fetching highlight products:', error);
     }
   },
 
