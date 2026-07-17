@@ -6,6 +6,13 @@ import '@fortawesome/fontawesome-free/css/all.min.css';
 import "./lib/fontawesome";
 import { AuthProvider } from 'context/AuthContext.tsx';
 
+// Capture original landing URL with UTM parameters before React Router processes it
+// This ensures UTM parameters are preserved for accurate traffic source attribution
+if (typeof window !== 'undefined') {
+  const originalUrl = window.location.href;
+  sessionStorage.setItem('original_landing_url', originalUrl);
+}
+
 // Polyfill Buffer for Node.js compatibility (if needed)
 if (typeof window !== 'undefined') {
   // Buffer is externalized in Vite config, so we don't import it directly

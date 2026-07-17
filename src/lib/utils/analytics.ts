@@ -20,7 +20,11 @@ export const updateTrafficSource = async (url: string, userAgent: string, referr
   const analysis = analyzeTrafficSource(url, userAgent, referrer);
   const deviceInfo = getDeviceInfo();
   const sessionId = generateSessionId();
-  const currentUrl = typeof window !== 'undefined' ? window.location.href : url;
+  
+  // Use original landing URL from sessionStorage if available (preserves UTM parameters)
+  const currentUrl = typeof window !== 'undefined' 
+    ? (sessionStorage.getItem('original_landing_url') || window.location.href)
+    : url;
   const pagePath = typeof window !== 'undefined' ? window.location.pathname : new URL(url).pathname;
   
   // Build metadata object

@@ -10,11 +10,19 @@ import metaPixelEvents from '@/lib/utils/metaPixel';
 export const useMetaPixelPageView = () => {
   const location = useLocation();
   const lastTrackedPathRef = useRef<string>('');
+  const didSkipInitialRenderRef = useRef(false);
 
   useEffect(() => {
     const currentPath = location.pathname + location.search;
-    
-    // Only track if this is a different path than the last tracked one
+
+    // The base pixel in index.html already sends the initial PageView.
+    // Skip the first React render, then keep tracking SPA route changes.
+    if (!didSkipInitialRenderRef.current) {
+      didSkipInitialRenderRef.current = true;
+      lastTrackedPathRef.current = currentPath;
+      return;
+    }
+
     if (currentPath !== lastTrackedPathRef.current) {
       metaPixelEvents.pageView();
       lastTrackedPathRef.current = currentPath;

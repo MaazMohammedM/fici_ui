@@ -1,3 +1,4 @@
+//src\features\admin\components\ProductEventsWidget.tsx
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@lib/supabase';
 import {
@@ -18,8 +19,8 @@ import {
   TrendingUp,
   BarChart2,
   RefreshCw,
-  Search,
   Globe,
+  ArrowUpDown,
 } from 'lucide-react';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { normalizeTrafficSource, getCanonicalSourceName } from '@/lib/utils/trafficSourceNormalizer';
@@ -74,14 +75,12 @@ interface ParsedMetadata {
   wishlist_action?: 'add' | 'remove';
 }
 
-// ─── New aggregated analytics structure ──────────────────────────────────────
+// ─── Aggregated analytics structure ──────────────────────────────────────────
 
 interface SizeCount { size: string; count: number; }
-
 interface DeviceBreakdown { mobile: number; desktop: number; tablet: number; unknown: number; }
 
 interface ProductAnalyticsGroup {
-  // Identity
   product_id:   string;
   article_id:   string;
   product_name: string;
@@ -91,8 +90,6 @@ interface ProductAnalyticsGroup {
   thumbnail_url?:string;
   mrp_price?:   number;
   selling_price?:number;
-
-  // Total event counts
   views:         number;
   sizeSelections:number;
   addToCart:     number;
@@ -100,48 +97,39 @@ interface ProductAnalyticsGroup {
   outOfStock:    number;
   wishlistAdds:  number;
   wishlistRemoves: number;
-
-  // Conversion metrics
-  conversionRate: number; // buy_now / views  (%)
-  cartRate:       number; // add_to_cart / views (%)
-
-  // Size analytics (sorted desc by count)
+  conversionRate: number;
+  cartRate:       number;
   sizeSelectionCounts: SizeCount[];
   addToCartBySizes:    SizeCount[];
   buyNowBySizes:       SizeCount[];
   outOfStockBySizes:   SizeCount[];
-
-  // Derived size insights
   mostSelectedSize?:   string;
   leastSelectedSize?:  string;
   uniqueSizesCount:    number;
-
-  // Device breakdown (from top-level column)
   devices: DeviceBreakdown;
-
-  // Traffic source breakdown (from top-level columns)
   sourceCounts:   Map<string, number>;
   mediumCounts:   Map<string, number>;
-
-  // Browser breakdown (from top-level column)
   browserCounts:  Map<string, number>;
-
-  // OS breakdown (from top-level column)
   osCounts:       Map<string, number>;
-
-  // Campaign (non-null/non-empty only)
   campaignCounts: Map<string, number>;
-
-  // Session quality metrics (from metadata)
   avgScrollDepth: number;
   avgTimeOnPage: number;
   connectionTypeCounts: Map<string, number>;
   darkModeUsers: number;
   lightModeUsers: number;
-
-  // Recency
-  lastInteraction: string; // ISO string of most recent event
+  lastInteraction: string;
   allEvents: ProductEvent[];
+}
+
+// ─── Sort options ─────────────────────────────────────────────────────────────
+
+type SortOption = 'engagement' | 'last_updated';
+
+// ─── Thumbnail cache ───────────────────────────────────────────────────────────
+
+interface ProductThumbnail {
+  product_id: string;
+  thumbnail_url: string;
 }
 
 // ─── Aggregation ─────────────────────────────────────────────────────────────
@@ -156,112 +144,130 @@ function toSizeCountsSorted(map: Map<string, number>): SizeCount[] {
     .sort((a, b) => b.count - a.count);
 }
 
-function buildAnalyticsGroups(events: ProductEvent[]): ProductAnalyticsGroup[] {
-  // Primary map: product_id → accumulator
-  const map = new Map<string, ProductAnalyticsGroup>();
-
+/**
+ * FIX 1 — thumbnail resolution:
+ * Scan ALL events for a product_id to find the best available thumbnail_url.
+ * Priority: any non-null thumbnail from any event, regardless of event_type.
+ * Previously only picked up the thumbnail from the first event seen,
+ * which meant filtered views (e.g. size_selected, out_of_stock_click) that
+ * happened to be the first event for a product had no thumbnail.
+ * 
+ * FIX 2 — fallback to cached thumbnail from products table:
+ * If no event has a thumbnail, use the cached thumbnail from the products table.
+ */
+function resolveThumbnail(events: ProductEvent[], thumbnailCache: Map<string, string>): string | undefined {
+  // Priority 1: Prefer the most recent event that has a thumbnail
   for (const ev of events) {
-    if (!map.has(ev.product_id)) {
-      map.set(ev.product_id, {
-        product_id:    ev.product_id,
-        article_id:    ev.article_id,
-        product_name:  ev.product_name,
-        category:      ev.category,
-        sub_category:  ev.sub_category,
-        gender:        ev.gender,
-        thumbnail_url: ev.thumbnail_url,
-        mrp_price:     ev.mrp_price,
-        selling_price: ev.selling_price,
-        views: 0, sizeSelections: 0, addToCart: 0, buyNow: 0, outOfStock: 0, wishlistAdds: 0, wishlistRemoves: 0,
-        conversionRate: 0, cartRate: 0,
-        sizeSelectionCounts: [], addToCartBySizes: [], buyNowBySizes: [], outOfStockBySizes: [],
-        mostSelectedSize: undefined, leastSelectedSize: undefined, uniqueSizesCount: 0,
-        devices: { mobile: 0, desktop: 0, tablet: 0, unknown: 0 },
-        sourceCounts: new Map(), mediumCounts: new Map(), browserCounts: new Map(), osCounts: new Map(), campaignCounts: new Map(),
-        avgScrollDepth: 0, avgTimeOnPage: 0, connectionTypeCounts: new Map(), darkModeUsers: 0, lightModeUsers: 0,
-        lastInteraction: ev.event_timestamp,
-        allEvents: [],
-      });
-    }
+    if (ev.thumbnail_url) return ev.thumbnail_url;
+  }
+  
+  // Priority 2: Fallback to cached thumbnail from products table
+  if (events.length > 0) {
+    const productId = events[0].product_id;
+    return thumbnailCache.get(productId);
+  }
+  
+  return undefined;
+}
 
-    const g = map.get(ev.product_id)!;
-    g.allEvents.push(ev);
-
-    // Update recency
-    if (ev.event_timestamp > g.lastInteraction) g.lastInteraction = ev.event_timestamp;
-
-    // Enrich product info from newer events (thumbnail may not exist on older rows)
-    if (ev.thumbnail_url && !g.thumbnail_url) g.thumbnail_url = ev.thumbnail_url;
-    if (ev.mrp_price    && !g.mrp_price)    g.mrp_price    = ev.mrp_price;
-    if (ev.selling_price && !g.selling_price) g.selling_price = ev.selling_price;
-
-    // Device (from top-level column, fallback to metadata)
-    const meta = parseMetadata(ev.metadata);
-    const dt   = ev.device_type ?? meta.device_type ?? 'unknown';
-    if (dt === 'mobile' || dt === 'desktop' || dt === 'tablet') g.devices[dt]++;
-    else g.devices.unknown++;
-
-    // Traffic source (from top-level columns) - normalize for grouping
-    if (ev.source) {
-      const normalized = normalizeTrafficSource({ 
-        source: ev.source,
-        referrer: ev.referrer,
-        current_url: ev.current_url
-      });
-      g.sourceCounts.set(normalized, (g.sourceCounts.get(normalized) ?? 0) + 1);
-    }
-    if (ev.medium) g.mediumCounts.set(ev.medium, (g.mediumCounts.get(ev.medium) ?? 0) + 1);
-
-    // Browser (from top-level column)
-    if (ev.browser) g.browserCounts.set(ev.browser, (g.browserCounts.get(ev.browser) ?? 0) + 1);
-
-    // OS (from top-level column)
-    if (ev.operating_system) g.osCounts.set(ev.operating_system, (g.osCounts.get(ev.operating_system) ?? 0) + 1);
-
-    // Campaign (from top-level column)
-    if (ev.campaign) g.campaignCounts.set(ev.campaign, (g.campaignCounts.get(ev.campaign) ?? 0) + 1);
-
-    // Session quality metrics (from metadata)
-    if (meta.scroll_depth_at_event !== undefined) {
-      g.avgScrollDepth += meta.scroll_depth_at_event;
-    }
-    if (meta.time_on_page_seconds !== undefined) {
-      g.avgTimeOnPage += meta.time_on_page_seconds;
-    }
-    if (meta.connection_type) {
-      g.connectionTypeCounts.set(meta.connection_type, (g.connectionTypeCounts.get(meta.connection_type) ?? 0) + 1);
-    }
-    if (meta.color_scheme === 'dark') g.darkModeUsers++;
-    if (meta.color_scheme === 'light') g.lightModeUsers++;
-
-    // Count by type
-    switch (ev.event_type) {
-      case 'view_product':         g.views++;         break;
-      case 'size_selected':        g.sizeSelections++; break;
-      case 'add_to_cart':          g.addToCart++;      break;
-      case 'buy_now':              g.buyNow++;         break;
-      case 'out_of_stock_click':   g.outOfStock++;     break;
-      case 'wishlist':
-        if (meta.wishlist_action === 'add') g.wishlistAdds++;
-        if (meta.wishlist_action === 'remove') g.wishlistRemoves++;
-        break;
-    }
+function buildAnalyticsGroups(events: ProductEvent[], thumbnailCache: Map<string, string>): ProductAnalyticsGroup[] {
+  // ── Pass 1: bucket all events by product_id ──────────────────────────────
+  const buckets = new Map<string, ProductEvent[]>();
+  for (const ev of events) {
+    if (!buckets.has(ev.product_id)) buckets.set(ev.product_id, []);
+    buckets.get(ev.product_id)!.push(ev);
   }
 
-  // Second pass: build size breakdown maps per product
-  for (const g of map.values()) {
-    const selMap = new Map<string, number>();
+  const groups: ProductAnalyticsGroup[] = [];
+
+  for (const [productId, evList] of buckets.entries()) {
+    // Representative event (most recent) for product identity fields
+    const rep = evList[0];
+
+    // FIX 1 + FIX 2: resolve thumbnail from events or cached products table
+    const thumbnail = resolveThumbnail(evList, thumbnailCache);
+
+    // Resolve mrp / selling price — use first non-null value across all events
+    const mrp_price    = evList.find(e => e.mrp_price)?.mrp_price;
+    const selling_price = evList.find(e => e.selling_price)?.selling_price;
+
+    const g: ProductAnalyticsGroup = {
+      product_id:    productId,
+      article_id:    rep.article_id,
+      product_name:  rep.product_name,
+      category:      rep.category,
+      sub_category:  rep.sub_category,
+      gender:        rep.gender,
+      thumbnail_url: thumbnail,
+      mrp_price,
+      selling_price,
+      views: 0, sizeSelections: 0, addToCart: 0, buyNow: 0, outOfStock: 0,
+      wishlistAdds: 0, wishlistRemoves: 0,
+      conversionRate: 0, cartRate: 0,
+      sizeSelectionCounts: [], addToCartBySizes: [], buyNowBySizes: [], outOfStockBySizes: [],
+      mostSelectedSize: undefined, leastSelectedSize: undefined, uniqueSizesCount: 0,
+      devices: { mobile: 0, desktop: 0, tablet: 0, unknown: 0 },
+      sourceCounts: new Map(), mediumCounts: new Map(),
+      browserCounts: new Map(), osCounts: new Map(), campaignCounts: new Map(),
+      avgScrollDepth: 0, avgTimeOnPage: 0, connectionTypeCounts: new Map(),
+      darkModeUsers: 0, lightModeUsers: 0,
+      lastInteraction: rep.event_timestamp,
+      allEvents: evList,
+    };
+
+    // ── Pass 2: accumulate stats ─────────────────────────────────────────────
+    const selMap  = new Map<string, number>();
     const cartMap = new Map<string, number>();
     const buyMap  = new Map<string, number>();
     const oosMap  = new Map<string, number>();
 
-    for (const ev of g.allEvents) {
-      if (!ev.selected_size) continue;
+    for (const ev of evList) {
+      if (ev.event_timestamp > g.lastInteraction) g.lastInteraction = ev.event_timestamp;
+
+      const meta = parseMetadata(ev.metadata);
+      const dt   = ev.device_type ?? meta.device_type ?? 'unknown';
+      if (dt === 'mobile' || dt === 'desktop' || dt === 'tablet') g.devices[dt]++;
+      else g.devices.unknown++;
+
+      if (ev.source) {
+        const normalized = normalizeTrafficSource({
+          source: ev.source, referrer: ev.referrer, current_url: ev.current_url,
+        });
+        g.sourceCounts.set(normalized, (g.sourceCounts.get(normalized) ?? 0) + 1);
+      }
+      if (ev.medium)            g.mediumCounts.set(ev.medium,            (g.mediumCounts.get(ev.medium)            ?? 0) + 1);
+      if (ev.browser)           g.browserCounts.set(ev.browser,          (g.browserCounts.get(ev.browser)          ?? 0) + 1);
+      if (ev.operating_system)  g.osCounts.set(ev.operating_system,      (g.osCounts.get(ev.operating_system)      ?? 0) + 1);
+      if (ev.campaign)          g.campaignCounts.set(ev.campaign,         (g.campaignCounts.get(ev.campaign)        ?? 0) + 1);
+
+      if (meta.scroll_depth_at_event !== undefined) g.avgScrollDepth += meta.scroll_depth_at_event;
+      if (meta.time_on_page_seconds  !== undefined) g.avgTimeOnPage  += meta.time_on_page_seconds;
+      if (meta.connection_type) {
+        g.connectionTypeCounts.set(meta.connection_type, (g.connectionTypeCounts.get(meta.connection_type) ?? 0) + 1);
+      }
+      if (meta.color_scheme === 'dark')  g.darkModeUsers++;
+      if (meta.color_scheme === 'light') g.lightModeUsers++;
+
       switch (ev.event_type) {
-        case 'size_selected':       selMap.set(ev.selected_size,  (selMap.get(ev.selected_size)  ?? 0) + 1); break;
-        case 'add_to_cart':        cartMap.set(ev.selected_size, (cartMap.get(ev.selected_size) ?? 0) + 1); break;
-        case 'buy_now':             buyMap.set(ev.selected_size,  (buyMap.get(ev.selected_size)  ?? 0) + 1); break;
-        case 'out_of_stock_click':  oosMap.set(ev.selected_size,  (oosMap.get(ev.selected_size)  ?? 0) + 1); break;
+        case 'view_product':         g.views++;          break;
+        case 'size_selected':        g.sizeSelections++; break;
+        case 'add_to_cart':          g.addToCart++;      break;
+        case 'buy_now':              g.buyNow++;         break;
+        case 'out_of_stock_click':   g.outOfStock++;     break;
+        case 'wishlist':
+          if (meta.wishlist_action === 'add')    g.wishlistAdds++;
+          if (meta.wishlist_action === 'remove') g.wishlistRemoves++;
+          break;
+      }
+
+      // Size maps
+      if (ev.selected_size) {
+        switch (ev.event_type) {
+          case 'size_selected':       selMap.set(ev.selected_size,  (selMap.get(ev.selected_size)  ?? 0) + 1); break;
+          case 'add_to_cart':        cartMap.set(ev.selected_size, (cartMap.get(ev.selected_size) ?? 0) + 1); break;
+          case 'buy_now':             buyMap.set(ev.selected_size,  (buyMap.get(ev.selected_size)  ?? 0) + 1); break;
+          case 'out_of_stock_click':  oosMap.set(ev.selected_size,  (oosMap.get(ev.selected_size)  ?? 0) + 1); break;
+        }
       }
     }
 
@@ -276,23 +282,36 @@ function buildAnalyticsGroups(events: ProductEvent[]): ProductAnalyticsGroup[] {
       g.uniqueSizesCount  = g.sizeSelectionCounts.length;
     }
 
-    // Conversion metrics
-    g.conversionRate = g.views > 0 ? parseFloat(((g.buyNow  / g.views) * 100).toFixed(1)) : 0;
+    g.conversionRate = g.views > 0 ? parseFloat(((g.buyNow   / g.views) * 100).toFixed(1)) : 0;
     g.cartRate       = g.views > 0 ? parseFloat(((g.addToCart / g.views) * 100).toFixed(1)) : 0;
 
-    // Calculate average session quality metrics
-    const totalEvents = g.allEvents.length;
+    const totalEvents = evList.length;
     if (totalEvents > 0) {
       g.avgScrollDepth = Math.round(g.avgScrollDepth / totalEvents);
-      g.avgTimeOnPage = Math.round(g.avgTimeOnPage / totalEvents);
+      g.avgTimeOnPage  = Math.round(g.avgTimeOnPage  / totalEvents);
     }
+
+    groups.push(g);
   }
 
-  // Sort by total engagement descending
-  return Array.from(map.values()).sort((a, b) =>
-    (b.views + b.sizeSelections + b.addToCart + b.buyNow + b.outOfStock + b.wishlistAdds + b.wishlistRemoves) -
-    (a.views + a.sizeSelections + a.addToCart + a.buyNow + a.outOfStock + a.wishlistAdds + a.wishlistRemoves)
-  );
+  return groups;
+}
+
+// ─── Sorting ──────────────────────────────────────────────────────────────────
+
+function sortGroups(groups: ProductAnalyticsGroup[], sortBy: SortOption): ProductAnalyticsGroup[] {
+  const copy = [...groups];
+  if (sortBy === 'last_updated') {
+    // Sort by most recent event timestamp descending
+    copy.sort((a, b) => new Date(b.lastInteraction).getTime() - new Date(a.lastInteraction).getTime());
+  } else {
+    // Default: sort by total engagement descending
+    copy.sort((a, b) =>
+      (b.views + b.sizeSelections + b.addToCart + b.buyNow + b.outOfStock + b.wishlistAdds + b.wishlistRemoves) -
+      (a.views + a.sizeSelections + a.addToCart + a.buyNow + a.outOfStock + a.wishlistAdds + a.wishlistRemoves)
+    );
+  }
+  return copy;
 }
 
 // ─── Small pure UI helpers ────────────────────────────────────────────────────
@@ -308,57 +327,22 @@ const GoogleIcon: React.FC<{ className?: string }> = ({ className = "w-3 h-3" })
 
 function getSourceIcon(source: string | undefined) {
   if (!source) return null;
-
   const canonical = getCanonicalSourceName(source);
-  const canonicalLower = canonical.toLowerCase();
-
-  // Social media icons from FontAwesome - use exact matching for canonical names
-  if (canonicalLower === 'facebook' || canonicalLower === 'fb') {
-    return <FontAwesomeIcon icon={["fab", "facebook"]} className="w-3 h-3" style={{ color: "#1877F2" }} />;
-  }
-  if (canonicalLower === 'instagram') {
-    return <FontAwesomeIcon icon={["fab", "instagram"]} className="w-3 h-3" style={{ color: "#E1306C" }} />;
-  }
-  if (canonicalLower === 'whatsapp' || canonicalLower === 'wa') {
-    return <FontAwesomeIcon icon={["fab", "whatsapp"]} className="w-3 h-3" style={{ color: "#25D366" }} />;
-  }
-  if (canonicalLower === 'twitter' || canonicalLower === 'x.com' || canonicalLower === 'x') {
-    return <FontAwesomeIcon icon={["fab", "x-twitter"]} className="w-3 h-3" style={{ color: "#000000" }} />;
-  }
-  if (canonicalLower === 'linkedin') {
-    return <FontAwesomeIcon icon={["fab", "linkedin"]} className="w-3 h-3" style={{ color: "#0077B5" }} />;
-  }
-  if (canonicalLower === 'pinterest') {
-    return <FontAwesomeIcon icon={["fab", "pinterest"]} className="w-3 h-3" style={{ color: "#E60023" }} />;
-  }
-  if (canonicalLower === 'youtube') {
-    return <FontAwesomeIcon icon={["fab", "youtube"]} className="w-3 h-3" style={{ color: "#FF0000" }} />;
-  }
-  if (canonicalLower === 'telegram') {
-    return <FontAwesomeIcon icon={["fab", "telegram"]} className="w-3 h-3" style={{ color: "#0088CC" }} />;
-  }
-  if (canonicalLower === 'snapchat') {
-    return <FontAwesomeIcon icon={["fab", "snapchat"]} className="w-3 h-3" style={{ color: "#FFFC00" }} />;
-  }
-  if (canonicalLower === 'reddit') {
-    return <FontAwesomeIcon icon={["fab", "reddit"]} className="w-3 h-3" style={{ color: "#FF4500" }} />;
-  }
-  if (canonicalLower === 'tiktok') {
-    return <FontAwesomeIcon icon={["fab", "tiktok"]} className="w-3 h-3" style={{ color: "#000000" }} />;
-  }
-
-  // Generic icons for other sources
-  if (canonicalLower === 'google') {
-    return <GoogleIcon className="w-3 h-3" />;
-  }
-  if (canonicalLower === 'mobile app' || canonicalLower === 'mobile_app') {
-    return <Smartphone className="w-3 h-3 text-gray-600 dark:text-gray-300" />;
-  }
-  if (canonicalLower === 'direct') {
-    return <Globe className="w-3 h-3 text-gray-600 dark:text-gray-300" />;
-  }
-
-  // Default icon for unknown sources
+  const c = canonical.toLowerCase();
+  if (c === 'facebook' || c === 'fb')                return <FontAwesomeIcon icon={["fab", "facebook"]}  className="w-3 h-3" style={{ color: "#1877F2" }} />;
+  if (c === 'instagram')                             return <FontAwesomeIcon icon={["fab", "instagram"]} className="w-3 h-3" style={{ color: "#E1306C" }} />;
+  if (c === 'whatsapp' || c === 'wa')                return <FontAwesomeIcon icon={["fab", "whatsapp"]}  className="w-3 h-3" style={{ color: "#25D366" }} />;
+  if (c === 'twitter' || c === 'x.com' || c === 'x') return <FontAwesomeIcon icon={["fab", "x-twitter"]} className="w-3 h-3" style={{ color: "#000000" }} />;
+  if (c === 'linkedin')                              return <FontAwesomeIcon icon={["fab", "linkedin"]}  className="w-3 h-3" style={{ color: "#0077B5" }} />;
+  if (c === 'pinterest')                             return <FontAwesomeIcon icon={["fab", "pinterest"]} className="w-3 h-3" style={{ color: "#E60023" }} />;
+  if (c === 'youtube')                               return <FontAwesomeIcon icon={["fab", "youtube"]}   className="w-3 h-3" style={{ color: "#FF0000" }} />;
+  if (c === 'telegram')                              return <FontAwesomeIcon icon={["fab", "telegram"]}  className="w-3 h-3" style={{ color: "#0088CC" }} />;
+  if (c === 'snapchat')                              return <FontAwesomeIcon icon={["fab", "snapchat"]}  className="w-3 h-3" style={{ color: "#FFFC00" }} />;
+  if (c === 'reddit')                                return <FontAwesomeIcon icon={["fab", "reddit"]}    className="w-3 h-3" style={{ color: "#FF4500" }} />;
+  if (c === 'tiktok')                                return <FontAwesomeIcon icon={["fab", "tiktok"]}    className="w-3 h-3" style={{ color: "#000000" }} />;
+  if (c === 'google')                                return <GoogleIcon className="w-3 h-3" />;
+  if (c === 'mobile app' || c === 'mobile_app')      return <Smartphone className="w-3 h-3 text-gray-600 dark:text-gray-300" />;
+  if (c === 'direct')                                return <Globe className="w-3 h-3 text-gray-600 dark:text-gray-300" />;
   return <Globe className="w-3 h-3 text-gray-600 dark:text-gray-300" />;
 }
 
@@ -375,13 +359,12 @@ function DeviceBar({ d }: { d: DeviceBreakdown }) {
   return (
     <div className="flex items-center gap-2 flex-wrap">
       {d.mobile  > 0 && <span className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400"><Smartphone className="w-3 h-3"/>{pct(d.mobile)}%</span>}
-      {d.desktop > 0 && <span className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400"><Monitor  className="w-3 h-3"/>{pct(d.desktop)}%</span>}
-      {d.tablet  > 0 && <span className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400"><Tablet   className="w-3 h-3"/>{pct(d.tablet)}%</span>}
+      {d.desktop > 0 && <span className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400"><Monitor   className="w-3 h-3"/>{pct(d.desktop)}%</span>}
+      {d.tablet  > 0 && <span className="flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400"><Tablet    className="w-3 h-3"/>{pct(d.tablet)}%</span>}
     </div>
   );
 }
 
-// Horizontal bar chip for size analytics
 function SizeBar({ sc, max, color }: { sc: SizeCount; max: number; color: string }) {
   const pct = max > 0 ? Math.round((sc.count / max) * 100) : 0;
   return (
@@ -402,20 +385,14 @@ function SizeGrid({ items, color, label }: { items: SizeCount[]; color: string; 
     <div>
       <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500 mb-1.5">{label}</p>
       <div className="space-y-1.5">
-        {items.slice(0, 6).map(sc => (
-          <SizeBar key={sc.size} sc={sc} max={max} color={color} />
-        ))}
-        {items.length > 6 && (
-          <p className="text-[10px] text-gray-400 pl-9">+{items.length - 6} more</p>
-        )}
+        {items.slice(0, 6).map(sc => <SizeBar key={sc.size} sc={sc} max={max} color={color} />)}
+        {items.length > 6 && <p className="text-[10px] text-gray-400 pl-9">+{items.length - 6} more</p>}
       </div>
     </div>
   );
 }
 
-function StatPill({
-  icon, label, value, sub, bg, text,
-}: {
+function StatPill({ icon, label, value, sub, bg, text }: {
   icon: React.ReactNode; label: string; value: number | string; sub?: string;
   bg: string; text: string;
 }) {
@@ -435,24 +412,35 @@ function StatPill({
 
 function ProductCard({ g }: { g: ProductAnalyticsGroup }) {
   const [open, setOpen] = useState(false);
+  const [imgError, setImgError] = useState(false);
 
   const totalEngagement = g.views + g.sizeSelections + g.addToCart + g.buyNow + g.outOfStock + g.wishlistAdds + g.wishlistRemoves;
-  const dominantDevice  = (['mobile','desktop','tablet','unknown'] as const).reduce(
-    (best, k) => g.devices[k] > g.devices[best] ? k : best,
-    'unknown' as keyof DeviceBreakdown,
-  );
+
+  // Reset img error state if thumbnail changes (e.g. filter change re-renders card)
+  useEffect(() => { setImgError(false); }, [g.thumbnail_url]);
+
+  const showImage = g.thumbnail_url && !imgError;
 
   return (
     <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-200">
 
-      {/* ── Card header ───────────────────────────────────────────────────── */}
+      {/* ── Card header ─────────────────────────────────────────────────────── */}
       <div className="flex items-start gap-4 p-4">
-        {/* Thumbnail */}
+
+        {/* Thumbnail — FIX 1: always attempts to show image from any event */}
         <div className="w-14 h-14 shrink-0 rounded-xl bg-gray-100 dark:bg-gray-700 overflow-hidden border border-gray-200 dark:border-gray-600">
-          {g.thumbnail_url
-            ? <img src={g.thumbnail_url} alt={g.product_name} className="w-full h-full object-cover" />
-            : <div className="w-full h-full flex items-center justify-center"><Package className="w-5 h-5 text-gray-400"/></div>
-          }
+          {showImage ? (
+            <img
+              src={g.thumbnail_url}
+              alt={g.product_name}
+              className="w-full h-full object-cover"
+              onError={() => setImgError(true)}
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <Package className="w-5 h-5 text-gray-400"/>
+            </div>
+          )}
         </div>
 
         {/* Product info */}
@@ -490,19 +478,19 @@ function ProductCard({ g }: { g: ProductAnalyticsGroup }) {
         </div>
       </div>
 
-      {/* ── Stats row ─────────────────────────────────────────────────────── */}
+      {/* ── Stats row ───────────────────────────────────────────────────────── */}
       <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 px-4 pb-3">
-        <StatPill icon={<Eye className="w-3.5 h-3.5 text-blue-500"/>}   label="Views"      value={g.views}         bg="bg-blue-50 dark:bg-blue-900/20"   text="text-blue-600 dark:text-blue-400"/>
-        <StatPill icon={<Ruler className="w-3.5 h-3.5 text-violet-500"/>} label="Sizes"    value={g.sizeSelections} bg="bg-violet-50 dark:bg-violet-900/20" text="text-violet-600 dark:text-violet-400"/>
-        <StatPill icon={<ShoppingCart className="w-3.5 h-3.5 text-emerald-500"/>} label="Cart" value={g.addToCart}  bg="bg-emerald-50 dark:bg-emerald-900/20" text="text-emerald-600 dark:text-emerald-400" sub={g.cartRate > 0 ? `${g.cartRate}% rate` : undefined}/>
-        <StatPill icon={<Zap className="w-3.5 h-3.5 text-amber-500"/>}  label="Buy Now"    value={g.buyNow}        bg="bg-amber-50 dark:bg-amber-900/20"    text="text-amber-600 dark:text-amber-400"   sub={g.conversionRate > 0 ? `${g.conversionRate}% cvr` : undefined}/>
-        <StatPill icon={<AlertCircle className="w-3.5 h-3.5 text-rose-500"/>} label="OOS"  value={g.outOfStock}    bg="bg-rose-50 dark:bg-rose-900/20"     text="text-rose-600 dark:text-rose-400"/>
+        <StatPill icon={<Eye           className="w-3.5 h-3.5 text-blue-500"/>}     label="Views"    value={g.views}          bg="bg-blue-50 dark:bg-blue-900/20"       text="text-blue-600 dark:text-blue-400"/>
+        <StatPill icon={<Ruler         className="w-3.5 h-3.5 text-violet-500"/>}   label="Sizes"    value={g.sizeSelections} bg="bg-violet-50 dark:bg-violet-900/20"   text="text-violet-600 dark:text-violet-400"/>
+        <StatPill icon={<ShoppingCart  className="w-3.5 h-3.5 text-emerald-500"/>}  label="Cart"     value={g.addToCart}      bg="bg-emerald-50 dark:bg-emerald-900/20" text="text-emerald-600 dark:text-emerald-400" sub={g.cartRate > 0 ? `${g.cartRate}% rate` : undefined}/>
+        <StatPill icon={<Zap           className="w-3.5 h-3.5 text-amber-500"/>}    label="Buy Now"  value={g.buyNow}         bg="bg-amber-50 dark:bg-amber-900/20"     text="text-amber-600 dark:text-amber-400"   sub={g.conversionRate > 0 ? `${g.conversionRate}% cvr` : undefined}/>
+        <StatPill icon={<AlertCircle   className="w-3.5 h-3.5 text-rose-500"/>}     label="OOS"      value={g.outOfStock}     bg="bg-rose-50 dark:bg-rose-900/20"       text="text-rose-600 dark:text-rose-400"/>
         {(g.wishlistAdds > 0 || g.wishlistRemoves > 0) && (
           <StatPill icon={<Package className="w-3.5 h-3.5 text-pink-500"/>} label="Wish" value={g.wishlistAdds} bg="bg-pink-50 dark:bg-pink-900/20" text="text-pink-600 dark:text-pink-400" sub={g.wishlistRemoves > 0 ? `${g.wishlistRemoves} rem` : undefined}/>
         )}
       </div>
 
-      {/* ── Size insight strip (always visible when there's size data) ───── */}
+      {/* ── Size insight strip ───────────────────────────────────────────────── */}
       {g.sizeSelectionCounts.length > 0 && (
         <div className="mx-4 mb-3 px-3 py-2.5 bg-gray-50 dark:bg-gray-700/50 rounded-xl border border-gray-100 dark:border-gray-700">
           <div className="flex flex-wrap items-center gap-2 mb-2">
@@ -513,18 +501,16 @@ function ProductCard({ g }: { g: ProductAnalyticsGroup }) {
               <span className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 text-[10px] rounded-md">Low: {g.leastSelectedSize}</span>
             )}
           </div>
-          {/* Size chips */}
           <div className="flex flex-wrap gap-1.5">
-            {g.sizeSelectionCounts.map((sc, i) => {
+            {g.sizeSelectionCounts.map(sc => {
               const max  = g.sizeSelectionCounts[0].count;
-              const heat = sc.count / max; // 0-1
+              const heat = sc.count / max;
               const bg   = heat > 0.7 ? 'bg-violet-600 text-white'
                          : heat > 0.4 ? 'bg-violet-200 dark:bg-violet-800 text-violet-800 dark:text-violet-200'
                          :              'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400';
               return (
                 <span key={sc.size} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-xs font-semibold ${bg}`}>
-                  {sc.size}
-                  <span className="opacity-70">{sc.count}</span>
+                  {sc.size}<span className="opacity-70">{sc.count}</span>
                 </span>
               );
             })}
@@ -532,11 +518,11 @@ function ProductCard({ g }: { g: ProductAnalyticsGroup }) {
         </div>
       )}
 
-      {/* ── Expanded detail panel ─────────────────────────────────────────── */}
+      {/* ── Expanded detail panel ────────────────────────────────────────────── */}
       {open && (
         <div className="border-t border-gray-100 dark:border-gray-700 px-4 pt-4 pb-5 space-y-5">
 
-          {/* Conversion metrics row */}
+          {/* Conversion metrics */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="text-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
               <p className="text-lg font-bold text-gray-800 dark:text-gray-200">{totalEngagement}</p>
@@ -556,7 +542,7 @@ function ProductCard({ g }: { g: ProductAnalyticsGroup }) {
             </div>
           </div>
 
-          {/* Size analytics — 4 event types */}
+          {/* Size analytics */}
           {(g.sizeSelectionCounts.length + g.addToCartBySizes.length + g.buyNowBySizes.length + g.outOfStockBySizes.length) > 0 && (
             <div>
               <div className="flex items-center gap-2 mb-3">
@@ -564,7 +550,7 @@ function ProductCard({ g }: { g: ProductAnalyticsGroup }) {
                 <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">Size Analytics</h4>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <SizeGrid items={g.sizeSelectionCounts} color="bg-violet-500" label="Size Selected"/>
+                <SizeGrid items={g.sizeSelectionCounts} color="bg-violet-500"  label="Size Selected"/>
                 <SizeGrid items={g.addToCartBySizes}    color="bg-emerald-500" label="Add to Cart"/>
                 <SizeGrid items={g.buyNowBySizes}       color="bg-amber-500"   label="Buy Now"/>
                 <SizeGrid items={g.outOfStockBySizes}   color="bg-rose-500"    label="Out of Stock"/>
@@ -581,11 +567,10 @@ function ProductCard({ g }: { g: ProductAnalyticsGroup }) {
               </div>
               <div className="space-y-2">
                 {Array.from(g.sourceCounts.entries())
-                  .sort((a, b) => b[1] - a[1])
-                  .slice(0, 5)
+                  .sort((a, b) => b[1] - a[1]).slice(0, 5)
                   .map(([source, count]) => {
-                    const total = Array.from(g.sourceCounts.values()).reduce((sum, c) => sum + c, 0);
-                    const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+                    const total = Array.from(g.sourceCounts.values()).reduce((s, c) => s + c, 0);
+                    const pct   = total > 0 ? Math.round((count / total) * 100) : 0;
                     return (
                       <div key={source} className="flex items-center gap-2">
                         <span className="text-xs font-medium text-gray-700 dark:text-gray-300 w-24 truncate">{source}</span>
@@ -612,18 +597,11 @@ function ProductCard({ g }: { g: ProductAnalyticsGroup }) {
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">Top Browsers</p>
                     <div className="flex flex-wrap gap-1.5">
-                      {Array.from(g.browserCounts.entries())
-                        .sort((a, b) => b[1] - a[1])
-                        .slice(0, 4)
-                        .map(([browser, count]) => {
-                          const total = Array.from(g.browserCounts.values()).reduce((sum, c) => sum + c, 0);
-                          const pct = total > 0 ? Math.round((count / total) * 100) : 0;
-                          return (
-                            <span key={browser} className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs rounded-md">
-                              {browser} {pct}%
-                            </span>
-                          );
-                        })}
+                      {Array.from(g.browserCounts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([browser, count]) => {
+                        const total = Array.from(g.browserCounts.values()).reduce((s, c) => s + c, 0);
+                        const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+                        return <span key={browser} className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs rounded-md">{browser} {pct}%</span>;
+                      })}
                     </div>
                   </div>
                 )}
@@ -631,18 +609,11 @@ function ProductCard({ g }: { g: ProductAnalyticsGroup }) {
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">Operating Systems</p>
                     <div className="flex flex-wrap gap-1.5">
-                      {Array.from(g.osCounts.entries())
-                        .sort((a, b) => b[1] - a[1])
-                        .slice(0, 4)
-                        .map(([os, count]) => {
-                          const total = Array.from(g.osCounts.values()).reduce((sum, c) => sum + c, 0);
-                          const pct = total > 0 ? Math.round((count / total) * 100) : 0;
-                          return (
-                            <span key={os} className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs rounded-md">
-                              {os} {pct}%
-                            </span>
-                          );
-                        })}
+                      {Array.from(g.osCounts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([os, count]) => {
+                        const total = Array.from(g.osCounts.values()).reduce((s, c) => s + c, 0);
+                        const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+                        return <span key={os} className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs rounded-md">{os} {pct}%</span>;
+                      })}
                     </div>
                   </div>
                 )}
@@ -671,13 +642,11 @@ function ProductCard({ g }: { g: ProductAnalyticsGroup }) {
                 <h4 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">Campaigns</h4>
               </div>
               <div className="flex flex-wrap gap-1.5">
-                {Array.from(g.campaignCounts.entries())
-                  .sort((a, b) => b[1] - a[1])
-                  .map(([campaign, count]) => (
-                    <span key={campaign} className="px-2 py-0.5 bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 text-xs rounded-md">
-                      {campaign}: {count}
-                    </span>
-                  ))}
+                {Array.from(g.campaignCounts.entries()).sort((a, b) => b[1] - a[1]).map(([campaign, count]) => (
+                  <span key={campaign} className="px-2 py-0.5 bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 text-xs rounded-md">
+                    {campaign}: {count}
+                  </span>
+                ))}
               </div>
             </div>
           )}
@@ -705,24 +674,17 @@ function ProductCard({ g }: { g: ProductAnalyticsGroup }) {
                 {g.connectionTypeCounts.size > 0 && (
                   <div className="text-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
                     <p className="text-sm font-bold text-gray-800 dark:text-gray-200">
-                      {Array.from(g.connectionTypeCounts.entries())
-                        .sort((a, b) => b[1] - a[1])
-                        .slice(0, 2)
-                        .map(([type, count]) => {
-                          const total = Array.from(g.connectionTypeCounts.values()).reduce((sum, c) => sum + c, 0);
-                          const pct = total > 0 ? Math.round((count / total) * 100) : 0;
-                          return `${type.toUpperCase()} ${pct}%`;
-                        })
-                        .join(' · ')}
+                      {Array.from(g.connectionTypeCounts.entries()).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([type, count]) => {
+                        const total = Array.from(g.connectionTypeCounts.values()).reduce((s, c) => s + c, 0);
+                        return `${type.toUpperCase()} ${total > 0 ? Math.round((count / total) * 100) : 0}%`;
+                      }).join(' · ')}
                     </p>
                     <p className="text-[10px] text-gray-400 uppercase tracking-wider">Connection</p>
                   </div>
                 )}
                 {(g.darkModeUsers > 0 || g.lightModeUsers > 0) && (
                   <div className="text-center p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl">
-                    <p className="text-sm font-bold text-gray-800 dark:text-gray-200">
-                      Dark: {g.darkModeUsers} · Light: {g.lightModeUsers}
-                    </p>
+                    <p className="text-sm font-bold text-gray-800 dark:text-gray-200">Dark: {g.darkModeUsers} · Light: {g.lightModeUsers}</p>
                     <p className="text-[10px] text-gray-400 uppercase tracking-wider">Color Mode</p>
                   </div>
                 )}
@@ -734,21 +696,18 @@ function ProductCard({ g }: { g: ProductAnalyticsGroup }) {
           <div>
             <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Recent Events</h4>
             <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
-              {g.allEvents.slice(0, 20).map(ev => {
-                const meta = parseMetadata(ev.metadata);
-                return (
-                  <div key={ev.event_id} className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/40 rounded-lg px-2.5 py-1.5">
-                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold shrink-0 ${EVENT_BADGE[ev.event_type]}`}>
-                      {EVENT_SHORT[ev.event_type]}
-                    </span>
-                    {ev.selected_size && <span className="font-mono font-bold text-gray-700 dark:text-gray-300">sz {ev.selected_size}</span>}
-                    <span className="flex-1 truncate">{ev.user_id ? <><User className="w-3 h-3 inline mr-0.5"/>{ev.user_id.slice(0,8)}</> : 'Guest'}</span>
-                    {ev.device_type === 'mobile' ? <Smartphone className="w-3 h-3 shrink-0"/> : ev.device_type === 'tablet' ? <Tablet className="w-3 h-3 shrink-0"/> : <Monitor className="w-3 h-3 shrink-0"/>}
-                    {getSourceIcon(ev.source)}
-                    <span className="shrink-0 whitespace-nowrap">{fmtTime(ev.event_timestamp)}</span>
-                  </div>
-                );
-              })}
+              {g.allEvents.slice(0, 20).map(ev => (
+                <div key={ev.event_id} className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/40 rounded-lg px-2.5 py-1.5">
+                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold shrink-0 ${EVENT_BADGE[ev.event_type]}`}>
+                    {EVENT_SHORT[ev.event_type]}
+                  </span>
+                  {ev.selected_size && <span className="font-mono font-bold text-gray-700 dark:text-gray-300">sz {ev.selected_size}</span>}
+                  <span className="flex-1 truncate">{ev.user_id ? <><User className="w-3 h-3 inline mr-0.5"/>{ev.user_id.slice(0,8)}</> : 'Guest'}</span>
+                  {ev.device_type === 'mobile' ? <Smartphone className="w-3 h-3 shrink-0"/> : ev.device_type === 'tablet' ? <Tablet className="w-3 h-3 shrink-0"/> : <Monitor className="w-3 h-3 shrink-0"/>}
+                  {getSourceIcon(ev.source)}
+                  <span className="shrink-0 whitespace-nowrap">{fmtTime(ev.event_timestamp)}</span>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -763,7 +722,7 @@ const EVENT_BADGE: Record<string, string> = {
   add_to_cart:        'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
   buy_now:            'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
   out_of_stock_click: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300',
-  wishlist:          'bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300',
+  wishlist:           'bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300',
 };
 
 const EVENT_SHORT: Record<string, string> = {
@@ -772,17 +731,19 @@ const EVENT_SHORT: Record<string, string> = {
   add_to_cart:        'CART',
   buy_now:            'BUY',
   out_of_stock_click: 'OOS',
-  wishlist:          'WISH',
+  wishlist:           'WISH',
 };
 
 // ─── Main widget ──────────────────────────────────────────────────────────────
 
 const ProductEventsWidget: React.FC = () => {
-  const [events,           setEvents]          = useState<ProductEvent[]>([]);
-  const [loading,          setLoading]         = useState(true);
-  const [error,            setError]           = useState<string | null>(null);
-  const [filter,           setFilter]          = useState<'all' | ProductEvent['event_type']>('all');
-  const [isTableCollapsed, setIsTableCollapsed]= useState(true);
+  const [events,           setEvents]           = useState<ProductEvent[]>([]);
+  const [loading,          setLoading]          = useState(true);
+  const [error,            setError]            = useState<string | null>(null);
+  const [filter,           setFilter]           = useState<'all' | ProductEvent['event_type']>('all');
+  const [sortBy,           setSortBy]           = useState<SortOption>('engagement');
+  const [isTableCollapsed, setIsTableCollapsed] = useState(true);
+  const [thumbnailCache,   setThumbnailCache]   = useState<Map<string, string>>(new Map());
 
   useEffect(() => { fetchEvents(); }, []);
 
@@ -794,9 +755,12 @@ const ProductEventsWidget: React.FC = () => {
         .from('product_user_events')
         .select('*')
         .order('event_timestamp', { ascending: false })
-        .limit(500); // increased limit for richer analytics
+        .limit(500);
       if (error) throw error;
       setEvents(data || []);
+
+      // Fetch missing thumbnails from products table
+      await fetchMissingThumbnails(data || []);
     } catch (err) {
       console.error('Error fetching product events:', err);
       setError('Failed to load events');
@@ -805,7 +769,39 @@ const ProductEventsWidget: React.FC = () => {
     }
   };
 
-  // ── Derived counts ─────────────────────────────────────────────────────────
+  const fetchMissingThumbnails = async (events: ProductEvent[]) => {
+    // Collect product_ids that don't have thumbnails in any event
+    const productIds = Array.from(new Set(events.map(e => e.product_id)));
+    const missingProductIds = productIds.filter(productId => {
+      const productEvents = events.filter(e => e.product_id === productId);
+      return !productEvents.some(e => e.thumbnail_url);
+    });
+
+    if (missingProductIds.length === 0) return;
+
+    try {
+      // Batch query products table for missing thumbnails
+      const { data: products, error } = await supabase
+        .from('products')
+        .select('product_id, thumbnail_url')
+        .in('product_id', missingProductIds);
+
+      if (error) throw error;
+
+      // Update cache with fetched thumbnails
+      const newCache = new Map(thumbnailCache);
+      products?.forEach(p => {
+        if (p.thumbnail_url) {
+          newCache.set(p.product_id, p.thumbnail_url);
+        }
+      });
+      setThumbnailCache(newCache);
+    } catch (err) {
+      console.error('Error fetching product thumbnails:', err);
+      // Don't fail the widget if thumbnail fetch fails
+    }
+  };
+
   const eventCounts = useMemo(() => ({
     all:               events.length,
     view_product:      events.filter(e => e.event_type === 'view_product').length,
@@ -815,26 +811,29 @@ const ProductEventsWidget: React.FC = () => {
     out_of_stock_click:events.filter(e => e.event_type === 'out_of_stock_click').length,
   }), [events]);
 
-  // ── Filtered + grouped ─────────────────────────────────────────────────────
   const filteredEvents = useMemo(
     () => filter === 'all' ? events : events.filter(e => e.event_type === filter),
     [events, filter],
   );
 
+  /**
+   * FIX 1 + FIX 2:
+   * buildAnalyticsGroups now buckets ALL events per product first (so thumbnail
+   * is resolved across all events regardless of type), then sortGroups applies
+   * the chosen sort order on top. thumbnailCache provides fallback thumbnails
+   * from the products table when events don't have them.
+   */
   const analyticsGroups = useMemo(
-    () => buildAnalyticsGroups(filteredEvents),
-    [filteredEvents],
+    () => sortGroups(buildAnalyticsGroups(filteredEvents, thumbnailCache), sortBy),
+    [filteredEvents, sortBy, thumbnailCache],
   );
 
-  // ── Loading ────────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow p-6">
         <div className="animate-pulse space-y-4">
           <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded w-1/3"/>
-          {[1,2,3].map(i => (
-            <div key={i} className="h-28 bg-gray-100 dark:bg-gray-700 rounded-2xl"/>
-          ))}
+          {[1,2,3].map(i => <div key={i} className="h-28 bg-gray-100 dark:bg-gray-700 rounded-2xl"/>)}
         </div>
       </div>
     );
@@ -855,7 +854,7 @@ const ProductEventsWidget: React.FC = () => {
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
 
-      {/* ── Header ──────────────────────────────────────────────────────────── */}
+      {/* ── Header ────────────────────────────────────────────────────────────── */}
       <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-700 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
           <h2 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
@@ -864,7 +863,9 @@ const ProductEventsWidget: React.FC = () => {
           </h2>
           <p className="text-xs text-gray-400 mt-0.5">{analyticsGroups.length} products · {eventCounts.all} events</p>
         </div>
-        <div className="flex items-center gap-2">
+
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Show / Hide toggle */}
           <button
             onClick={() => setIsTableCollapsed(v => !v)}
             className="flex items-center gap-1.5 px-3 py-1.5 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
@@ -872,9 +873,27 @@ const ProductEventsWidget: React.FC = () => {
             {isTableCollapsed ? <ChevronDown className="w-3.5 h-3.5"/> : <ChevronUp className="w-3.5 h-3.5"/>}
             {isTableCollapsed ? 'Show' : 'Hide'}
           </button>
+
+          {/* Refresh */}
           <button onClick={fetchEvents} className="p-1.5 rounded-lg border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors">
             <RefreshCw className="w-3.5 h-3.5"/>
           </button>
+
+          {/* FIX 2 — Sort dropdown */}
+          <div className="flex items-center gap-1.5">
+            <ArrowUpDown className="w-3.5 h-3.5 text-gray-400"/>
+            <select
+              value={sortBy}
+              onChange={e => setSortBy(e.target.value as SortOption)}
+              className="px-2.5 py-1.5 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              aria-label="Sort products by"
+            >
+              <option value="engagement">Sort: Engagement</option>
+              <option value="last_updated">Sort: Last Updated</option>
+            </select>
+          </div>
+
+          {/* Event type filter */}
           <div className="flex items-center gap-1.5">
             <Filter className="w-3.5 h-3.5 text-gray-400"/>
             <select
@@ -893,15 +912,15 @@ const ProductEventsWidget: React.FC = () => {
         </div>
       </div>
 
-      {/* ── Summary stat bar ────────────────────────────────────────────────── */}
+      {/* ── Summary stat bar ─────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 px-5 py-3 border-b border-gray-100 dark:border-gray-700">
         {[
-          { icon: <Eye className="w-3.5 h-3.5 text-blue-500"/>,   label:'Views',    val: eventCounts.view_product,       bg:'bg-blue-50 dark:bg-blue-900/20',    t:'text-blue-600 dark:text-blue-400' },
-          { icon: <Ruler className="w-3.5 h-3.5 text-violet-500"/>, label:'Sizes',  val: eventCounts.size_selected,      bg:'bg-violet-50 dark:bg-violet-900/20', t:'text-violet-600 dark:text-violet-400' },
-          { icon: <ShoppingCart className="w-3.5 h-3.5 text-emerald-500"/>, label:'Cart', val: eventCounts.add_to_cart,  bg:'bg-emerald-50 dark:bg-emerald-900/20', t:'text-emerald-600 dark:text-emerald-400' },
-          { icon: <Zap className="w-3.5 h-3.5 text-amber-500"/>,  label:'Buy Now',  val: eventCounts.buy_now,            bg:'bg-amber-50 dark:bg-amber-900/20',   t:'text-amber-600 dark:text-amber-400' },
-          { icon: <AlertCircle className="w-3.5 h-3.5 text-rose-500"/>, label:'OOS', val: eventCounts.out_of_stock_click, bg:'bg-rose-50 dark:bg-rose-900/20',   t:'text-rose-600 dark:text-rose-400' },
-          { icon: <Package className="w-3.5 h-3.5 text-gray-400"/>, label:'Total',  val: eventCounts.all,                bg:'bg-gray-50 dark:bg-gray-700',        t:'text-gray-600 dark:text-gray-400' },
+          { icon: <Eye          className="w-3.5 h-3.5 text-blue-500"/>,    label:'Views',   val: eventCounts.view_product,       bg:'bg-blue-50 dark:bg-blue-900/20',       t:'text-blue-600 dark:text-blue-400' },
+          { icon: <Ruler        className="w-3.5 h-3.5 text-violet-500"/>,  label:'Sizes',   val: eventCounts.size_selected,      bg:'bg-violet-50 dark:bg-violet-900/20',   t:'text-violet-600 dark:text-violet-400' },
+          { icon: <ShoppingCart className="w-3.5 h-3.5 text-emerald-500"/>, label:'Cart',    val: eventCounts.add_to_cart,        bg:'bg-emerald-50 dark:bg-emerald-900/20', t:'text-emerald-600 dark:text-emerald-400' },
+          { icon: <Zap          className="w-3.5 h-3.5 text-amber-500"/>,   label:'Buy Now', val: eventCounts.buy_now,            bg:'bg-amber-50 dark:bg-amber-900/20',     t:'text-amber-600 dark:text-amber-400' },
+          { icon: <AlertCircle  className="w-3.5 h-3.5 text-rose-500"/>,    label:'OOS',     val: eventCounts.out_of_stock_click, bg:'bg-rose-50 dark:bg-rose-900/20',       t:'text-rose-600 dark:text-rose-400' },
+          { icon: <Package      className="w-3.5 h-3.5 text-gray-400"/>,    label:'Total',   val: eventCounts.all,                bg:'bg-gray-50 dark:bg-gray-700',          t:'text-gray-600 dark:text-gray-400' },
         ].map(s => (
           <div key={s.label} className={`${s.bg} rounded-xl px-3 py-2.5`}>
             <div className="flex items-center gap-1.5">{s.icon}<span className={`text-lg font-bold ${s.t}`}>{s.val}</span></div>
@@ -910,7 +929,7 @@ const ProductEventsWidget: React.FC = () => {
         ))}
       </div>
 
-      {/* ── Product cards ────────────────────────────────────────────────────── */}
+      {/* ── Product cards ─────────────────────────────────────────────────────── */}
       {!isTableCollapsed && (
         <div className="p-4 space-y-3">
           {analyticsGroups.length === 0 ? (
@@ -921,7 +940,6 @@ const ProductEventsWidget: React.FC = () => {
           ) : (
             analyticsGroups.map(g => <ProductCard key={g.product_id} g={g}/>)
           )}
-
           <p className="text-center text-[11px] text-gray-400 pt-1">
             {analyticsGroups.length} products · {filteredEvents.length} events
           </p>

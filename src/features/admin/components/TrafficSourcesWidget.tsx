@@ -73,10 +73,12 @@ const TrafficSourcesWidget: React.FC = () => {
       {!loading && !error && data.length > 0 && (
         <div className="space-y-3">
           {data.map((row) => (
-            <div key={row.source} className="flex items-center">
-              <div className="flex-1">
+            <div key={row.source} className="flex items-center justify-between gap-4">
+              <div className="flex min-w-0 flex-1 items-center gap-2">
                 {getSourceIcon(row.source)}
-                <span className="ml-2">{row.source}</span>
+                <span className="truncate text-sm font-medium text-gray-900 dark:text-white">
+                  {row.source}
+                </span>
               </div>
               <div className="ml-4 text-sm font-semibold text-gray-900 dark:text-white">{row.total.toLocaleString()}</div>
             </div>
@@ -88,7 +90,7 @@ const TrafficSourcesWidget: React.FC = () => {
 };
 
 const getSourceIcon = (source: string) => {
-  const iconClass = 'w-4 h-4 text-gray-500 dark:text-gray-400';
+  const iconClass = 'h-4 w-4 shrink-0 text-gray-500 dark:text-gray-400';
   const canonical = getCanonicalSourceName(source);
   const canonicalLower = canonical.toLowerCase();
   

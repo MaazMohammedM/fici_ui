@@ -38,7 +38,8 @@ export const useTrackVisit = () => {
       return;
     }
 
-    const url = window.location.href;
+    // Use original landing URL from sessionStorage if available (preserves UTM parameters)
+    const url = sessionStorage.getItem('original_landing_url') || window.location.href;
     const userAgent = navigator.userAgent;
     const referrer = document.referrer;
 

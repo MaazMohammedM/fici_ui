@@ -16,58 +16,39 @@ export interface NormalizationInput {
  */
 export function normalizeTrafficSource(input: NormalizationInput): string {
   const { source, referrer, current_url } = input;
-  
-  if (!source) return 'Direct';
-  
-  const sourceLower = source.toLowerCase();
-  
-  // Extract UTM parameters from URL if available
-  const getUtmSource = (url: string | null | undefined): string | null => {
-    if (!url) return null;
-    try {
-      const urlObj = new URL(url);
-      return urlObj.searchParams.get('utm_source');
-    } catch {
-      return null;
-    }
-  };
-  
+
+  // UTM parameters from the original landing URL always win.
   const utmSource = getUtmSource(current_url);
-  const utmLower = utmSource?.toLowerCase() || '';
-  const referrerLower = referrer?.toLowerCase() || '';
-  
-  // Normalize WhatsApp variants (highest priority)
-  if (isWhatsApp(source, referrer, utmSource)) {
-    return 'Whatsapp';
+  if (utmSource) {
+    return normalizeUtmSource(utmSource);
   }
-  
-  // Normalize GBP variants
-  if (isGBP(source, utmSource)) {
-    return 'GBP';
+
+  if (!source) return 'Direct';
+
+  const sourceLower = source.toLowerCase();
+  const normalizedSource = normalizeExplicitSource(source);
+
+  // Keep explicit sources stable. Only fallback values are allowed to be upgraded.
+  if (!isFallbackSource(sourceLower)) {
+    return normalizedSource;
   }
-  
-  // Normalize LinkedIn variants
-  if (isLinkedIn(source)) {
-    return 'LinkedIn';
+
+  const referrerSource = getSourceFromReferrer(referrer);
+  if (referrerSource) {
+    return referrerSource;
   }
-  
-  // Normalize Facebook variants
-  if (isFacebook(source)) {
-    return 'Facebook';
-  }
-  
-  // Normalize Instagram variants
-  if (isInstagram(source)) {
-    return 'Instagram';
-  }
-  
-  // Normalize Mobile App variants
-  if (isMobileApp(source)) {
-    return 'Mobile App';
-  }
-  
+
+  // Source fallback only applies when UTM and referrer are absent.
+  if (isWhatsApp(source, referrer, null)) return 'Whatsapp';
+  if (isGBP(source, null)) return 'GBP';
+  if (isLinkedIn(source)) return 'LinkedIn';
+  if (isFacebook(source)) return 'Facebook';
+  if (isInstagram(source)) return 'Instagram';
+  if (sourceLower === 'direct') return 'Direct';
+  if (isMobileApp(source)) return 'Mobile App';
+
   // Case-insensitive normalization for other sources
-  return capitalizeFirstLetter(sourceLower);
+  return normalizedSource;
 }
 
 /**
@@ -211,6 +192,119 @@ function isMobileApp(source: string | null | undefined): boolean {
   }
   
   return false;
+}
+
+function isFallbackSource(sourceLower: string): boolean {
+  return (
+    sourceLower === 'direct' ||
+    sourceLower === 'none' ||
+    sourceLower === 'unknown' ||
+    sourceLower === 'social' ||
+    sourceLower === 'mobile app' ||
+    sourceLower === 'mobile_app' ||
+    sourceLower === 'mobileapp' ||
+    sourceLower === 'mobile-native' ||
+    sourceLower === 'mobile_native' ||
+    sourceLower === 'mobile-copy' ||
+    sourceLower === 'mobile_copy'
+  );
+}
+
+function getUtmSource(url: string | null | undefined): string | null {
+  if (!url) return null;
+
+  try {
+    const urlObj = new URL(url);
+    return urlObj.searchParams.get('utm_source');
+  } catch {
+    return null;
+  }
+}
+
+function getSourceFromReferrer(referrer: string | null | undefined): string | null {
+  if (!referrer) return null;
+
+  try {
+    const referrerObj = new URL(referrer);
+    const host = referrerObj.hostname.toLowerCase();
+
+    if (host.includes('business.google') || host.includes('business.site')) {
+      return 'GBP';
+    }
+    if (host.includes('facebook') || host.includes('m.facebook') || host.includes('lm.facebook')) {
+      return 'Facebook';
+    }
+    if (host.includes('instagram') || host.includes('l.instagram')) {
+      return 'Instagram';
+    }
+    if (host.includes('linkedin') || host.includes('lnkd.in')) {
+      return 'LinkedIn';
+    }
+    if (host.includes('x.com') || host.includes('twitter') || host.includes('t.co')) {
+      return 'X';
+    }
+    if (host.includes('youtube') || host.includes('youtu.be')) {
+      return 'YouTube';
+    }
+    if (host.includes('whatsapp') || host.includes('wa.me') || host.includes('web.whatsapp') || host.includes('l.wl.co')) {
+      return 'Whatsapp';
+    }
+    if (host.includes('google.')) return 'Google';
+    if (host.includes('bing.')) return 'Bing';
+    if (host.includes('duckduckgo')) return 'DuckDuckGo';
+    if (host.includes('yahoo')) return 'Yahoo';
+
+    return capitalizeFirstLetter(host);
+  } catch {
+    return null;
+  }
+}
+
+function normalizeExplicitSource(source: string): string {
+  const normalized = source.toLowerCase();
+
+  if (normalized === 'whatsapp' || normalized === 'wa') return 'Whatsapp';
+  if (normalized === 'gbp' || normalized === 'google_business_profile' || normalized === 'google-business' || normalized === 'google business profile') {
+    return 'GBP';
+  }
+  if (normalized === 'linkedin' || normalized === 'linkedin.com' || normalized === 'lnkd.in') return 'LinkedIn';
+  if (normalized === 'facebook' || normalized === 'facebook.com' || normalized === 'fb' || normalized === 'fb.com') return 'Facebook';
+  if (normalized === 'instagram' || normalized === 'instagram.com' || normalized === 'ig') return 'Instagram';
+  if (normalized === 'direct') return 'Direct';
+  if (normalized === 'social') return 'Social';
+  if (normalized === 'none') return 'Direct';
+  if (normalized === 'unknown') return 'Unknown';
+  if (normalized === 'mobile app' || normalized === 'mobile_app' || normalized === 'mobileapp' || normalized === 'mobile-native' || normalized === 'mobile_native' || normalized === 'mobile-copy' || normalized === 'mobile_copy') {
+    return 'Mobile App';
+  }
+
+  return capitalizeFirstLetter(normalized);
+}
+
+function normalizeUtmSource(source: string): string {
+  const normalized = source.toLowerCase();
+
+  if (normalized === 'whatsapp' || normalized === 'wa') return 'Whatsapp';
+  if (normalized === 'gbp' || normalized === 'google_business_profile' || normalized === 'google-business' || normalized === 'google business profile') {
+    return 'GBP';
+  }
+  if (normalized === 'linkedin' || normalized === 'linkedin.com' || normalized === 'lnkd.in') return 'LinkedIn';
+  if (normalized === 'facebook' || normalized === 'facebook.com' || normalized === 'fb' || normalized === 'fb.com') return 'Facebook';
+  if (normalized === 'instagram' || normalized === 'instagram.com' || normalized === 'ig') return 'Instagram';
+  if (normalized === 'google' || normalized === 'bing' || normalized === 'yahoo' || normalized === 'duckduckgo') {
+    return capitalizeFirstLetter(normalized);
+  }
+
+  return toTitleCase(source);
+}
+
+function toTitleCase(value: string): string {
+  return value
+    .replace(/[_-]+/g, ' ')
+    .trim()
+    .split(/\s+/)
+    .map((word) => word ? word.charAt(0).toUpperCase() + word.slice(1) : word)
+    .join(' ');
 }
 
 /**

@@ -189,8 +189,14 @@ export const trackProductView = (product: {
 
   const { userId, guestSessionId } = getUserAndSessionInfo();
   const metadata = buildExtendedMetadata();
+  
+  // Use original landing URL from sessionStorage if available (preserves UTM parameters)
+  const currentUrl = typeof window !== 'undefined' 
+    ? (sessionStorage.getItem('original_landing_url') || window.location.href)
+    : '';
+  
   const trafficSource = analyzeTrafficSource(
-    window.location.href,
+    currentUrl,
     navigator.userAgent,
     document.referrer
   );
@@ -198,7 +204,7 @@ export const trackProductView = (product: {
   // Get campaign from URL params
   let campaign: string | undefined;
   if (typeof window !== 'undefined') {
-    const urlParams = new URLSearchParams(window.location.search);
+    const urlParams = new URLSearchParams(new URL(currentUrl).search);
     campaign = urlParams.get('utm_campaign') || undefined;
   }
 
@@ -214,7 +220,7 @@ export const trackProductView = (product: {
     user_id: userId || undefined,
     guest_session_id: guestSessionId || undefined,
     session_id: sessionId,
-    current_url: typeof window !== 'undefined' ? window.location.href : '',
+    current_url: currentUrl,
     page_path: typeof window !== 'undefined' ? window.location.pathname : '',
     referrer: typeof window !== 'undefined' ? document.referrer : '',
     metadata,
@@ -256,8 +262,14 @@ export const trackSizeSelection = (product: {
   const { userId, guestSessionId } = getUserAndSessionInfo();
   const metadata = buildExtendedMetadata();
   const sessionId = generateSessionId();
+  
+  // Use original landing URL from sessionStorage if available (preserves UTM parameters)
+  const currentUrl = typeof window !== 'undefined' 
+    ? (sessionStorage.getItem('original_landing_url') || window.location.href)
+    : '';
+  
   const trafficSource = analyzeTrafficSource(
-    window.location.href,
+    currentUrl,
     navigator.userAgent,
     document.referrer
   );
@@ -265,7 +277,7 @@ export const trackSizeSelection = (product: {
   // Get campaign from URL params
   let campaign: string | undefined;
   if (typeof window !== 'undefined') {
-    const urlParams = new URLSearchParams(window.location.search);
+    const urlParams = new URLSearchParams(new URL(currentUrl).search);
     campaign = urlParams.get('utm_campaign') || undefined;
   }
 
@@ -281,7 +293,7 @@ export const trackSizeSelection = (product: {
     user_id: userId || undefined,
     guest_session_id: guestSessionId || undefined,
     session_id: sessionId,
-    current_url: typeof window !== 'undefined' ? window.location.href : '',
+    current_url: currentUrl,
     page_path: typeof window !== 'undefined' ? window.location.pathname : '',
     referrer: typeof window !== 'undefined' ? document.referrer : '',
     selected_size: selectedSize,
@@ -316,8 +328,14 @@ export const trackAddToCart = (product: {
   const { userId, guestSessionId } = getUserAndSessionInfo();
   const metadata = buildExtendedMetadata();
   const sessionId = generateSessionId();
+  
+  // Use original landing URL from sessionStorage if available (preserves UTM parameters)
+  const currentUrl = typeof window !== 'undefined' 
+    ? (sessionStorage.getItem('original_landing_url') || window.location.href)
+    : '';
+  
   const trafficSource = analyzeTrafficSource(
-    window.location.href,
+    currentUrl,
     navigator.userAgent,
     document.referrer
   );
@@ -325,7 +343,7 @@ export const trackAddToCart = (product: {
   // Get campaign from URL params
   let campaign: string | undefined;
   if (typeof window !== 'undefined') {
-    const urlParams = new URLSearchParams(window.location.search);
+    const urlParams = new URLSearchParams(new URL(currentUrl).search);
     campaign = urlParams.get('utm_campaign') || undefined;
   }
 
@@ -341,7 +359,7 @@ export const trackAddToCart = (product: {
     user_id: userId || undefined,
     guest_session_id: guestSessionId || undefined,
     session_id: sessionId,
-    current_url: typeof window !== 'undefined' ? window.location.href : '',
+    current_url: currentUrl,
     page_path: typeof window !== 'undefined' ? window.location.pathname : '',
     referrer: typeof window !== 'undefined' ? document.referrer : '',
     selected_size: selectedSize,
@@ -379,8 +397,14 @@ export const trackBuyNow = (product: {
   const { userId, guestSessionId } = getUserAndSessionInfo();
   const metadata = buildExtendedMetadata();
   const sessionId = generateSessionId();
+  
+  // Use original landing URL from sessionStorage if available (preserves UTM parameters)
+  const currentUrl = typeof window !== 'undefined' 
+    ? (sessionStorage.getItem('original_landing_url') || window.location.href)
+    : '';
+  
   const trafficSource = analyzeTrafficSource(
-    window.location.href,
+    currentUrl,
     navigator.userAgent,
     document.referrer
   );
@@ -388,7 +412,7 @@ export const trackBuyNow = (product: {
   // Get campaign from URL params
   let campaign: string | undefined;
   if (typeof window !== 'undefined') {
-    const urlParams = new URLSearchParams(window.location.search);
+    const urlParams = new URLSearchParams(new URL(currentUrl).search);
     campaign = urlParams.get('utm_campaign') || undefined;
   }
 
@@ -404,7 +428,7 @@ export const trackBuyNow = (product: {
     user_id: userId || undefined,
     guest_session_id: guestSessionId || undefined,
     session_id: sessionId,
-    current_url: typeof window !== 'undefined' ? window.location.href : '',
+    current_url: currentUrl,
     page_path: typeof window !== 'undefined' ? window.location.pathname : '',
     referrer: typeof window !== 'undefined' ? document.referrer : '',
     selected_size: selectedSize,
@@ -442,8 +466,14 @@ export const trackOutOfStockClick = (product: {
   const { userId, guestSessionId } = getUserAndSessionInfo();
   const metadata = buildExtendedMetadata();
   const sessionId = generateSessionId();
+  
+  // Use original landing URL from sessionStorage if available (preserves UTM parameters)
+  const currentUrl = typeof window !== 'undefined' 
+    ? (sessionStorage.getItem('original_landing_url') || window.location.href)
+    : '';
+  
   const trafficSource = analyzeTrafficSource(
-    window.location.href,
+    currentUrl,
     navigator.userAgent,
     document.referrer
   );
@@ -451,7 +481,7 @@ export const trackOutOfStockClick = (product: {
   // Get campaign from URL params
   let campaign: string | undefined;
   if (typeof window !== 'undefined') {
-    const urlParams = new URLSearchParams(window.location.search);
+    const urlParams = new URLSearchParams(new URL(currentUrl).search);
     campaign = urlParams.get('utm_campaign') || undefined;
   }
 
@@ -467,7 +497,7 @@ export const trackOutOfStockClick = (product: {
     user_id: userId || undefined,
     guest_session_id: guestSessionId || undefined,
     session_id: sessionId,
-    current_url: typeof window !== 'undefined' ? window.location.href : '',
+    current_url: currentUrl,
     page_path: typeof window !== 'undefined' ? window.location.pathname : '',
     referrer: typeof window !== 'undefined' ? document.referrer : '',
     selected_size: attemptedSize,
@@ -505,8 +535,14 @@ export const trackWishlist = (
   const { userId, guestSessionId } = getUserAndSessionInfo();
   const metadata = buildExtendedMetadata();
   const sessionId = generateSessionId();
+  
+  // Use original landing URL from sessionStorage if available (preserves UTM parameters)
+  const currentUrl = typeof window !== 'undefined' 
+    ? (sessionStorage.getItem('original_landing_url') || window.location.href)
+    : '';
+  
   const trafficSource = analyzeTrafficSource(
-    window.location.href,
+    currentUrl,
     navigator.userAgent,
     document.referrer
   );
@@ -514,7 +550,7 @@ export const trackWishlist = (
   // Get campaign from URL params
   let campaign: string | undefined;
   if (typeof window !== 'undefined') {
-    const urlParams = new URLSearchParams(window.location.search);
+    const urlParams = new URLSearchParams(new URL(currentUrl).search);
     campaign = urlParams.get('utm_campaign') || undefined;
   }
 
@@ -530,7 +566,7 @@ export const trackWishlist = (
     user_id: userId || undefined,
     guest_session_id: guestSessionId || undefined,
     session_id: sessionId,
-    current_url: typeof window !== 'undefined' ? window.location.href : '',
+    current_url: currentUrl,
     page_path: typeof window !== 'undefined' ? window.location.pathname : '',
     referrer: typeof window !== 'undefined' ? document.referrer : '',
     selected_size: null, // Not applicable for wishlist
